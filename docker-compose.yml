@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  neurotrader:
+    build: .
+    container_name: neurotrader_v3
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8502:8502"
+    restart: always
+    env_file:
+      - .env

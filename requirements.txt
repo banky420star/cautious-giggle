@@ -1,0 +1,25 @@
+# Core trading stack
+rpyc
+pandas
+numpy
+stable-baselines3[extra]
+gymnasium
+pandas-ta
+finnhub-python
+textblob
+feedparser
+
+# Dashboard & visualization
+streamlit
+plotly
+
+# Evolution & ML
+deap
+scikit-learn
+tensorflow
+
+# Utils
+python-dotenv
+requests
+telebot
+tqdm

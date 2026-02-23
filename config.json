@@ -1,0 +1,31 @@
+{
+    "mode": "paper",
+    "mt5": {
+        "login": "",
+        "password": "",
+        "server": ""
+    },
+    "symbols": [
+        "BTCUSD",
+        "EURUSD"
+    ],
+    "symbol_pool": [
+        "BTCUSD",
+        "EURUSD",
+        "XAUUSD",
+        "ETHUSD",
+        "GBPUSD"
+    ],
+    "min_equity_per_symbol": 5000,
+    "finnhub_api_key": "",
+    "telegram_token": "",
+    "telegram_chat_id": "",
+    "risk_per_trade": 0.01,
+    "global_drawdown_killswitch": 0.15,
+    "leverage": 100,
+    "timeframes": [
+        "M15",
+        "H1",
+        "H4"
+    ]
+}
