@@ -1,15 +1,9 @@
 version: '3.8'
-
 services:
-  neurotrader:
+  agi:
     build: .
-    container_name: neurotrader_v3
-    volumes:
-      - .:/app
-    environment:
-      - PYTHONUNBUFFERED=1
-    ports:
-      - "8502:8502"
-    restart: always
-    env_file:
-      - .env
+    ports: [ "9090:9090", "5678:5678" ]
+    volumes: [ ".:/app" ]
+  redis:
+    image: redis:alpine
+    ports: [ "6379:6379" ]

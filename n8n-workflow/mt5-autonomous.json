@@ -1,0 +1,107 @@
+{
+    "name": "MT5 AGI Autonomous Trader v2.0",
+    "nodes": [
+        {
+            "parameters": {
+                "cronExpression": "*/5 * * * *"
+            },
+            "name": "Every 5 min",
+            "type": "n8n-nodes-base.scheduleTrigger"
+        },
+        {
+            "parameters": {
+                "command": "cd /app && python Python/agi_n8n_bridge.py ANALYZE EURUSD"
+            },
+            "name": "AGI Analyze",
+            "type": "n8n-nodes-base.executeCommand"
+        },
+        {
+            "parameters": {
+                "jsCode": "return [{json: JSON.parse(items[0].json.stdout || '{}')}];"
+            },
+            "name": "Parse",
+            "type": "n8n-nodes-base.code"
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "number": [
+                        {
+                            "value1": "={{ $json.confidence }}",
+                            "operation": "larger",
+                            "value2": 0.85
+                        }
+                    ]
+                }
+            },
+            "name": "High Confidence",
+            "type": "n8n-nodes-base.if"
+        },
+        {
+            "parameters": {
+                "command": "cd /app && python Python/agi_n8n_bridge.py TRADE EURUSD"
+            },
+            "name": "Execute Trade",
+            "type": "n8n-nodes-base.executeCommand"
+        },
+        {
+            "parameters": {},
+            "name": "NoOp",
+            "type": "n8n-nodes-base.noOp"
+        }
+    ],
+    "connections": {
+        "Every 5 min": {
+            "main": [
+                [
+                    {
+                        "node": "AGI Analyze",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AGI Analyze": {
+            "main": [
+                [
+                    {
+                        "node": "Parse",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse": {
+            "main": [
+                [
+                    {
+                        "node": "High Confidence",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "High Confidence": {
+            "main": [
+                [
+                    {
+                        "node": "Execute Trade",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "NoOp",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false
+}
