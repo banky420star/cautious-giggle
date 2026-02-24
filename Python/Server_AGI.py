@@ -14,15 +14,29 @@ logger.add(LOG_FILE, rotation="10 MB", retention="7 days", level="DEBUG",
 logger.info(f"Full log file: {LOG_FILE}")
 # ────────────────────────────────────────────────────────────────────
 
-from Python.agi_brain import SmartAGI
+from Python.hybrid_brain import HybridBrain
 from Python.risk_engine import RiskEngine
 from Python.data_feed import fetch_realtime
+import redis
+import argparse
 
 class AGIServer:
-    def __init__(self, host='127.0.0.1', port=9090):
-        self.agi = SmartAGI()
+    def __init__(self, host='127.0.0.1', port=9090, production=False):
+        self.production = production
+        if self.production:
+            logger.warning("🔥 RUNNING IN PRODUCTION MODE (Deterministic AI) 🔥")
+            
+        self.agi = HybridBrain()
         self.risk = RiskEngine()
-        self.excel_path = os.path.expanduser("~/Documents/cautious-giggle/control.xlsx")
+        
+        # Redis State instead of Excel
+        try:
+            self.r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+            self.r.ping()
+            logger.success("Connected to local Redis state store.")
+        except Exception as e:
+            logger.error(f"Redis not available: {e}. State will not be saved.")
+            self.r = None
         self.trade_count = 0
         self.hold_count = 0
         self.data_cache = {}       # cache real data per symbol
@@ -32,7 +46,6 @@ class AGIServer:
         self.server.bind((host, port))
         self.server.listen(5)
         logger.success(f"AGI Server LIVE on {host}:{port}")
-        logger.info(f"Excel path: {self.excel_path}")
         logger.info(f"Logging to: {LOG_FILE}")
 
         # Send Telegram startup alert
@@ -56,16 +69,19 @@ class AGIServer:
         self.cache_time[symbol] = now
         return df
 
-    def write_to_excel(self, row, col, value):
+    def save_state(self, symbol, data_dict):
+        """Save trade state to Redis instead of EXCEL."""
+        if not self.r:
+            return
+        
         try:
-            import openpyxl
-            wb = openpyxl.load_workbook(self.excel_path)
-            ws = wb.active
-            ws.cell(row=row, column=col).value = value
-            wb.save(self.excel_path)
-            logger.debug(f"Excel write: row={row}, col={col}, value={value}")
+            key = f"trade_state:{symbol}"
+            # map dict values to strings for redis hash
+            mapping = {k: str(v) for k, v in data_dict.items()}
+            self.r.hset(key, mapping=mapping)
+            logger.debug(f"Redis state updated for {symbol}")
         except Exception as e:
-            logger.error(f"Excel error: {e}")
+            logger.error(f"Redis write error: {e}")
 
     def send_telegram(self, signal, confidence, symbol, price=0.0,
                       lots=0.01, sl_pct=2.0, tp_pct=4.0):
@@ -108,8 +124,8 @@ class AGIServer:
                 logger.info(f"Data: {len(df)} candles | Latest close: {df['close'].iloc[-1]:.5f} | {symbol}")
 
                 # AGI prediction on real data
-                result = self.agi.predict(df)
-                logger.info(f"Prediction => Signal: {result['signal']} | Confidence: {result['confidence']:.4f} | Symbol: {result['symbol']}")
+                result = self.agi.predict(df, production=self.production)
+                logger.info(f"Final Prediction => Signal: {result['signal']} | Confidence: {result['confidence']:.4f} | Symbol: {result['symbol']}")
 
                 # Risk check + trade execution
                 price = float(df['close'].iloc[-1])
@@ -120,13 +136,16 @@ class AGIServer:
                     lots = self.risk.lot_size(10000, price)
                     sl_tp = self.risk.compute_sl_tp(result["signal"], price)
 
-                    self.write_to_excel(10, 2, result["signal"])
-                    self.write_to_excel(10, 3, result["confidence"])
-                    self.write_to_excel(10, 4, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                    self.write_to_excel(10, 5, price)
-                    self.write_to_excel(10, 6, lots)
-                    self.write_to_excel(10, 7, sl_tp["sl"])
-                    self.write_to_excel(10, 8, sl_tp["tp"])
+                    # Update Redis
+                    self.save_state(symbol, {
+                        "signal": result["signal"],
+                        "confidence": result["confidence"],
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "price": price,
+                        "lots": lots,
+                        "sl": sl_tp["sl"],
+                        "tp": sl_tp["tp"]
+                    })
 
                     response = (f"TRADE: {result['signal']} {symbol} @ {price:.5f} | "
                                 f"conf={result['confidence']:.4f} | lots={lots} | "
@@ -161,4 +180,8 @@ class AGIServer:
         logger.success(f"Server shutdown complete. Total: {self.trade_count} trades, {self.hold_count} holds")
 
 if __name__ == "__main__":
-    AGIServer().run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--production", action="store_true", help="Enable deterministic AI mode")
+    args = parser.parse_args()
+    
+    AGIServer(production=args.production).run()

@@ -36,7 +36,7 @@ class SmartAGI:
             logger.warning(f"No trained model found at {model_path} — using random weights!")
             logger.success(f"AGI Brain loaded on {self.device.upper()} (untrained)")
 
-    def predict(self, df: pd.DataFrame) -> dict:
+    def predict(self, df: pd.DataFrame, production: bool = False) -> dict:
         self.prediction_count += 1
         data = self.scaler.fit_transform(df[['open','high','low','close','volume']].values)
         seq = torch.tensor(data[-60:].reshape(1, 60, 5), dtype=torch.float32).to(self.device)
@@ -44,11 +44,15 @@ class SmartAGI:
         with torch.no_grad():
             logits = self.model(seq)
             probs = F.softmax(logits, dim=-1).cpu().numpy().flatten()
-            pred = np.random.choice(3, p=probs)  # sample from probability distribution
+            
+            if production:
+                pred = int(np.argmax(probs))  # Deterministic in production
+            else:
+                pred = np.random.choice(3, p=probs)  # sample from probability distribution
 
         signal = ["HOLD", "BUY", "SELL"][pred]
         confidence = round(float(probs[pred]), 4)
-
+        
         logger.info(
             f"[#{self.prediction_count}] Signal: {signal} | "
             f"Confidence: {confidence:.2%} | "
@@ -56,3 +60,10 @@ class SmartAGI:
             f"{df['symbol'].iloc[0]}"
         )
         return {"signal": signal, "confidence": confidence, "symbol": df['symbol'].iloc[0]}
+
+    def extract_features(self, seq: torch.Tensor) -> torch.Tensor:
+        """Trainable feature extraction for joint LSTM-PPO training."""
+        seq = seq.to(self.device).float()
+        self.model.train()  # Ensure it is in training mode for gradients
+        x, _ = self.model.lstm(seq)
+        return x[:, -1, :]  # Shape (batch_size, hidden_size)
