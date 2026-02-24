@@ -6,4 +6,6 @@ control.xlsx
 *.log
 models/
 *.zip
-config.yaml
+logs/
+.env
+*.pt

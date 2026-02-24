@@ -3,24 +3,54 @@
     "nodes": [
         {
             "parameters": {
-                "cronExpression": "*/5 * * * *"
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "minutes",
+                            "minutesInterval": 5
+                        }
+                    ]
+                }
             },
             "name": "Every 5 min",
-            "type": "n8n-nodes-base.scheduleTrigger"
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "position": [
+                250,
+                300
+            ]
         },
         {
             "parameters": {
-                "command": "cd /app && python Python/agi_n8n_bridge.py ANALYZE EURUSD"
+                "jsCode": "return ['EURUSD', 'GBPUSD', 'XAUUSD'].map(s => ({json: {symbol: s}}));"
+            },
+            "name": "Symbol List",
+            "type": "n8n-nodes-base.code",
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "command": "=cd /app && python Python/agi_n8n_bridge.py ANALYZE {{ $json.symbol }}"
             },
             "name": "AGI Analyze",
-            "type": "n8n-nodes-base.executeCommand"
+            "type": "n8n-nodes-base.executeCommand",
+            "position": [
+                650,
+                300
+            ]
         },
         {
             "parameters": {
-                "jsCode": "return [{json: JSON.parse(items[0].json.stdout || '{}')}];"
+                "jsCode": "const raw = items[0].json.stdout || '{}';\ntry {\n  const parsed = JSON.parse(raw);\n  parsed.symbol = items[0].json.symbol || 'EURUSD';\n  return [{json: parsed}];\n} catch(e) {\n  return [{json: {error: 'parse_fail', raw: raw, action: 'ERROR', confidence: 0}}];\n}"
             },
-            "name": "Parse",
-            "type": "n8n-nodes-base.code"
+            "name": "Parse Response",
+            "type": "n8n-nodes-base.code",
+            "position": [
+                850,
+                300
+            ]
         },
         {
             "parameters": {
@@ -31,27 +61,64 @@
                             "operation": "larger",
                             "value2": 0.85
                         }
+                    ],
+                    "string": [
+                        {
+                            "value1": "={{ $json.action }}",
+                            "operation": "notEqual",
+                            "value2": "HOLD"
+                        },
+                        {
+                            "value1": "={{ $json.action }}",
+                            "operation": "notEqual",
+                            "value2": "ERROR"
+                        }
                     ]
                 }
             },
-            "name": "High Confidence",
-            "type": "n8n-nodes-base.if"
+            "name": "High Confidence?",
+            "type": "n8n-nodes-base.if",
+            "position": [
+                1050,
+                300
+            ]
         },
         {
             "parameters": {
-                "command": "cd /app && python Python/agi_n8n_bridge.py TRADE EURUSD"
+                "command": "=cd /app && python Python/agi_n8n_bridge.py TRADE {{ $json.symbol }}"
             },
             "name": "Execute Trade",
-            "type": "n8n-nodes-base.executeCommand"
+            "type": "n8n-nodes-base.executeCommand",
+            "position": [
+                1300,
+                200
+            ]
         },
         {
-            "parameters": {},
-            "name": "NoOp",
-            "type": "n8n-nodes-base.noOp"
+            "parameters": {
+                "jsCode": "const ts = new Date().toISOString();\nconst data = items[0].json;\nconsole.log(`[${ts}] SKIP: ${data.symbol || 'unknown'} | conf=${data.confidence} | action=${data.action}`);\nreturn items;"
+            },
+            "name": "Log Skip",
+            "type": "n8n-nodes-base.code",
+            "position": [
+                1300,
+                400
+            ]
         }
     ],
     "connections": {
         "Every 5 min": {
+            "main": [
+                [
+                    {
+                        "node": "Symbol List",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Symbol List": {
             "main": [
                 [
                     {
@@ -66,25 +133,25 @@
             "main": [
                 [
                     {
-                        "node": "Parse",
+                        "node": "Parse Response",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "Parse": {
+        "Parse Response": {
             "main": [
                 [
                     {
-                        "node": "High Confidence",
+                        "node": "High Confidence?",
                         "type": "main",
                         "index": 0
                     }
                 ]
             ]
         },
-        "High Confidence": {
+        "High Confidence?": {
             "main": [
                 [
                     {
@@ -95,7 +162,7 @@
                 ],
                 [
                     {
-                        "node": "NoOp",
+                        "node": "Log Skip",
                         "type": "main",
                         "index": 0
                     }
@@ -103,5 +170,8 @@
             ]
         }
     },
-    "active": false
+    "active": false,
+    "settings": {
+        "executionOrder": "v1"
+    }
 }
