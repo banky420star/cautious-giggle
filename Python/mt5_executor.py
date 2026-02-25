@@ -28,8 +28,9 @@ class MT5Executor:
             if not mt5.initialize():
                 logger.error("❌ MT5 initialization failed. Is MT5 terminal running?")
                 raise Exception("MT5 connection failed")
-            logger.success(f"✅ MT5 Connected | Account: {mt5.account_info().login} | LIVE MODE")
-
+            account_info = mt5.account_info()
+            logger.success(f"✅ MT5 Connected | Account: {account_info.login} | LIVE MODE")
+            logger.info(f"💰 Balance: ${account_info.balance:.2f} | Equity: ${account_info.equity:.2f} | PnL: ${account_info.profit:.2f}")
     async def execute_order(self, symbol: str, action: str, lot: float, sl: float = None, tp: float = None):
         """Main execution — ALWAYS gated by RiskEngine"""
         

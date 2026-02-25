@@ -78,9 +78,9 @@ class TradingEnv(gym.Env):
         delta_position = action_val - self.position
         transaction_cost = abs(delta_position) * self.initial_balance * (self.commission_rate + self.spread)
         
-        # Unrealized PnL + close previous if changing position
+        # Unrealized PnL is only the difference from the LAST step
         if self.position != 0:
-            unrealized_pnl = self.position * self.initial_balance * ((current_price - self.entry_price) / self.entry_price)
+            unrealized_pnl = self.position * self.initial_balance * ((current_price - self.prices[self.current_step - 1]) / self.prices[self.current_step - 1])
             self.balance += unrealized_pnl
         
         self.position = action_val
