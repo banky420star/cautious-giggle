@@ -27,7 +27,7 @@ class HybridBrain:
         self.ppo_model = None
         try:
             from stable_baselines3 import PPO
-            self.ppo_model = PPO.load("models/ppo_lstm_joint_latest", device="mps")
+            self.ppo_model = PPO.load("models/ppo_trading", device="auto")
             logger.success("✅ PPO model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load PPO: {e}. Running in LSTM-only mode.")
