@@ -4,8 +4,8 @@ import asyncio
 from loguru import logger
 from Python.hybrid_brain import HybridBrain
 
-# Global hybrid brain (paper mode by default is off)
-brain = HybridBrain(paper_mode=False)
+# Global hybrid brain (paper mode enabled per risk management check)
+brain = HybridBrain(paper_mode=True)
 
 async def handle_client(reader, writer):
     addr = writer.get_extra_info('peername')

@@ -17,18 +17,26 @@ os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "lstm_training.log"), rotation="10 MB", level="DEBUG")
 
 def create_sequences(data, seq_len=60):
-    """Create input sequences and labels for LSTM training."""
+    """Create input sequences and labels for LSTM training (Volatility Focused)."""
     X, y = [], []
     for i in range(seq_len, len(data) - 1):
         X.append(data[i - seq_len:i])
-        # Label: 0=HOLD, 1=BUY, 2=SELL based on next candle
-        future_return = (data[i, 3] - data[i - 1, 3]) / (data[i - 1, 3] + 1e-8)  # close-to-close
-        if future_return > 0.0005:
-            y.append(1)  # BUY
-        elif future_return < -0.0005:
-            y.append(2)  # SELL
+        
+        # Calculate next return magnitude
+        future_return = (data[i, 3] - data[i - 1, 3]) / (data[i - 1, 3] + 1e-8)  
+        magnitude = abs(future_return)
+        
+        # We classify based on volatility threshold instead of raw direction
+        # 0 = Dead zone (Low volatility, HOLD)
+        # 1 = Small trend (Medium confidence)
+        # 2 = High Volatility Spike (Extreme confidence)
+        if magnitude > 0.0015:
+            y.append(2)  # High vol
+        elif magnitude > 0.0005:
+            y.append(1)  # Med vol
         else:
-            y.append(0)  # HOLD
+            y.append(0)  # Low vol/Hold
+    
     return np.array(X), np.array(y)
 
 def train_lstm(symbols=None, epochs=50, seq_len=60):

@@ -50,13 +50,13 @@ class SmartAGI:
             else:
                 pred = np.random.choice(3, p=probs)  # sample from probability distribution
 
-        signal = ["HOLD", "BUY", "SELL"][pred]
+        signal = ["LOW_VOLATILITY", "MED_VOLATILITY", "HIGH_VOLATILITY"][pred]
         confidence = round(float(probs[pred]), 4)
         
         logger.info(
-            f"[#{self.prediction_count}] Signal: {signal} | "
+            f"[#{self.prediction_count}] Volatility Class: {signal} | "
             f"Confidence: {confidence:.2%} | "
-            f"Probs: H={probs[0]:.3f} B={probs[1]:.3f} S={probs[2]:.3f} | "
+            f"Probs: Low={probs[0]:.3f} Med={probs[1]:.3f} High={probs[2]:.3f} | "
             f"{df['symbol'].iloc[0]}"
         )
         return {"signal": signal, "confidence": confidence, "symbol": df['symbol'].iloc[0]}
