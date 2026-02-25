@@ -94,22 +94,14 @@ def train_drl():
         verbose=1,
     )
     
-    # === DIFFERENTIAL LEARNING RATES ===
-    lstm_params = [p for p in model.policy.features_extractor.lstm_brain.model.parameters() if p.requires_grad]
-    ppo_params = [p for name, p in model.policy.named_parameters() 
-                  if "lstm_brain" not in name and p.requires_grad]
-    
-    optimizer = torch.optim.Adam([
-        {'params': lstm_params, 'lr': 5e-5},
-        {'params': ppo_params,  'lr': 3e-4},
-    ])
-    model.policy.optimizer = optimizer
-    
-    # Adaptive LR Scheduler
-    scheduler = ReduceLROnPlateau(
-        optimizer, mode='max', factor=0.5, patience=8, 
-        threshold=1e-4, min_lr=1e-6
-    )
+    # Simple learning rate scheduler instead of breaking the param groups
+    # This ensures the model saves and loads perfectly across different SB3 versions
+    def linear_schedule(initial_value: float):
+        def func(progress_remaining: float) -> float:
+            return progress_remaining * initial_value
+        return func
+        
+    model.learning_rate = linear_schedule(3e-4)
     
     # Eval callback (higher reward threshold to avoid premature stopping)
     eval_env = DummyVecEnv([make_env(train_df_full, 99)])
@@ -135,11 +127,6 @@ def train_drl():
         progress_bar=True
     )
     
-    # Update scheduler based on best eval reward tracking from Phase 1
-    scheduler.step(eval_callback.best_mean_reward)
-    current_lr = optimizer.param_groups[0]['lr']
-    logger.info(f"Current LSTM LR post-Stage-1: {current_lr:.2e}")
-    
     # ── Train Stage 2 ──
     logger.info("Stage 2: Full history training (Joint Learning)")
     env = DummyVecEnv([make_env(train_df_full, i) for i in range(n_envs)])
@@ -151,11 +138,6 @@ def train_drl():
         callback=[eval_callback, grad_callback],
         progress_bar=True
     )
-    
-    # Final updates tracking
-    scheduler.step(eval_callback.best_mean_reward)
-    current_lr = optimizer.param_groups[0]['lr']
-    logger.info(f"Current LSTM LR post-Stage-2: {current_lr:.2e}")
     
     # Save
     model.save("models/ppo_trading.zip")
