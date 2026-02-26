@@ -53,7 +53,17 @@ class MT5Executor:
             return {"status": "paper_executed", "paper": True}
 
         # === LIVE EXECUTION ===
-        price = mt5.symbol_info_tick(symbol).ask if action == "BUY" else mt5.symbol_info_tick(symbol).bid
+        # Ensure symbol is in Market Watch
+        if not mt5.symbol_select(symbol, True):
+            logger.error(f"❌ MT5 failed to select symbol {symbol}. Does your broker use a suffix (like EURUSD.pro)?")
+            return {"status": "failed", "error": f"Symbol {symbol} not found in MT5 Market Watch"}
+            
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            logger.error(f"❌ MT5 returned no tick data for {symbol}. Market closed or invalid symbol.")
+            return {"status": "failed", "error": f"No tick data for {symbol}"}
+            
+        price = tick.ask if action == "BUY" else tick.bid
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,

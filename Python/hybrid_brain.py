@@ -102,8 +102,10 @@ class HybridBrain:
     def get_current_price(self, symbol: str):
         """Real-time price via yfinance (fallback for Mac)"""
         import yfinance as yf
+        from Python.data_feed import SYMBOL_MAP
         try:
-            ticker = yf.Ticker(symbol if "USD" not in symbol else symbol + "=X")
+            mapped_symbol = SYMBOL_MAP.get(symbol, symbol if "USD" not in symbol else symbol + "=X")
+            ticker = yf.Ticker(mapped_symbol)
             return ticker.history(period="1d")["Close"].iloc[-1]
         except:
             return 1.0850  # safe fallback price

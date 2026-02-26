@@ -11,6 +11,12 @@ SYMBOL_MAP = {
     "USDJPY": "USDJPY=X",
     "XAUUSD": "GC=F",       # Gold futures (closest proxy)
     "BTCUSD": "BTC-USD",
+    
+    # MetaTrader 5 Broker Suffix Support
+    "EURUSDm": "EURUSD=X",
+    "GBPUSDm": "GBPUSD=X",
+    "USDJPYm": "USDJPY=X",
+    "XAUUSDm": "GC=F",
 }
 
 def fetch_realtime(symbol: str = "EURUSD", period: str = "5d", interval: str = "5m") -> pd.DataFrame:
