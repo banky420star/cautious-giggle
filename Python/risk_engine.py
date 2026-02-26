@@ -81,16 +81,7 @@ class RiskEngine:
             logger.error(f"💀 RISK KILL SWITCH TRIGGERED: Drawdown {self.current_dd:.1f}% >= limit {self.max_dd}%.")
             return False
 
-        # 4. Daily trade limit
-        today = date.today()
-        if self.last_trade_date != today:
-            self.daily_trades = 0
-            self.last_trade_date = today
-        if self.daily_trades >= self.max_daily_trades:
-            logger.warning(f"Risk: daily trade limit ({self.max_daily_trades}) reached — BLOCKED")
-            return False
-
-        # 5. All checks passed
+        # 6. All checks passed
         risk_amount = balance * (self.risk_pct / 100)
         self.daily_trades += 1
         logger.info(

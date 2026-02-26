@@ -7,8 +7,8 @@ trading:
   magic_number: 505
 
 telegram:
-  token: "8361131413:AAEEfBG3Rqi6Esp4D0ew2ByimXuE3b0uM7s"
-  chat_id: "5269989414"
+  token: "YOUR_BOT_TOKEN_HERE"
+  chat_id: "YOUR_CHAT_ID_HERE"
 
 drl:
   total_timesteps: 100000
