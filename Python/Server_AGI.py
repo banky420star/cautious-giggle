@@ -1,11 +1,13 @@
 import socket
 import json
 import asyncio
+import sys
 from loguru import logger
 from Python.hybrid_brain import HybridBrain
 
-# Global hybrid brain (paper mode enabled per risk management check)
-brain = HybridBrain(paper_mode=True)
+# Global hybrid brain (paper mode enabled by default)
+is_live = "--live" in sys.argv
+brain = HybridBrain(paper_mode=not is_live)
 
 async def handle_client(reader, writer):
     addr = writer.get_extra_info('peername')
