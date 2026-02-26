@@ -28,10 +28,13 @@ async def handle_client(reader, writer):
 
             result = await brain.live_trade(symbol, direction, float(confidence))
             
+            # Extract final direction from the result or fallback to requested if it somehow slipped
+            final_action = result.get("action", direction if direction not in ["AUTO"] else "HOLD")
+            
             response = json.dumps({
                 "status": result.get("status"),
                 "symbol": symbol,
-                "action": direction,
+                "action": final_action,
                 "lot": result.get("lot"),
                 "sl": result.get("sl"),
                 "tp": result.get("tp"),

@@ -50,8 +50,15 @@ class HybridBrain:
                     confidence = prediction["confidence"]
                     
                     # Basic trend logic for direction since LSTM handles Volatility now
-                    recent_return = df['close'].iloc[-1] - df['close'].iloc[-5]
-                    direction = "BUY" if recent_return > 0 else "SELL"
+                    macd = df['close'].ewm(span=12).mean() - df['close'].ewm(span=26).mean()
+                    signal_line = macd.ewm(span=9).mean()
+                    
+                    if macd.iloc[-1] > signal_line.iloc[-1] and df['close'].iloc[-1] > df['close'].rolling(50).mean().iloc[-1]:
+                        direction = "BUY"
+                    elif macd.iloc[-1] < signal_line.iloc[-1] and df['close'].iloc[-1] < df['close'].rolling(50).mean().iloc[-1]:
+                        direction = "SELL"
+                    else:
+                        direction = "HOLD"
                     
                     if volatility_class == "LOW_VOLATILITY" or confidence < 0.5:
                         direction = "HOLD"
@@ -60,7 +67,7 @@ class HybridBrain:
                     return {"status": "error", "error": f"AI Prediction failed: {e}"}
                     
             if direction == "HOLD":
-                logger.info("AI Decision: HOLD. No trade executed.")
+                logger.info(f"AI Decision: HOLD. {symbol} market is unclear or Low Volatility.")
                 return {"status": "skipped", "action": "HOLD", "reason": "AI predicted HOLD / LOW_VOLATILITY"}
 
             # Get current price (real-time)
