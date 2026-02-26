@@ -25,37 +25,60 @@ class RiskEngine:
         self.peak_balance = 0.0
         self.current_dd = 0.0
         self.daily_trades = 0
-        self.max_daily_trades = 20
+        self.max_daily_trades = 15
+        
+        # Kill Switch Mechanics
+        self.daily_max_loss_dollars = 150.0  # HARD STOP if lost more than $150 Today
+        self.max_consecutive_losses = 4      # HARD STOP after 4 losses in a row
+        self.max_concurrent_positions = 2    # Never hold more than 2 trades at once
+        
+        self.start_of_day_balance = 0.0
+        self.consecutive_loss_count = 0
         self.last_trade_date = None
-        self.open_positions: list[dict] = []
 
         logger.success(
-            f"Risk Engine active — {self.risk_pct}% risk/trade | "
-            f"max DD {self.max_dd}% | conf threshold {self.confidence_threshold}"
+            f"Risk Engine KILL SWITCH active — Max Daily Loss: ${self.daily_max_loss_dollars} | "
+            f"Max {self.max_concurrent_positions} concurrent | max DD {self.max_dd}%"
         )
 
     # ── Core gate ────────────────────────────────────────────────────
     def can_trade(self, balance: float, signal: str, price: float,
-                  confidence: float = 1.0) -> bool:
+                  confidence: float = 1.0, current_open_positions: int = 0) -> bool:
         """Return True if the trade passes all risk checks."""
-        # 1. Never trade HOLD signals
-        if signal == "HOLD":
-            logger.debug("Risk: HOLD signal — skipping")
+        # Date tracker for daily resets
+        today = date.today()
+        if self.last_trade_date != today:
+            self.daily_trades = 0
+            self.start_of_day_balance = balance
+            self.consecutive_loss_count = 0
+            self.last_trade_date = today
+
+        # 1. Never trade HOLD/LOW VOLATILITY signals
+        if signal in ["HOLD", "LOW_VOLATILITY"]:
             return False
 
-        # 2. Confidence filter
-        if confidence < self.confidence_threshold:
-            logger.info(f"Risk: confidence {confidence:.2%} < threshold {self.confidence_threshold:.2%} — blocked")
+        # 2. Daily Loss Kill Switch (HARD STOP)
+        today_pnl = balance - self.start_of_day_balance
+        if today_pnl <= -self.daily_max_loss_dollars:
+            logger.error(f"💀 RISK KILL SWITCH TRIGGERED: Daily loss ${abs(today_pnl):.2f} exceeds ${self.daily_max_loss_dollars}. Trading halted until tomorrow.")
             return False
 
-        # 3. Drawdown check
-        if self.peak_balance == 0.0:
-            self.peak_balance = balance
-        if balance > self.peak_balance:
+        # 3. Consecutive Loss Cooldown
+        if self.consecutive_loss_count >= self.max_consecutive_losses:
+            logger.error(f"💀 RISK KILL SWITCH TRIGGERED: {self.max_consecutive_losses} consecutive losses. Trading halted for safety.")
+            return False
+
+        # 4. Max Concurrent Positions
+        if current_open_positions >= self.max_concurrent_positions:
+            logger.warning(f"Risk: Max concurrent positions ({self.max_concurrent_positions}) reached. Blocked.")
+            return False
+
+        # 5. Drawdown check
+        if self.peak_balance == 0.0 or balance > self.peak_balance:
             self.peak_balance = balance
         self.current_dd = ((self.peak_balance - balance) / self.peak_balance) * 100
         if self.current_dd >= self.max_dd:
-            logger.warning(f"Risk: drawdown {self.current_dd:.1f}% >= limit {self.max_dd}% — BLOCKED")
+            logger.error(f"💀 RISK KILL SWITCH TRIGGERED: Drawdown {self.current_dd:.1f}% >= limit {self.max_dd}%.")
             return False
 
         # 4. Daily trade limit

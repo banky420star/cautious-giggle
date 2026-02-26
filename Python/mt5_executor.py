@@ -32,9 +32,18 @@ class MT5Executor:
             logger.success(f"✅ MT5 Connected | Account: {account_info.login} | LIVE MODE")
             logger.info(f"💰 Balance: ${account_info.balance:.2f} | Equity: ${account_info.equity:.2f} | PnL: ${account_info.profit:.2f}")
     async def execute_order(self, symbol: str, action: str, lot: float, sl: float = None, tp: float = None):
-        """Main execution — ALWAYS gated by RiskEngine"""
+        """Main execution — ALWAYS gated by RiskEngine with live metrics"""
+        current_balance = 10000.0
+        open_positions = 0
         
-        if not self.risk.can_trade(10000.0, action.upper(), 1.0, 1.0):
+        # Inject live numbers into the risk guardrails if connected
+        if not self.paper_mode and mt5 is not None:
+            account_info = mt5.account_info()
+            if account_info:
+                current_balance = account_info.balance
+            open_positions = mt5.positions_total() or 0
+        
+        if not self.risk.can_trade(current_balance, action.upper(), 1.0, 1.0, current_open_positions=open_positions):
             logger.warning(f"🚫 RiskEngine BLOCKED {action} {lot} {symbol}")
             return {"status": "risk_blocked"}
 
