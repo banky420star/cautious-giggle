@@ -27,15 +27,42 @@ class HybridBrain:
         self.ppo_model = None
         try:
             from stable_baselines3 import PPO
-            self.ppo_model = PPO.load("models/ppo_trading", device="auto")
+            self.ppo_model = PPO.load("models/ppo_trading.zip", device="auto")
             logger.success("✅ PPO model loaded successfully")
         except Exception as e:
             logger.error(f"Failed to load PPO: {e}. Running in LSTM-only mode.")
             self.ppo_model = None
 
-    async def live_trade(self, symbol: str, direction: str, confidence: float = 0.85):
+    async def live_trade(self, symbol: str, direction: str = "AUTO", confidence: float = 0.0):
         """Main live trading entry point — called from n8n"""
         try:
+            # If direction isn't provided or AUTO, use the AI to predict it!
+            if not direction or direction == "AUTO":
+                try:
+                    from Python.data_feed import fetch_training_data
+                    df = fetch_training_data(symbol, period="60d")
+                    if df.empty:
+                        return {"status": "error", "error": "No data for AI prediction"}
+                        
+                    # AGI LSTM Prediction
+                    prediction = self.lstm.predict(df, production=True)
+                    volatility_class = prediction["signal"]
+                    confidence = prediction["confidence"]
+                    
+                    # Basic trend logic for direction since LSTM handles Volatility now
+                    recent_return = df['close'].iloc[-1] - df['close'].iloc[-5]
+                    direction = "BUY" if recent_return > 0 else "SELL"
+                    
+                    if volatility_class == "LOW_VOLATILITY" or confidence < 0.5:
+                        direction = "HOLD"
+                except Exception as e:
+                    logger.error(f"AI Prediction failed: {e}")
+                    return {"status": "error", "error": f"AI Prediction failed: {e}"}
+                    
+            if direction == "HOLD":
+                logger.info("AI Decision: HOLD. No trade executed.")
+                return {"status": "skipped", "action": "HOLD", "reason": "AI predicted HOLD / LOW_VOLATILITY"}
+
             # Get current price (real-time)
             current_price = self.get_current_price(symbol)
 

@@ -26,11 +26,17 @@ def main():
         client.settimeout(15.0)
         client.connect(("127.0.0.1", 9090))
 
-        # Send command
-        msg = f"{command} {symbol}"
+        # Send command as JSON per Server_AGI expectations
+        request = {
+            "action": command.lower(),
+            "symbol": symbol,
+            "direction": "AUTO",
+            "confidence": 0.0
+        }
+        msg = json.dumps(request)
         client.send(msg.encode())
 
-        # Receive response (may be longer now with lots/SL/TP)
+        # Receive response
         chunks = []
         while True:
             try:
@@ -44,38 +50,20 @@ def main():
         response = b"".join(chunks).decode().strip()
 
         # ── Parse the AGI Server response ────────────────────────────
-        # New format:
-        #   "TRADE: BUY EURUSD @ 1.05000 | conf=0.9123 | lots=0.02 | sl=1.04500 | tp=1.06000"
-        #   "HOLD EURUSD @ 1.05000 | conf=0.6543"
-        result = {
-            "raw_response": response,
-            "symbol": symbol,
-            "confidence": 0.0,
-            "action": "ERROR",
-            "lots": 0.0,
-            "sl": 0.0,
-            "tp": 0.0,
-        }
-
-        if "|" in response:
-            parts = [p.strip() for p in response.split("|")]
-            action_part = parts[0]
-
-            # Parse all key=value segments
-            for part in parts[1:]:
-                if "=" in part:
-                    key, val = part.split("=", 1)
-                    key = key.strip()
-                    try:
-                        result[key] = float(val.strip())
-                    except ValueError:
-                        result[key] = val.strip()
-
-            # Determine action
-            if action_part.startswith("TRADE:"):
-                result["action"] = action_part.replace("TRADE:", "").strip()
-            elif action_part.startswith("HOLD"):
-                result["action"] = "HOLD"
+        # Server now replies exclusively in JSON
+        try:
+            result = json.loads(response)
+            # Ensure n8n gets standard keys
+            if "action" not in result:
+                result["action"] = result.get("status", "UNKNOWN")
+        except json.JSONDecodeError:
+            result = {
+                "raw_response": response,
+                "symbol": symbol,
+                "confidence": 0.0,
+                "action": "ERROR",
+                "error": "Failed to parse server JSON"
+            }
 
         # Output JSON so n8n can parse it
         print(json.dumps(result))

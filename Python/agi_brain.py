@@ -26,7 +26,10 @@ class SmartAGI:
         self.prediction_count = 0
 
         # Load trained model if available
-        model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "lstm_agi_trained.pt")
+        model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
+        model_path = os.path.join(model_dir, "lstm_agi_trained.pt")
+        scaler_path = os.path.join(model_dir, "lstm_scaler.pkl")
+
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path, map_location=self.device, weights_only=True))
             self.model.eval()
@@ -35,10 +38,27 @@ class SmartAGI:
         else:
             logger.warning(f"No trained model found at {model_path} — using random weights!")
             logger.success(f"AGI Brain loaded on {self.device.upper()} (untrained)")
+            
+        self.scaler_loaded = False
+        if os.path.exists(scaler_path):
+            import joblib
+            try:
+                self.scaler = joblib.load(scaler_path)
+                self.scaler_loaded = True
+                logger.success("✅ AGI Brain loaded persistent Scikit-Learn feature scaler.")
+            except Exception as e:
+                logger.warning(f"Could not load scaler: {e}")
 
     def predict(self, df: pd.DataFrame, production: bool = False) -> dict:
         self.prediction_count += 1
-        data = self.scaler.fit_transform(df[['open','high','low','close','volume']].values)
+        
+        # Proper scaling practice: transform instead of refit in live
+        features = df[['open','high','low','close','volume']].values
+        if self.scaler_loaded:
+            data = self.scaler.transform(features)
+        else:
+            data = self.scaler.fit_transform(features)
+            
         seq = torch.tensor(data[-60:].reshape(1, 60, 5), dtype=torch.float32).to(self.device)
 
         with torch.no_grad():

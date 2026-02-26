@@ -21,10 +21,10 @@ async def handle_client(reader, writer):
         request = json.loads(message)
         action = request.get("action")
 
-        if action == "predict":
+        if action in ["predict", "trade"]:
             symbol = request.get("symbol", "EURUSD")
-            direction = request.get("direction", "BUY")
-            confidence = request.get("confidence", 0.85)
+            direction = request.get("direction", "AUTO")
+            confidence = float(request.get("confidence", 0.0))
 
             result = await brain.live_trade(symbol, direction, float(confidence))
             

@@ -121,6 +121,12 @@ def train_lstm(symbols=None, epochs=50, seq_len=60):
     model_path = os.path.join(model_dir, "lstm_agi_trained.pt")
     torch.save(model.state_dict(), model_path)
     logger.success(f"LSTM model saved: {model_path} ({os.path.getsize(model_path)/1024:.1f} KB)")
+    
+    # Save the scaler
+    import joblib
+    scaler_path = os.path.join(model_dir, "lstm_scaler.pkl")
+    joblib.dump(scaler, scaler_path)
+    logger.success(f"LSTM scaler saved: {scaler_path}")
 
     # ── Final stats ─────────────────────────────────────────────────
     model.eval()
