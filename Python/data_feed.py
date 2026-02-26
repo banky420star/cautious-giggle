@@ -17,6 +17,10 @@ SYMBOL_MAP = {
     "GBPUSDm": "GBPUSD=X",
     "USDJPYm": "USDJPY=X",
     "XAUUSDm": "GC=F",
+    "EURUSDM": "EURUSD=X",
+    "GBPUSDM": "GBPUSD=X",
+    "USDJPYM": "USDJPY=X",
+    "XAUUSDM": "GC=F",
 }
 
 def fetch_realtime(symbol: str = "EURUSD", period: str = "5d", interval: str = "5m") -> pd.DataFrame:

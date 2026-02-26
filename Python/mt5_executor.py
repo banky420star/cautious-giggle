@@ -59,11 +59,32 @@ class MT5Executor:
             return {"status": "failed", "error": f"Symbol {symbol} not found in MT5 Market Watch"}
             
         tick = mt5.symbol_info_tick(symbol)
-        if tick is None:
+        symbol_info = mt5.symbol_info(symbol)
+        if tick is None or symbol_info is None:
             logger.error(f"❌ MT5 returned no tick data for {symbol}. Market closed or invalid symbol.")
             return {"status": "failed", "error": f"No tick data for {symbol}"}
             
-        price = tick.ask if action == "BUY" else tick.bid
+        price = tick.ask if action.upper() == "BUY" else tick.bid
+        
+        # Calculate dynamic Lot size securely using LIVE MT5 Balance and Symbol Steps
+        lot = self.risk.lot_size(balance=current_balance, price=price)
+        lot_step = symbol_info.volume_step
+        lot = round(lot / lot_step) * lot_step
+        lot = max(symbol_info.volume_min, min(lot, symbol_info.volume_max))
+        lot = round(lot, 2)  # Avoid Python float glitches
+        
+        # Calculate accurate stops natively using MT5 points to prevent Invalid Stops error
+        point = symbol_info.point
+        sl_points = 50 * (10 if symbol_info.digits in [3, 5] else 1) * point
+        rr_ratio = 2.0
+        tp_points = sl_points * rr_ratio
+        
+        if action.upper() == "BUY":
+            sl = round(price - sl_points, symbol_info.digits)
+            tp = round(price + tp_points, symbol_info.digits)
+        else:
+            sl = round(price + sl_points, symbol_info.digits)
+            tp = round(price - tp_points, symbol_info.digits)
 
         request = {
             "action": mt5.TRADE_ACTION_DEAL,
