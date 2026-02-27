@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import torch
 import yaml
+import shutil
 from loguru import logger
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
@@ -21,6 +22,30 @@ from analysis.gradient_flow_analyzer import LSTMGradientDiagnostics
 # Log to /tmp to avoid sandbox permission issues
 os.makedirs("/tmp/logs", exist_ok=True)
 logger.add("/tmp/logs/ppo_training.log", rotation="10 MB", level="INFO")
+
+class EvalCallbackSaveVec(EvalCallback):
+    """
+    Extends EvalCallback:
+    - when a new best model is found, also saves VecNormalize stats.
+    """
+    def __init__(self, *args, vec_env=None, vec_save_path=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.vec_env = vec_env
+        self.vec_save_path = vec_save_path
+
+    def _on_step(self) -> bool:
+        # Default to -np.inf to avoid type comparisons failing if None
+        old_best = self.best_mean_reward if self.best_mean_reward is not None else -np.inf
+        cont = super()._on_step()
+
+        # If best improved, save VecNormalize simultaneously!
+        if self.best_mean_reward is not None and self.best_mean_reward > old_best:
+            if self.vec_env is not None and self.vec_save_path:
+                os.makedirs(os.path.dirname(self.vec_save_path), exist_ok=True)
+                self.vec_env.save(self.vec_save_path)
+                logger.success(f"✅ Saved VecNormalize with new best model → {self.vec_save_path}")
+
+        return cont
 
 def make_env(df, seed: int = 0):
     def _init():
@@ -110,14 +135,20 @@ def train_drl():
         verbose=1,
     )
     
-    # Eval callback 
-    eval_callback = EvalCallback(
-        eval_env,
-        best_model_save_path="./models/best_eval_models/",
+    # Eval callback setup
+    best_dir = os.path.join("models", "best_eval_models")
+    os.makedirs(best_dir, exist_ok=True)
+    best_vec_path = os.path.join(best_dir, "vec_normalize.pkl")
+    
+    eval_callback = EvalCallbackSaveVec(
+        eval_env=eval_env,
+        best_model_save_path=best_dir,
         log_path="/tmp/logs/",
         eval_freq=10_000,
         deterministic=True,
         render=False,
+        vec_env=env,
+        vec_save_path=best_vec_path
     )
     
     grad_callback = LSTMGradientDiagnostics()
@@ -148,30 +179,34 @@ def train_drl():
         progress_bar=True
     )
     
-    # Save into registry as candidate
-    logger.info("Building new PPO candidate via ModelRegistry...")
+    # Save into registry as candidate using EXACTLY the best evaluation model
+    logger.info("Building new PPO candidate via ModelRegistry using best_model.zip...")
     try:
         from Python.model_registry import ModelRegistry
         registry = ModelRegistry()
         
         import datetime, json
+        src_model = os.path.join(best_dir, "best_model.zip")
+        src_vec   = os.path.join(best_dir, "vec_normalize.pkl")
+        
+        if not os.path.exists(src_model) or not os.path.exists(src_vec):
+            logger.error("Could not find best_model.zip or vec_normalize.pkl. Did training actually step?")
+            return
+
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         candidate_path = os.path.join(registry.candidates_dir, timestamp)
         os.makedirs(candidate_path, exist_ok=True)
         
-        # Save SB3 Model and Normalizer to Candidate Path
-        model_path = os.path.join(candidate_path, "ppo_trading.zip")
-        vec_path = os.path.join(candidate_path, "vec_normalize.pkl")
-        
-        # NOTE: We currently save the LATEST model at the end of training, not the best eval!
-        model.save(model_path)
-        env.save(vec_path)
+        # Copy the cleanly evaluated BEST models
+        shutil.copy2(src_model, os.path.join(candidate_path, "ppo_trading.zip"))
+        shutil.copy2(src_vec, os.path.join(candidate_path, "vec_normalize.pkl"))
         
         # Stage Metadata
         metrics = {
             "type": "ppo",
             "symbols": symbols,
             "timesteps": total_timesteps,
+            "source": "EvalCallback best_model.zip + matching VecNormalize",
             "loss": 0.0, 
             "win_rate": 0.0, 
             "date": datetime.datetime.now().isoformat()
@@ -180,7 +215,7 @@ def train_drl():
         with open(os.path.join(candidate_path, "scorecard.json"), "w") as f:
             json.dump(metrics, f, indent=4)
             
-        logger.success(f"✅ Joint LSTM-PPO Candidate saved to: {candidate_path}")
+        logger.success(f"✅ Optimal Joint LSTM-PPO Candidate staged to: {candidate_path}")
         
     except Exception as e:
         logger.error(f"Failed to register PPO candidate model: {e}")
