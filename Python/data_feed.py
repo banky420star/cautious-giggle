@@ -33,25 +33,44 @@ REQUIRED_COLS = ["open", "high", "low", "close", "volume"]
 
 def _flatten_cols(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
+        # Often yf returns levels like ['Close', 'EURUSD=X']
+        # We only want the first level (the feature name)
         df.columns = df.columns.get_level_values(0)
     return df
 
 def _standardize(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
     df = _flatten_cols(df).copy()
+    
+    # 1. Force lowercase columns for easier mapping
+    df.columns = [str(c).lower() for c in df.columns]
 
-    df = df.rename(columns={
-        "Open": "open", "High": "high", "Low": "low",
-        "Close": "close", "Adj Close": "close",
-        "Volume": "volume"
-    })
+    # 2. Map known yfinance variants to our standard names
+    # Prioritize adj close if it exists
+    if "adj close" in df.columns:
+        df["close"] = df["adj close"]
+    elif "close" in df.columns:
+        # If 'close' is already lowercase, it stays
+        pass
 
-    # Ensure required cols exist
+    # Standard renames
+    rename_map = {
+        "open": "open", "high": "high", "low": "low",
+        "volume": "volume"
+    }
+    df = df.rename(columns=rename_map)
+
+    # 3. Deduplicate columns (important!) 
+    # If both 'close' and 'adj close' were present, we might have two 'close' columns now
+    df = df.loc[:, ~df.columns.duplicated(keep="first")]
+
+    # 4. Ensure REQUIRED_COLS exist
     for c in REQUIRED_COLS:
         if c not in df.columns:
             df[c] = np.nan
 
-    # Clean index
+    # 5. Clean index and slice
     df = df[REQUIRED_COLS].copy()
+    # Remove duplicate timestamps
     df = df[~df.index.duplicated(keep="last")]
     df = df.sort_index()
     df = df.dropna(subset=["open", "high", "low", "close"])
