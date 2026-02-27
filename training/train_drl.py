@@ -19,9 +19,10 @@ from Python.data_feed import fetch_training_data, get_combined_training_df
 from drl.lstm_feature_extractor import LSTMFeatureExtractor
 from analysis.gradient_flow_analyzer import LSTMGradientDiagnostics
 
-# Log to /tmp to avoid sandbox permission issues
-os.makedirs("/tmp/logs", exist_ok=True)
-logger.add("/tmp/logs/ppo_training.log", rotation="10 MB", level="INFO")
+# Local log path for Windows/Mac compatibility
+LOG_DIR = os.path.join(os.getcwd(), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+logger.add(os.path.join(LOG_DIR, "ppo_training.log"), rotation="10 MB", level="INFO")
 
 class EvalCallbackSaveVec(EvalCallback):
     """
@@ -50,7 +51,17 @@ class EvalCallbackSaveVec(EvalCallback):
 def make_env(df, seed: int = 0):
     def _init():
         set_random_seed(seed)
-        env = TradingEnv(df, initial_balance=10000.0)
+        
+        # Ensure TradingEnv gets a clean dataframe with proper index
+        if isinstance(df, pl.DataFrame):
+            pdf = df.to_pandas()
+            if "time" in pdf.columns:
+                pdf["time"] = pd.to_datetime(pdf["time"])
+                pdf = pdf.sort_values("time").set_index("time")
+            env = TradingEnv(pdf, initial_balance=10000.0)
+        else:
+            env = TradingEnv(df, initial_balance=10000.0)
+            
         env = Monitor(env)
         return env
     return _init
@@ -73,6 +84,30 @@ def train_drl():
         logger.error("No valid training data found.")
         return
         
+    # ---- sanitize pandas frame for polars (belt and suspenders) ----
+    if isinstance(df_pd, pd.Series):
+        df_pd = df_pd.to_frame()
+
+    # Flatten MultiIndex columns (common with yfinance)
+    if isinstance(df_pd.columns, pd.MultiIndex):
+        df_pd.columns = [
+            "_".join([str(x) for x in col if x is not None and str(x) != ""])
+            for col in df_pd.columns.to_list()
+        ]
+
+    # Force string column names
+    df_pd.columns = [str(c) for c in df_pd.columns]
+
+    # Drop duplicate columns (Polars hates them)
+    if df_pd.columns.duplicated().any():
+        df_pd = df_pd.loc[:, ~df_pd.columns.duplicated(keep="last")]
+
+    # Drop duplicate index values + sort (Polars also hates non-unique index)
+    df_pd = df_pd.loc[~df_pd.index.duplicated(keep="last")].sort_index()
+    # Resetting index to drop the non-unique timestamp column from polars conversion
+    df_pd = df_pd.reset_index(drop=True)
+    # ---------------------------------------------------------------
+    
     df = pl.from_pandas(df_pd)
     
     # Curriculum: Easy phase mapping (safely handling NaNs)
@@ -125,7 +160,7 @@ def train_drl():
         max_grad_norm=0.5,
         use_sde=True,
         sde_sample_freq=4,
-        tensorboard_log="/tmp/logs/drl_joint/",
+        tensorboard_log=os.path.join(LOG_DIR, "drl_joint"),
         device='cuda' if torch.cuda.is_available() else ('mps' if getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available() else 'cpu'),
         verbose=1,
     )
@@ -138,7 +173,7 @@ def train_drl():
     eval_callback = EvalCallbackSaveVec(
         eval_env=eval_env,
         best_model_save_path=best_dir,
-        log_path="/tmp/logs/",
+        log_path=LOG_DIR,
         eval_freq=10_000,
         deterministic=True,
         render=False,

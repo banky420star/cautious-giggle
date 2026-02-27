@@ -80,7 +80,18 @@ def _standardize(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
     return df
 
 def _download(ticker: str, period: str, interval: str) -> pd.DataFrame:
-    return yf.download(ticker, period=period, interval=interval, progress=False, auto_adjust=False)
+    df = yf.download(ticker, period=period, interval=interval, progress=False, auto_adjust=False)
+    if df is None or df.empty:
+        return pd.DataFrame()
+    # Immediate clean-up of yfinance artifacts
+    try:
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        df = df.loc[:, ~df.columns.duplicated(keep="last")]
+        df = df[~df.index.duplicated(keep="last")].sort_index()
+    except Exception as e:
+        logger.warning(f"Quick clean failed: {e}")
+    return df
 
 def fetch_realtime(symbol: str = "EURUSD", period: str = "5d", interval: str = "5m") -> pd.DataFrame:
     ticker = SYMBOL_MAP.get(symbol, f"{symbol}=X")
