@@ -35,16 +35,27 @@ class MT5Executor:
         """Main execution — ALWAYS gated by RiskEngine with live metrics"""
         current_balance = 10000.0
         open_positions = 0
+        realized_pnl = 0.0
         
         # Inject live numbers into the risk guardrails if connected
         if not self.paper_mode and mt5 is not None:
             account_info = mt5.account_info()
             if account_info:
                 current_balance = account_info.balance
+                
             open_positions = mt5.positions_total() or 0
+            
+            # Extract actual daily Realized PnL natively from MT5 History (Required for real kill switch)
+            import datetime
+            now = datetime.datetime.now()
+            midnight = datetime.datetime(now.year, now.month, now.day)
+            deals = mt5.history_deals_get(midnight, now)
+            if deals:
+                # MT5 deals record profit on the OUT entries (closings)
+                realized_pnl = sum(deal.profit for deal in deals if deal.entry == mt5.DEAL_ENTRY_OUT)
         
-        if not self.risk.can_trade(current_balance, action.upper(), 1.0, 1.0, current_open_positions=open_positions):
-            logger.warning(f"🚫 RiskEngine BLOCKED {action} {lot} {symbol}")
+        if not self.risk.can_trade(current_balance, action.upper(), 1.0, 1.0, current_open_positions=open_positions, realized_pnl=realized_pnl):
+            logger.warning(f"🚫 RiskEngine BLOCKED {action} {lot} {symbol} | Live PnL Today: ${realized_pnl:.2f}")
             return {"status": "risk_blocked"}
 
         if self.paper_mode:

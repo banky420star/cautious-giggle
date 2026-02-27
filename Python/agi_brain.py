@@ -21,14 +21,28 @@ class SmartAGI:
     def __init__(self):
         self.model = AGIModel()
         self.scaler = MinMaxScaler()
-        self.device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+        if torch.cuda.is_available():
+            self.device = 'cuda'
+        elif getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available():
+            self.device = 'mps'
+        else:
+            self.device = 'cpu'
         self.model.to(self.device)
         self.prediction_count = 0
 
-        # Load trained model if available
-        model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
-        model_path = os.path.join(model_dir, "lstm_agi_trained.pt")
-        scaler_path = os.path.join(model_dir, "lstm_scaler.pkl")
+        from Python.model_registry import ModelRegistry
+        registry = ModelRegistry()
+        active_dir = registry.load_active_model(prefer_canary=True)
+        
+        if active_dir:
+            model_path = os.path.join(active_dir, "lstm_model.pth")
+            scaler_path = os.path.join(active_dir, "lstm_scaler.pkl")
+            logger.info(f"Registry Active Directory selected: {active_dir}")
+        else:
+            # Fallback to base hardcoded models if registry empty
+            model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
+            model_path = os.path.join(model_dir, "lstm_agi_trained.pt")
+            scaler_path = os.path.join(model_dir, "lstm_scaler.pkl")
 
         if os.path.exists(model_path):
             self.model.load_state_dict(torch.load(model_path, map_location=self.device, weights_only=True))

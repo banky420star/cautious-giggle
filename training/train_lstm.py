@@ -41,9 +41,14 @@ def create_sequences(data, seq_len=60):
 
 def train_lstm(symbols=None, epochs=50, seq_len=60):
     if symbols is None:
-        symbols = ["EURUSD", "GBPUSD", "XAUUSD"]
+        symbols = ["EURUSDm", "GBPUSDm", "XAUUSDm"]
 
-    device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+    if torch.cuda.is_available():
+        device = 'cuda'
+    elif getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available():
+        device = 'mps'
+    else:
+        device = 'cpu'
     model = AGIModel().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.CrossEntropyLoss()
@@ -135,6 +140,27 @@ def train_lstm(symbols=None, epochs=50, seq_len=60):
         _, preds = outputs.max(1)
         final_acc = (preds == y_tensor[:500]).sum().item() / 500 * 100
     logger.success(f"Training complete! Final validation accuracy: {final_acc:.1f}%")
+    
+    metrics = {
+        "win_rate": float(final_acc),
+        "epochs": epochs,
+        "loss": float(avg_loss),
+        "date": __import__('datetime').datetime.now().isoformat()
+    }
+    
+    # Save Candidate locally in Model Registry for autonomous evaluation loop
+    try:
+        from Python.model_registry import ModelRegistry
+        import shutil
+        reg = ModelRegistry()
+        cand_path = reg.save_candidate(model.state_dict(), metrics, model_type="lstm")
+        shutil.copy(scaler_path, os.path.join(cand_path, "lstm_scaler.pkl"))
+        
+        # Immediately Test against Champion to see if Canary Staging is permitted
+        if reg.evaluate_and_stage_canary(cand_path):
+            logger.success("Candidate surpassed Champion. Scheduled for live Canary testing tomorrow!")
+    except Exception as e:
+        logger.error(f"Failed to register candidate model: {e}")
 
 if __name__ == "__main__":
     train_lstm(epochs=50)

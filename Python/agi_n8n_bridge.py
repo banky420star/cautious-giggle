@@ -1,91 +1,90 @@
 """
-n8n ↔ AGI Bridge — called by n8n Execute Command nodes.
-Connects to the AGI Server socket, sends ANALYZE/TRADE commands,
-parses the response, and outputs JSON for n8n to consume.
+n8n ↔ AGI Bridge
+Usage:
+  python agi_n8n_bridge.py <COMMAND> <SYMBOL> [AGGRESSION]
+
+COMMAND: predict | trade | health | risk_status
 """
+import os
 import sys
 import socket
 import json
 
+HOST = os.environ.get("AGI_HOST", "127.0.0.1")
+PORT = int(os.environ.get("AGI_PORT", "9090"))
+TOKEN = os.environ.get("AGI_TOKEN", "").strip()
+
+def _die(msg: dict, code: int = 1):
+    print(json.dumps(msg))
+    sys.exit(code)
 
 def main():
     if len(sys.argv) < 3:
-        print(json.dumps({
-            "error": "Missing arguments. Usage: python agi_n8n_bridge.py <COMMAND> <SYMBOL>",
+        _die({
+            "error": "Usage: python agi_n8n_bridge.py <COMMAND> <SYMBOL> [AGGRESSION]",
             "action": "ERROR",
             "confidence": 0.0,
-        }))
-        sys.exit(1)
+        })
 
-    command = sys.argv[1]
-    symbol = sys.argv[2]
+    command = sys.argv[1].strip().lower()
+    symbol = sys.argv[2].strip()
+    aggression = (sys.argv[3].strip().lower() if len(sys.argv) >= 4 else "moderate")
+
+    request = {
+        "action": command,
+        "symbol": symbol,
+        "direction": "AUTO",
+        "confidence": 0.0,
+        "aggression": aggression,
+    }
+    if TOKEN:
+        request["token"] = TOKEN
 
     try:
-        # Connect to the AGI Server socket
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.settimeout(15.0)
-        client.connect(("127.0.0.1", 9090))
+        client.settimeout(10.0)
+        client.connect((HOST, PORT))
 
-        # Send command as JSON per Server_AGI expectations
-        request = {
-            "action": command.lower(),
-            "symbol": symbol,
-            "direction": "AUTO",
-            "confidence": 0.0
-        }
-        msg = json.dumps(request)
-        client.send(msg.encode())
+        payload = (json.dumps(request) + "\n").encode("utf-8")
+        client.sendall(payload)
 
-        # Receive response
-        chunks = []
-        while True:
-            try:
-                chunk = client.recv(4096)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-            except socket.timeout:
+        # read one line JSON response
+        buf = b""
+        while b"\n" not in buf:
+            chunk = client.recv(4096)
+            if not chunk:
                 break
+            buf += chunk
+
         client.close()
-        response = b"".join(chunks).decode().strip()
+        raw = buf.decode("utf-8", errors="replace").strip()
+        if not raw:
+            _die({"error": "Empty response from server", "action": "ERROR", "symbol": symbol})
 
-        # ── Parse the AGI Server response ────────────────────────────
-        # Server now replies exclusively in JSON
         try:
-            result = json.loads(response)
-            # Ensure n8n gets standard keys
-            if "action" not in result:
-                result["action"] = result.get("status", "UNKNOWN")
+            result = json.loads(raw.splitlines()[0])
         except json.JSONDecodeError:
-            result = {
-                "raw_response": response,
-                "symbol": symbol,
-                "confidence": 0.0,
-                "action": "ERROR",
-                "error": "Failed to parse server JSON"
-            }
+            result = {"error": "Failed to parse server JSON", "raw_response": raw, "action": "ERROR", "symbol": symbol}
 
-        # Output JSON so n8n can parse it
+        if "action" not in result:
+            result["action"] = result.get("status", "UNKNOWN")
+
         print(json.dumps(result))
 
     except ConnectionRefusedError:
-        print(json.dumps({
-            "error": "AGI Server not running on 127.0.0.1:9090",
+        _die({
+            "error": f"AGI Server not running on {HOST}:{PORT}",
             "symbol": symbol,
             "confidence": 0.0,
             "action": "ERROR",
-        }))
-        sys.exit(1)
-
+        })
     except Exception as e:
-        print(json.dumps({
+        _die({
             "error": str(e),
             "symbol": symbol,
             "confidence": 0.0,
             "action": "ERROR",
-        }))
-        sys.exit(1)
-
+        })
 
 if __name__ == "__main__":
     main()

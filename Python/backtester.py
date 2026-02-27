@@ -1,98 +1,164 @@
-"""VectorBT Backtester — runs on REAL market data."""
-import sys, os
+"""
+Backtester — runs PPO on historical data using the SAME TradingEnv used in training.
+This is the only sane way to gate model promotions unless you implement broker-grade execution simulation.
+"""
+import os
+import sys
+import json
+import numpy as np
+import pandas as pd
+from loguru import logger
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import vectorbt as vbt
-import pandas as pd
-import numpy as np
-from loguru import logger
+from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from Python.data_feed import fetch_training_data
+from drl.trading_env import TradingEnv
 
-# ── Logging ─────────────────────────────────────────────────────────
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
-logger.add(os.path.join(LOG_DIR, "backtester.log"), rotation="10 MB", level="DEBUG")
+logger.add(os.path.join(LOG_DIR, "backtester.log"), rotation="10 MB", level="INFO")
 
-def run_backtest(symbol: str = "EURUSD"):
-    logger.info(f"Starting backtest for {symbol}...")
 
-    # Fetch real data
-    df = fetch_training_data(symbol, period="60d")
-    if df.empty or len(df) < 50:
-        logger.error(f"Insufficient data for {symbol}")
-        return
+def _make_env(df_pd: pd.DataFrame, initial_balance: float = 10000.0):
+    def _init():
+        return TradingEnv(df_pd, initial_balance=initial_balance)
+    return DummyVecEnv([_init])
 
-    logger.info(f"Backtest data: {len(df)} candles | {df.index[0]} → {df.index[-1]}")
 
-    # Reconstruct the observation sequence feature-by-feature manually
-    # Or simply extract using VectorBT's native apply interface to map PPO actions
-    try:
-        from stable_baselines3 import PPO
-        model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "ppo_trading")
-        ppo_model = PPO.load(model_path, device="cpu")
-        logger.success("✅ AI PPO Model successfully loaded for Backtesting!")
-    except Exception as e:
-        logger.error(f"❌ Failed to load AI Model, falling back to dummy strategy: {e}")
-        fast_ma = df['close'].rolling(10).mean()
-        slow_ma = df['close'].rolling(30).mean()
-        entries = (fast_ma > slow_ma) & (fast_ma.shift(1) <= slow_ma.shift(1))
-        exits = (fast_ma < slow_ma) & (fast_ma.shift(1) >= slow_ma.shift(1))
-        pf = vbt.Portfolio.from_signals(df['close'], entries, exits, freq="1h", init_cash=10000, slippage=0.0002, fees=0.0005)
-        
-    # Assuming valid PPO load, we create realistic signal arrays
-    # *For this snippet we simulate AI PPO signals based on MACD baseline until exact observation scaler is ported
-    macd = vbt.MACD.run(df['close'])
-    entries = macd.macd > macd.signal
-    exits = macd.macd < macd.signal
-    
-    pf = vbt.Portfolio.from_signals(
-        df['close'], 
-        entries, 
-        exits, 
-        freq="1h", 
-        init_cash=10000,
-        slippage=0.0002,    # Realistic execution slippage
-        fees=0.0005         # Commission and Spread costs factored in!
-    )
+def run_ppo_backtest(symbol: str, model_path: str, vecnorm_path: str, period: str = "120d",
+                     initial_balance: float = 10000.0, max_steps: int | None = None) -> dict | None:
+    df = fetch_training_data(symbol, period=period)
+    if df is None or df.empty or len(df) < 400:
+        logger.error(f"Insufficient data for {symbol} (len={0 if df is None else len(df)})")
+        return None
 
-    # Results
-    total_return = pf.total_return()
-    sharpe = pf.sharpe_ratio()
-    max_dd = pf.max_drawdown()
-    total_trades = pf.trades.count()
-    win_rate = pf.trades.win_rate() if total_trades > 0 else 0
+    # Create env + load VecNormalize stats
+    env = _make_env(df, initial_balance=initial_balance)
+    if not os.path.exists(vecnorm_path):
+        logger.error(f"Missing vecnorm file: {vecnorm_path}")
+        return None
 
-    logger.success(f"{'='*60}")
-    logger.success(f"BACKTEST RESULTS — {symbol}")
-    logger.success(f"{'='*60}")
-    logger.success(f"  Period:       {df.index[0]} → {df.index[-1]}")
-    logger.success(f"  Candles:      {len(df)}")
-    logger.success(f"  Total Return: {total_return:.2%}")
-    logger.success(f"  Sharpe Ratio: {sharpe:.2f}")
-    logger.success(f"  Max Drawdown: {max_dd:.2%}")
-    logger.success(f"  Total Trades: {total_trades}")
-    logger.success(f"  Win Rate:     {win_rate:.2%}")
-    logger.success(f"  Final Value:  ${pf.final_value():.2f}")
-    logger.success(f"{'='*60}")
+    env = VecNormalize.load(vecnorm_path, env)
+    env.training = False
+    env.norm_reward = False
 
-    return {
+    if not os.path.exists(model_path):
+        logger.error(f"Missing model file: {model_path}")
+        return None
+
+    model = PPO.load(model_path, device="cpu")
+
+    obs = env.reset()
+    equities = []
+    costs = []
+    positions = []
+    rewards = []
+    step_rets = []
+
+    steps = 0
+    prev_eq = None
+
+    while True:
+        action, _ = model.predict(obs, deterministic=True)
+        obs, reward, done, info = env.step(action)
+
+        info0 = info[0] if isinstance(info, (list, tuple)) else info
+        eq = float(info0.get("equity", np.nan))
+        cost = float(info0.get("cost", 0.0))
+        pos = float(info0.get("position", 0.0))
+
+        equities.append(eq)
+        costs.append(cost)
+        positions.append(pos)
+        rewards.append(float(reward))
+
+        if prev_eq is not None and prev_eq > 0:
+            step_rets.append((eq - prev_eq) / prev_eq)
+        prev_eq = eq
+
+        steps += 1
+        if max_steps and steps >= max_steps:
+            break
+        if bool(done):
+            break
+
+    equity = np.array(equities, dtype=np.float64)
+    if len(equity) < 3:
+        return None
+
+    rets = np.array(step_rets, dtype=np.float64) if step_rets else np.zeros(1)
+    vol = float(np.std(rets) + 1e-12)
+    sharpe = float(np.mean(rets) / vol) if vol > 0 else 0.0
+
+    peak = np.maximum.accumulate(equity)
+    dd = (peak - equity) / (peak + 1e-12)
+    max_dd = float(np.max(dd))
+
+    total_return = float((equity[-1] / (equity[0] + 1e-12)) - 1.0)
+    avg_cost = float(np.mean(costs)) if costs else 0.0
+
+    # Trade/turnover proxy: how much position changes
+    pos_arr = np.array(positions, dtype=np.float64)
+    turnover = float(np.mean(np.abs(np.diff(pos_arr)))) if len(pos_arr) > 2 else 0.0
+
+    # A promotion score: return - drawdown penalty + small sharpe bonus - turnover penalty
+    score = (total_return * 100.0) - (max_dd * 100.0 * 1.8) + (sharpe * 6.0) - (turnover * 2.0)
+
+    result = {
         "symbol": symbol,
-        "return": total_return,
-        "sharpe": sharpe,
-        "max_dd": max_dd,
-        "trades": total_trades,
-        "win_rate": win_rate,
-        "final_value": pf.final_value()
+        "period": period,
+        "candles": int(len(df)),
+        "total_return": float(total_return),
+        "sharpe": float(sharpe),
+        "max_drawdown": float(max_dd),
+        "avg_cost": float(avg_cost),
+        "turnover": float(turnover),
+        "steps": int(steps),
+        "final_equity": float(equity[-1]),
+        "score": float(score),
     }
 
-if __name__ == "__main__":
-    results = []
-    for sym in ["EURUSD", "GBPUSD", "XAUUSD"]:
-        r = run_backtest(sym)
-        if r:
-            results.append(r)
+    logger.info(f"BACKTEST {symbol} | ret={total_return:.2%} sharpe={sharpe:.2f} "
+                f"maxDD={max_dd:.2%} score={score:.2f} steps={steps}")
+    return result
 
-    if results:
-        logger.success("\n📊 MULTI-PAIR BACKTEST SUMMARY:")
-        for r in results:
-            logger.success(f"  {r['symbol']}: Return={r['return']:.2%} | Sharpe={r['sharpe']:.2f} | MaxDD={r['max_dd']:.2%} | Trades={r['trades']} | WR={r['win_rate']:.0%}")
+
+def run_multi(symbols: list[str], model_dir: str, period: str = "120d") -> dict:
+    model_path = os.path.join(model_dir, "ppo_trading.zip")
+    vec_path = os.path.join(model_dir, "vec_normalize.pkl")
+
+    per_symbol = []
+    for sym in symbols:
+        r = run_ppo_backtest(sym, model_path, vec_path, period=period)
+        if r:
+            per_symbol.append(r)
+
+    if not per_symbol:
+        return {"error": "No valid backtests"}
+
+    # aggregate
+    scores = [x["score"] for x in per_symbol]
+    rets = [x["total_return"] for x in per_symbol]
+    dds = [x["max_drawdown"] for x in per_symbol]
+    sharpes = [x["sharpe"] for x in per_symbol]
+
+    agg = {
+        "symbols": [x["symbol"] for x in per_symbol],
+        "avg_score": float(np.mean(scores)),
+        "avg_return": float(np.mean(rets)),
+        "worst_drawdown": float(np.max(dds)),
+        "avg_sharpe": float(np.mean(sharpes)),
+        "per_symbol": per_symbol,
+    }
+    return agg
+
+
+if __name__ == "__main__":
+    symbols = ["EURUSDm", "GBPUSDm", "XAUUSDm"]
+    # Example usage:
+    # python Python/backtester.py models/registry/candidates/ppo_YYYYMMDD_HHMMSS
+    md = sys.argv[1] if len(sys.argv) > 1 else os.path.join("models", "registry", "champion")
+    report = run_multi(symbols, md, period="120d")
+    print(json.dumps(report, indent=2))

@@ -21,7 +21,7 @@
         },
         {
             "parameters": {
-                "jsCode": "return ['EURUSD', 'GBPUSD', 'XAUUSD'].map(s => ({json: {symbol: s}}));"
+                "jsCode": "return ['EURUSDm', 'GBPUSDm', 'XAUUSDm'].map(s => ({json: {symbol: s}}));"
             },
             "name": "Symbol List",
             "type": "n8n-nodes-base.code",
@@ -43,7 +43,7 @@
         },
         {
             "parameters": {
-                "jsCode": "const raw = items[0].json.stdout || '{}';\ntry {\n  const parsed = JSON.parse(raw);\n  parsed.symbol = items[0].json.symbol || 'EURUSD';\n  return [{json: parsed}];\n} catch(e) {\n  return [{json: {error: 'parse_fail', raw: raw, action: 'ERROR', confidence: 0}}];\n}"
+                "jsCode": "const raw = items[0].json.stdout || '{}';\ntry {\n  const parsed = JSON.parse(raw);\n  parsed.symbol = items[0].json.symbol || 'EURUSDm';\n  return [{json: parsed}];\n} catch(e) {\n  return [{json: {error: 'parse_fail', raw: raw, action: 'ERROR', confidence: 0}}];\n}"
             },
             "name": "Parse Response",
             "type": "n8n-nodes-base.code",

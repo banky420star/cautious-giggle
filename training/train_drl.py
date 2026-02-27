@@ -8,10 +8,10 @@ import numpy as np
 import torch
 import yaml
 from loguru import logger
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
-from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnRewardThreshold
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, VecMonitor
+from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.utils import set_random_seed
 from drl.trading_env import TradingEnv
 from Python.data_feed import fetch_training_data
@@ -25,8 +25,15 @@ logger.add("/tmp/logs/ppo_training.log", rotation="10 MB", level="INFO")
 def make_env(df, seed: int = 0):
     def _init():
         set_random_seed(seed)
-        return TradingEnv(df, initial_balance=10000.0)
+        env = TradingEnv(df, initial_balance=10000.0)
+        env = Monitor(env)
+        return env
     return _init
+
+def linear_schedule(initial_value: float):
+    def func(progress_remaining: float) -> float:
+        return progress_remaining * initial_value
+    return func
 
 def train_drl():
     with open("config.yaml") as f:
@@ -48,11 +55,10 @@ def train_drl():
         
     df = all_dfs[0]
     
-    # Curriculum: Easy phase mapping
-    vols = pd.Series(df["close"].to_numpy()).pct_change().rolling(20).std().to_numpy()
-    easy_threshold = np.nanquantile(vols, 0.4) if not np.isnan(vols).all() else 1.0
-    easy_mask = vols < easy_threshold
-    easy_mask = np.nan_to_num(easy_mask, nan=True).astype(bool)
+    # Curriculum: Easy phase mapping (safely handling NaNs)
+    vols = pd.Series(df["close"].to_numpy()).pct_change().rolling(20).std()
+    easy_threshold = np.nanquantile(vols.to_numpy(), 0.4) if not np.isnan(vols).all() else 1.0
+    easy_mask = (vols < easy_threshold).fillna(False).to_numpy()
     
     train_df_easy = df.filter(pl.Series(easy_mask))
     if len(train_df_easy) < 300:
@@ -63,8 +69,18 @@ def train_drl():
     
     # ── Stage 1: Easy curriculum ──────────────────────────────────
     env = DummyVecEnv([make_env(train_df_easy, i) for i in range(n_envs)])
+    env = VecMonitor(env)
     env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
     
+    eval_env = DummyVecEnv([make_env(train_df_full, 99)])
+    eval_env = VecMonitor(eval_env)
+    eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
+    
+    # Critical: Lock eval Normalization to training Normalization stats
+    eval_env.obs_rms = env.obs_rms
+    eval_env.training = False
+    eval_env.norm_reward = False
+
     # Hybrid LSTM-PPO policy
     policy_kwargs = dict(
         features_extractor_class=LSTMFeatureExtractor,
@@ -77,7 +93,7 @@ def train_drl():
         "MlpPolicy",
         env,
         policy_kwargs=policy_kwargs,
-        learning_rate=3e-4,
+        learning_rate=linear_schedule(3e-4),
         n_steps=2048,
         batch_size=128,
         n_epochs=10,
@@ -90,33 +106,20 @@ def train_drl():
         use_sde=True,
         sde_sample_freq=4,
         tensorboard_log="/tmp/logs/drl_joint/",
-        device="mps" if torch.backends.mps.is_available() else "cpu",
+        device='cuda' if torch.cuda.is_available() else ('mps' if getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available() else 'cpu'),
         verbose=1,
     )
     
-    # Simple learning rate scheduler instead of breaking the param groups
-    # This ensures the model saves and loads perfectly across different SB3 versions
-    def linear_schedule(initial_value: float):
-        def func(progress_remaining: float) -> float:
-            return progress_remaining * initial_value
-        return func
-        
-    model.learning_rate = linear_schedule(3e-4)
-    
-    # Eval callback (higher reward threshold to avoid premature stopping)
-    eval_env = DummyVecEnv([make_env(train_df_full, 99)])
-    eval_env = VecNormalize(eval_env, training=False, norm_obs=True, norm_reward=False)
-    
+    # Eval callback 
     eval_callback = EvalCallback(
         eval_env,
-        best_model_save_path="./models/",
+        best_model_save_path="./models/best_eval_models/",
         log_path="/tmp/logs/",
         eval_freq=10_000,
         deterministic=True,
         render=False,
     )
     
-    # Gradient flow analyzer (proper SB3 BaseCallback)
     grad_callback = LSTMGradientDiagnostics()
     
     # ── Train Stage 1 ──
@@ -129,9 +132,15 @@ def train_drl():
     
     # ── Train Stage 2 ──
     logger.info("Stage 2: Full history training (Joint Learning)")
-    env = DummyVecEnv([make_env(train_df_full, i) for i in range(n_envs)])
-    env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
+    base_env2 = DummyVecEnv([make_env(train_df_full, i) for i in range(n_envs)])
+    base_env2 = VecMonitor(base_env2)
+    
+    # Re-use the SAME VecNormalize instance so RMS stats track continuously
+    env.venv = base_env2
     model.set_env(env)
+    
+    # Re-align Eval RMS tracking
+    eval_env.obs_rms = env.obs_rms
     
     model.learn(
         total_timesteps=total_timesteps,
@@ -139,10 +148,42 @@ def train_drl():
         progress_bar=True
     )
     
-    # Save
-    model.save("models/ppo_trading.zip")
-    env.save("models/vec_normalize.pkl")
-    logger.success("✅ Joint LSTM-PPO training complete! Model & normalizer saved.")
+    # Save into registry as candidate
+    logger.info("Building new PPO candidate via ModelRegistry...")
+    try:
+        from Python.model_registry import ModelRegistry
+        registry = ModelRegistry()
+        
+        import datetime, json
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        candidate_path = os.path.join(registry.candidates_dir, timestamp)
+        os.makedirs(candidate_path, exist_ok=True)
+        
+        # Save SB3 Model and Normalizer to Candidate Path
+        model_path = os.path.join(candidate_path, "ppo_trading.zip")
+        vec_path = os.path.join(candidate_path, "vec_normalize.pkl")
+        
+        # NOTE: We currently save the LATEST model at the end of training, not the best eval!
+        model.save(model_path)
+        env.save(vec_path)
+        
+        # Stage Metadata
+        metrics = {
+            "type": "ppo",
+            "symbols": symbols,
+            "timesteps": total_timesteps,
+            "loss": 0.0, 
+            "win_rate": 0.0, 
+            "date": datetime.datetime.now().isoformat()
+        }
+        
+        with open(os.path.join(candidate_path, "scorecard.json"), "w") as f:
+            json.dump(metrics, f, indent=4)
+            
+        logger.success(f"✅ Joint LSTM-PPO Candidate saved to: {candidate_path}")
+        
+    except Exception as e:
+        logger.error(f"Failed to register PPO candidate model: {e}")
 
 if __name__ == "__main__":
     train_drl()

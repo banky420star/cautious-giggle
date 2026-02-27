@@ -1,5 +1,5 @@
 trading:
-  symbols: ["EURUSD", "GBPUSD", "XAUUSD"]
+  symbols: ["EURUSDm", "GBPUSDm", "XAUUSDm"]
   timeframe: "M5"
   risk_percent: 1.0
   max_drawdown: 10.0

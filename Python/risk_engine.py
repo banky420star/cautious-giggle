@@ -34,6 +34,7 @@ class RiskEngine:
         
         self.start_of_day_balance = 0.0
         self.consecutive_loss_count = 0
+        self.realized_pnl_today = 0.0
         self.last_trade_date = None
 
         logger.success(
@@ -41,9 +42,28 @@ class RiskEngine:
             f"Max {self.max_concurrent_positions} concurrent | max DD {self.max_dd}%"
         )
 
+    def record_closed_trade(self, pnl: float):
+        """Call this when a trade closes (from MT5 deals poller)."""
+        today = date.today()
+        if self.last_trade_date != today:
+            # reset day
+            self.daily_trades = 0
+            self.start_of_day_balance = self.start_of_day_balance or 0.0
+            self.consecutive_loss_count = 0
+            self.realized_pnl_today = 0.0
+            self.last_trade_date = today
+
+        self.realized_pnl_today += float(pnl)
+
+        if pnl < 0:
+            self.consecutive_loss_count += 1
+        else:
+            self.consecutive_loss_count = 0
+
     # ── Core gate ────────────────────────────────────────────────────
     def can_trade(self, balance: float, signal: str, price: float,
-                  confidence: float = 1.0, current_open_positions: int = 0) -> bool:
+                  confidence: float = 1.0, current_open_positions: int = 0,
+                  realized_pnl: float = 0.0) -> bool:
         """Return True if the trade passes all risk checks."""
         # Date tracker for daily resets
         today = date.today()
@@ -51,16 +71,17 @@ class RiskEngine:
             self.daily_trades = 0
             self.start_of_day_balance = balance
             self.consecutive_loss_count = 0
+            self.realized_pnl_today = 0.0
             self.last_trade_date = today
 
         # 1. Never trade HOLD/LOW VOLATILITY signals
         if signal in ["HOLD", "LOW_VOLATILITY"]:
             return False
 
-        # 2. Daily Loss Kill Switch (HARD STOP)
-        today_pnl = balance - self.start_of_day_balance
-        if today_pnl <= -self.daily_max_loss_dollars:
-            logger.error(f"💀 RISK KILL SWITCH TRIGGERED: Daily loss ${abs(today_pnl):.2f} exceeds ${self.daily_max_loss_dollars}. Trading halted until tomorrow.")
+        # 2. Daily Loss Kill Switch (HARD STOP via Native MT5 Ledger)
+        # Instead of guessing PnL from memory, we now enforce limits strictly against the broker's realized PnL.
+        if realized_pnl <= -self.daily_max_loss_dollars:
+            logger.error(f"💀 RISK KILL SWITCH TRIGGERED: Daily loss ${abs(realized_pnl):.2f} exceeds ${self.daily_max_loss_dollars}. Trading halted until tomorrow.")
             return False
 
         # 3. Consecutive Loss Cooldown
