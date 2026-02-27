@@ -1,6 +1,15 @@
-# cautious-giggle — Production AGI Trading Hedge Fund (2026)
+# cautious-giggle — Autonomous AGI Trading Hedge Fund (2026)
 
-**Full autonomous self-learning MT5 trading system**
+**Full autonomous Observe → Learn → Validate → Deploy → Trade loop**
+
+## 🤖 The Self-Evolving Loop
+This system is designed for total autonomy on a Windows VPS + MetaTrader 5:
+1. **Observe**: Fetches high-fidelity OHLCV data via MT5 or Yahoo Finance (with Volume Proxy).
+2. **Learn**: Nightly training cycles refine PPO and LSTM models on combined multi-asset datasets.
+3. **Validate**: The `AutonomyLoop` backtests candidates. Winning candidates are staged as **Canary**.
+4. **Deploy**: The `HybridBrain` hot-swaps active models in real-time.
+5. **Trade**: Market execution via MT5 with spread-aware deadzones and risk guardrails.
+6. **Monitor**: Real-time PnL polling rollback canaries if they misbehave.
 
 ## Architecture
 
@@ -12,69 +21,56 @@
 └──────────────┘                   └──────┬───────┘
                                           │ socket :9090
                                    ┌──────▼───────┐
-                                   │  Server_AGI  │
-                                   │   .py        │
-                                   └──┬───┬───┬───┘
-                                      │   │   │
-                          ┌───────────┘   │   └───────────┐
-                          ▼               ▼               ▼
-                   ┌────────────┐  ┌────────────┐  ┌────────────┐
-                   │  agi_brain │  │ risk_engine│  │  telegram  │
-                   │  (LSTM)    │  │ (sizing,   │  │  _alerts   │
-                   │  PyTorch   │  │  DD, SL/TP)│  │            │
+                                   │  Server_AGI  │ ◄───┐
+                                   │   .py        │     │ Monitoring
+                                   └──┬───┬───┬───┘     │
+                                      │   │   │         │
+                          ┌───────────┘   │   └───── AutonomyLoop
+                          ▼               ▼               │
+                   ┌────────────┐  ┌────────────┐  ┌──────▼─────┐
+                   │HybridBrain │  │ risk_engine│  │ModelRegistry│
+                   │ (PPO+LSTM) │  │(KillSwitch)│  │ (Promotion) │
                    └──────┬─────┘  └────────────┘  └────────────┘
                           │
                    ┌──────▼─────┐
                    │  data_feed │
-                   │  (Yahoo    │
-                   │   Finance) │
+                   │ (MT5 / YF) │
                    └────────────┘
 ```
 
-## Components
+## Key Components
 
 | File | Purpose |
 |------|---------|
-| `Python/Server_AGI.py` | Socket server — receives commands, runs predictions, enforces risk |
-| `Python/agi_brain.py` | LSTM neural network (3-layer, MPS accelerated) |
-| `Python/agi_n8n_bridge.py` | CLI bridge between n8n and the AGI server |
-| `Python/data_feed.py` | Real-time data from Yahoo Finance with caching |
-| `Python/risk_engine.py` | Position sizing, drawdown limits, SL/TP, daily caps |
-| `Python/backtester.py` | VectorBT backtester on real historical data |
-| `drl/trading_env.py` | Gymnasium environment for DRL training |
-| `drl/ppo_agent.py` | PPO self-learning agent (Stable-Baselines3) |
-| `training/train_lstm.py` | LSTM training on multi-symbol real data |
-| `training/train_drl.py` | DRL PPO training on real market data |
-| `alerts/telegram_alerts.py` | Telegram notifications via HTTP API |
-| `n8n-workflow/mt5-autonomous.json` | n8n workflow (import into n8n UI) |
-| `config.yaml` | Central configuration (symbols, risk, Telegram) |
+| `Python/Server_AGI.py` | Main Engine — Concurrent Autonomy, Risk Polling, and Socket Server |
+| `Python/hybrid_brain.py` | RL Executor — PPO-first policy with deadzones and Canary risk scaling |
+| `Python/autonomy_loop.py` | Orchestrator — Manages the Train -> Evaluate -> Promote lifecycle |
+| `Python/model_registry.py` | Ledger — Manages Champion/Canary versioning and hot-swaps |
+| `Python/data_feed.py` | High-fidelity data handler with FX volume proxies and MT5 integration |
+| `training/train_drl.py` | DRL Trainer — Joint PPO+LSTM training with curriculum learning |
 
-## Quick Docker start (recommended)
+## Quick Start (VPS Deployment)
 
-```bash
-git clone https://github.com/banky420star/cautious-giggle.git
-cd cautious-giggle
-docker compose up --build
-```
+1. **Setup Env Vars**:
+   ```powershell
+   $env:AGI_TOKEN="your_secure_token"
+   $env:AGI_AUTONOMY_AUTO_CANARY="true"
+   $env:AGI_PNL_POLL="true"
+   ```
 
-This launches:
-- **AGI Server** on port `9090`
-- **n8n** on port `5678` (open http://localhost:5678)
-- **Redis** on port `6379`
+2. **Boot the Server**:
+   ```powershell
+   python -m Python.Server_AGI --live
+   ```
 
-## Training
+3. **Monitor Autonomy**:
+   Check `logs/ppo_training.log` or the Console for Model Promotion signals.
 
-```bash
-# Train LSTM brain (all symbols)
-python training/train_lstm.py
+## Risk Management (Vitals)
 
-# Train DRL PPO agent
-python training/train_drl.py
+- **Canary Mode**: New models trade with 25% risk (configurable via `CANARY_LOT_MULT`).
+- **Kill Switch**: Realized PnL polling from MT5 triggers instant halts if daily loss limits are hit.
+- **Cooldowns**: Enforced 45s cooldowns prevent position flip-flopping due to noise.
 
-# Run backtester
-python Python/backtester.py
-```
-
-Full manual setup → `SETUP.md`
-
+---
 **Risk warning:** For simulation/education only. Trade at your own risk.

@@ -4,6 +4,12 @@ import numpy as np
 from loguru import logger
 from datetime import datetime
 
+# Optional MT5 support
+try:
+    import MetaTrader5 as mt5
+except ImportError:
+    mt5 = None
+
 # Yahoo Finance ticker mapping for forex/commodities
 SYMBOL_MAP = {
     "EURUSD": "EURUSD=X",
@@ -134,9 +140,64 @@ def fetch_training_data(symbol: str = "EURUSD", period: str = "60d") -> pd.DataF
         logger.error(f"Training data fetch failed for {symbol}: {e}")
         return pd.DataFrame()
 
+def fetch_ohlc_history(symbol: str, timeframe: str = "1h", count: int = 500) -> pd.DataFrame:
+    """
+    Fetches OHLC history from MT5 if available and initialized, otherwise falls back to yfinance.
+    Priority: MT5 (live broker truth) > yfinance (public fallback).
+    """
+    if mt5 is not None and mt5.initialize():
+        try:
+            mt5_tf_map = {
+                "1m": mt5.TIMEFRAME_M1, "5m": mt5.TIMEFRAME_M5, "15m": mt5.TIMEFRAME_M15,
+                "30m": mt5.TIMEFRAME_M30, "1h": mt5.TIMEFRAME_H1, "4h": mt5.TIMEFRAME_H4,
+                "1d": mt5.TIMEFRAME_D1
+            }
+            tf = mt5_tf_map.get(timeframe, mt5.TIMEFRAME_H1)
+            
+            # Fetch from MT5
+            rates = mt5.copy_rates_from_pos(symbol, tf, 0, count)
+            if rates is not None and len(rates) > 0:
+                df = pd.DataFrame(rates)
+                df['time'] = pd.to_datetime(df['time'], unit='s')
+                df.set_index('time', inplace=True)
+                df = df.rename(columns={
+                    "real_volume": "volume", "tick_volume": "volume_tick"
+                })
+                # Use tick volume as proxy if real volume is 0
+                if 'volume' in df.columns and (df['volume'] == 0).all():
+                    df['volume'] = df['volume_tick']
+                
+                logger.info(f"{symbol}: Fetched {len(df)} candles from MT5 history.")
+                return _standardize(df, symbol)
+        except Exception as e:
+            logger.warning(f"MT5 history fetch failed for {symbol}: {e}. Falling back to yfinance.")
+
+    # Fallback to yfinance
+    pd_period_map = {"1h": "60d", "1d": "2y", "5m": "5d"}
+    period = pd_period_map.get(timeframe, "60d")
+    return fetch_training_data(symbol, period=period)
+
+def get_combined_training_df(symbols: list[str], period: str = "60d") -> pd.DataFrame:
+    """
+    Fetches training data for multiple symbols and concatenates them.
+    Useful for training one policy on multiple market regimes.
+    """
+    all_dfs = []
+    for sym in symbols:
+        df_pd = fetch_training_data(sym, period=period)
+        if not df_pd.empty and len(df_pd) > 200:
+            all_dfs.append(df_pd)
+    
+    if not all_dfs:
+        return pd.DataFrame()
+    
+    # Simple stack
+    return pd.concat(all_dfs, axis=0).sort_index()
+
 if __name__ == "__main__":
-    for sym in ["EURUSDm", "GBPUSDm", "XAUUSDm"]:
+    for sym in ["EURUSD", "GBPUSD", "XAUUSD"]:
         df = fetch_realtime(sym)
         print(f"\n{sym}: {len(df)} candles")
-        print(df.tail(3))
+        if not df.empty:
+            print(df.tail(3))
         print("---")

@@ -15,7 +15,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, VecMonit
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.utils import set_random_seed
 from drl.trading_env import TradingEnv
-from Python.data_feed import fetch_training_data
+from Python.data_feed import fetch_training_data, get_combined_training_df
 from drl.lstm_feature_extractor import LSTMFeatureExtractor
 from analysis.gradient_flow_analyzer import LSTMGradientDiagnostics
 
@@ -68,17 +68,12 @@ def train_drl():
     
     logger.info(f"DRL Training (Joint LSTM-PPO 2026) — symbols: {symbols} | timesteps: {total_timesteps:,}")
 
-    all_dfs = []
-    for sym in symbols:
-        df_pd = fetch_training_data(sym, period="60d")
-        if not df_pd.empty and len(df_pd) > 200:
-            all_dfs.append(pl.from_pandas(df_pd))
-            
-    if not all_dfs:
+    df_pd = get_combined_training_df(symbols, period="60d")
+    if df_pd.empty:
         logger.error("No valid training data found.")
         return
         
-    df = all_dfs[0]
+    df = pl.from_pandas(df_pd)
     
     # Curriculum: Easy phase mapping (safely handling NaNs)
     vols = pd.Series(df["close"].to_numpy()).pct_change().rolling(20).std()
