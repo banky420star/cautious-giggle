@@ -81,8 +81,8 @@ class AutonomyLoop:
             logger.warning(f"Autonomy: evaluator error: {report['error']}")
             return
 
-        logger.info(f"Evaluator: candidate score={report['candidate']['score']:.3f} "
-                    f"dd={report['candidate']['max_drawdown']:.3f} ret={report['candidate']['total_return']:.3f} "
+        logger.info(f"Evaluator: candidate score={report['candidate']['avg_score']:.3f} "
+                    f"dd={report['candidate']['worst_drawdown']:.3f} ret={report['candidate']['avg_return']:.3f} "
                     f"wins={report['wins']} passes={report['passes_thresholds']}")
 
         if self.enable_auto_canary and report["wins"] and report["passes_thresholds"]:
