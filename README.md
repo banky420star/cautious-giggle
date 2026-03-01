@@ -63,7 +63,15 @@ This system is designed for total autonomy on a Windows VPS + MetaTrader 5:
    python -m Python.Server_AGI --live
    ```
 
-3. **Monitor Autonomy**:
+3. **Start the n8n Orchestrator**:
+   By default n8n blocks terminal commands. You MUST unlock it on Windows VPS. Open a second PowerShell:
+   ```powershell
+   npm install -g n8n
+   $env:NODES_EXCLUDE="[]"
+   n8n start
+   ```
+
+4. **Monitor Autonomy**:
    Check `logs/ppo_training.log` or the Console for Model Promotion signals.
 
 ## Risk Management (Vitals)

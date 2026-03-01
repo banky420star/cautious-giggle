@@ -63,10 +63,22 @@ python Python/Server_AGI.py
 Server listens on `127.0.0.1:9090`.
 
 ### 5. Start n8n
-```bash
+The `Execute Command` node is disabled by default in n8n for security. You must allow it to run Python scripts natively.
+
+**Windows (PowerShell):**
+```powershell
 npm install -g n8n
+$env:NODES_EXCLUDE="[]"
 n8n start
 ```
+
+**Mac / Linux:**
+```bash
+npm install -g n8n
+export NODES_EXCLUDE="[]"
+n8n start
+```
+
 Open http://localhost:5678 → import `n8n-workflow/mt5-autonomous.json` → activate.
 
 ### 6. Backtest (optional)
