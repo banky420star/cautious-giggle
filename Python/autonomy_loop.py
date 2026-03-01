@@ -26,6 +26,7 @@ class AutonomyLoop:
         # Internal canary tracking
         self._canary_start_trade_count = None
         self._canary_set_time = None
+        self._last_evaluated_candidate = None
 
     def _latest_candidate_dir(self):
         root = self.registry.candidates_dir
@@ -110,14 +111,18 @@ class AutonomyLoop:
         realized = 0.0
         try:
             import MetaTrader5 as mt5
+            import pytz
             if mt5 is not None and mt5.initialize():
-                now = datetime.datetime.now()
-                midnight = datetime.datetime(now.year, now.month, now.day)
-                deals = mt5.history_deals_get(midnight, now)
+                # MT5 History needs proper timestamps; if not provided timezone-aware, it assumes UTC
+                tz = pytz.timezone("Etc/UTC")
+                now_utc = datetime.datetime.now(tz)
+                # Check realized PnL over the last 7 days as a proxy for the canary's lifetime
+                lookback = now_utc - datetime.timedelta(days=7)
+                deals = mt5.history_deals_get(lookback, now_utc)
                 if deals:
                     realized = sum(deal.profit for deal in deals if deal.entry == mt5.DEAL_ENTRY_OUT)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Autonomy MT5 PnL check failed: {e}")
 
         dd = float(self.brain.risk_engine.current_dd) / 100.0
 
@@ -168,15 +173,12 @@ class AutonomyLoop:
 
                 # Search exactly once an hour for new candidates and evaluate them
                 candidate = self._latest_candidate_dir()
-                if candidate:
-                    # Verify if it's new by checking if we have a canary loaded?
-                    # Instead of gating purely on 'not having a canary', evaluate any new candidate generated
-                    # and if it kicks the current champion, stage it over the existing system!
+                if candidate and candidate != self._last_evaluated_candidate:
                     curr_canary = self._get_canary_dir()
-                    curr_champ = self._get_champion_dir()
                     
-                    # Logic: Promote candidate only if we aren't already testing one 
-                    # OR if candidate is fresher than the canary.
+                    # Store as evaluated to prevent infinite rejection evaluation loops
+                    self._last_evaluated_candidate = candidate
+                    
                     if not curr_canary:
                         self._maybe_set_canary(candidate)
 

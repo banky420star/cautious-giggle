@@ -110,24 +110,17 @@ def train_drl():
     
     df = pl.from_pandas(df_pd)
     
-    # Curriculum: Easy phase mapping (safely handling NaNs)
-    vols = pd.Series(df["close"].to_numpy()).pct_change().rolling(20).std()
-    easy_threshold = np.nanquantile(vols.to_numpy(), 0.4) if not np.isnan(vols).all() else 1.0
-    easy_mask = (vols < easy_threshold).fillna(False).to_numpy()
-    
-    train_df_easy = df.filter(pl.Series(easy_mask))
-    if len(train_df_easy) < 300:
-        train_df_easy = df
-        
-    train_df_full = df
+    # We remove the disjoint "easy mask" logic because it shreds time-series continuity
+    # and causes exactly 12-step truncation episodes! We train on the full continuous series.
     n_envs = 4
     
-    # ── Stage 1: Easy curriculum ──────────────────────────────────
-    env = DummyVecEnv([make_env(train_df_easy, i) for i in range(n_envs)])
+    # ── Stage 1: Continuous Full Training ──
+    env = DummyVecEnv([make_env(df, i) for i in range(n_envs)])
     env = VecMonitor(env)
     env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
     
-    eval_env = DummyVecEnv([make_env(train_df_full, 99)])
+    # Eval must use the exact same logic but without reward normalization
+    eval_env = DummyVecEnv([make_env(df, 99)])
     eval_env = VecMonitor(eval_env)
     eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
     
@@ -148,16 +141,17 @@ def train_drl():
         "MlpPolicy",
         env,
         policy_kwargs=policy_kwargs,
-        learning_rate=linear_schedule(3e-4),
-        n_steps=2048,
-        batch_size=128,
+        learning_rate=linear_schedule(1e-4), # Lowered 3x for stability
+        n_steps=4096,                        # Increased steps per rollout
+        batch_size=512,                      # Larger batch for smoother gradients
         n_epochs=10,
-        gamma=0.99,
+        gamma=0.995,                         # Longer horizon discounting
         gae_lambda=0.95,
         clip_range=0.2,
         ent_coef=0.005,
         vf_coef=0.5,
         max_grad_norm=0.5,
+        target_kl=0.01,                      # ADDED target_kl to prevent policy collapse
         use_sde=True,
         sde_sample_freq=4,
         tensorboard_log=os.path.join(LOG_DIR, "drl_joint"),
@@ -183,26 +177,8 @@ def train_drl():
     
     grad_callback = LSTMGradientDiagnostics()
     
-    # ── Train Stage 1 ──
-    logger.info("Stage 1: Curriculum training (Low Volatility Segments)")
-    model.learn(
-        total_timesteps=total_timesteps // 3,
-        callback=[eval_callback, grad_callback],
-        progress_bar=True
-    )
-    
-    # ── Train Stage 2 ──
-    logger.info("Stage 2: Full history training (Joint Learning)")
-    base_env2 = DummyVecEnv([make_env(train_df_full, i) for i in range(n_envs)])
-    base_env2 = VecMonitor(base_env2)
-    
-    # Re-use the SAME VecNormalize instance so RMS stats track continuously
-    env.venv = base_env2
-    model.set_env(env)
-    
-    # Re-align Eval RMS tracking
-    eval_env.obs_rms = env.obs_rms
-    
+    # ── Train ──
+    logger.info("Starting Stable Training Protocol (Single Stage)")
     model.learn(
         total_timesteps=total_timesteps,
         callback=[eval_callback, grad_callback],
