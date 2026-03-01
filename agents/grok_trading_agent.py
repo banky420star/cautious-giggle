@@ -40,7 +40,7 @@ Only output Python code blocks or direct numerical suggestions. Respect the Risk
 
     def _get_latest_gradient_data(self) -> str:
         try:
-            grad_file = "/tmp/logs/ppo_training.log"
+            grad_file = "logs/ppo_training.log"
             if not os.path.exists(grad_file):
                 return "Gradient Flow logs not found."
             with open(grad_file, "r") as f:
