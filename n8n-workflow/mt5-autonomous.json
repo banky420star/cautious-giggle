@@ -32,7 +32,7 @@
         },
         {
             "parameters": {
-                "command": "=cd /app && python Python/agi_n8n_bridge.py ANALYZE {{ $json.symbol }}"
+                "command": "=C:\\Users\\Administrator\\Desktop\\cautious-giggle\\.venv\\Scripts\\python.exe C:\\Users\\Administrator\\Desktop\\cautious-giggle\\Python\\agi_n8n_bridge.py ANALYZE {{ $json.symbol }}"
             },
             "name": "AGI Analyze",
             "type": "n8n-nodes-base.executeCommand",
@@ -85,7 +85,7 @@
         },
         {
             "parameters": {
-                "command": "=cd /app && python Python/agi_n8n_bridge.py TRADE {{ $json.symbol }}"
+                "command": "=C:\\Users\\Administrator\\Desktop\\cautious-giggle\\.venv\\Scripts\\python.exe C:\\Users\\Administrator\\Desktop\\cautious-giggle\\Python\\agi_n8n_bridge.py TRADE {{ $json.symbol }}"
             },
             "name": "Execute Trade",
             "type": "n8n-nodes-base.executeCommand",
