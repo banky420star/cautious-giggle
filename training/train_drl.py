@@ -106,6 +106,12 @@ def train_drl():
     df_pd = df_pd.loc[~df_pd.index.duplicated(keep="last")].sort_index()
     # Resetting index to drop the non-unique timestamp column from polars conversion
     df_pd = df_pd.reset_index(drop=True)
+    
+    # ── NaN Defense ──
+    if df_pd.isna().any().any():
+        logger.warning("⚠️ NaNs detected in historical data. Cleaning via ffill/bfill.")
+        df_pd = df_pd.ffill().bfill()
+        assert not df_pd.isna().any().any(), "❌ CRITICAL: Failed to clean all NaNs in training data"
     # ---------------------------------------------------------------
     
     df = pl.from_pandas(df_pd)

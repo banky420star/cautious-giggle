@@ -43,12 +43,12 @@ class AutonomyLoop:
         return dirs[0] if dirs else None
 
     def _get_champion_dir(self):
-        active_dir = self.registry.load_active_model(prefer_canary=False)
-        return active_dir if active_dir and 'champion' in active_dir else None
+        active = self.registry._read_active()
+        return active.get("champion")
 
     def _get_canary_dir(self):
-        active_dir = self.registry.load_active_model(prefer_canary=True)
-        return active_dir if active_dir and 'canary' in active_dir else None
+        active = self.registry._read_active()
+        return active.get("canary")
 
     async def _train_candidate(self):
         logger.info("🌙 Autonomy: Nightly training candidate (train_drl.py)...")

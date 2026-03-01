@@ -157,6 +157,11 @@ class HybridBrain:
         env.norm_reward = False
 
         obs = env.reset()
+        
+        if np.isnan(obs).any():
+            logger.error("🛑 CRITICAL: NaNs detected in observation vector. Rejecting inference.")
+            return 0.0
+            
         action, _ = self.ppo_model.predict(obs, deterministic=True)
 
         try:

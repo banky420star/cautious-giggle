@@ -18,6 +18,15 @@ MAX_LINE_BYTES = int(os.environ.get("AGI_MAX_LINE_BYTES", str(1024 * 1024)))  # 
 
 # Live toggle
 IS_LIVE = "--live" in sys.argv
+
+if IS_LIVE and not AGI_TOKEN:
+    logger.error("🔥 CRITICAL ENFORCEMENT: Live mode refused without AGI_TOKEN. Shutting down.")
+    sys.exit(1)
+
+if not AGI_TOKEN and HOST == "0.0.0.0":
+    logger.warning("No AGI_TOKEN provided. Forcing local binding (127.0.0.1) for safety.")
+    HOST = "127.0.0.1"
+
 brain = HybridBrain(paper_mode=not IS_LIVE)
 
 # MT5 optional
