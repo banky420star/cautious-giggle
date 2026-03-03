@@ -56,9 +56,14 @@ try:
     with open('config.yaml') as f:
         cfg = yaml.safe_load(f)
     trading = cfg.get('trading', {})
+    risk = cfg.get('risk', {})
     if not trading:
         print('Missing trading config')
         sys.exit(1)
+    for k in ['max_daily_loss','max_daily_trades','max_lots']:
+        if k not in risk:
+            print(f'Missing risk config key: {k}')
+            sys.exit(1)
 except Exception as e:
     print(f'Config error: {e}')
     sys.exit(1)

@@ -1,6 +1,4 @@
 import yaml
-from datetime import datetime
-
 class RiskEngine:
     def __init__(self):
         with open("config.yaml", "r") as f:
@@ -14,17 +12,22 @@ class RiskEngine:
         self.daily_trades = 0
         self.halt = False
         self.error_count = 0
+        self.current_dd = 0.0
 
     def reset_daily(self):
         self.realized_pnl_today = 0.0
         self.daily_trades = 0
         self.error_count = 0
+        self.current_dd = 0.0
 
     def record_trade(self):
         self.daily_trades += 1
 
     def record_pnl(self, pnl):
         self.realized_pnl_today += pnl
+        # simple daily drawdown proxy as percent of max_daily_loss budget
+        budget = max(abs(float(self.max_daily_loss)), 1e-9)
+        self.current_dd = max(0.0, min(100.0, abs(min(0.0, self.realized_pnl_today)) / budget * 100.0))
         if self.realized_pnl_today <= -abs(self.max_daily_loss):
             self.halt = True
 

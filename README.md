@@ -74,6 +74,28 @@ This system is designed for total autonomy on a Windows VPS + MetaTrader 5:
 4. **Monitor Autonomy**:
    Check `logs/ppo_training.log` or the Console for Model Promotion signals.
 
+
+## Live Command API (n8n/CLI)
+The socket server on `AGI_HOST:AGI_PORT` accepts one-line JSON requests:
+- `health`
+- `risk_status`
+- `predict`
+- `trade`
+
+`predict` runs the full hybrid decision cycle **without execution**, while `trade` runs decision + MT5 execution:
+1. Pull latest MT5 bars
+2. Classify volatility with LSTM (`LOW/MED/HIGH_VOLATILITY`)
+3. Generate continuous exposure with PPO
+4. Apply dynamic lot multiplier + SL/TP points
+5. Reconcile exposure in MT5 using market or optional pending limit orders
+
+Control execution via env vars:
+- `AGI_USE_LIMIT_ORDERS=true|false`
+- `AGI_LIMIT_OFFSET_POINTS=30`
+- `AGI_PPO_DEADZONE=0.08`
+- `AGI_AUTO_DYNAMIC_ENTRY=true|false`
+- `AGI_SOCKET_RETRIES=3` (for `agi_n8n_bridge.py`)
+
 ## Risk Management (Vitals)
 
 - **Canary Mode**: New models trade with 25% risk (configurable via `CANARY_LOT_MULT`).
@@ -82,3 +104,6 @@ This system is designed for total autonomy on a Windows VPS + MetaTrader 5:
 
 ---
 **Risk warning:** For simulation/education only. Trade at your own risk.
+
+
+**Production note:** run at least 2–4 weeks demo forward validation before live capital; see `PRODUCTION_READINESS.md`.
