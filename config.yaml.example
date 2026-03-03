@@ -6,6 +6,11 @@ trading:
   confidence_threshold: 0.85
   magic_number: 505
 
+risk:
+  max_daily_loss: 100.0
+  max_daily_trades: 20
+  max_lots: 1.0
+
 telegram:
   token: "YOUR_BOT_TOKEN_HERE"
   chat_id: "YOUR_CHAT_ID_HERE"
@@ -13,3 +18,14 @@ telegram:
 drl:
   total_timesteps: 500000
   model_path: "models/ppo_trading.zip"
+  eval_period: "120d"
+
+execution:
+  use_limit_orders: false
+  limit_offset_points: 30
+  ppo_deadzone: 0.08
+  auto_dynamic_entry: true
+
+autonomy:
+  train_lstm: true
+  train_ppo: true

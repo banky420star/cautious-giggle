@@ -51,8 +51,17 @@ class AutonomyLoop:
         return active.get("canary")
 
     async def _train_candidate(self):
-        logger.info("🌙 Autonomy: Nightly training candidate (train_drl.py)...")
-        subprocess.check_call([sys.executable, "training/train_drl.py"])
+        logger.info("🌙 Autonomy: Nightly training candidate(s)...")
+        train_lstm = os.environ.get("AGI_AUTONOMY_TRAIN_LSTM", "true").lower() == "true"
+        train_ppo = os.environ.get("AGI_AUTONOMY_TRAIN_PPO", "true").lower() == "true"
+
+        if train_lstm:
+            logger.info("Autonomy retrain: LSTM")
+            subprocess.check_call([sys.executable, "training/train_lstm.py"])
+
+        if train_ppo:
+            logger.info("Autonomy retrain: PPO")
+            subprocess.check_call([sys.executable, "training/train_drl.py"])
 
     def _maybe_set_canary(self, candidate_dir: str):
         # Evaluate candidate vs champion

@@ -4,6 +4,7 @@ import shutil
 from datetime import datetime
 from loguru import logger
 
+
 class ModelRegistry:
     """
     File-based model registry.
@@ -15,6 +16,7 @@ class ModelRegistry:
           canary/<version>/
           candidates/<version>/
     """
+
     def __init__(self, root=None):
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.root = root or os.path.join(base, "models", "registry")
@@ -76,7 +78,7 @@ class ModelRegistry:
         active["canary"] = None
         self._write_active(active)
         logger.warning("🟠 Canary cleared")
-        
+
     def rollback_to_champion(self):
         self.clear_canary()
 
@@ -92,3 +94,31 @@ class ModelRegistry:
             return {}
         with open(meta_path, "r", encoding="utf-8") as f:
             return json.load(f)
+
+    # Compatibility wrappers used by trainers
+    def save_candidate(self, model_state, metrics: dict, model_type: str = "lstm") -> str:
+        import torch
+
+        candidate_dir = self.new_candidate_dir(tag=model_type)
+
+        if model_type.lower() == "lstm":
+            model_path = os.path.join(candidate_dir, "lstm_model.pth")
+            torch.save(model_state, model_path)
+        elif model_type.lower() == "ppo":
+            # for PPO, training pipeline usually copies zip + vec directly
+            pass
+
+        self.register_candidate(candidate_dir, {
+            "model_type": model_type,
+            "metrics": metrics,
+            "created_at": datetime.utcnow().isoformat(),
+        })
+        return candidate_dir
+
+    def evaluate_and_stage_canary(self, candidate_dir: str) -> bool:
+        """Simple fallback: stage as canary if no champion exists yet."""
+        active = self._read_active()
+        if not active.get("champion"):
+            self.set_canary(candidate_dir)
+            return True
+        return False
