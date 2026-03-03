@@ -13,3 +13,8 @@ telegram:
 drl:
   total_timesteps: 500000
   model_path: "models/ppo_trading.zip"
+
+risk:
+  max_daily_loss: 250.0
+  max_daily_trades: 20
+  max_lots: 1.0
