@@ -4,6 +4,7 @@ import shutil
 from datetime import datetime
 from loguru import logger
 
+
 class ModelRegistry:
     """
     File-based model registry.
@@ -15,6 +16,7 @@ class ModelRegistry:
           canary/<version>/
           candidates/<version>/
     """
+
     def __init__(self, root=None):
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.root = root or os.path.join(base, "models", "registry")
@@ -76,7 +78,7 @@ class ModelRegistry:
         active["canary"] = None
         self._write_active(active)
         logger.warning("🟠 Canary cleared")
-        
+
     def rollback_to_champion(self):
         self.clear_canary()
 
@@ -92,3 +94,41 @@ class ModelRegistry:
             return {}
         with open(meta_path, "r", encoding="utf-8") as f:
             return json.load(f)
+
+    def save_candidate(self, state_dict, metrics: dict, model_type: str = "lstm") -> str:
+        cand_dir = self.new_candidate_dir(tag=model_type)
+        if model_type == "lstm":
+            import torch
+
+            torch.save(state_dict, os.path.join(cand_dir, "lstm_model.pth"))
+        self.register_candidate(cand_dir, {"model_type": model_type, **metrics})
+        return cand_dir
+
+    def evaluate_and_stage_canary(self, candidate_dir: str) -> bool:
+        if not os.path.isdir(candidate_dir):
+            return False
+
+        # If candidate is PPO we can compare properly through evaluator.
+        if os.path.exists(os.path.join(candidate_dir, "ppo_trading.zip")):
+            from Python.model_evaluator import evaluate_candidate_vs_champion
+            import yaml
+
+            cfg = {}
+            if os.path.exists("config.yaml"):
+                with open("config.yaml", "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+            symbols = cfg.get("trading", {}).get("symbols", ["EURUSDm", "GBPUSDm"]) 
+            period = cfg.get("drl", {}).get("eval_period", "120d")
+            champion = self._read_active().get("champion")
+            report = evaluate_candidate_vs_champion(candidate_dir, champion, symbols=symbols, period=period)
+            if report.get("wins") and report.get("passes_thresholds"):
+                self.set_canary(candidate_dir)
+                return True
+            return False
+
+        # LSTM candidate auto-stage if no active canary exists (lightweight policy)
+        active = self._read_active()
+        if not active.get("canary"):
+            self.set_canary(candidate_dir)
+            return True
+        return False
