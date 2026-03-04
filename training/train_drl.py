@@ -48,7 +48,7 @@ class EvalCallbackSaveVec(EvalCallback):
 
         return cont
 
-def make_env(df, seed: int = 0):
+def make_env(df, seed: int = 0, initial_balance: float = 10000.0):
     def _init():
         set_random_seed(seed)
         
@@ -58,9 +58,9 @@ def make_env(df, seed: int = 0):
             if "time" in pdf.columns:
                 pdf["time"] = pd.to_datetime(pdf["time"])
                 pdf = pdf.sort_values("time").set_index("time")
-            env = TradingEnv(pdf, initial_balance=10000.0)
+            env = TradingEnv(pdf, initial_balance=initial_balance)
         else:
-            env = TradingEnv(df, initial_balance=10000.0)
+            env = TradingEnv(df, initial_balance=initial_balance)
             
         env = Monitor(env)
         return env
@@ -71,13 +71,38 @@ def linear_schedule(initial_value: float):
         return progress_remaining * initial_value
     return func
 
+def get_mt5_equity(default_balance: float = 10000.0, cfg: dict | None = None) -> float:
+    cfg = cfg or {}
+    mt5_cfg = cfg.get("mt5", {})
+    login = int(os.environ.get("MT5_LOGIN", mt5_cfg.get("login", 0)) or 0)
+    password = os.environ.get("MT5_PASSWORD", mt5_cfg.get("password", ""))
+    server = os.environ.get("MT5_SERVER", mt5_cfg.get("server", ""))
+
+    try:
+        import MetaTrader5 as mt5
+
+        if login and password and server:
+            connected = mt5.initialize(login=login, password=password, server=server)
+        else:
+            connected = mt5.initialize()
+
+        if connected:
+            info = mt5.account_info()
+            if info and float(info.equity) > 0:
+                logger.info(f"Using MT5 equity from account {info.login}: {float(info.equity):.2f}")
+                return float(info.equity)
+    except Exception as e:
+        logger.warning(f"Failed to pull MT5 equity, fallback to default balance: {e}")
+
+    return float(default_balance)
 def train_drl():
     with open("config.yaml") as f:
         cfg = yaml.safe_load(f)
     symbols = cfg.get("trading", {}).get("symbols", ["EURUSD"])
     total_timesteps = cfg.get("drl", {}).get("total_timesteps", 100_000)
+    initial_balance = get_mt5_equity(default_balance=10000.0, cfg=cfg)
     
-    logger.info(f"DRL Training (Joint LSTM-PPO 2026) — symbols: {symbols} | timesteps: {total_timesteps:,}")
+    logger.info(f"DRL Training (Joint LSTM-PPO 2026) — symbols: {symbols} | timesteps: {total_timesteps:,} | initial_balance: {initial_balance:.2f}")
 
     df_pd = get_combined_training_df(symbols, period="60d")
     if df_pd.empty:
@@ -121,12 +146,12 @@ def train_drl():
     n_envs = 4
     
     # ── Stage 1: Continuous Full Training ──
-    env = DummyVecEnv([make_env(df, i) for i in range(n_envs)])
+    env = DummyVecEnv([make_env(df, i, initial_balance=initial_balance) for i in range(n_envs)])
     env = VecMonitor(env)
     env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
     
     # Eval must use the exact same logic but without reward normalization
-    eval_env = DummyVecEnv([make_env(df, 99)])
+    eval_env = DummyVecEnv([make_env(df, 99, initial_balance=initial_balance)])
     eval_env = VecMonitor(eval_env)
     eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
     
@@ -234,3 +259,9 @@ def train_drl():
 
 if __name__ == "__main__":
     train_drl()
+
+
+
+
+
+

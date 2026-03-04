@@ -1,166 +1,181 @@
-"""LSTM Training Script — trains on real market data."""
-import sys, os
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import os
+import sys
 
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
 from loguru import logger
-from Python.agi_brain import AGIModel
+from sklearn.preprocessing import MinMaxScaler
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from Python.agi_brain import AGIModel, FEATURE_COLUMNS, build_feature_frame
 from Python.data_feed import fetch_training_data
 
-# ── Logging ─────────────────────────────────────────────────────────
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
-logger.add(os.path.join(LOG_DIR, "lstm_training.log"), rotation="10 MB", level="DEBUG")
+logger.add(os.path.join(LOG_DIR, "lstm_training.log"), rotation="10 MB", level="INFO")
 
-def create_sequences(data, seq_len=60):
-    """Create input sequences and labels for LSTM training (Volatility Focused)."""
+
+def create_sequences(data: np.ndarray, close_col: int, atr_col: int, rsi_col: int, seq_len: int = 60):
     X, y = [], []
     for i in range(seq_len, len(data) - 1):
-        X.append(data[i - seq_len:i])
-        
-        # Calculate next return magnitude
-        future_return = (data[i, 3] - data[i - 1, 3]) / (data[i - 1, 3] + 1e-8)  
-        magnitude = abs(future_return)
-        
-        # We classify based on volatility threshold instead of raw direction
-        # 0 = Dead zone (Low volatility, HOLD)
-        # 1 = Small trend (Medium confidence)
-        # 2 = High Volatility Spike (Extreme confidence)
-        if magnitude > 0.0015:
-            y.append(2)  # High vol
-        elif magnitude > 0.0005:
-            y.append(1)  # Med vol
+        X.append(data[i - seq_len : i])
+
+        prev_close = data[i - 1, close_col]
+        next_close = data[i, close_col]
+        future_ret = (next_close - prev_close) / (abs(prev_close) + 1e-8)
+
+        atr_norm = abs(data[i, atr_col] / (abs(next_close) + 1e-8))
+        rsi = data[i, rsi_col]
+
+        up_thr = max(0.0007, atr_norm * 0.35)
+        dn_thr = -up_thr
+
+        if future_ret > up_thr and rsi > 52:
+            y.append(1)
+        elif future_ret < dn_thr and rsi < 48:
+            y.append(2)
         else:
-            y.append(0)  # Low vol/Hold
-    
+            y.append(0)
+
     return np.array(X), np.array(y)
 
-def train_lstm(symbols=None, epochs=50, seq_len=60):
+
+def _train_one_symbol(symbol: str, epochs: int, seq_len: int, device: str, out_dir: str):
+    df = fetch_training_data(symbol, period="60d")
+    if df.empty or len(df) < seq_len + 50:
+        logger.warning(f"insufficient data for {symbol}, skipping")
+        return None
+
+    fdf = build_feature_frame(df)
+    if len(fdf) < seq_len + 50:
+        logger.warning(f"insufficient engineered rows for {symbol}, skipping")
+        return None
+
+    feat = fdf[FEATURE_COLUMNS].values.astype(np.float32)
+    scaler = MinMaxScaler()
+    feat_scaled = scaler.fit_transform(feat)
+
+    close_col = FEATURE_COLUMNS.index("close")
+    atr_col = FEATURE_COLUMNS.index("atr_14")
+    rsi_col = FEATURE_COLUMNS.index("rsi_14")
+
+    X, y = create_sequences(feat_scaled, close_col, atr_col, rsi_col, seq_len=seq_len)
+    if len(X) == 0:
+        logger.warning(f"no sequences for {symbol}")
+        return None
+
+    model = AGIModel(input_dim=len(FEATURE_COLUMNS)).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = nn.CrossEntropyLoss()
+
+    X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
+    y_tensor = torch.tensor(y, dtype=torch.long).to(device)
+
+    batch_size = 64
+    n_batches = max(1, len(X_tensor) // batch_size)
+
+    model.train()
+    last_loss = 0.0
+    for epoch in range(epochs):
+        perm = torch.randperm(len(X_tensor))
+        X_epoch = X_tensor[perm]
+        y_epoch = y_tensor[perm]
+
+        correct = 0
+        total = 0
+        epoch_loss = 0.0
+
+        for b in range(n_batches):
+            start = b * batch_size
+            end = min(start + batch_size, len(X_epoch))
+            xb = X_epoch[start:end]
+            yb = y_epoch[start:end]
+            if len(xb) == 0:
+                continue
+
+            optimizer.zero_grad()
+            logits = model(xb)
+            loss = criterion(logits, yb)
+            loss.backward()
+            optimizer.step()
+
+            epoch_loss += float(loss.item())
+            preds = logits.argmax(dim=1)
+            correct += int((preds == yb).sum().item())
+            total += int(yb.size(0))
+
+        last_loss = epoch_loss / max(1, n_batches)
+        acc = (correct / max(1, total)) * 100.0
+        logger.info(f"{symbol} | epoch {epoch + 1}/{epochs} | loss {last_loss:.4f} | acc {acc:.2f}%")
+
+    os.makedirs(out_dir, exist_ok=True)
+    safe = symbol.replace("/", "_")
+    model_path = os.path.join(out_dir, f"lstm_{safe}.pt")
+    scaler_path = os.path.join(out_dir, f"lstm_scaler_{safe}.pkl")
+
+    torch.save(model.state_dict(), model_path)
+
+    import joblib
+
+    joblib.dump(scaler, scaler_path)
+
+    return {
+        "symbol": symbol,
+        "model_path": model_path,
+        "scaler_path": scaler_path,
+        "loss": last_loss,
+        "samples": int(len(X)),
+    }
+
+
+def train_lstm(symbols=None, epochs=20, seq_len=60):
     if symbols is None:
         symbols = ["EURUSDm", "GBPUSDm", "XAUUSDm"]
 
     if torch.cuda.is_available():
-        device = 'cuda'
-    elif getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available():
-        device = 'mps'
+        device = "cuda"
+    elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        device = "mps"
     else:
-        device = 'cpu'
-    model = AGIModel().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    criterion = nn.CrossEntropyLoss()
-    scaler = MinMaxScaler()
+        device = "cpu"
 
-    logger.success(f"LSTM Training started on {device.upper()} | Symbols: {symbols} | Epochs: {epochs}")
+    logger.info(f"LSTM per-symbol training on {device.upper()} | symbols={symbols} | epochs={epochs}")
 
-    # ── Fetch and combine training data ─────────────────────────────
-    all_X, all_y = [], []
-    for sym in symbols:
-        logger.info(f"Fetching training data for {sym}...")
-        df = fetch_training_data(sym, period="60d")
-        if df.empty or len(df) < seq_len + 10:
-            logger.warning(f"Insufficient data for {sym}, skipping")
-            continue
+    model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
+    per_symbol_dir = os.path.join(model_dir, "per_symbol")
 
-        data = scaler.fit_transform(df[['open', 'high', 'low', 'close', 'volume']].values)
-        X, y = create_sequences(data, seq_len)
-        all_X.append(X)
-        all_y.append(y)
-        logger.info(f"  {sym}: {len(X)} sequences created | BUY:{(y==1).sum()} SELL:{(y==2).sum()} HOLD:{(y==0).sum()}")
+    results = []
+    for symbol in symbols:
+        res = _train_one_symbol(symbol, epochs=epochs, seq_len=seq_len, device=device, out_dir=per_symbol_dir)
+        if res:
+            results.append(res)
 
-    if not all_X:
-        logger.error("No training data available!")
+    if not results:
+        logger.error("no symbol models trained")
         return
 
-    X_train = np.concatenate(all_X)
-    y_train = np.concatenate(all_y)
-    logger.info(f"Total training set: {len(X_train)} sequences | "
-                f"BUY:{(y_train==1).sum()} SELL:{(y_train==2).sum()} HOLD:{(y_train==0).sum()}")
+    best = sorted(results, key=lambda x: x["loss"])[0]
+    # Keep backward-compatible default artifacts by linking to best per-symbol model.
+    import shutil
 
-    # Convert to tensors
-    X_tensor = torch.tensor(X_train, dtype=torch.float32).to(device)
-    y_tensor = torch.tensor(y_train, dtype=torch.long).to(device)
+    shutil.copy2(best["model_path"], os.path.join(model_dir, "lstm_agi_trained.pt"))
+    shutil.copy2(best["scaler_path"], os.path.join(model_dir, "lstm_scaler.pkl"))
+    logger.success(f"default lstm artifacts now point to best symbol model: {best['symbol']}")
 
-    # ── Training loop ───────────────────────────────────────────────
-    model.train()
-    batch_size = 64
-    n_batches = len(X_tensor) // batch_size
-
-    for epoch in range(epochs):
-        # Shuffle each epoch
-        perm = torch.randperm(len(X_tensor))
-        X_tensor = X_tensor[perm]
-        y_tensor = y_tensor[perm]
-
-        epoch_loss = 0.0
-        correct = 0
-        total = 0
-
-        for b in range(n_batches):
-            start = b * batch_size
-            end = start + batch_size
-            X_batch = X_tensor[start:end]
-            y_batch = y_tensor[start:end]
-
-            optimizer.zero_grad()
-            outputs = model(X_batch)
-            loss = criterion(outputs, y_batch)
-            loss.backward()
-            optimizer.step()
-
-            epoch_loss += loss.item()
-            _, predicted = outputs.max(1)
-            correct += (predicted == y_batch).sum().item()
-            total += y_batch.size(0)
-
-        acc = correct / total * 100 if total > 0 else 0
-        avg_loss = epoch_loss / max(n_batches, 1)
-        logger.info(f"Epoch {epoch+1:3d}/{epochs} | Loss: {avg_loss:.4f} | Accuracy: {acc:.1f}% | Batches: {n_batches}")
-
-    # ── Save model ──────────────────────────────────────────────────
-    model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
-    os.makedirs(model_dir, exist_ok=True)
-    model_path = os.path.join(model_dir, "lstm_agi_trained.pt")
-    torch.save(model.state_dict(), model_path)
-    logger.success(f"LSTM model saved: {model_path} ({os.path.getsize(model_path)/1024:.1f} KB)")
-    
-    # Save the scaler
-    import joblib
-    scaler_path = os.path.join(model_dir, "lstm_scaler.pkl")
-    joblib.dump(scaler, scaler_path)
-    logger.success(f"LSTM scaler saved: {scaler_path}")
-
-    # ── Final stats ─────────────────────────────────────────────────
-    model.eval()
-    with torch.no_grad():
-        outputs = model(X_tensor[:500])
-        _, preds = outputs.max(1)
-        final_acc = (preds == y_tensor[:500]).sum().item() / 500 * 100
-    logger.success(f"Training complete! Final validation accuracy: {final_acc:.1f}%")
-    
-    metrics = {
-        "win_rate": float(final_acc),
-        "epochs": epochs,
-        "loss": float(avg_loss),
-        "date": __import__('datetime').datetime.now().isoformat()
-    }
-    
-    # Save Candidate locally in Model Registry for autonomous evaluation loop
-    try:
-        from Python.model_registry import ModelRegistry
-        import shutil
-        reg = ModelRegistry()
-        cand_path = reg.save_candidate(model.state_dict(), metrics, model_type="lstm")
-        shutil.copy(scaler_path, os.path.join(cand_path, "lstm_scaler.pkl"))
-        
-        # Immediately Test against Champion to see if Canary Staging is permitted
-        if reg.evaluate_and_stage_canary(cand_path):
-            logger.success("Candidate surpassed Champion. Scheduled for live Canary testing tomorrow!")
-    except Exception as e:
-        logger.error(f"Failed to register candidate model: {e}")
 
 if __name__ == "__main__":
-    train_lstm(epochs=50)
+    import yaml
+
+    cfg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
+    symbols = None
+    epochs = 20
+
+    if os.path.exists(cfg_path):
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        symbols = cfg.get("trading", {}).get("symbols")
+        epochs = int(cfg.get("training", {}).get("lstm_epochs", 20))
+
+    train_lstm(symbols=symbols, epochs=epochs)
