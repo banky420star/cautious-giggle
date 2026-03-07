@@ -4,6 +4,7 @@ import threading
 from typing import Optional
 
 import numpy as np
+import yaml
 
 from loguru import logger
 
@@ -17,8 +18,19 @@ class HybridBrain:
 
         self.ppo_model = None
         self.vec_norm = None
+
+        cfg_blend = 0.55
+        try:
+            cfg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
+            if os.path.exists(cfg_path):
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+                cfg_blend = float((cfg.get("drl", {}) or {}).get("ppo_blend", 0.55))
+        except Exception:
+            cfg_blend = 0.55
+
         self.ppo_enabled = os.environ.get("AGI_PPO_ENABLED", "true").lower() == "true"
-        self.ppo_blend = float(os.environ.get("AGI_PPO_BLEND", "0.55"))
+        self.ppo_blend = float(os.environ.get("AGI_PPO_BLEND", str(cfg_blend)))
         self.ppo_min_abs = float(os.environ.get("AGI_PPO_MIN_ABS", "0.03"))
         self.window_size = int(os.environ.get("AGI_PPO_WINDOW", "100"))
 

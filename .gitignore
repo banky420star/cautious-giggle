@@ -1,4 +1,4 @@
-__pycache__/
+﻿__pycache__/
 venv/
 *.pyc
 .DS_Store
@@ -10,3 +10,6 @@ logs/
 .env
 *.pt
 config.yaml
+
+.venv312/
+.tmp/

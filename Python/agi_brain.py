@@ -83,8 +83,8 @@ class SmartAGI:
 
         from Python.model_registry import ModelRegistry
 
-        registry = ModelRegistry()
-        self.active_dir = registry.load_active_model(prefer_canary=True)
+        self.registry = ModelRegistry()
+        self.active_dir = self.registry.load_active_model(prefer_canary=True)
 
         if self.active_dir:
             model_path = os.path.join(self.active_dir, "lstm_model.pth")
@@ -133,6 +133,13 @@ class SmartAGI:
     def _symbol_artifact_paths(self, symbol: str):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         safe = symbol.replace("/", "_")
+
+        symbol_active = self.registry.load_active_model(prefer_canary=True, symbol=symbol)
+        if symbol_active:
+            reg_model = os.path.join(symbol_active, "per_symbol", f"lstm_{safe}.pt")
+            reg_scaler = os.path.join(symbol_active, "per_symbol", f"lstm_scaler_{safe}.pkl")
+            if os.path.exists(reg_model) and os.path.exists(reg_scaler):
+                return reg_model, reg_scaler
 
         if self.active_dir:
             reg_model = os.path.join(self.active_dir, "per_symbol", f"lstm_{safe}.pt")

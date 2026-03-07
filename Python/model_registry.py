@@ -1,8 +1,9 @@
+﻿import json
 import os
-import json
-import shutil
 from datetime import datetime
+
 from loguru import logger
+
 
 class ModelRegistry:
     """
@@ -11,10 +12,19 @@ class ModelRegistry:
       models/
         registry/
           active.json
-          champion/<version>/
-          canary/<version>/
           candidates/<version>/
+
+    active.json structure:
+      {
+        "champion": <path or null>,
+        "canary": <path or null>,
+        "symbols": {
+          "EURUSDm": {"champion": <path or null>, "canary": <path or null>},
+          ...
+        }
+      }
     """
+
     def __init__(self, root=None):
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.root = root or os.path.join(base, "models", "registry")
@@ -29,15 +39,26 @@ class ModelRegistry:
             os.makedirs(d, exist_ok=True)
 
         if not os.path.exists(self.active_path):
-            self._write_active({"champion": None, "canary": None})
+            self._write_active({"champion": None, "canary": None, "symbols": {}})
+
+    def _normalize_active(self, payload: dict) -> dict:
+        out = payload if isinstance(payload, dict) else {}
+        if "champion" not in out:
+            out["champion"] = None
+        if "canary" not in out:
+            out["canary"] = None
+        if "symbols" not in out or not isinstance(out.get("symbols"), dict):
+            out["symbols"] = {}
+        return out
 
     def _read_active(self):
         with open(self.active_path, "r", encoding="utf-8") as f:
-            return json.load(f)
+            payload = json.load(f)
+        return self._normalize_active(payload)
 
     def _write_active(self, payload: dict):
         with open(self.active_path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
+            json.dump(self._normalize_active(payload), f, indent=2)
 
     def _timestamp_version(self):
         return datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -48,37 +69,79 @@ class ModelRegistry:
         os.makedirs(path, exist_ok=True)
         return path
 
-    def load_active_model(self, prefer_canary: bool = True) -> str | None:
+    def get_symbol_active(self, symbol: str) -> dict:
         active = self._read_active()
+        return dict(active.get("symbols", {}).get(symbol, {"champion": None, "canary": None}))
+
+    def load_active_model(self, prefer_canary: bool = True, symbol: str | None = None) -> str | None:
+        active = self._read_active()
+
+        if symbol:
+            s = active.get("symbols", {}).get(symbol, {})
+            if prefer_canary and s.get("canary"):
+                return s["canary"]
+            if s.get("champion"):
+                return s["champion"]
+
         if prefer_canary and active.get("canary"):
             return active["canary"]
         if active.get("champion"):
             return active["champion"]
         return None
 
-    def set_canary(self, version_dir: str):
+    def set_canary(self, version_dir: str, symbol: str | None = None):
         active = self._read_active()
+        if symbol:
+            symbols = active.setdefault("symbols", {})
+            cur = dict(symbols.get(symbol, {"champion": None, "canary": None}))
+            cur["canary"] = version_dir
+            symbols[symbol] = cur
+            self._write_active(active)
+            logger.warning(f"Canary set for {symbol}: {version_dir}")
+            return
+
         active["canary"] = version_dir
         self._write_active(active)
-        logger.warning(f"🟡 Canary set: {version_dir}")
+        logger.warning(f"Canary set: {version_dir}")
 
-    def promote_canary_to_champion(self):
+    def promote_canary_to_champion(self, symbol: str | None = None):
         active = self._read_active()
+        if symbol:
+            symbols = active.setdefault("symbols", {})
+            cur = dict(symbols.get(symbol, {"champion": None, "canary": None}))
+            if not cur.get("canary"):
+                raise RuntimeError(f"No canary to promote for {symbol}.")
+            cur["champion"] = cur["canary"]
+            cur["canary"] = None
+            symbols[symbol] = cur
+            self._write_active(active)
+            logger.success(f"Promoted {symbol} champion: {cur['champion']}")
+            return
+
         if not active.get("canary"):
             raise RuntimeError("No canary to promote.")
         active["champion"] = active["canary"]
         active["canary"] = None
         self._write_active(active)
-        logger.success(f"🟢 Promoted to champion: {active['champion']}")
+        logger.success(f"Promoted champion: {active['champion']}")
 
-    def clear_canary(self):
+    def clear_canary(self, symbol: str | None = None):
         active = self._read_active()
+        if symbol:
+            symbols = active.setdefault("symbols", {})
+            cur = dict(symbols.get(symbol, {"champion": None, "canary": None}))
+            cur["canary"] = None
+            symbols[symbol] = cur
+            self._write_active(active)
+            logger.warning(f"Canary cleared for {symbol}")
+            return
+
         active["canary"] = None
         self._write_active(active)
-        logger.warning("🟠 Canary cleared")
-        
-    def rollback_to_champion(self):
-        self.clear_canary()
+        logger.warning("Canary cleared")
+
+    def rollback_to_champion(self, symbol: str | None = None):
+        self.clear_canary(symbol=symbol)
 
     def register_candidate(self, candidate_dir: str, metadata: dict):
         meta_path = os.path.join(candidate_dir, "metadata.json")

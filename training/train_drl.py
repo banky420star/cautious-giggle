@@ -101,6 +101,9 @@ def train_drl():
     with open(cfg_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     symbols = cfg.get("trading", {}).get("symbols", ["EURUSD"])
+    one_symbol = os.environ.get("AGI_DRL_SYMBOL")
+    if one_symbol:
+        symbols = [one_symbol]
     total_timesteps = int(os.environ.get("AGI_DRL_TIMESTEPS", cfg.get("drl", {}).get("total_timesteps", 100_000)))
     initial_balance = get_mt5_equity(default_balance=10000.0, cfg=cfg)
     
@@ -243,6 +246,7 @@ def train_drl():
         # Stage Metadata
         metrics = {
             "type": "ppo",
+            "symbol": symbols[0] if len(symbols) == 1 else None,
             "symbols": symbols,
             "timesteps": total_timesteps,
             "source": "EvalCallback best_model.zip + matching VecNormalize",
