@@ -1,20 +1,47 @@
-import os
+﻿import os
 import sys
 
 import numpy as np
 import torch
 import torch.nn as nn
+import yaml
 from loguru import logger
 from sklearn.preprocessing import MinMaxScaler
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from Python.agi_brain import AGIModel, FEATURE_COLUMNS, build_feature_frame
 from Python.data_feed import fetch_training_data
+from alerts.telegram_alerts import TelegramAlerter
 
-LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "lstm_training.log"), rotation="10 MB", level="INFO")
+
+
+def _resolve_cfg_value(v):
+    if isinstance(v, str) and v.startswith("ENV:"):
+        return os.environ.get(v.split(":", 1)[1])
+    return v
+
+
+def _build_alerter():
+    cfg_path = os.path.join(PROJECT_ROOT, "config.yaml")
+    cfg = {}
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+        except Exception:
+            cfg = {}
+    tel = cfg.get("telegram", {}) if isinstance(cfg, dict) else {}
+    token = os.environ.get("TELEGRAM_TOKEN") or _resolve_cfg_value(tel.get("token"))
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or _resolve_cfg_value(tel.get("chat_id"))
+    if not token or not chat_id:
+        return TelegramAlerter(None, None)
+    return TelegramAlerter(token, str(chat_id))
 
 
 def create_sequences(data: np.ndarray, close_col: int, atr_col: int, rsi_col: int, seq_len: int = 60):
@@ -42,15 +69,43 @@ def create_sequences(data: np.ndarray, close_col: int, atr_col: int, rsi_col: in
     return np.array(X), np.array(y)
 
 
-def _train_one_symbol(symbol: str, epochs: int, seq_len: int, device: str, out_dir: str):
-    df = fetch_training_data(symbol, period="60d")
+def _train_one_symbol(
+    symbol: str,
+    epochs: int,
+    seq_len: int,
+    device: str,
+    out_dir: str,
+    period: str = "60d",
+    interval: str = "5m",
+    alerter=None,
+):
+    if alerter is not None:
+        try:
+            alerter.training(
+                "LSTM",
+                f"Start {symbol} | epochs={epochs} | seq_len={seq_len} | period={period} | tf={interval}",
+            )
+        except Exception:
+            pass
+
+    df = fetch_training_data(symbol, period=period, interval=interval)
     if df.empty or len(df) < seq_len + 50:
         logger.warning(f"insufficient data for {symbol}, skipping")
+        if alerter is not None:
+            try:
+                alerter.alert(f"LSTM skipped {symbol}: insufficient raw data")
+            except Exception:
+                pass
         return None
 
     fdf = build_feature_frame(df)
     if len(fdf) < seq_len + 50:
         logger.warning(f"insufficient engineered rows for {symbol}, skipping")
+        if alerter is not None:
+            try:
+                alerter.alert(f"LSTM skipped {symbol}: insufficient engineered rows")
+            except Exception:
+                pass
         return None
 
     feat = fdf[FEATURE_COLUMNS].values.astype(np.float32)
@@ -64,6 +119,11 @@ def _train_one_symbol(symbol: str, epochs: int, seq_len: int, device: str, out_d
     X, y = create_sequences(feat_scaled, close_col, atr_col, rsi_col, seq_len=seq_len)
     if len(X) == 0:
         logger.warning(f"no sequences for {symbol}")
+        if alerter is not None:
+            try:
+                alerter.alert(f"LSTM skipped {symbol}: no sequences built")
+            except Exception:
+                pass
         return None
 
     model = AGIModel(input_dim=len(FEATURE_COLUMNS)).to(device)
@@ -109,6 +169,14 @@ def _train_one_symbol(symbol: str, epochs: int, seq_len: int, device: str, out_d
         last_loss = epoch_loss / max(1, n_batches)
         acc = (correct / max(1, total)) * 100.0
         logger.info(f"{symbol} | epoch {epoch + 1}/{epochs} | loss {last_loss:.4f} | acc {acc:.2f}%")
+        if alerter is not None and ((epoch + 1) == 1 or (epoch + 1) % 5 == 0 or (epoch + 1) == epochs):
+            try:
+                alerter.training(
+                    "LSTM",
+                    f"{symbol} epoch {epoch + 1}/{epochs} | loss={last_loss:.4f} | acc={acc:.2f}%",
+                )
+            except Exception:
+                pass
 
     os.makedirs(out_dir, exist_ok=True)
     safe = symbol.replace("/", "_")
@@ -120,6 +188,11 @@ def _train_one_symbol(symbol: str, epochs: int, seq_len: int, device: str, out_d
     import joblib
 
     joblib.dump(scaler, scaler_path)
+    if alerter is not None:
+        try:
+            alerter.training("LSTM", f"Complete {symbol} | loss={last_loss:.4f} | samples={int(len(X))}")
+        except Exception:
+            pass
 
     return {
         "symbol": symbol,
@@ -130,7 +203,7 @@ def _train_one_symbol(symbol: str, epochs: int, seq_len: int, device: str, out_d
     }
 
 
-def train_lstm(symbols=None, epochs=20, seq_len=60):
+def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m"):
     if symbols is None:
         symbols = ["EURUSDm", "GBPUSDm", "XAUUSDm"]
 
@@ -141,41 +214,70 @@ def train_lstm(symbols=None, epochs=20, seq_len=60):
     else:
         device = "cpu"
 
-    logger.info(f"LSTM per-symbol training on {device.upper()} | symbols={symbols} | epochs={epochs}")
+    logger.info(
+        f"LSTM per-symbol training on {device.upper()} | symbols={symbols} | epochs={epochs} | period={period} | tf={interval}"
+    )
+    alerter = _build_alerter()
+    try:
+        alerter.training(
+            "LSTM",
+            f"Batch start | symbols={len(symbols)} | device={device.upper()} | epochs={epochs} | period={period} | tf={interval}",
+        )
+    except Exception:
+        pass
 
-    model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
+    model_dir = os.path.join(PROJECT_ROOT, "models")
     per_symbol_dir = os.path.join(model_dir, "per_symbol")
 
     results = []
     for symbol in symbols:
-        res = _train_one_symbol(symbol, epochs=epochs, seq_len=seq_len, device=device, out_dir=per_symbol_dir)
+        res = _train_one_symbol(
+            symbol,
+            epochs=epochs,
+            seq_len=seq_len,
+            device=device,
+            out_dir=per_symbol_dir,
+            period=period,
+            interval=interval,
+            alerter=alerter,
+        )
         if res:
             results.append(res)
 
     if not results:
         logger.error("no symbol models trained")
+        try:
+            alerter.alert("LSTM batch failed: no symbol models trained")
+        except Exception:
+            pass
         return
 
     best = sorted(results, key=lambda x: x["loss"])[0]
-    # Keep backward-compatible default artifacts by linking to best per-symbol model.
     import shutil
 
     shutil.copy2(best["model_path"], os.path.join(model_dir, "lstm_agi_trained.pt"))
     shutil.copy2(best["scaler_path"], os.path.join(model_dir, "lstm_scaler.pkl"))
     logger.success(f"default lstm artifacts now point to best symbol model: {best['symbol']}")
+    try:
+        alerter.model(f"LSTM best model selected: {best['symbol']} | loss={best['loss']:.4f} | samples={best['samples']}")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
-    import yaml
-
-    cfg_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
+    cfg_path = os.path.join(PROJECT_ROOT, "config.yaml")
     symbols = None
     epochs = 20
+    period = "60d"
+    interval = "5m"
 
     if os.path.exists(cfg_path):
         with open(cfg_path, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
         symbols = cfg.get("trading", {}).get("symbols")
-        epochs = int(cfg.get("training", {}).get("lstm_epochs", 20))
+        tcfg = cfg.get("training", {}) or {}
+        epochs = int(tcfg.get("lstm_epochs", 20))
+        period = str(tcfg.get("lstm_period", "90d"))
+        interval = str(tcfg.get("lstm_interval", cfg.get("trading", {}).get("timeframe", "M5")))
 
-    train_lstm(symbols=symbols, epochs=epochs)
+    train_lstm(symbols=symbols, epochs=epochs, period=period, interval=interval)

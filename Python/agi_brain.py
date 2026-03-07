@@ -1,4 +1,4 @@
-import os
+﻿import os
 
 import numpy as np
 import pandas as pd
@@ -70,9 +70,6 @@ class AGIModel(nn.Module):
 
 class SmartAGI:
     def __init__(self):
-        self.model = AGIModel()
-        self.scaler = MinMaxScaler()
-
         if torch.cuda.is_available():
             self.device = "cuda"
         elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
@@ -80,70 +77,117 @@ class SmartAGI:
         else:
             self.device = "cpu"
 
-        self.model.to(self.device)
         self.prediction_count = 0
+        self.symbol_models = {}
+        self._warned_missing_symbol = set()
 
         from Python.model_registry import ModelRegistry
 
         registry = ModelRegistry()
-        active_dir = registry.load_active_model(prefer_canary=True)
+        self.active_dir = registry.load_active_model(prefer_canary=True)
 
-        if active_dir:
-            model_path = os.path.join(active_dir, "lstm_model.pth")
-            scaler_path = os.path.join(active_dir, "lstm_scaler.pkl")
-            logger.info(f"registry active model dir: {active_dir}")
+        if self.active_dir:
+            model_path = os.path.join(self.active_dir, "lstm_model.pth")
+            scaler_path = os.path.join(self.active_dir, "lstm_scaler.pkl")
+            logger.info(f"registry active model dir: {self.active_dir}")
         else:
             model_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models")
             model_path = os.path.join(model_dir, "lstm_agi_trained.pt")
             scaler_path = os.path.join(model_dir, "lstm_scaler.pkl")
 
+        self.default_bundle = self._load_bundle(model_path, scaler_path, "default")
+
+        # Backward-compatible aliases used by PPO feature extractor.
+        self.model = self.default_bundle["model"]
+        self.scaler = self.default_bundle["scaler"]
+        self.scaler_loaded = self.default_bundle["scaler_loaded"]
+
+    def _load_bundle(self, model_path: str, scaler_path: str, label: str):
+        model = AGIModel().to(self.device)
+        scaler = MinMaxScaler()
+        scaler_loaded = False
+
         if os.path.exists(model_path):
             try:
                 state = torch.load(model_path, map_location=self.device, weights_only=True)
-                self.model.load_state_dict(state)
-                self.model.eval()
-                logger.success(f"AGI Brain loaded trained model on {self.device.upper()}")
+                model.load_state_dict(state)
+                model.eval()
+                logger.success(f"AGI Brain loaded {label} model on {self.device.upper()}")
             except Exception as exc:
-                logger.warning(f"model load failed ({exc}); using fresh weights")
+                logger.warning(f"{label} model load failed ({exc}); using fresh weights")
         else:
-            logger.warning(f"no trained model found at {model_path}; using fresh weights")
+            logger.warning(f"no trained {label} model found at {model_path}; using fresh weights")
 
-        self.scaler_loaded = False
         if os.path.exists(scaler_path):
             import joblib
 
             try:
-                self.scaler = joblib.load(scaler_path)
-                self.scaler_loaded = True
-                logger.success("loaded persistent feature scaler")
+                scaler = joblib.load(scaler_path)
+                scaler_loaded = True
+                logger.success(f"loaded {label} feature scaler")
             except Exception as exc:
-                logger.warning(f"scaler load failed: {exc}")
+                logger.warning(f"{label} scaler load failed: {exc}")
+
+        return {"model": model, "scaler": scaler, "scaler_loaded": scaler_loaded}
+
+    def _symbol_artifact_paths(self, symbol: str):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        safe = symbol.replace("/", "_")
+
+        if self.active_dir:
+            reg_model = os.path.join(self.active_dir, "per_symbol", f"lstm_{safe}.pt")
+            reg_scaler = os.path.join(self.active_dir, "per_symbol", f"lstm_scaler_{safe}.pkl")
+            if os.path.exists(reg_model) and os.path.exists(reg_scaler):
+                return reg_model, reg_scaler
+
+        model = os.path.join(root, "models", "per_symbol", f"lstm_{safe}.pt")
+        scaler = os.path.join(root, "models", "per_symbol", f"lstm_scaler_{safe}.pkl")
+        return model, scaler
+
+    def _bundle_for_symbol(self, symbol: str):
+        if symbol in self.symbol_models:
+            return self.symbol_models[symbol]
+
+        model_path, scaler_path = self._symbol_artifact_paths(symbol)
+        if os.path.exists(model_path) and os.path.exists(scaler_path):
+            bundle = self._load_bundle(model_path, scaler_path, f"symbol[{symbol}]")
+            self.symbol_models[symbol] = bundle
+            return bundle
+
+        if symbol not in self._warned_missing_symbol:
+            logger.warning(f"no per-symbol artifacts for {symbol}; using default model")
+            self._warned_missing_symbol.add(symbol)
+        return self.default_bundle
 
     def predict(self, df: pd.DataFrame, production: bool = False) -> dict:
         self.prediction_count += 1
 
+        symbol = str(df["symbol"].iloc[0]) if "symbol" in df.columns and len(df) else "UNKNOWN"
+        bundle = self._bundle_for_symbol(symbol)
+
         feat_df = build_feature_frame(df)
         if len(feat_df) < 60:
-            return {"signal": "LOW_VOLATILITY", "confidence": 0.0, "symbol": df["symbol"].iloc[0]}
+            return {"signal": "LOW_VOLATILITY", "confidence": 0.0, "symbol": symbol}
 
         features = feat_df[FEATURE_COLUMNS].astype(float).values
 
-        if self.scaler_loaded and hasattr(self.scaler, "n_features_in_") and int(self.scaler.n_features_in_) == features.shape[1]:
-            data = self.scaler.transform(features)
+        scaler = bundle["scaler"]
+        if bundle["scaler_loaded"] and hasattr(scaler, "n_features_in_") and int(scaler.n_features_in_) == features.shape[1]:
+            data = scaler.transform(features)
         else:
-            data = self.scaler.fit_transform(features)
+            data = scaler.fit_transform(features)
 
         seq = torch.tensor(data[-60:].reshape(1, 60, len(FEATURE_COLUMNS)), dtype=torch.float32).to(self.device)
 
         with torch.no_grad():
-            logits = self.model(seq)
+            logits = bundle["model"](seq)
             probs = F.softmax(logits, dim=-1).cpu().numpy().flatten()
             pred = int(np.argmax(probs)) if production else int(np.random.choice(3, p=probs))
 
         signal = ["LOW_VOLATILITY", "MED_VOLATILITY", "HIGH_VOLATILITY"][pred]
         confidence = round(float(probs[pred]), 4)
 
-        return {"signal": signal, "confidence": confidence, "symbol": df["symbol"].iloc[0]}
+        return {"signal": signal, "confidence": confidence, "symbol": symbol}
 
     def extract_features(self, seq: torch.Tensor) -> torch.Tensor:
         seq = seq.to(self.device).float()
@@ -159,4 +203,3 @@ class SmartAGI:
 
         x, _ = self.model.lstm(seq)
         return x[:, -1, :]
-

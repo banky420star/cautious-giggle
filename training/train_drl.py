@@ -1,4 +1,4 @@
-import sys, os
+﻿import sys, os
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -44,7 +44,7 @@ class EvalCallbackSaveVec(EvalCallback):
             if self.vec_env is not None and self.vec_save_path:
                 os.makedirs(os.path.dirname(self.vec_save_path), exist_ok=True)
                 self.vec_env.save(self.vec_save_path)
-                logger.success(f"✅ Saved VecNormalize with new best model → {self.vec_save_path}")
+                logger.success(f"âœ… Saved VecNormalize with new best model â†’ {self.vec_save_path}")
 
         return cont
 
@@ -96,15 +96,17 @@ def get_mt5_equity(default_balance: float = 10000.0, cfg: dict | None = None) ->
 
     return float(default_balance)
 def train_drl():
-    with open("config.yaml") as f:
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cfg_path = os.path.join(project_root, "config.yaml")
+    with open(cfg_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     symbols = cfg.get("trading", {}).get("symbols", ["EURUSD"])
-    total_timesteps = cfg.get("drl", {}).get("total_timesteps", 100_000)
+    total_timesteps = int(os.environ.get("AGI_DRL_TIMESTEPS", cfg.get("drl", {}).get("total_timesteps", 100_000)))
     initial_balance = get_mt5_equity(default_balance=10000.0, cfg=cfg)
     
-    logger.info(f"DRL Training (Joint LSTM-PPO 2026) — symbols: {symbols} | timesteps: {total_timesteps:,} | initial_balance: {initial_balance:.2f}")
+    logger.info(f"DRL Training (Joint LSTM-PPO 2026) â€” symbols: {symbols} | timesteps: {total_timesteps:,} | period={drl_period} | tf={drl_interval} | initial_balance: {initial_balance:.2f}")
 
-    df_pd = get_combined_training_df(symbols, period="60d")
+    df_pd = get_combined_training_df(symbols, period=drl_period, interval=drl_interval)
     if df_pd.empty:
         logger.error("No valid training data found.")
         return
@@ -132,11 +134,11 @@ def train_drl():
     # Resetting index to drop the non-unique timestamp column from polars conversion
     df_pd = df_pd.reset_index(drop=True)
     
-    # ── NaN Defense ──
+    # â”€â”€ NaN Defense â”€â”€
     if df_pd.isna().any().any():
-        logger.warning("⚠️ NaNs detected in historical data. Cleaning via ffill/bfill.")
+        logger.warning("âš ï¸ NaNs detected in historical data. Cleaning via ffill/bfill.")
         df_pd = df_pd.ffill().bfill()
-        assert not df_pd.isna().any().any(), "❌ CRITICAL: Failed to clean all NaNs in training data"
+        assert not df_pd.isna().any().any(), "âŒ CRITICAL: Failed to clean all NaNs in training data"
     # ---------------------------------------------------------------
     
     df = pl.from_pandas(df_pd)
@@ -145,7 +147,7 @@ def train_drl():
     # and causes exactly 12-step truncation episodes! We train on the full continuous series.
     n_envs = 4
     
-    # ── Stage 1: Continuous Full Training ──
+    # â”€â”€ Stage 1: Continuous Full Training â”€â”€
     env = DummyVecEnv([make_env(df, i, initial_balance=initial_balance) for i in range(n_envs)])
     env = VecMonitor(env)
     env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
@@ -208,7 +210,7 @@ def train_drl():
     
     grad_callback = LSTMGradientDiagnostics()
     
-    # ── Train ──
+    # â”€â”€ Train â”€â”€
     logger.info("Starting Stable Training Protocol (Single Stage)")
     model.learn(
         total_timesteps=total_timesteps,
@@ -252,13 +254,16 @@ def train_drl():
         with open(os.path.join(candidate_path, "scorecard.json"), "w") as f:
             json.dump(metrics, f, indent=4)
             
-        logger.success(f"✅ Optimal Joint LSTM-PPO Candidate staged to: {candidate_path}")
+        logger.success(f"âœ… Optimal Joint LSTM-PPO Candidate staged to: {candidate_path}")
         
     except Exception as e:
         logger.error(f"Failed to register PPO candidate model: {e}")
 
 if __name__ == "__main__":
     train_drl()
+
+
+
 
 
 
