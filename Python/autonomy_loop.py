@@ -201,7 +201,15 @@ class AutonomyLoop:
         )
 
         if self.enable_auto_canary and report["wins"] and report["passes_thresholds"] and gates_passed:
-            self.registry.set_canary(candidate_dir)
+            self.registry.set_canary(
+                candidate_dir,
+                policy={
+                    "min_trades": self.canary_min_trades,
+                    "min_realized_pnl": 0.0,
+                    "max_drawdown": self.canary_max_dd,
+                    "min_runtime_minutes": 30,
+                },
+            )
             risk = getattr(self.brain, "risk_engine", None)
             self._canary_start_trade_count = int(getattr(risk, "daily_trades", 0))
             self._canary_set_time = time.time()
@@ -241,6 +249,16 @@ class AutonomyLoop:
             logger.warning(f"Autonomy MT5 PnL check failed: {exc}")
 
         dd_pct = float(getattr(risk, "current_dd", 0.0)) / 100.0
+        runtime_minutes = 0.0
+        if self._canary_set_time is not None:
+            runtime_minutes = max(0.0, (time.time() - self._canary_set_time) / 60.0)
+
+        self.registry.update_canary_metrics(
+            trades=trades_since,
+            realized_pnl=realized,
+            drawdown=dd_pct,
+            runtime_minutes=runtime_minutes,
+        )
 
         if realized <= -self.canary_max_loss or dd_pct >= self.canary_max_dd:
             self.registry.rollback_to_champion()
@@ -251,11 +269,14 @@ class AutonomyLoop:
             return
 
         if trades_since >= self.canary_min_trades and realized >= 0:
-            self.registry.promote_canary_to_champion()
-            self._canary_start_trade_count = None
-            self._canary_set_time = None
-            self._maybe_reload_brain()
-            self._notify(f"Canary promoted. trades={trades_since}, realized={realized:.2f}")
+            try:
+                self.registry.promote_canary_to_champion()
+                self._canary_start_trade_count = None
+                self._canary_set_time = None
+                self._maybe_reload_brain()
+                self._notify(f"Canary promoted. trades={trades_since}, realized={realized:.2f}")
+            except Exception as exc:
+                logger.warning(f"Canary promotion blocked: {exc}")
 
     async def nightly_training_loop(self):
         while True:

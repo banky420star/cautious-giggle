@@ -41,6 +41,7 @@ MT5-first autonomous trading research/runtime stack with symbol-scoped model lif
 2. Require per-symbol pass rate and forward-window win rate.
 3. Require champion beat on multiple metrics (score, return, Sharpe, drawdown).
 4. Set canary on pass; retain champion on fail.
+5. Promote canary only after survival checks pass (min trades, non-negative realized PnL, drawdown cap, minimum runtime).
 
 ## How To Run
 
@@ -99,6 +100,18 @@ $env:TELEGRAM_CHAT_ID = "<chat_id>"
 ```powershell
 pytest -q
 ```
+
+## Evidence Pack
+Generate walk-forward proof artifacts:
+
+```powershell
+python tools\build_evidence_pack.py
+```
+
+Outputs:
+- `docs/results/walk_forward_results.csv`
+- `docs/results/walk_forward_summary.md`
+- `docs/results/evidence_bundle.md`
 
 ## Risk Warning
 Simulation/education tooling. Live trading carries financial risk.

@@ -271,10 +271,13 @@ def _mt5_symbol_perf(days=7, max_points=24):
 
 def read_status():
     procs = _processes()
+    reg = ModelRegistry()
+    canary_ok, canary_reason = reg.can_promote_canary()
     return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "repo_root": ROOT,
         "active_models": _active_models(),
+        "canary_gate": {"ready": bool(canary_ok), "reason": canary_reason},
         "server": _server_state(procs),
         "training": _training_state(procs),
         "account": _mt5_snapshot(),
@@ -317,57 +320,63 @@ def _kill_by_token(token):
 
 def control_action(action, payload):
     reg = ModelRegistry()
+    try:
+        if action == "start_drl":
+            if _is_running("training/train_drl.py"):
+                return {"ok": True, "message": "PPO training already running"}
+            timesteps = str(int(payload.get("timesteps", 120000)))
+            pid = _spawn([_venv_python(), "training/train_drl.py"], "train_drl_ui_stdout.log", "train_drl_ui_stderr.log", env={"AGI_DRL_TIMESTEPS": timesteps})
+            return {"ok": True, "message": f"PPO training started pid={pid}, timesteps={timesteps}"}
 
-    if action == "start_drl":
-        if _is_running("training/train_drl.py"):
-            return {"ok": True, "message": "PPO training already running"}
-        timesteps = str(int(payload.get("timesteps", 120000)))
-        pid = _spawn([_venv_python(), "training/train_drl.py"], "train_drl_ui_stdout.log", "train_drl_ui_stderr.log", env={"AGI_DRL_TIMESTEPS": timesteps})
-        return {"ok": True, "message": f"PPO training started pid={pid}, timesteps={timesteps}"}
+        if action == "stop_drl":
+            ids = _kill_by_token("training/train_drl.py")
+            return {"ok": True, "message": f"Stopped DRL pids={ids}"}
 
-    if action == "stop_drl":
-        ids = _kill_by_token("training/train_drl.py")
-        return {"ok": True, "message": f"Stopped DRL pids={ids}"}
+        if action == "start_lstm":
+            if _is_running("training/train_lstm.py"):
+                return {"ok": True, "message": "LSTM training already running"}
+            pid = _spawn([_venv_python(), "training/train_lstm.py"], "train_lstm_ui_stdout.log", "train_lstm_ui_stderr.log")
+            return {"ok": True, "message": f"LSTM training started pid={pid}"}
 
-    if action == "start_lstm":
-        if _is_running("training/train_lstm.py"):
-            return {"ok": True, "message": "LSTM training already running"}
-        pid = _spawn([_venv_python(), "training/train_lstm.py"], "train_lstm_ui_stdout.log", "train_lstm_ui_stderr.log")
-        return {"ok": True, "message": f"LSTM training started pid={pid}"}
+        if action == "stop_lstm":
+            ids = _kill_by_token("training/train_lstm.py")
+            return {"ok": True, "message": f"Stopped LSTM pids={ids}"}
 
-    if action == "stop_lstm":
-        ids = _kill_by_token("training/train_lstm.py")
-        return {"ok": True, "message": f"Stopped LSTM pids={ids}"}
+        if action == "run_cycle":
+            if _is_running("tools/champion_cycle.py"):
+                return {"ok": True, "message": "Champion cycle already running"}
+            pid = _spawn([_venv_python(), "tools/champion_cycle.py"], "champion_cycle_stdout.log", "champion_cycle_stderr.log")
+            return {"ok": True, "message": f"Champion cycle started pid={pid}"}
 
-    if action == "run_cycle":
-        if _is_running("tools/champion_cycle.py"):
-            return {"ok": True, "message": "Champion cycle already running"}
-        pid = _spawn([_venv_python(), "tools/champion_cycle.py"], "champion_cycle_stdout.log", "champion_cycle_stderr.log")
-        return {"ok": True, "message": f"Champion cycle started pid={pid}"}
+        if action == "restart_server":
+            _kill_by_token("python.server_agi")
+            pid = _spawn([_venv_python(), "-m", "Python.Server_AGI", "--live"], "server_stdout.log", "server_stderr.log")
+            return {"ok": True, "message": f"Server restarted pid={pid}"}
 
-    if action == "restart_server":
-        _kill_by_token("python.server_agi")
-        pid = _spawn([_venv_python(), "-m", "Python.Server_AGI", "--live"], "server_stdout.log", "server_stderr.log")
-        return {"ok": True, "message": f"Server restarted pid={pid}"}
+        if action == "set_canary_latest":
+            cands = sorted(
+                [os.path.join(reg.candidates_dir, d) for d in os.listdir(reg.candidates_dir) if os.path.isdir(os.path.join(reg.candidates_dir, d))],
+                key=lambda p: os.path.getmtime(p),
+                reverse=True,
+            )
+            if not cands:
+                return {"ok": False, "message": "No candidates found"}
+            reg.set_canary(cands[0])
+            return {"ok": True, "message": f"Canary set to {cands[0]}"}
 
-    if action == "set_canary_latest":
-        cands = sorted(
-            [os.path.join(reg.candidates_dir, d) for d in os.listdir(reg.candidates_dir) if os.path.isdir(os.path.join(reg.candidates_dir, d))],
-            key=lambda p: os.path.getmtime(p),
-            reverse=True,
-        )
-        if not cands:
-            return {"ok": False, "message": "No candidates found"}
-        reg.set_canary(cands[0])
-        return {"ok": True, "message": f"Canary set to {cands[0]}"}
+        if action == "promote_canary":
+            reg.promote_canary_to_champion()
+            return {"ok": True, "message": "Canary promoted to champion"}
 
-    if action == "promote_canary":
-        reg.promote_canary_to_champion()
-        return {"ok": True, "message": "Canary promoted to champion"}
+        if action == "promote_canary_force":
+            reg.promote_canary_to_champion(force=True)
+            return {"ok": True, "message": "Canary force-promoted to champion"}
 
-    if action == "rollback_canary":
-        reg.rollback_to_champion()
-        return {"ok": True, "message": "Canary rolled back to champion"}
+        if action == "rollback_canary":
+            reg.rollback_to_champion()
+            return {"ok": True, "message": "Canary rolled back to champion"}
+    except Exception as exc:
+        return {"ok": False, "message": str(exc)}
 
     return {"ok": False, "message": f"Unknown action: {action}"}
 
