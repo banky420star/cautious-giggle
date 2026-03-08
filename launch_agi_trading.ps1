@@ -106,6 +106,41 @@ function Remove-StalePythonDuplicates {
   return $killed
 }
 
+function Remove-StaleServerLock {
+  $lockPath = Join-Path $repoRoot ".tmp\server_agi.lock"
+  if (-not (Test-Path $lockPath)) { return }
+  $raw = ""
+  try {
+    $raw = (Get-Content -Path $lockPath -Raw -ErrorAction Stop).Trim()
+  } catch {
+    return
+  }
+  if ([string]::IsNullOrWhiteSpace($raw)) {
+    Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue
+    return
+  }
+
+  $lockPid = 0
+  [void][int]::TryParse($raw, [ref]$lockPid)
+  if ($lockPid -le 0) {
+    Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue
+    return
+  }
+
+  $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$lockPid" -ErrorAction SilentlyContinue
+  if (-not $proc) {
+    Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue
+    Write-Host "Removed stale Server_AGI lock (missing pid $lockPid)."
+    return
+  }
+
+  $cmd = ([string]$proc.CommandLine).ToLower().Replace("\", "/")
+  if (-not $cmd.Contains("python.server_agi")) {
+    Remove-Item -LiteralPath $lockPath -Force -ErrorAction SilentlyContinue
+    Write-Host "Removed stale Server_AGI lock (pid $lockPid is not Server_AGI)."
+  }
+}
+
 function Get-RegistryState {
   $code = @"
 import json
@@ -159,10 +194,12 @@ if ($AutoBootstrapModel) {
 
 # Keep one owner for runtime and training-cycle processes.
 Remove-StalePythonDuplicates -Token "python.server_agi" | Out-Null
+Remove-StalePythonDuplicates -Token "tools/project_status_ui.py" | Out-Null
 Remove-StalePythonDuplicates -Token "tools/champion_cycle_loop.py" | Out-Null
 Remove-StalePythonDuplicates -Token "tools/champion_cycle.py" | Out-Null
 Remove-StalePythonDuplicates -Token "training/train_drl.py" | Out-Null
 Remove-StalePythonDuplicates -Token "training/train_lstm.py" | Out-Null
+Remove-StaleServerLock
 
 $serverCmd = "& '$pythonExe' -m Python.Server_AGI --live"
 $uiCmd = "& '$pythonExe' tools\project_status_ui.py"
