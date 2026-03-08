@@ -49,23 +49,20 @@ def run_ppo_backtest(
     max_steps: int | None = None,
     reward_weights: dict | None = None,
 ) -> dict | None:
-    df = fetch_training_data(symbol, period=period, interval=interval)
+    df = fetch_training_data(symbol, period=period, interval=interval, strict=True, require_fresh=True)
     if df is None or df.empty or len(df) < 400:
-        logger.error(f"Insufficient data for {symbol} (len={0 if df is None else len(df)})")
-        return None
+        raise RuntimeError(f"Insufficient data for {symbol} (len={0 if df is None else len(df)})")
 
     env = _make_env(df, initial_balance=initial_balance, reward_weights=reward_weights)
     if not os.path.exists(vecnorm_path):
-        logger.error(f"Missing vecnorm file: {vecnorm_path}")
-        return None
+        raise RuntimeError(f"Missing vecnorm file: {vecnorm_path}")
 
     env = VecNormalize.load(vecnorm_path, env)
     env.training = False
     env.norm_reward = False
 
     if not os.path.exists(model_path):
-        logger.error(f"Missing model file: {model_path}")
-        return None
+        raise RuntimeError(f"Missing model file: {model_path}")
 
     model = PPO.load(model_path, device="cpu")
 
@@ -113,7 +110,7 @@ def run_ppo_backtest(
 
     equity = np.array(equities, dtype=np.float64)
     if len(equity) < 3:
-        return None
+        raise RuntimeError(f"Insufficient backtest steps for {symbol}: {len(equity)}")
 
     rets = np.array(step_rets, dtype=np.float64) if step_rets else np.zeros(1)
     vol = float(np.std(rets) + 1e-12)
@@ -165,21 +162,27 @@ def run_multi(
     vec_path = os.path.join(model_dir, "vec_normalize.pkl")
 
     per_symbol = []
+    errors = []
     tf = _normalize_interval(interval)
     for sym in symbols:
-        r = run_ppo_backtest(
-            sym,
-            model_path,
-            vec_path,
-            period=period,
-            interval=tf,
-            reward_weights=reward_weights,
-        )
-        if r:
-            per_symbol.append(r)
+        try:
+            r = run_ppo_backtest(
+                sym,
+                model_path,
+                vec_path,
+                period=period,
+                interval=tf,
+                reward_weights=reward_weights,
+            )
+            if r:
+                per_symbol.append(r)
+        except Exception as exc:
+            msg = f"{sym}: {exc}"
+            errors.append(msg)
+            logger.error(f"BACKTEST_FAIL {msg}")
 
     if not per_symbol:
-        return {"error": "No valid backtests"}
+        return {"error": "No valid backtests", "errors": errors}
 
     scores = [x["score"] for x in per_symbol]
     rets = [x["total_return"] for x in per_symbol]
@@ -195,6 +198,7 @@ def run_multi(
         "worst_drawdown": float(np.max(dds)),
         "avg_sharpe": float(np.mean(sharpes)),
         "per_symbol": per_symbol,
+        "errors": errors,
     }
     return agg
 

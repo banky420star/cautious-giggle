@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOGS = os.path.join(ROOT, "logs")
 OUT = os.path.join(ROOT, "docs", "results")
+CANDIDATES = os.path.join(ROOT, "models", "registry", "candidates")
 
 
 def _read_json(path: str):
@@ -61,6 +62,29 @@ def _collect_cycle_rows():
     return out
 
 
+def _collect_candidate_rows(limit: int = 12):
+    rows = []
+    if not os.path.isdir(CANDIDATES):
+        return rows
+    dirs = [os.path.join(CANDIDATES, d) for d in os.listdir(CANDIDATES) if os.path.isdir(os.path.join(CANDIDATES, d))]
+    dirs.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    for d in dirs[:limit]:
+        scorecard = _read_json(os.path.join(d, "scorecard.json")) or {}
+        rows.append(
+            {
+                "candidate_dir": os.path.basename(d),
+                "symbol": scorecard.get("symbol") or ",".join(scorecard.get("symbols", [])),
+                "timeframe": scorecard.get("timeframe") or scorecard.get("interval"),
+                "candles": scorecard.get("candles", ""),
+                "timesteps": scorecard.get("timesteps", ""),
+                "feature_set_version": scorecard.get("feature_set_version", ""),
+                "reward_version": scorecard.get("reward_version", ""),
+                "date": scorecard.get("date", ""),
+            }
+        )
+    return rows
+
+
 def _write_csv(path: str, rows: list[dict], fieldnames: list[str]):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="") as f:
@@ -87,6 +111,7 @@ def build():
 
     wf_rows = _collect_walk_forward_rows()
     cycle_rows = _collect_cycle_rows()
+    candidate_rows = _collect_candidate_rows()
 
     wf_csv = os.path.join(OUT, "walk_forward_results.csv")
     _write_csv(
@@ -122,6 +147,21 @@ def build():
         f.write("\n\n## Notes\n\n")
         f.write("- If this file is empty, run evaluation and champion cycle first.\n")
         f.write("- Source files: `logs/eval_*.json`, `logs/champion_cycle_last_report.json`.\n")
+        f.write("\n\n## Candidate Registry Snapshot\n\n")
+        f.write(
+            _md_table(
+                candidate_rows,
+                [
+                    "candidate_dir",
+                    "symbol",
+                    "timeframe",
+                    "candles",
+                    "timesteps",
+                    "feature_set_version",
+                    "reward_version",
+                ],
+            )
+        )
 
     bundle_md = os.path.join(OUT, "evidence_bundle.md")
     with open(bundle_md, "w", encoding="utf-8") as f:
@@ -131,6 +171,7 @@ def build():
         f.write("- `docs/results/walk_forward_results.csv`\n")
         f.write("- `docs/results/walk_forward_summary.md`\n")
         f.write("- `logs/champion_cycle_last_report.json`\n")
+        f.write("- `models/registry/candidates/*/scorecard.json`\n")
         f.write("- `logs/audit_events.jsonl`\n")
         f.write("- `logs/trade_events.jsonl`\n")
         f.write("\n## Chart Inputs\n\n")

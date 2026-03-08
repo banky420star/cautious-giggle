@@ -1,4 +1,5 @@
 ﻿import math
+from datetime import datetime, timezone
 from typing import Iterable
 
 import MetaTrader5 as mt5
@@ -78,21 +79,48 @@ def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def fetch_training_data(symbol: str, period: str = "60d", interval: str = "5m") -> pd.DataFrame:
+def _assert_recent_bars(df: pd.DataFrame, interval: str, stale_bars: int = 3):
+    if df.empty or not isinstance(df.index, pd.DatetimeIndex):
+        raise RuntimeError("cannot validate freshness: missing datetime index")
+    last_ts = pd.to_datetime(df.index.max(), utc=True)
+    now_ts = datetime.now(timezone.utc)
+    max_age_min = max(1, _interval_minutes(interval)) * max(1, int(stale_bars))
+    age_min = (now_ts - last_ts.to_pydatetime()).total_seconds() / 60.0
+    if age_min > max_age_min:
+        raise RuntimeError(
+            f"stale MT5 data: last={last_ts.isoformat()} age_min={age_min:.1f} > allowed={max_age_min}"
+        )
+
+
+def fetch_training_data(
+    symbol: str,
+    period: str = "60d",
+    interval: str = "5m",
+    strict: bool = False,
+    require_fresh: bool = False,
+) -> pd.DataFrame:
     tf = _to_mt5_timeframe(interval)
     bars = _bars_for(period, interval)
 
     if not mt5.initialize():
-        logger.error(f"MT5 initialize failed for {symbol}: {mt5.last_error()}")
+        msg = f"MT5 initialize failed for {symbol}: {mt5.last_error()}"
+        logger.error(msg)
+        if strict:
+            raise RuntimeError(msg)
         return pd.DataFrame()
 
     rates = mt5.copy_rates_from_pos(symbol, tf, 0, bars)
     if rates is None or len(rates) < 100:
-        logger.warning(f"no MT5 data for {symbol} | tf={interval} bars={bars}")
+        msg = f"no MT5 data for {symbol} | tf={interval} bars={bars}"
+        logger.warning(msg)
+        if strict:
+            raise RuntimeError(msg)
         return pd.DataFrame()
 
     raw = pd.DataFrame(rates)
     if raw.empty:
+        if strict:
+            raise RuntimeError(f"empty MT5 frame for {symbol}")
         return pd.DataFrame()
 
     raw["time"] = pd.to_datetime(raw["time"], unit="s", utc=True)
@@ -101,8 +129,14 @@ def fetch_training_data(symbol: str, period: str = "60d", interval: str = "5m") 
     try:
         df = _normalize_ohlcv(raw)
     except Exception as exc:
-        logger.error(f"normalization failed for {symbol}: {exc}")
+        msg = f"normalization failed for {symbol}: {exc}"
+        logger.error(msg)
+        if strict:
+            raise RuntimeError(msg)
         return pd.DataFrame()
+
+    if require_fresh:
+        _assert_recent_bars(df, interval=interval, stale_bars=3)
 
     df["symbol"] = symbol
     return df
