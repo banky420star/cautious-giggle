@@ -170,7 +170,7 @@ def _latest_training_progress() -> dict:
     ppo_lines = _tail(os.path.join(LOG_DIR, "ppo_training.log"), 200)
     lstm_lines = _tail(os.path.join(LOG_DIR, "lstm_training.log"), 200)
 
-    drl_re = re.compile(r"DRL Training \| symbols=\['([^']+)'\].*timesteps=([0-9,]+).*(?:candles=([0-9,]+))?")
+    drl_re = re.compile(r"symbols=\['([^']+)'\]\s*\|\s*timesteps=([0-9,]+).*?\|\s*candles=([0-9,]+)", re.IGNORECASE)
     lstm_re = re.compile(r"([A-Za-z0-9_]+)\s*\|\s*epoch\s+(\d+)\s*/\s*(\d+)")
     err_re = re.compile(r"(Authorization failed|insufficient MT5 data|MT5 initialize failed)", re.IGNORECASE)
 

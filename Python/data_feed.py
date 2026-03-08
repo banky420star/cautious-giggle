@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Iterable
 
 import MetaTrader5 as mt5
+import numpy as np
 import pandas as pd
 from loguru import logger
 
@@ -92,6 +93,55 @@ def _initialize_mt5() -> bool:
     return bool(mt5.initialize())
 
 
+def _ensure_symbol_ready(symbol: str) -> bool:
+    info = mt5.symbol_info(symbol)
+    if info is None:
+        return False
+    if not bool(getattr(info, "visible", False)):
+        return bool(mt5.symbol_select(symbol, True))
+    return True
+
+
+def _fetch_rates_any(symbol: str, tf: int, bars_req: int):
+    now_utc = datetime.now(timezone.utc)
+    start_utc = datetime(2005, 1, 1, tzinfo=timezone.utc)
+    # 1) paged position-based pull with adaptive chunk sizes.
+    for chunk_max in (100_000, 50_000, 20_000, 10_000, 5_000, 2_000, 1_000):
+        first = mt5.copy_rates_from_pos(symbol, tf, 0, min(chunk_max, bars_req))
+        if first is None or len(first) == 0:
+            continue
+
+        chunks = [first]
+        offset = len(first)
+        while offset < bars_req:
+            need = min(chunk_max, bars_req - offset)
+            part = mt5.copy_rates_from_pos(symbol, tf, offset, need)
+            if part is None or len(part) == 0:
+                break
+            chunks.append(part)
+            got = len(part)
+            offset += got
+            if got < need:
+                break
+
+        try:
+            return np.concatenate(chunks)
+        except Exception:
+            return chunks[0]
+
+    # 2) point-in-time pull
+    rates = mt5.copy_rates_from(symbol, tf, now_utc, min(5_000, bars_req))
+    if rates is not None and len(rates) > 0:
+        return rates
+
+    # 3) wide-range historical pull
+    rates = mt5.copy_rates_range(symbol, tf, start_utc, now_utc)
+    if rates is not None and len(rates) > 0:
+        return rates
+
+    return rates
+
+
 def get_latest_data(symbol, timeframe, bars):
     rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, bars)
     if rates is None:
@@ -151,14 +201,28 @@ def fetch_training_data(
             raise RuntimeError(msg)
         return pd.DataFrame()
 
-    rates = mt5.copy_rates_from_pos(symbol, tf, 0, bars_req)
-    got = 0 if rates is None else len(rates)
-    if rates is None or got < max(100, min_required):
-        msg = f"insufficient MT5 data for {symbol} | tf={interval} requested={bars_req} got={got} required={max(100, min_required)}"
+    if not _ensure_symbol_ready(symbol):
+        msg = f"symbol not available in MT5 market watch: {symbol}"
         logger.warning(msg)
         if strict:
             raise RuntimeError(msg)
         return pd.DataFrame()
+
+    rates = _fetch_rates_any(symbol, tf, bars_req)
+    got = 0 if rates is None else len(rates)
+    if rates is None or got < 100:
+        msg = (
+            f"insufficient MT5 data for {symbol} | tf={interval} requested={bars_req} got={got} "
+            f"required_min=100 | last_error={mt5.last_error()}"
+        )
+        logger.warning(msg)
+        if strict:
+            raise RuntimeError(msg)
+        return pd.DataFrame()
+    if got < max(100, min_required):
+        logger.warning(
+            f"partial MT5 history for {symbol} | tf={interval} requested={bars_req} got={got} required={max(100, min_required)} | training with available bars"
+        )
 
     raw = pd.DataFrame(rates)
     if raw.empty:
