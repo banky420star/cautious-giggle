@@ -1,4 +1,4 @@
-trading:
+﻿trading:
   symbols: ["EURUSDm", "GBPUSDm", "XAUUSDm"]
   timeframe: "M5"
   risk_percent: 1.0
@@ -12,4 +12,30 @@ telegram:
 
 drl:
   total_timesteps: 500000
+  per_symbol: true
+  period: "90d"
+  interval: "M5"
+  eval_period: "120d"
   model_path: "models/ppo_trading.zip"
+  reward:
+    version: "v2_risk_adjusted"
+    weights:
+      growth: 8.0
+      payoff: 2.0
+      sharpe_bonus: 1.0
+      drawdown_penalty: 3.0
+      cost_penalty: 5.0
+      churn_penalty: 0.5
+
+evaluation:
+  max_drawdown: 0.10
+  min_sharpe: 0.30
+  min_return: 0.015
+  score_margin: 0.30
+  min_steps_per_symbol: 600
+  min_pass_rate: 0.80
+  return_margin: 0.0
+  sharpe_margin: 0.05
+  drawdown_margin: 0.0
+  forward_windows: ["60d", "90d", "120d"]
+  min_forward_win_rate: 0.67

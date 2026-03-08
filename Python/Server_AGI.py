@@ -6,13 +6,13 @@ import time
 
 import MetaTrader5 as mt5
 import pandas as pd
-import yaml
 from loguru import logger
 
 from Python.agi_brain import SmartAGI
 from Python.hybrid_brain import HybridBrain
 from Python.mt5_executor import MT5Executor
 from Python.risk_engine import RiskEngine
+from Python.config_utils import load_project_config
 from alerts.telegram_alerts import TelegramAlerter
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -83,10 +83,8 @@ def _acquire_single_instance_lock():
     return True
 
 
-def _load_cfg():
-    cfg_path = os.path.join(BASE_DIR, "config.yaml")
-    with open(cfg_path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+def _load_cfg(live: bool = False):
+    return load_project_config(BASE_DIR, live_mode=bool(live))
 
 
 def _resolve_env_ref(v):
@@ -281,7 +279,7 @@ def main(live=False):
     if live:
         os.environ["AGI_IS_LIVE"] = "1"
 
-    cfg = _load_cfg()
+    cfg = _load_cfg(live=live)
     ok = _init_mt5(cfg)
     if not ok:
         raise RuntimeError(f"MT5 init failed: {mt5.last_error()}")

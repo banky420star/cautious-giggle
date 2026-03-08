@@ -4,7 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import yaml
 from loguru import logger
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -13,6 +12,7 @@ if PROJECT_ROOT not in sys.path:
 
 from Python.model_evaluator import evaluate_candidate_vs_champion
 from Python.model_registry import ModelRegistry
+from Python.config_utils import load_project_config
 
 
 def _latest_candidate(reg: ModelRegistry, symbol: str | None = None):
@@ -42,10 +42,17 @@ def _latest_candidate(reg: ModelRegistry, symbol: str | None = None):
 def _gates_from_cfg(cfg: dict) -> dict:
     ev = cfg.get("evaluation", {}) if isinstance(cfg, dict) else {}
     return {
-        "max_drawdown": float(ev.get("max_drawdown", 0.20)),
-        "min_sharpe": float(ev.get("min_sharpe", -0.10)),
-        "min_return": float(ev.get("min_expected_payoff", ev.get("min_return", -0.02))),
-        "score_margin": float(ev.get("score_margin", 0.25)),
+        "max_drawdown": float(ev.get("max_drawdown", 0.10)),
+        "min_sharpe": float(ev.get("min_sharpe", 0.30)),
+        "min_return": float(ev.get("min_return", ev.get("min_expected_payoff", 0.015))),
+        "score_margin": float(ev.get("score_margin", 0.30)),
+        "min_steps_per_symbol": int(ev.get("min_steps_per_symbol", 600)),
+        "min_pass_rate": float(ev.get("min_pass_rate", 0.80)),
+        "return_margin": float(ev.get("return_margin", 0.0)),
+        "sharpe_margin": float(ev.get("sharpe_margin", 0.05)),
+        "drawdown_margin": float(ev.get("drawdown_margin", 0.0)),
+        "forward_windows": ev.get("forward_windows", []),
+        "min_forward_win_rate": float(ev.get("min_forward_win_rate", 0.67)),
     }
 
 
@@ -63,20 +70,31 @@ def _run_train_drl(symbol: str | None = None):
 
 
 def main():
-    cfg_path = os.path.join(PROJECT_ROOT, "config.yaml")
-    with open(cfg_path, "r", encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) or {}
+    cfg = load_project_config(PROJECT_ROOT, live_mode=False)
 
-    symbols = cfg.get("trading", {}).get("symbols", ["EURUSDm", "GBPUSDm"])
-    eval_period = cfg.get("drl", {}).get("eval_period", "120d")
-    per_symbol = bool(cfg.get("drl", {}).get("per_symbol", True))
+    trading_cfg = cfg.get("trading", {})
+    drl_cfg = cfg.get("drl", {})
+
+    symbols = trading_cfg.get("symbols", ["EURUSDm", "GBPUSDm"])
+    eval_period = str(drl_cfg.get("eval_period", "120d"))
+    eval_interval = str(drl_cfg.get("interval", trading_cfg.get("timeframe", "M5")))
+    reward_cfg = drl_cfg.get("reward", {}) if isinstance(drl_cfg.get("reward", {}), dict) else {}
+    reward_weights = reward_cfg.get("weights", {}) if isinstance(reward_cfg.get("weights", {}), dict) else {}
+
+    per_symbol = bool(drl_cfg.get("per_symbol", True))
     gates = _gates_from_cfg(cfg)
 
     logger.info("Cycle start: train LSTM per symbol")
     subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT)
 
     reg = ModelRegistry()
-    cycle_report = {"mode": "per_symbol" if per_symbol else "global", "symbols": [], "eval_period": eval_period}
+    cycle_report = {
+        "mode": "per_symbol" if per_symbol else "global",
+        "symbols": [],
+        "eval_period": eval_period,
+        "eval_interval": eval_interval,
+        "gates": gates,
+    }
 
     if per_symbol:
         for symbol in symbols:
@@ -89,14 +107,22 @@ def main():
 
             champion = reg.load_active_model(prefer_canary=False, symbol=symbol)
             logger.info(f"Evaluate {symbol} candidate={os.path.basename(candidate)} vs champion={champion}")
-            report = evaluate_candidate_vs_champion(candidate, champion, symbols=[symbol], period=eval_period, gates=gates)
+            report = evaluate_candidate_vs_champion(
+                candidate,
+                champion,
+                symbols=[symbol],
+                period=eval_period,
+                interval=eval_interval,
+                reward_weights=reward_weights,
+                gates=gates,
+            )
 
             if report.get("error"):
                 raise RuntimeError(f"Evaluator error on {symbol}: {report['error']}")
 
             wins = bool(report.get("wins"))
             passes = bool(report.get("passes_thresholds"))
-            logger.info(f"{symbol} | wins={wins} passes_thresholds={passes}")
+            logger.info(f"{symbol} | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
 
             if wins and passes:
                 reg.set_canary(candidate, symbol=symbol)
@@ -111,7 +137,9 @@ def main():
                     "champion": champion,
                     "wins": wins,
                     "passes_thresholds": passes,
+                    "pass_rate": report.get("pass_rate"),
                     "per_symbol_gates": report.get("per_symbol_gates", []),
+                    "forward_windows": report.get("forward_windows", []),
                 }
             )
     else:
@@ -124,14 +152,22 @@ def main():
 
         champion = reg.load_active_model(prefer_canary=False)
         logger.info(f"Cycle step: evaluate candidate={os.path.basename(candidate)} vs champion={champion}")
-        report = evaluate_candidate_vs_champion(candidate, champion, symbols=symbols, period=eval_period, gates=gates)
+        report = evaluate_candidate_vs_champion(
+            candidate,
+            champion,
+            symbols=symbols,
+            period=eval_period,
+            interval=eval_interval,
+            reward_weights=reward_weights,
+            gates=gates,
+        )
 
         if report.get("error"):
             raise RuntimeError(f"Evaluator error: {report['error']}")
 
         wins = bool(report.get("wins"))
         passes = bool(report.get("passes_thresholds"))
-        logger.info(f"Evaluation result | wins={wins} passes_thresholds={passes}")
+        logger.info(f"Evaluation result | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
 
         if wins and passes:
             reg.set_canary(candidate)
@@ -146,7 +182,9 @@ def main():
                 "champion": champion,
                 "wins": wins,
                 "passes_thresholds": passes,
+                "pass_rate": report.get("pass_rate"),
                 "per_symbol_gates": report.get("per_symbol_gates", []),
+                "forward_windows": report.get("forward_windows", []),
             }
         )
 

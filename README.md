@@ -1,84 +1,104 @@
-# cautious-giggle — Autonomous AGI Trading Hedge Fund (2026)
+﻿# CautiousGiggle Trade Engine
 
-**Full autonomous Observe → Learn → Validate → Deploy → Trade loop**
+MT5-first autonomous trading research/runtime stack with symbol-scoped model lifecycle and operator telemetry.
 
-## 🤖 The Self-Evolving Loop
-This system is designed for total autonomy on a Windows VPS + MetaTrader 5:
-1. **Observe**: Fetches high-fidelity OHLCV data via MT5 or Yahoo Finance (with Volume Proxy).
-2. **Learn**: Nightly training cycles refine PPO and LSTM models on combined multi-asset datasets.
-3. **Validate**: The `AutonomyLoop` backtests candidates. Winning candidates are staged as **Canary**.
-4. **Deploy**: The `HybridBrain` hot-swaps active models in real-time.
-5. **Trade**: Market execution via MT5 with spread-aware deadzones and risk guardrails.
-6. **Monitor**: Real-time PnL polling rollback canaries if they misbehave.
+## What It Does
+- Ingests MT5 OHLCV bars per symbol.
+- Trains LSTM (regime/pattern) and PPO (exposure policy).
+- Evaluates candidate vs champion with hard gates and forward windows.
+- Publishes runtime status to API/UI and optional Telegram alerts.
+
+## What Is Live Now
+- MT5-only data path for runtime and training.
+- Symbol-scoped DRL training and model registry paths.
+- Candidate/canary/champion registry with promotion gates.
+- PPO backtest path that fails if artifacts are missing (no strategy fallback).
+
+## What Is Experimental
+- Reward-weight tuning (`drl.reward.weights`) and feature evolution.
+- Forward-window gate tuning and canary promotion cadence.
+- LSTM/PPO blend policy weight calibration.
 
 ## Architecture
+- `Python/Server_AGI.py`: runtime loop, MT5 execution, telemetry.
+- `training/train_lstm.py`, `training/train_drl.py`: training pipelines.
+- `Python/model_registry.py`, `Python/model_evaluator.py`: registry + gates.
+- `Python/backtester.py`: PPO fidelity backtesting.
+- `tools/project_status_ui.py`: status UI/API.
 
+## Data Path
+1. MT5 bar fetch in `Python/data_feed.py`.
+2. Normalize to OHLCV frame.
+3. Engineered features in `drl/trading_env.py` (returns, microstructure, volatility, time context, trend/regime bucket).
+
+## Training Path
+1. Run LSTM per symbol (`training/train_lstm.py`).
+2. Run PPO per symbol (default) or explicit combined mode (`training/train_drl.py`).
+3. Stage candidate with metadata (`scorecard.json`, `metadata.json`) including feature/reward versions and windows.
+
+## Promotion Path
+1. Evaluate candidate vs champion with strict thresholds.
+2. Require per-symbol pass rate and forward-window win rate.
+3. Require champion beat on multiple metrics (score, return, Sharpe, drawdown).
+4. Set canary on pass; retain champion on fail.
+
+## How To Run
+
+### 1. Install
+```powershell
+cd C:\windows\system32\cautious-giggle
+python -m venv .venv312
+.\.venv312\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
-┌──────────────┐    every 5 min    ┌──────────────┐
-│     n8n      │ ───────────────►  │  agi_n8n     │
-│  Orchestrator│                   │  _bridge.py  │
-│  (5678)      │ ◄──── JSON ─────  │              │
-└──────────────┘                   └──────┬───────┘
-                                          │ socket :9090
-                                   ┌──────▼───────┐
-                                   │  Server_AGI  │ ◄───┐
-                                   │   .py        │     │ Monitoring
-                                   └──┬───┬───┬───┘     │
-                                      │   │   │         │
-                          ┌───────────┘   │   └───── AutonomyLoop
-                          ▼               ▼               │
-                   ┌────────────┐  ┌────────────┐  ┌──────▼─────┐
-                   │HybridBrain │  │ risk_engine│  │ModelRegistry│
-                   │ (PPO+LSTM) │  │(KillSwitch)│  │ (Promotion) │
-                   └──────┬─────┘  └────────────┘  └────────────┘
-                          │
-                   ┌──────▼─────┐
-                   │  data_feed │
-                   │ (MT5 / YF) │
-                   └────────────┘
+
+### 2. Configure
+- Copy `config.yaml.example` to `config.yaml`.
+- Keep secrets out of git.
+- Set runtime secrets via env vars when possible:
+```powershell
+$env:MT5_LOGIN = "<login>"
+$env:MT5_PASSWORD = "<password>"
+$env:MT5_SERVER = "<server>"
+$env:TELEGRAM_TOKEN = "<token>"
+$env:TELEGRAM_CHAT_ID = "<chat_id>"
 ```
 
-## Key Components
+### 3. Start Runtime
+```powershell
+.\.venv312\Scripts\python.exe -m Python.Server_AGI --live
+```
 
-| File | Purpose |
-|------|---------|
-| `Python/Server_AGI.py` | Main Engine — Concurrent Autonomy, Risk Polling, and Socket Server |
-| `Python/hybrid_brain.py` | RL Executor — PPO-first policy with deadzones and Canary risk scaling |
-| `Python/autonomy_loop.py` | Orchestrator — Manages the Train -> Evaluate -> Promote lifecycle |
-| `Python/model_registry.py` | Ledger — Manages Champion/Canary versioning and hot-swaps |
-| `Python/data_feed.py` | High-fidelity data handler with FX volume proxies and MT5 integration |
-| `training/train_drl.py` | DRL Trainer — Joint PPO+LSTM training with curriculum learning |
+### 4. Train + Evaluate
+```powershell
+.\.venv312\Scripts\python.exe training\train_lstm.py
+.\.venv312\Scripts\python.exe training\train_drl.py
+.\.venv312\Scripts\python.exe tools\champion_cycle.py
+```
 
-## Quick Start (VPS Deployment)
+## Known Limitations
+- Walk-forward orchestration is gate-driven but still file-registry based (no external experiment DB).
+- Promotion to champion remains operator-controlled after canary stage.
+- MT5 availability/network state can block training/evaluation windows.
 
-1. **Setup Env Vars**:
-   ```powershell
-   $env:AGI_TOKEN="your_secure_token"
-   $env:AGI_AUTONOMY_AUTO_CANARY="true"
-   $env:AGI_PNL_POLL="true"
-   ```
+## Evidence / Results
+- Runtime health: `http://127.0.0.1:8088/api/status`
+- Logs: `logs/server.log`, `logs/audit_events.jsonl`, `logs/trade_events.jsonl`
+- Cycle report: `logs/champion_cycle_last_report.json`
+- Add dashboards/screenshots under `docs/screenshots/`
 
-2. **Boot the Server**:
-   ```powershell
-   python -m Python.Server_AGI --live
-   ```
+## Security Baseline
+- `config.yaml` is gitignored.
+- `config.yaml.example` contains placeholders only.
+- Live startup now rejects placeholder Telegram config values.
 
-3. **Start the n8n Orchestrator**:
-   By default n8n blocks terminal commands. You MUST unlock it on Windows VPS. Open a second PowerShell:
-   ```powershell
-   npm install -g n8n
-   $env:NODES_EXCLUDE="[]"
-   n8n start
-   ```
+## CI and Tests
+- GitHub Actions workflow: `.github/workflows/build.yml`
+- Test suite: `tests/`
+- Local run:
+```powershell
+pytest -q
+```
 
-4. **Monitor Autonomy**:
-   Check `logs/ppo_training.log` or the Console for Model Promotion signals.
-
-## Risk Management (Vitals)
-
-- **Canary Mode**: New models trade with 25% risk (configurable via `CANARY_LOT_MULT`).
-- **Kill Switch**: Realized PnL polling from MT5 triggers instant halts if daily loss limits are hit.
-- **Cooldowns**: Enforced 45s cooldowns prevent position flip-flopping due to noise.
-
----
-**Risk warning:** For simulation/education only. Trade at your own risk.
+## Risk Warning
+Simulation/education tooling. Live trading carries financial risk.
