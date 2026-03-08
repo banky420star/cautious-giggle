@@ -144,8 +144,13 @@ def _processes():
 
 
 def _filter_cmd(procs, token):
-    t = token.lower()
-    return [p for p in procs if t in (p.get("cmd") or "").lower()]
+    t = token.lower().replace("\\", "/")
+    out = []
+    for p in procs:
+        cmd = (p.get("cmd") or "").lower().replace("\\", "/")
+        if t in cmd:
+            out.append(p)
+    return out
 
 def _is_running(token: str) -> bool:
     return len(_filter_cmd(_processes(), token)) > 0
@@ -154,11 +159,14 @@ def _is_running(token: str) -> bool:
 def _training_state(procs):
     drl = _filter_cmd(procs, "training/train_drl.py")
     lstm = _filter_cmd(procs, "training/train_lstm.py")
+    cycle = _filter_cmd(procs, "tools/champion_cycle_loop.py")
     return {
         "drl_running": len(drl) > 0,
         "lstm_running": len(lstm) > 0,
+        "cycle_running": len(cycle) > 0,
         "drl_pids": [p["pid"] for p in drl],
         "lstm_pids": [p["pid"] for p in lstm],
+        "cycle_pids": [p["pid"] for p in cycle],
     }
 
 
@@ -343,7 +351,7 @@ def control_action(action, payload):
             return {"ok": True, "message": f"Stopped LSTM pids={ids}"}
 
         if action == "run_cycle":
-            if _is_running("tools/champion_cycle.py"):
+            if _is_running("tools/champion_cycle_loop.py") or _is_running("tools/champion_cycle.py"):
                 return {"ok": True, "message": "Champion cycle already running"}
             pid = _spawn([_venv_python(), "tools/champion_cycle.py"], "champion_cycle_stdout.log", "champion_cycle_stderr.log")
             return {"ok": True, "message": f"Champion cycle started pid={pid}"}
@@ -406,7 +414,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 6px;b
 <script>
 const byId=(i)=>document.getElementById(i), fmt=(v)=>v===null||v===undefined?'-':Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 function spark(points){ if(!points||points.length<2) return ''; const w=220,h=48,p=4; const min=Math.min(...points),max=Math.max(...points),span=(max-min)||1; const coords=points.map((v,i)=>{const x=p+i*(w-2*p)/(points.length-1); const y=h-p-((v-min)/span)*(h-2*p); return `${x},${y}`}).join(' '); return `<svg class='spark' viewBox='0 0 ${w} ${h}'><polyline fill='none' stroke='#6cd1ff' stroke-width='2' points='${coords}'/></svg>`; }
-function render(d){ const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{}; byId('meta').textContent=`UTC ${d.timestamp_utc}`; byId('balance').textContent=fmt(a.balance); byId('equity').textContent=fmt(a.equity); byId('trades').textContent=String(a.open_positions??0); const p=a.profit??0; const pe=byId('pnl'); pe.textContent=fmt(p); pe.className='val '+(p>=0?'good':'bad'); byId('models').innerHTML=`<span class='chip'>Champion: ${m.champion||'none'}</span><span class='chip'>Canary: ${m.canary||'none'}</span>`; byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${(s.pids||[]).join(', ')||'-'}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span>`; byId('training').innerHTML=`<span class='chip'>PPO: ${t.drl_running?'TRAINING':'IDLE'}</span><span class='chip'>LSTM: ${t.lstm_running?'TRAINING':'IDLE'}</span><span class='chip'>PPO PID(s): ${(t.drl_pids||[]).join(', ')||'-'}</span><span class='chip'>LSTM PID(s): ${(t.lstm_pids||[]).join(', ')||'-'}</span>`;
+function render(d){ const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{}; byId('meta').textContent=`UTC ${d.timestamp_utc}`; byId('balance').textContent=fmt(a.balance); byId('equity').textContent=fmt(a.equity); byId('trades').textContent=String(a.open_positions??0); const p=a.profit??0; const pe=byId('pnl'); pe.textContent=fmt(p); pe.className='val '+(p>=0?'good':'bad'); byId('models').innerHTML=`<span class='chip'>Champion: ${m.champion||'none'}</span><span class='chip'>Canary: ${m.canary||'none'}</span>`; byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${(s.pids||[]).join(', ')||'-'}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span>`; byId('training').innerHTML=`<span class='chip'>PPO: ${t.drl_running?'TRAINING':'IDLE'}</span><span class='chip'>LSTM: ${t.lstm_running?'TRAINING':'IDLE'}</span><span class='chip'>Cycle: ${t.cycle_running?'RUNNING':'IDLE'}</span><span class='chip'>PPO PID(s): ${(t.drl_pids||[]).join(', ')||'-'}</span><span class='chip'>LSTM PID(s): ${(t.lstm_pids||[]).join(', ')||'-'}</span><span class='chip'>Cycle PID(s): ${(t.cycle_pids||[]).join(', ')||'-'}</span>`;
 const rows=(a.positions||[]).map(p=>`<tr><td>${p.ticket}</td><td>${p.symbol}</td><td>${p.type}</td><td>${p.volume}</td><td class='${p.profit>=0?'good':'bad'}'>${fmt(p.profit)}</td><td>${p.open_price}</td><td>${p.current_price}</td><td>${p.sl}</td><td>${p.tp}</td></tr>`).join(''); byId('pos').innerHTML=rows||'<tr><td colspan="9">No open trades</td></tr>';
 const cards=(d.symbol_perf||[]).map(s=>`<div class='sym'><div style='display:flex;justify-content:space-between'><strong>${s.symbol}</strong><span class='${s.pnl>=0?'good':'bad'}'>${fmt(s.pnl)}</span></div><div class='sub'>Trades ${s.trades} | Win ${s.win_rate}%</div>${spark(s.curve)}</div>`).join(''); byId('symGrid').innerHTML=cards||'<div class="sub">No closed deals in selected window.</div>';
 byId('server').textContent=(d.logs?.server||[]).join(String.fromCharCode(10)); byId('ppo').textContent=(d.logs?.ppo||[]).join(String.fromCharCode(10)); byId('lstm').textContent=(d.logs?.lstm||[]).join(String.fromCharCode(10)); byId('audit').textContent=(d.logs?.audit||[]).join(String.fromCharCode(10)); }

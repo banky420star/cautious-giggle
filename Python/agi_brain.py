@@ -15,10 +15,17 @@ FEATURE_COLUMNS = [
     "close",
     "volume",
     "ret_1",
+    "ret_5",
+    "ret_10",
     "rsi_14",
     "atr_14",
     "ema_12",
     "ema_26",
+    "macd_line",
+    "macd_signal",
+    "bb_width_20",
+    "stoch_k_14",
+    "vol_z_20",
 ]
 
 
@@ -30,14 +37,18 @@ def _as_series(df: pd.DataFrame, col: str) -> pd.Series:
 
 
 def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
+    # Feature engineering section (MT5 OHLCV -> LSTM feature engine)
     out = df.copy()
     out = out.loc[:, ~out.columns.duplicated(keep="first")]
 
     close = _as_series(out, "close")
     high = _as_series(out, "high")
     low = _as_series(out, "low")
+    volume = _as_series(out, "volume")
 
     out["ret_1"] = close.pct_change().fillna(0.0)
+    out["ret_5"] = close.pct_change(5).fillna(0.0)
+    out["ret_10"] = close.pct_change(10).fillna(0.0)
 
     delta = close.diff().fillna(0.0)
     gain = delta.clip(lower=0).rolling(14).mean()
@@ -52,6 +63,20 @@ def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
 
     out["ema_12"] = close.ewm(span=12, adjust=False).mean()
     out["ema_26"] = close.ewm(span=26, adjust=False).mean()
+    out["macd_line"] = out["ema_12"] - out["ema_26"]
+    out["macd_signal"] = out["macd_line"].ewm(span=9, adjust=False).mean()
+
+    bb_mid = close.rolling(20).mean()
+    bb_std = close.rolling(20).std().fillna(0.0)
+    out["bb_width_20"] = ((bb_std * 4.0) / (bb_mid.abs() + 1e-12)).fillna(0.0)
+
+    low_14 = low.rolling(14).min()
+    high_14 = high.rolling(14).max()
+    out["stoch_k_14"] = (((close - low_14) / ((high_14 - low_14) + 1e-12)) * 100.0).fillna(50.0)
+
+    vol_mean_20 = volume.rolling(20).mean()
+    vol_std_20 = volume.rolling(20).std().fillna(0.0)
+    out["vol_z_20"] = ((volume - vol_mean_20) / (vol_std_20 + 1e-12)).fillna(0.0)
 
     out = out.replace([np.inf, -np.inf], np.nan).ffill().bfill().dropna()
     return out

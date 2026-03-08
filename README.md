@@ -75,11 +75,19 @@ $env:TELEGRAM_CHAT_ID = "<chat_id>"
 .\.venv312\Scripts\python.exe training\train_lstm.py
 .\.venv312\Scripts\python.exe training\train_drl.py
 .\.venv312\Scripts\python.exe tools\champion_cycle.py
+.\.venv312\Scripts\python.exe tools\champion_cycle_loop.py --interval-minutes 30
 ```
+
+### 5. One-Click Launcher + Desktop Icon
+```powershell
+powershell -ExecutionPolicy Bypass -File .\create_agi_trading_shortcut.ps1
+.\launch_agi_trading.ps1
+```
+This starts server, UI, n8n, and continuous champion-cycle retraining/promotion checks, then opens the UI.
 
 ## Known Limitations
 - Walk-forward orchestration is gate-driven but still file-registry based (no external experiment DB).
-- Promotion to champion remains operator-controlled after canary stage.
+- Champion promotion is gate-enforced and can be operator-overridden, but governance remains file-registry based.
 - MT5 availability/network state can block training/evaluation windows.
 
 ## Evidence / Results

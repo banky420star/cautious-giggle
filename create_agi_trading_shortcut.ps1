@@ -15,7 +15,7 @@ $shortcut.TargetPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.ex
 $shortcut.Arguments = "-ExecutionPolicy Bypass -File `"$launcher`""
 $shortcut.WorkingDirectory = $repoRoot
 $shortcut.IconLocation = "C:\Windows\System32\shell32.dll,44"
-$shortcut.Description = "Start AGI server + UI"
+$shortcut.Description = "Start AGI server + UI + n8n + training cycle"
 $shortcut.Save()
 
 Write-Host "Created shortcut: $shortcutPath"
