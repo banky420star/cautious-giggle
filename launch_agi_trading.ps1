@@ -42,6 +42,17 @@ function Start-LauncherWindow {
   ) | Out-Null
 }
 
+function Test-PortListening {
+  param([int]$Port)
+  try {
+    $row = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop | Select-Object -First 1
+    return $null -ne $row
+  } catch {
+    $legacy = netstat -ano | Select-String ":$Port\s+.*LISTENING"
+    return $null -ne $legacy
+  }
+}
+
 $serverCmd = "& '$pythonExe' -m Python.Server_AGI --live"
 $uiCmd = "& '$pythonExe' tools\project_status_ui.py"
 
@@ -50,7 +61,18 @@ Start-Sleep -Seconds 2
 Start-LauncherWindow -Title "AGI Status UI" -InnerCommand $uiCmd
 
 if ($StartN8N) {
-  Start-LauncherWindow -Title "n8n Orchestrator" -InnerCommand "`$env:NODES_EXCLUDE='[]'; n8n start"
+  if (Test-PortListening -Port 5678) {
+    Write-Host "n8n already listening on port 5678. Skipping n8n launch."
+  } else {
+    $n8nCmd = @(
+      "`$env:NODES_EXCLUDE='[]'",
+      "`$env:N8N_DIAGNOSTICS_ENABLED='false'",
+      "`$env:N8N_VERSION_NOTIFICATIONS_ENABLED='false'",
+      "`$env:N8N_PERSONALIZATION_ENABLED='false'",
+      "n8n start"
+    ) -join "; "
+    Start-LauncherWindow -Title "n8n Orchestrator" -InnerCommand $n8nCmd
+  }
 }
 
 Start-Sleep -Seconds 2

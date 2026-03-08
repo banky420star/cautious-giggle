@@ -132,8 +132,12 @@ class TradingEnv(gym.Env):
         dow_cos = np.zeros_like(c)
         if dates is not None:
             dt = pd.to_datetime(dates, utc=True, errors="coerce")
-            hour = dt.dt.hour.to_numpy(dtype=np.float64)
-            dow = dt.dt.dayofweek.to_numpy(dtype=np.float64)
+            if isinstance(dt, pd.DatetimeIndex):
+                hour = dt.hour.to_numpy(dtype=np.float64)
+                dow = dt.dayofweek.to_numpy(dtype=np.float64)
+            else:
+                hour = dt.dt.hour.to_numpy(dtype=np.float64)
+                dow = dt.dt.dayofweek.to_numpy(dtype=np.float64)
             hour_sin = np.sin(2.0 * np.pi * hour / 24.0)
             hour_cos = np.cos(2.0 * np.pi * hour / 24.0)
             dow_sin = np.sin(2.0 * np.pi * dow / 7.0)
