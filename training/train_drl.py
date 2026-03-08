@@ -106,11 +106,24 @@ def make_env(df, seed: int, initial_balance: float, reward_weights: dict):
     return _init
 
 
-def _prepare_df(symbols: list[str], period: str, interval: str, per_symbol_mode: bool) -> pd.DataFrame:
+def _prepare_df(symbols: list[str], period: str, interval: str, per_symbol_mode: bool, candles: int) -> pd.DataFrame:
     if per_symbol_mode and len(symbols) == 1:
-        df = fetch_training_data(symbols[0], period=period, interval=interval)
+        df = fetch_training_data(
+            symbols[0],
+            period=period,
+            interval=interval,
+            strict=False,
+            bars=int(candles),
+            min_bars=int(candles),
+        )
     else:
-        df = get_combined_training_df(symbols, period=period, interval=interval)
+        df = get_combined_training_df(
+            symbols,
+            period=period,
+            interval=interval,
+            bars=int(candles),
+            min_bars=int(candles),
+        )
 
     if df is None or df.empty:
         return pd.DataFrame()
@@ -193,15 +206,16 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
 
     period = str(drl_cfg.get("period", "90d"))
     interval = _normalize_interval(drl_cfg.get("interval", trading_cfg.get("timeframe", "M5")))
+    candles = int(drl_cfg.get("candles_per_symbol", 500000))
     reward_cfg = drl_cfg.get("reward", {}) if isinstance(drl_cfg.get("reward", {}), dict) else {}
     reward_weights = reward_cfg.get("weights", {}) if isinstance(reward_cfg.get("weights", {}), dict) else {}
 
     per_symbol_mode = len(symbols) == 1
     logger.info(
-        f"DRL Training | symbols={symbols} | timesteps={total_timesteps:,} | period={period} | tf={interval} | per_symbol={per_symbol_mode} | initial_balance={initial_balance:.2f}"
+        f"DRL Training | symbols={symbols} | timesteps={total_timesteps:,} | period={period} | tf={interval} | candles={candles:,} | per_symbol={per_symbol_mode} | initial_balance={initial_balance:.2f}"
     )
 
-    df_pd = _prepare_df(symbols, period=period, interval=interval, per_symbol_mode=per_symbol_mode)
+    df_pd = _prepare_df(symbols, period=period, interval=interval, per_symbol_mode=per_symbol_mode, candles=candles)
     if df_pd.empty:
         raise RuntimeError("No valid training data found")
 

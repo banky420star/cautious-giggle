@@ -1,6 +1,7 @@
 ﻿import asyncio
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import defaultdict
@@ -156,10 +157,52 @@ def _is_running(token: str) -> bool:
     return len(_filter_cmd(_processes(), token)) > 0
 
 
+def _latest_training_progress() -> dict:
+    out = {
+        "drl_symbol": None,
+        "drl_timesteps": None,
+        "drl_candles": None,
+        "lstm_symbol": None,
+        "lstm_epoch": None,
+        "lstm_epochs_total": None,
+        "train_error": None,
+    }
+    ppo_lines = _tail(os.path.join(LOG_DIR, "ppo_training.log"), 200)
+    lstm_lines = _tail(os.path.join(LOG_DIR, "lstm_training.log"), 200)
+
+    drl_re = re.compile(r"DRL Training \| symbols=\['([^']+)'\].*timesteps=([0-9,]+).*(?:candles=([0-9,]+))?")
+    lstm_re = re.compile(r"([A-Za-z0-9_]+)\s*\|\s*epoch\s+(\d+)\s*/\s*(\d+)")
+    err_re = re.compile(r"(Authorization failed|insufficient MT5 data|MT5 initialize failed)", re.IGNORECASE)
+
+    for line in reversed(ppo_lines):
+        m = drl_re.search(line)
+        if m:
+            out["drl_symbol"] = m.group(1)
+            out["drl_timesteps"] = m.group(2)
+            out["drl_candles"] = m.group(3) if m.lastindex and m.lastindex >= 3 else None
+            break
+
+    for line in reversed(lstm_lines):
+        m = lstm_re.search(line)
+        if m:
+            out["lstm_symbol"] = m.group(1)
+            out["lstm_epoch"] = m.group(2)
+            out["lstm_epochs_total"] = m.group(3)
+            break
+
+    for line in reversed(ppo_lines + lstm_lines):
+        if err_re.search(line):
+            out["train_error"] = line
+            break
+
+    return out
+
+
 def _training_state(procs):
     drl = _filter_cmd(procs, "training/train_drl.py")
     lstm = _filter_cmd(procs, "training/train_lstm.py")
     cycle = _filter_cmd(procs, "tools/champion_cycle_loop.py")
+    progress = _latest_training_progress()
     return {
         "drl_running": len(drl) > 0,
         "lstm_running": len(lstm) > 0,
@@ -167,6 +210,13 @@ def _training_state(procs):
         "drl_pids": [p["pid"] for p in drl],
         "lstm_pids": [p["pid"] for p in lstm],
         "cycle_pids": [p["pid"] for p in cycle],
+        "drl_symbol": progress.get("drl_symbol"),
+        "drl_timesteps": progress.get("drl_timesteps"),
+        "drl_candles": progress.get("drl_candles"),
+        "lstm_symbol": progress.get("lstm_symbol"),
+        "lstm_epoch": progress.get("lstm_epoch"),
+        "lstm_epochs_total": progress.get("lstm_epochs_total"),
+        "train_error": progress.get("train_error"),
     }
 
 
@@ -332,7 +382,7 @@ def control_action(action, payload):
         if action == "start_drl":
             if _is_running("training/train_drl.py"):
                 return {"ok": True, "message": "PPO training already running"}
-            timesteps = str(int(payload.get("timesteps", 120000)))
+            timesteps = str(int(payload.get("timesteps", 500000)))
             pid = _spawn([_venv_python(), "training/train_drl.py"], "train_drl_ui_stdout.log", "train_drl_ui_stderr.log", env={"AGI_DRL_TIMESTEPS": timesteps})
             return {"ok": True, "message": f"PPO training started pid={pid}, timesteps={timesteps}"}
 
@@ -406,7 +456,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 6px;b
 <div class='grid'>
 <div class='card kpi'><div class='label'>Balance</div><div class='val' id='balance'>-</div></div><div class='card kpi'><div class='label'>Equity</div><div class='val' id='equity'>-</div></div><div class='card kpi'><div class='label'>Open Trades</div><div class='val' id='trades'>-</div></div><div class='card kpi'><div class='label'>Unrealized PnL</div><div class='val' id='pnl'>-</div></div>
 <div class='card wide'><div class='head'>Models / Runtime</div><div id='models'></div><div id='runtime'></div></div><div class='card wide'><div class='head'>Training</div><div id='training'></div></div>
-<div class='card full'><div class='head'>Controls</div><div class='controls'><button class='btn' onclick="act('start_lstm')">Start LSTM</button><button class='btn' onclick="act('stop_lstm')">Stop LSTM</button><button class='btn' onclick="act('start_drl',{timesteps:120000})">Start PPO</button><button class='btn' onclick="act('stop_drl')">Stop PPO</button><button class='btn' onclick="act('run_cycle')">Run Full Cycle</button><button class='btn' onclick="act('set_canary_latest')">Set Latest Canary</button><button class='btn' onclick="act('promote_canary')">Promote Canary</button><button class='btn' onclick="act('rollback_canary')">Rollback Canary</button><button class='btn' onclick="act('restart_server')">Restart Server</button></div><div class='sub' id='ctrlMsg'></div></div>
+<div class='card full'><div class='head'>Controls</div><div class='controls'><button class='btn' onclick="act('start_lstm')">Start LSTM</button><button class='btn' onclick="act('stop_lstm')">Stop LSTM</button><button class='btn' onclick="act('start_drl',{timesteps:500000})">Start PPO</button><button class='btn' onclick="act('stop_drl')">Stop PPO</button><button class='btn' onclick="act('run_cycle')">Run Full Cycle</button><button class='btn' onclick="act('set_canary_latest')">Set Latest Canary</button><button class='btn' onclick="act('promote_canary')">Promote Canary</button><button class='btn' onclick="act('rollback_canary')">Rollback Canary</button><button class='btn' onclick="act('restart_server')">Restart Server</button></div><div class='sub' id='ctrlMsg'></div></div>
 <div class='card full'><div class='head'>Per-Symbol Performance (7d)</div><div class='symGrid' id='symGrid'></div></div>
 <div class='card full'><div class='head'>Open Positions</div><div style='overflow:auto'><table><thead><tr><th>Ticket</th><th>Symbol</th><th>Side</th><th>Volume</th><th>PnL</th><th>Open</th><th>Current</th><th>SL</th><th>TP</th></tr></thead><tbody id='pos'></tbody></table></div></div>
 <div class='card wide'><div class='head'>Server Log</div><div class='mono' id='server'></div></div><div class='card wide'><div class='head'>PPO Log</div><div class='mono' id='ppo'></div></div><div class='card wide'><div class='head'>LSTM Log</div><div class='mono' id='lstm'></div></div><div class='card wide'><div class='head'>Audit</div><div class='mono' id='audit'></div></div>
@@ -414,7 +464,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 6px;b
 <script>
 const byId=(i)=>document.getElementById(i), fmt=(v)=>v===null||v===undefined?'-':Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 function spark(points){ if(!points||points.length<2) return ''; const w=220,h=48,p=4; const min=Math.min(...points),max=Math.max(...points),span=(max-min)||1; const coords=points.map((v,i)=>{const x=p+i*(w-2*p)/(points.length-1); const y=h-p-((v-min)/span)*(h-2*p); return `${x},${y}`}).join(' '); return `<svg class='spark' viewBox='0 0 ${w} ${h}'><polyline fill='none' stroke='#6cd1ff' stroke-width='2' points='${coords}'/></svg>`; }
-function render(d){ const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{}; byId('meta').textContent=`UTC ${d.timestamp_utc}`; byId('balance').textContent=fmt(a.balance); byId('equity').textContent=fmt(a.equity); byId('trades').textContent=String(a.open_positions??0); const p=a.profit??0; const pe=byId('pnl'); pe.textContent=fmt(p); pe.className='val '+(p>=0?'good':'bad'); byId('models').innerHTML=`<span class='chip'>Champion: ${m.champion||'none'}</span><span class='chip'>Canary: ${m.canary||'none'}</span>`; byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${(s.pids||[]).join(', ')||'-'}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span>`; byId('training').innerHTML=`<span class='chip'>PPO: ${t.drl_running?'TRAINING':'IDLE'}</span><span class='chip'>LSTM: ${t.lstm_running?'TRAINING':'IDLE'}</span><span class='chip'>Cycle: ${t.cycle_running?'RUNNING':'IDLE'}</span><span class='chip'>PPO PID(s): ${(t.drl_pids||[]).join(', ')||'-'}</span><span class='chip'>LSTM PID(s): ${(t.lstm_pids||[]).join(', ')||'-'}</span><span class='chip'>Cycle PID(s): ${(t.cycle_pids||[]).join(', ')||'-'}</span>`;
+function render(d){ const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{}; byId('meta').textContent=`UTC ${d.timestamp_utc}`; byId('balance').textContent=fmt(a.balance); byId('equity').textContent=fmt(a.equity); byId('trades').textContent=String(a.open_positions??0); const p=a.profit??0; const pe=byId('pnl'); pe.textContent=fmt(p); pe.className='val '+(p>=0?'good':'bad'); byId('models').innerHTML=`<span class='chip'>Champion: ${m.champion||'none'}</span><span class='chip'>Canary: ${m.canary||'none'}</span>`; byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${(s.pids||[]).join(', ')||'-'}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span>`; byId('training').innerHTML=`<span class='chip'>PPO: ${t.drl_running?'TRAINING':'IDLE'}</span><span class='chip'>PPO Symbol: ${t.drl_symbol||'-'}</span><span class='chip'>PPO Steps: ${t.drl_timesteps||'-'}</span><span class='chip'>PPO Candles: ${t.drl_candles||'-'}</span><span class='chip'>LSTM: ${t.lstm_running?'TRAINING':'IDLE'}</span><span class='chip'>LSTM Symbol: ${t.lstm_symbol||'-'}</span><span class='chip'>LSTM Epoch: ${(t.lstm_epoch&&t.lstm_epochs_total)?`${t.lstm_epoch}/${t.lstm_epochs_total}`:'-'}</span><span class='chip'>Cycle: ${t.cycle_running?'RUNNING':'IDLE'}</span><span class='chip'>PPO PID(s): ${(t.drl_pids||[]).join(', ')||'-'}</span><span class='chip'>LSTM PID(s): ${(t.lstm_pids||[]).join(', ')||'-'}</span><span class='chip'>Cycle PID(s): ${(t.cycle_pids||[]).join(', ')||'-'}</span><span class='chip'>Train Error: ${t.train_error||'none'}</span>`;
 const rows=(a.positions||[]).map(p=>`<tr><td>${p.ticket}</td><td>${p.symbol}</td><td>${p.type}</td><td>${p.volume}</td><td class='${p.profit>=0?'good':'bad'}'>${fmt(p.profit)}</td><td>${p.open_price}</td><td>${p.current_price}</td><td>${p.sl}</td><td>${p.tp}</td></tr>`).join(''); byId('pos').innerHTML=rows||'<tr><td colspan="9">No open trades</td></tr>';
 const cards=(d.symbol_perf||[]).map(s=>`<div class='sym'><div style='display:flex;justify-content:space-between'><strong>${s.symbol}</strong><span class='${s.pnl>=0?'good':'bad'}'>${fmt(s.pnl)}</span></div><div class='sub'>Trades ${s.trades} | Win ${s.win_rate}%</div>${spark(s.curve)}</div>`).join(''); byId('symGrid').innerHTML=cards||'<div class="sub">No closed deals in selected window.</div>';
 byId('server').textContent=(d.logs?.server||[]).join(String.fromCharCode(10)); byId('ppo').textContent=(d.logs?.ppo||[]).join(String.fromCharCode(10)); byId('lstm').textContent=(d.logs?.lstm||[]).join(String.fromCharCode(10)); byId('audit').textContent=(d.logs?.audit||[]).join(String.fromCharCode(10)); }
@@ -500,6 +550,7 @@ def run(host="127.0.0.1", port=8088):
 
 if __name__ == "__main__":
     run(host=os.environ.get("AGI_UI_HOST", "127.0.0.1"), port=int(os.environ.get("AGI_UI_PORT", "8088")))
+
 
 
 

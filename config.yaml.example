@@ -15,6 +15,7 @@ drl:
   per_symbol: true
   period: "90d"
   interval: "M5"
+  candles_per_symbol: 500000
   eval_period: "120d"
   model_path: "models/ppo_trading.zip"
   reward:
@@ -26,6 +27,13 @@ drl:
       drawdown_penalty: 3.0
       cost_penalty: 5.0
       churn_penalty: 0.5
+
+training:
+  lstm_epochs: 20
+  per_symbol: true
+  lstm_period: "90d"
+  lstm_interval: "M5"
+  lstm_candles: 500000
 
 evaluation:
   max_drawdown: 0.10

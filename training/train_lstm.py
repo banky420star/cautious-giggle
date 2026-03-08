@@ -77,6 +77,7 @@ def _train_one_symbol(
     out_dir: str,
     period: str = "60d",
     interval: str = "5m",
+    candles: int = 500_000,
     alerter=None,
 ):
     if alerter is not None:
@@ -88,7 +89,14 @@ def _train_one_symbol(
         except Exception:
             pass
 
-    df = fetch_training_data(symbol, period=period, interval=interval)
+    df = fetch_training_data(
+        symbol,
+        period=period,
+        interval=interval,
+        strict=False,
+        bars=int(candles),
+        min_bars=int(candles),
+    )
     if df.empty or len(df) < seq_len + 50:
         logger.warning(f"insufficient data for {symbol}, skipping")
         if alerter is not None:
@@ -203,7 +211,7 @@ def _train_one_symbol(
     }
 
 
-def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m"):
+def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m", candles=500_000):
     if symbols is None:
         symbols = ["EURUSDm", "GBPUSDm", "XAUUSDm"]
 
@@ -215,7 +223,7 @@ def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m")
         device = "cpu"
 
     logger.info(
-        f"LSTM per-symbol training on {device.upper()} | symbols={symbols} | epochs={epochs} | period={period} | tf={interval}"
+        f"LSTM per-symbol training on {device.upper()} | symbols={symbols} | epochs={epochs} | period={period} | tf={interval} | candles={candles:,}"
     )
     alerter = _build_alerter()
     try:
@@ -239,6 +247,7 @@ def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m")
             out_dir=per_symbol_dir,
             period=period,
             interval=interval,
+            candles=candles,
             alerter=alerter,
         )
         if res:
@@ -270,6 +279,7 @@ if __name__ == "__main__":
     epochs = 20
     period = "60d"
     interval = "5m"
+    candles = 500_000
 
     if os.path.exists(cfg_path):
         with open(cfg_path, "r", encoding="utf-8") as f:
@@ -279,5 +289,6 @@ if __name__ == "__main__":
         epochs = int(tcfg.get("lstm_epochs", 20))
         period = str(tcfg.get("lstm_period", "90d"))
         interval = str(tcfg.get("lstm_interval", cfg.get("trading", {}).get("timeframe", "M5")))
+        candles = int(tcfg.get("lstm_candles", 500000))
 
-    train_lstm(symbols=symbols, epochs=epochs, period=period, interval=interval)
+    train_lstm(symbols=symbols, epochs=epochs, period=period, interval=interval, candles=candles)
