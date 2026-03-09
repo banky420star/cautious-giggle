@@ -20,6 +20,7 @@ class AutonomyLoop:
     def __init__(self, brain, interval_sec: int = 6 * 60 * 60):
         self.brain = brain
         self.registry = ModelRegistry()
+        self._ensure_symbol_registry_seeded()
         self.interval_sec = int(os.environ.get("AGI_AUTONOMY_INTERVAL_SEC", str(3600)))
         self.train_every_sec = int(os.environ.get("AGI_AUTONOMY_TRAIN_EVERY_SEC", "0"))
         self.train_on_start = os.environ.get("AGI_AUTONOMY_TRAIN_ON_START", "false").lower() == "true"
@@ -43,6 +44,30 @@ class AutonomyLoop:
 
         self.alerter = self._init_alerter()
         self.eval_config = self._load_evaluation_config()
+
+    def _ensure_symbol_registry_seeded(self):
+        symbols = self._load_symbols_cfg()
+        if not symbols:
+            return
+        active = self.registry._read_active()
+        global_champion = active.get("champion")
+        sym_map = active.setdefault("symbols", {})
+        touched = False
+        for symbol in symbols:
+            cur = sym_map.get(symbol)
+            if not isinstance(cur, dict):
+                cur = {"champion": None, "canary": None, "canary_policy": {}, "canary_state": {}}
+            cur.setdefault("champion", None)
+            cur.setdefault("canary", None)
+            cur.setdefault("canary_policy", {})
+            cur.setdefault("canary_state", {})
+            # Bootstrap with current global champion so per-symbol evaluation has a baseline.
+            if not cur.get("champion") and global_champion:
+                cur["champion"] = global_champion
+            sym_map[symbol] = cur
+            touched = True
+        if touched:
+            self.registry._write_active(active)
 
     def _init_alerter(self):
         token = os.environ.get("TELEGRAM_TOKEN")
