@@ -249,3 +249,50 @@ class TelegramAlerter:
             f"Generated: {s.get('generated_at_utc', 'n/a')}"
         )
         self._upsert_card("daily_profitability", msg)
+
+    def symbol_status(self, symbol, payload=None):
+        p = payload or {}
+        sig = p.get("signal", "n/a")
+        conf = p.get("confidence")
+        agi = p.get("agi_exposure")
+        ppo = p.get("ppo_exposure")
+        blend = p.get("blend_exposure")
+        pos_count = int(p.get("open_positions", 0) or 0)
+        floating = float(p.get("floating_pnl", 0.0) or 0.0)
+        side = p.get("position_side") or "n/a"
+        vol = p.get("position_volume")
+        entry = p.get("position_entry")
+        tp = p.get("position_tp")
+        sl = p.get("position_sl")
+        tp_usd = p.get("position_tp_value_usd")
+        sl_usd = p.get("position_sl_value_usd")
+        closed = p.get("last_closed") or {}
+        c_pnl = closed.get("profit")
+        c_reason = closed.get("comment") or "n/a"
+        c_deal = closed.get("deal_id")
+        c_icon = "🟢⬆️" if isinstance(c_pnl, (int, float)) and float(c_pnl) >= 0 else "🔴⬇️"
+
+        conf_txt = "-" if conf is None else f"{float(conf):.4f}"
+        agi_txt = "-" if agi is None else f"{float(agi):.4f}"
+        ppo_txt = "-" if ppo is None else f"{float(ppo):.4f}"
+        blend_txt = "-" if blend is None else f"{float(blend):.4f}"
+        vol_txt = "-" if vol is None else f"{float(vol):.2f}"
+        entry_txt = "-" if entry is None else f"{float(entry):.6f}"
+        tp_txt = "-" if tp is None else f"{float(tp):.6f}"
+        sl_txt = "-" if sl is None else f"{float(sl):.6f}"
+        tp_usd_txt = "-" if tp_usd is None else f"{float(tp_usd):.2f}"
+        sl_usd_txt = "-" if sl_usd is None else f"{float(sl_usd):.2f}"
+        c_pnl_txt = "-" if c_pnl is None else f"{float(c_pnl):.2f}"
+
+        msg = (
+            f"🪪 SYMBOL {symbol}\n"
+            f"Signal: {sig} | Conf: {conf_txt}\n"
+            f"AGI: {agi_txt} | PPO: {ppo_txt} | Blend: {blend_txt}\n"
+            f"Open Positions: {pos_count} | Floating: {floating:.2f}\n"
+            f"Position: {side} | Vol: {vol_txt}\n"
+            f"Entry: {entry_txt} | TP: {tp_txt} | SL: {sl_txt}\n"
+            f"TP Value(USD): {tp_usd_txt} | SL Value(USD): {sl_usd_txt}\n"
+            f"Last Closed {c_icon}: deal={c_deal if c_deal is not None else 'n/a'} | pnl={c_pnl_txt} | reason={c_reason}\n"
+            f"Updated: {datetime.datetime.utcnow().strftime('%H:%M:%S')} UTC"
+        )
+        self._upsert_card(f"symbol_{symbol}", msg)

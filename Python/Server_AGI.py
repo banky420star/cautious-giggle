@@ -388,6 +388,7 @@ def _expected_usd(symbol: str, side: str, entry: float, tp: float, sl: float, lo
 
 def _scan_trade_events(alerter, known_open_tickets, seen_closed_deals, last_deal_check):
     now_utc = _utc_now()
+    closed_events = []
 
     positions = mt5.positions_get() or []
     current_open = {int(p.ticket): p for p in positions}
@@ -448,6 +449,7 @@ def _scan_trade_events(alerter, known_open_tickets, seen_closed_deals, last_deal
                 "comment": str(getattr(d, "comment", "")),
             }
             _append_trade_event("trade_closed", payload)
+            closed_events.append(payload)
             alerter.trade_closed(
                 symbol=payload["symbol"],
                 ticket=payload["ticket"],
@@ -463,7 +465,7 @@ def _scan_trade_events(alerter, known_open_tickets, seen_closed_deals, last_deal
     if len(seen_closed_deals) > 20000:
         seen_closed_deals = set(sorted(seen_closed_deals)[-10000:])
 
-    return current_tickets, seen_closed_deals, now_utc - datetime.timedelta(seconds=3)
+    return current_tickets, seen_closed_deals, now_utc - datetime.timedelta(seconds=3), closed_events
 
 
 def main(live=False):
@@ -522,6 +524,8 @@ def main(live=False):
     last_owner_issue_key = None
     last_owner_issue_time = 0.0
     last_daily_profit_date = None
+    last_symbol_state = {str(s): {} for s in symbols}
+    last_closed_by_symbol = {}
 
     while True:
         now = time.time()
@@ -578,6 +582,37 @@ def main(live=False):
                     alerter.alert("RUNTIME OWNERSHIP WARNING\n" + "\n".join(lines))
                     last_owner_issue_key = issue_key
                     last_owner_issue_time = now
+            for symbol in symbols:
+                sym = str(symbol)
+                sstate = dict(last_symbol_state.get(sym, {}))
+                pos_rows = mt5.positions_get(symbol=sym) or []
+                sstate["open_positions"] = len(pos_rows)
+                sstate["floating_pnl"] = sum(float(getattr(p, "profit", 0.0)) for p in pos_rows)
+                if pos_rows:
+                    p0 = pos_rows[0]
+                    p_side = "BUY" if int(getattr(p0, "type", 0)) == int(mt5.ORDER_TYPE_BUY) else "SELL"
+                    p_vol = float(getattr(p0, "volume", 0.0) or 0.0)
+                    p_entry = float(getattr(p0, "price_open", 0.0) or 0.0)
+                    p_tp = float(getattr(p0, "tp", 0.0) or 0.0)
+                    p_sl = float(getattr(p0, "sl", 0.0) or 0.0)
+                    sstate["position_side"] = p_side
+                    sstate["position_volume"] = p_vol
+                    sstate["position_entry"] = p_entry
+                    sstate["position_tp"] = p_tp
+                    sstate["position_sl"] = p_sl
+                    tpv, slv = _expected_usd(sym, p_side, p_entry, p_tp, p_sl, p_vol)
+                    sstate["position_tp_value_usd"] = None if tpv is None else float(tpv)
+                    sstate["position_sl_value_usd"] = None if slv is None else float(slv)
+                else:
+                    sstate["position_side"] = None
+                    sstate["position_volume"] = None
+                    sstate["position_entry"] = None
+                    sstate["position_tp"] = None
+                    sstate["position_sl"] = None
+                    sstate["position_tp_value_usd"] = None
+                    sstate["position_sl_value_usd"] = None
+                sstate["last_closed"] = last_closed_by_symbol.get(sym)
+                alerter.symbol_status(sym, sstate)
             last_heartbeat = now
 
         # Observe-only event intelligence (calendar/news/websocket).
@@ -651,6 +686,12 @@ def main(live=False):
                         "threshold": float(confidence_threshold),
                     },
                 )
+                sym_state = last_symbol_state.setdefault(str(symbol), {})
+                sym_state["signal"] = sig
+                sym_state["confidence"] = conf
+                sym_state["agi_exposure"] = float(agi_exposure)
+                sym_state["ppo_exposure"] = None if ppo_exposure is None else float(ppo_exposure)
+                sym_state["blend_exposure"] = float(exposure)
 
                 action_meta = brain.get_last_action_meta()
                 order_meta = brain.live_trade(symbol, exposure, max_lots, action_meta=action_meta)
@@ -685,12 +726,17 @@ def main(live=False):
                 alerter.alert(f"Execution loop error on {symbol}: {exc}")
                 logger.exception(f"Execution loop error on {symbol}: {exc}")
 
-        known_open_tickets, seen_closed_deals, last_deal_check = _scan_trade_events(
+        known_open_tickets, seen_closed_deals, last_deal_check, closed_events = _scan_trade_events(
             alerter,
             known_open_tickets,
             seen_closed_deals,
             last_deal_check,
         )
+        for c in closed_events:
+            try:
+                last_closed_by_symbol[str(c.get("symbol", "?"))] = c
+            except Exception:
+                pass
 
         time.sleep(max(5, loop_sleep_sec))
 
