@@ -1,33 +1,103 @@
-﻿import datetime
+import datetime
+import json
+import os
+
 import requests
 
 
 class TelegramAlerter:
-    def __init__(self, token, chat_id):
+    def __init__(self, token, chat_id, cards_state_path=None):
         self.token = token
         self.chat_id = chat_id
+        self.cards_state_path = cards_state_path or self._default_cards_path()
+        self.cards = self._load_cards()
+
+    def _default_cards_path(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(root, "logs", "telegram_cards.json")
+
+    def _load_cards(self):
+        try:
+            if self.cards_state_path and os.path.exists(self.cards_state_path):
+                with open(self.cards_state_path, "r", encoding="utf-8") as f:
+                    data = json.load(f) or {}
+                if isinstance(data, dict):
+                    return {str(k): int(v) for k, v in data.items()}
+        except Exception:
+            pass
+        return {}
+
+    def _save_cards(self):
+        try:
+            if not self.cards_state_path:
+                return
+            os.makedirs(os.path.dirname(self.cards_state_path), exist_ok=True)
+            with open(self.cards_state_path, "w", encoding="utf-8") as f:
+                json.dump(self.cards, f, indent=2, ensure_ascii=True)
+        except Exception:
+            pass
+
+    def _api(self, method, payload):
+        if not self.token or not self.chat_id:
+            return None
+        url = f"https://api.telegram.org/bot{self.token}/{method}"
+        try:
+            resp = requests.post(url, json=payload, timeout=8)
+            if not resp.ok:
+                return None
+            body = resp.json()
+            if not body.get("ok"):
+                return None
+            return body.get("result")
+        except Exception:
+            return None
 
     def _send(self, text):
-        if not self.token or not self.chat_id:
+        out = self._api(
+            "sendMessage",
+            {"chat_id": self.chat_id, "text": text, "disable_web_page_preview": True},
+        )
+        return out is not None
+
+    def _upsert_card(self, key, text):
+        key = str(key)
+        msg_id = self.cards.get(key)
+        if msg_id:
+            edited = self._api(
+                "editMessageText",
+                {
+                    "chat_id": self.chat_id,
+                    "message_id": int(msg_id),
+                    "text": text,
+                    "disable_web_page_preview": True,
+                },
+            )
+            if edited is not None:
+                return True
+        sent = self._api(
+            "sendMessage",
+            {"chat_id": self.chat_id, "text": text, "disable_web_page_preview": True},
+        )
+        if sent is None:
             return False
-        url = f"https://api.telegram.org/bot{self.token}/sendMessage"
         try:
-            resp = requests.post(url, json={"chat_id": self.chat_id, "text": text}, timeout=8)
-            return bool(resp.ok)
+            self.cards[key] = int(sent.get("message_id"))
+            self._save_cards()
         except Exception:
-            return False
+            pass
+        return True
 
     def online(self, message=""):
         body = "🟢 ONLINE\nAGI runtime connected."
         if message:
             body += f"\n{message}"
-        self._send(body)
+        self._upsert_card("runtime", body)
 
     def offline(self, message=""):
         body = "🔴 OFFLINE\nAGI runtime stopped."
         if message:
             body += f"\n{message}"
-        self._send(body)
+        self._upsert_card("runtime", body)
 
     def heartbeat(self, uptime, mt5_connected, trading_enabled):
         msg = (
@@ -37,7 +107,7 @@ class TelegramAlerter:
             f"Trading: {'ENABLED ✅' if trading_enabled else 'HALTED ❌'}\n"
             f"Time: {datetime.datetime.utcnow().strftime('%H:%M:%S')} UTC"
         )
-        self._send(msg)
+        self._upsert_card("heartbeat", msg)
 
     def heartbeat_full(
         self,
@@ -78,7 +148,7 @@ class TelegramAlerter:
             f"Event Active: {int(eis.get('active_window', 0) or 0)} | High Active: {int(eis.get('high_active', 0) or 0)}\n"
             f"Time: {datetime.datetime.utcnow().strftime('%H:%M:%S')} UTC"
         )
-        self._send(msg)
+        self._upsert_card("heartbeat", msg)
 
     def trade(self, symbol, action, exposure, confidence, balance, equity, free_margin):
         msg = (
@@ -91,7 +161,7 @@ class TelegramAlerter:
             f"Equity: {round(equity, 2)}\n"
             f"Free Margin: {round(free_margin, 2)}"
         )
-        self._send(msg)
+        self._upsert_card("trade_execution", msg)
 
     def trade_closed(self, symbol, ticket, pnl, volume, price, reason=None, deal_id=None):
         icon = "🟢⬆️" if pnl >= 0 else "🔴⬇️"
@@ -106,7 +176,7 @@ class TelegramAlerter:
             f"Reason: {why}\n"
             f"Realized PnL: {round(pnl, 2)}"
         )
-        self._send(msg)
+        self._upsert_card("trade_closed", msg)
 
     def trade_action(self, symbol, order_meta):
         if not order_meta:
@@ -141,7 +211,7 @@ class TelegramAlerter:
             f"{sl_icon} SL Value(USD): {round(float(exp_loss_usd), 2)}\n"
             f"RR: {round(rr, 3)} | Lots: {round(lots, 2)}"
         )
-        self._send(msg)
+        self._upsert_card("trade_action", msg)
 
     def snapshot(self, balance, equity, pnl_today, floating, open_positions):
         msg = (
@@ -152,16 +222,16 @@ class TelegramAlerter:
             f"Floating: {round(floating, 2)}\n"
             f"Open Positions: {int(open_positions)}"
         )
-        self._send(msg)
+        self._upsert_card("snapshot", msg)
 
     def training(self, stage, message):
-        self._send(f"🧠 TRAINING {stage}\n{message}")
+        self._upsert_card(f"training_{str(stage).strip().lower()}", f"🧠 TRAINING {stage}\n{message}")
 
     def model(self, message):
-        self._send(f"🏆 MODEL UPDATE\n{message}")
+        self._upsert_card("model", f"🏆 MODEL UPDATE\n{message}")
 
     def alert(self, message):
-        self._send(f"⚠️ ALERT\n{message}")
+        self._upsert_card("alerts", f"⚠️ ALERT\n{message}")
 
     def profitability_daily(self, summary):
         s = summary or {}
@@ -178,4 +248,4 @@ class TelegramAlerter:
             f"Worst: {wtxt}\n"
             f"Generated: {s.get('generated_at_utc', 'n/a')}"
         )
-        self._send(msg)
+        self._upsert_card("daily_profitability", msg)
