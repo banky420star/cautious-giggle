@@ -13,6 +13,7 @@ from Python.hybrid_brain import HybridBrain
 from Python.mt5_executor import MT5Executor
 from Python.risk_engine import RiskEngine
 from Python.config_utils import load_project_config
+from Python.trade_learning import build_trade_learning
 from alerts.telegram_alerts import TelegramAlerter
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -319,8 +320,10 @@ def main(live=False):
 
     start_time = time.time()
     heartbeat_sec = int(os.environ.get("AGI_HEARTBEAT_SEC", "60"))
+    learning_sec = int(os.environ.get("AGI_TRADE_LEARN_SEC", "600"))
     loop_sleep_sec = int(os.environ.get("AGI_LOOP_SEC", "20"))
     last_heartbeat = 0.0
+    last_learning = 0.0
 
     while True:
         now = time.time()
@@ -347,6 +350,27 @@ def main(live=False):
             )
             _append_audit("snapshot", snap)
             last_heartbeat = now
+
+        if now - last_learning >= max(120, learning_sec):
+            try:
+                learn = build_trade_learning(
+                    log_dir=LOG_DIR,
+                    out_dir=os.path.join(LOG_DIR, "learning"),
+                    lookback_days=int(os.environ.get("AGI_TRADE_LEARN_DAYS", "30")),
+                )
+                _append_audit(
+                    "trade_learning",
+                    {
+                        "trades": int(learn.get("trades", 0)),
+                        "win_rate": float(learn.get("win_rate", 0.0)),
+                        "expectancy": float(learn.get("expectancy", 0.0)),
+                        "profit_factor": float(learn.get("profit_factor", 0.0)),
+                        "total_pnl": float(learn.get("total_pnl", 0.0)),
+                    },
+                )
+            except Exception as e:
+                logger.warning(f"trade learning update failed: {e}")
+            last_learning = now
 
         for symbol in symbols:
             try:

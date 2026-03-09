@@ -150,6 +150,48 @@ def _active_models():
         return {"champion": None, "canary": None}
 
 
+def _trade_learning_status():
+    path = os.path.join(LOG_DIR, "learning", "trade_learning_latest.json")
+    if not os.path.exists(path):
+        return {
+            "available": False,
+            "trades": 0,
+            "win_rate": 0.0,
+            "expectancy": 0.0,
+            "profit_factor": 0.0,
+            "total_pnl": 0.0,
+            "generated_at_utc": None,
+            "best_symbols": [],
+            "worst_symbols": [],
+        }
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        return {
+            "available": True,
+            "trades": int(d.get("trades", 0)),
+            "win_rate": float(d.get("win_rate", 0.0)),
+            "expectancy": float(d.get("expectancy", 0.0)),
+            "profit_factor": float(d.get("profit_factor", 0.0)),
+            "total_pnl": float(d.get("total_pnl", 0.0)),
+            "generated_at_utc": d.get("generated_at_utc"),
+            "best_symbols": d.get("best_symbols", [])[:3],
+            "worst_symbols": d.get("worst_symbols", [])[:3],
+        }
+    except Exception:
+        return {
+            "available": False,
+            "trades": 0,
+            "win_rate": 0.0,
+            "expectancy": 0.0,
+            "profit_factor": 0.0,
+            "total_pnl": 0.0,
+            "generated_at_utc": None,
+            "best_symbols": [],
+            "worst_symbols": [],
+        }
+
+
 def _processes():
     rows = _powershell_json(
         "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
@@ -741,6 +783,7 @@ def _collect_status():
         "training": _training_state(procs),
         "account": _mt5_snapshot(),
         "symbol_perf": _mt5_symbol_perf(7),
+        "trade_learning": _trade_learning_status(),
         "logs": {
             "server": _tail(os.path.join(LOG_DIR, "server.log"), 50),
             "lstm": _tail(os.path.join(LOG_DIR, "lstm_training.log"), 50),
@@ -816,6 +859,10 @@ def control_action(action, payload):
                 return {"ok": True, "message": "Champion cycle already running"}
             pid = _spawn([_venv_python(), "tools/champion_cycle.py"], "champion_cycle_stdout.log", "champion_cycle_stderr.log")
             return {"ok": True, "message": f"Champion cycle started pid={pid}"}
+
+        if action == "rebuild_trade_memory":
+            pid = _spawn([_venv_python(), "training/build_trade_memory.py"], "trade_memory_stdout.log", "trade_memory_stderr.log")
+            return {"ok": True, "message": f"Trade memory rebuild started pid={pid}"}
 
         if action == "restart_server":
             _kill_by_token("python.server_agi")
@@ -951,7 +998,20 @@ function renderTraining(root){
   const laneHtml=queue.length?queue.map((item)=>{const tone=item.status==='done'?'green':item.status==='failed'?'red':item.status==='active'?'gold':item.status==='partial'?'cyan':'cyan';const copy=item.status==='queued'?'Awaiting slot':item.status==='failed'?'Skipped in this cycle':`Epoch ${item.epoch||0}/${item.epochs_total||0}`;const metric=item.loss!==null&&item.loss!==undefined?`Loss ${Number(item.loss).toFixed(4)} · Acc ${Number(item.acc||0).toFixed(2)}%`:`Updated ${shortTime(item.updated_utc)}`;return `<div class='symbolTile ${esc(item.status)}'><div class='symbolHead'><div class='symbolName'>${esc(item.symbol)}</div><span class='statePill ${esc(item.status)}'>${esc(item.status)}</span></div>${progressBar(item.progress_pct,{tone})}<div class='symbolMeta'><span>${esc(copy)}</span><span>${pct(item.progress_pct)}</span></div><div class='symbolStat'>${esc(metric)}</div></div>`;}).join(''):`<div class='emptyState'>No symbol queue parsed from the latest training cycle yet.</div>`;
   return `<div class='trainingBoard'>${hero}<div class='stageRail'>${stageHtml}</div><div class='runGrid'>${lstmCard}${ppoCard}</div><div><div class='head' style='margin-bottom:10px'>LSTM Symbol Lane</div><div class='symbolLane'>${laneHtml}</div></div></div>`;
 }
-function render(d){ const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{},n=d.n8n||{}; byId('meta').textContent=`UTC ${d.timestamp_utc}`; byId('balance').textContent=fmt(a.balance); byId('equity').textContent=fmt(a.equity); byId('trades').textContent=String(a.open_positions??0); const p=a.profit??0; const pe=byId('pnl'); pe.textContent=fmt(p); pe.className='val '+(p>=0?'good':'bad'); byId('models').innerHTML=`<span class='chip'>Champion: ${esc(m.champion||'none')}</span><span class='chip'>Canary: ${esc(m.canary||'none')}</span><span class='chip'>Canary Gate: ${d.canary_gate?.ready?'READY':'HOLD'}</span><span class='chip'>Gate Reason: ${esc(d.canary_gate?.reason||'n/a')}</span>`; byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${esc((s.pids||[]).join(', ')||'-')}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span><span class='chip'>Training Stage: ${esc(t.visual?.active_stage||'idle')}</span>`; byId('training').innerHTML=renderTraining(d); byId('n8n').innerHTML=`<span class='chip'>State: ${n.running?'RUNNING':'STOPPED'}</span><span class='chip'>PID: ${esc(n.pid||'-')}</span><span class='chip'>Ports: ${esc((n.ports||[]).join(', ')||'-')}</span><span class='chip'>Py Runner: ${esc(n.python_task_runner||'unknown')}</span>`;
+function render(d){
+const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{},n=d.n8n||{},tl=d.trade_learning||{};
+byId('meta').textContent=`UTC ${d.timestamp_utc}`;
+byId('balance').textContent=fmt(a.balance);
+byId('equity').textContent=fmt(a.equity);
+byId('trades').textContent=String(a.open_positions??0);
+const p=a.profit??0;
+const pe=byId('pnl');
+pe.textContent=fmt(p);
+pe.className='val '+(p>=0?'good':'bad');
+byId('models').innerHTML=`<span class='chip'>Champion: ${esc(m.champion||'none')}</span><span class='chip'>Canary: ${esc(m.canary||'none')}</span><span class='chip'>Canary Gate: ${d.canary_gate?.ready?'READY':'HOLD'}</span><span class='chip'>Gate Reason: ${esc(d.canary_gate?.reason||'n/a')}</span>`;
+byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${esc((s.pids||[]).join(', ')||'-')}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span><span class='chip'>Training Stage: ${esc(t.visual?.active_stage||'idle')}</span><span class='chip'>Memory Trades: ${fmtInt(tl.trades)}</span><span class='chip'>Win Rate: ${Number(tl.win_rate||0).toFixed(2)}%</span><span class='chip'>Expectancy: ${Number(tl.expectancy||0).toFixed(4)}</span><span class='chip'>PF: ${Number(tl.profit_factor||0).toFixed(3)}</span>`;
+byId('training').innerHTML=renderTraining(d);
+byId('n8n').innerHTML=`<span class='chip'>State: ${n.running?'RUNNING':'STOPPED'}</span><span class='chip'>PID: ${esc(n.pid||'-')}</span><span class='chip'>Ports: ${esc((n.ports||[]).join(', ')||'-')}</span><span class='chip'>Py Runner: ${esc(n.python_task_runner||'unknown')}</span>`;
 const rows=(a.positions||[]).map(p=>`<tr><td>${p.ticket}</td><td>${esc(p.symbol)}</td><td>${esc(p.type)}</td><td>${p.volume}</td><td class='${p.profit>=0?'good':'bad'}'>${fmt(p.profit)}</td><td>${p.open_price}</td><td>${p.current_price}</td><td>${p.sl}</td><td>${p.tp}</td></tr>`).join(''); byId('pos').innerHTML=rows||'<tr><td colspan="9">No open trades</td></tr>';
 const cards=(d.symbol_perf||[]).map(s=>`<div class='sym'><div style='display:flex;justify-content:space-between'><strong>${esc(s.symbol)}</strong><span class='${s.pnl>=0?'good':'bad'}'>${fmt(s.pnl)}</span></div><div class='sub'>Trades ${s.trades} | Win ${s.win_rate}%</div>${spark(s.curve)}</div>`).join(''); byId('symGrid').innerHTML=cards||'<div class="sub">No closed deals in selected window.</div>';
 byId('server').textContent=(d.logs?.server||[]).join(String.fromCharCode(10)); byId('ppo').textContent=(d.logs?.ppo||[]).join(String.fromCharCode(10)); byId('lstm').textContent=(d.logs?.lstm||[]).join(String.fromCharCode(10)); byId('audit').textContent=(d.logs?.audit||[]).join(String.fromCharCode(10)); }
