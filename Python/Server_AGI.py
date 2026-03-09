@@ -386,7 +386,7 @@ def _expected_usd(symbol: str, side: str, entry: float, tp: float, sl: float, lo
         return None, None
 
 
-def _scan_trade_events(alerter, known_open_tickets, seen_closed_deals, last_deal_check):
+def _scan_trade_events(alerter, risk, known_open_tickets, seen_closed_deals, last_deal_check):
     now_utc = _utc_now()
     closed_events = []
 
@@ -450,6 +450,10 @@ def _scan_trade_events(alerter, known_open_tickets, seen_closed_deals, last_deal
             }
             _append_trade_event("trade_closed", payload)
             closed_events.append(payload)
+            try:
+                risk.record_trade_result(payload["symbol"], pnl)
+            except Exception:
+                pass
             alerter.trade_closed(
                 symbol=payload["symbol"],
                 ticket=payload["ticket"],
@@ -699,6 +703,7 @@ def main(live=False):
 
         known_open_tickets, seen_closed_deals, last_deal_check, closed_events = _scan_trade_events(
             alerter,
+            risk,
             known_open_tickets,
             seen_closed_deals,
             last_deal_check,

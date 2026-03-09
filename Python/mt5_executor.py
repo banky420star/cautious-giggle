@@ -110,7 +110,7 @@ class MT5Executor:
         return longs, shorts
 
     def reconcile_exposure(self, symbol, target_exposure, max_lots):
-        if not self.risk.can_trade():
+        if not self.risk.can_trade(symbol):
             return
 
         longs, shorts = self.get_positions(symbol)
@@ -134,7 +134,7 @@ class MT5Executor:
                 self.close_positions(longs)
             self.open_position(symbol, mt5.ORDER_TYPE_SELL, abs(delta))
 
-        self.risk.record_trade()
+        self.risk.record_trade(symbol)
 
     def close_positions(self, positions):
         for p in positions:

@@ -14,6 +14,8 @@ class RiskEngine:
 
         self.max_daily_loss = float(risk_cfg.get("max_daily_loss", 1000))
         self.max_daily_trades = int(risk_cfg.get("max_daily_trades", 50))
+        self.max_daily_trades_per_symbol = int(risk_cfg.get("max_daily_trades_per_symbol", 50))
+        self.max_daily_losing_trades_per_symbol = int(risk_cfg.get("max_daily_losing_trades_per_symbol", 10))
         self.max_lots = float(risk_cfg.get("max_lots", 1.0))
 
         # Default symbol profile used when a symbol-specific profile does not exist.
@@ -27,6 +29,8 @@ class RiskEngine:
 
         self.realized_pnl_today = 0.0
         self.daily_trades = 0
+        self.daily_trades_by_symbol = {}
+        self.daily_losing_trades_by_symbol = {}
         self.halt = False
         self.error_count = 0
         self.current_dd = 0.0
@@ -36,6 +40,8 @@ class RiskEngine:
     def reset_daily(self):
         self.realized_pnl_today = 0.0
         self.daily_trades = 0
+        self.daily_trades_by_symbol = {}
+        self.daily_losing_trades_by_symbol = {}
         self.error_count = 0
         self.last_reset_day = datetime.utcnow().date()
 
@@ -44,15 +50,27 @@ class RiskEngine:
         if today != self.last_reset_day:
             self.reset_daily()
 
-    def record_trade(self):
+    def record_trade(self, symbol=None):
         self.maybe_roll_day()
         self.daily_trades += 1
+        if symbol:
+            key = str(symbol)
+            self.daily_trades_by_symbol[key] = int(self.daily_trades_by_symbol.get(key, 0)) + 1
 
     def record_pnl(self, pnl):
         self.maybe_roll_day()
         self.realized_pnl_today += float(pnl)
         if self.realized_pnl_today <= -abs(self.max_daily_loss):
             self.halt = True
+
+    def record_trade_result(self, symbol, pnl):
+        self.maybe_roll_day()
+        self.record_pnl(pnl)
+        if symbol is None:
+            return
+        if float(pnl) < 0.0:
+            key = str(symbol)
+            self.daily_losing_trades_by_symbol[key] = int(self.daily_losing_trades_by_symbol.get(key, 0)) + 1
 
     def update_equity(self, equity: float):
         eq = float(equity)
@@ -69,12 +87,18 @@ class RiskEngine:
         if self.error_count >= 3:
             self.halt = True
 
-    def can_trade(self):
+    def can_trade(self, symbol=None):
         self.maybe_roll_day()
         if self.halt:
             return False
         if self.daily_trades >= self.max_daily_trades:
             return False
+        if symbol:
+            key = str(symbol)
+            if int(self.daily_trades_by_symbol.get(key, 0)) >= self.max_daily_trades_per_symbol:
+                return False
+            if int(self.daily_losing_trades_by_symbol.get(key, 0)) >= self.max_daily_losing_trades_per_symbol:
+                return False
         return True
 
     def get_symbol_profile(self, symbol: str) -> dict:

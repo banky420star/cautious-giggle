@@ -6,6 +6,13 @@
   confidence_threshold: 0.85
   magic_number: 505
 
+risk:
+  max_daily_loss: 1000
+  max_daily_trades: 500
+  max_daily_trades_per_symbol: 50
+  max_daily_losing_trades_per_symbol: 10
+  max_lots: 1.0
+
 telegram:
   token: "YOUR_BOT_TOKEN_HERE"
   chat_id: "YOUR_CHAT_ID_HERE"
@@ -59,3 +66,4 @@ evaluation:
   drawdown_margin: 0.0
   forward_windows: ["60d", "90d", "120d"]
   min_forward_win_rate: 0.67
+

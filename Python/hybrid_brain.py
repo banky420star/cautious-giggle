@@ -248,7 +248,7 @@ class HybridBrain:
         return float(np.clip(mixed, -1.0, 1.0))
 
     def live_trade(self, symbol, exposure, max_lots, action_meta=None):
-        if not self.risk.can_trade():
+        if not self.risk.can_trade(symbol):
             return
         meta = action_meta or self.get_last_action_meta()
         tick = self.executor.get_tick(symbol)
