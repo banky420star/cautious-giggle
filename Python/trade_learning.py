@@ -51,6 +51,20 @@ def _compute_core_metrics(rows):
     expectancy = total_pnl / trades if trades else 0.0
     hold_minutes = [r["hold_minutes"] for r in rows if r["hold_minutes"] is not None]
     avg_hold_minutes = (sum(hold_minutes) / len(hold_minutes)) if hold_minutes else 0.0
+    max_loss_streak = 0
+    recent_loss_streak = 0
+    cur_loss = 0
+    for v in pnl_values:
+        if v <= 0:
+            cur_loss += 1
+            max_loss_streak = max(max_loss_streak, cur_loss)
+        else:
+            cur_loss = 0
+    for v in reversed(pnl_values):
+        if v <= 0:
+            recent_loss_streak += 1
+        else:
+            break
     return {
         "trades": trades,
         "wins": len(wins),
@@ -62,6 +76,8 @@ def _compute_core_metrics(rows):
         "profit_factor": round(profit_factor, 4),
         "expectancy": round(expectancy, 4),
         "avg_hold_minutes": round(avg_hold_minutes, 2),
+        "max_loss_streak": int(max_loss_streak),
+        "recent_loss_streak": int(recent_loss_streak),
     }
 
 
@@ -214,6 +230,8 @@ def build_trade_learning(log_dir, out_dir, lookback_days=30):
                 "profit_factor",
                 "expectancy",
                 "avg_hold_minutes",
+                "max_loss_streak",
+                "recent_loss_streak",
             ],
         )
         writer.writeheader()
@@ -221,3 +239,63 @@ def build_trade_learning(log_dir, out_dir, lookback_days=30):
             writer.writerow(row)
 
     return summary
+
+
+def load_trade_memory(out_dir: str, symbol: str | None = None) -> dict:
+    """
+    Returns normalized per-symbol trade-memory metrics for training-time feedback.
+    Falls back to neutral values when no history exists.
+    """
+    neutral = {
+        "trades": 0,
+        "wins": 0,
+        "losses": 0,
+        "win_rate": 50.0,
+        "expectancy": 0.0,
+        "profit_factor": 1.0,
+        "avg_loss": 0.0,
+        "max_loss_streak": 0,
+        "recent_loss_streak": 0,
+    }
+    path = os.path.join(out_dir, "trade_learning_latest.json")
+    if not os.path.exists(path):
+        return dict(neutral)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            payload = json.load(f) or {}
+    except Exception:
+        return dict(neutral)
+
+    rows = payload.get("by_symbol", []) if isinstance(payload, dict) else []
+    if not isinstance(rows, list) or not rows:
+        return dict(neutral)
+    if symbol:
+        for row in rows:
+            if str((row or {}).get("symbol", "")).upper() == str(symbol).upper():
+                out = dict(neutral)
+                out.update({k: row.get(k, out.get(k)) for k in out.keys()})
+                return out
+
+    # Fallback: weighted aggregate across symbols.
+    trades = sum(int((r or {}).get("trades", 0) or 0) for r in rows)
+    if trades <= 0:
+        return dict(neutral)
+    win_rate = sum(float((r or {}).get("win_rate", 0.0) or 0.0) * int((r or {}).get("trades", 0) or 0) for r in rows) / trades
+    expectancy = sum(float((r or {}).get("expectancy", 0.0) or 0.0) * int((r or {}).get("trades", 0) or 0) for r in rows) / trades
+    profit_factor = sum(float((r or {}).get("profit_factor", 1.0) or 1.0) * int((r or {}).get("trades", 0) or 0) for r in rows) / trades
+    avg_loss = sum(float((r or {}).get("avg_loss", 0.0) or 0.0) * int((r or {}).get("trades", 0) or 0) for r in rows) / trades
+    losses = sum(int((r or {}).get("losses", 0) or 0) for r in rows)
+    wins = sum(int((r or {}).get("wins", 0) or 0) for r in rows)
+    max_loss_streak = max(int((r or {}).get("max_loss_streak", 0) or 0) for r in rows)
+    recent_loss_streak = max(int((r or {}).get("recent_loss_streak", 0) or 0) for r in rows)
+    return {
+        "trades": int(trades),
+        "wins": int(wins),
+        "losses": int(losses),
+        "win_rate": float(win_rate),
+        "expectancy": float(expectancy),
+        "profit_factor": float(profit_factor),
+        "avg_loss": float(avg_loss),
+        "max_loss_streak": int(max_loss_streak),
+        "recent_loss_streak": int(recent_loss_streak),
+    }

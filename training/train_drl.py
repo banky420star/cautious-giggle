@@ -24,6 +24,7 @@ from drl.lstm_feature_extractor import LSTMFeatureExtractor
 from drl.trading_env import TradingEnv
 from Python.data_feed import fetch_training_data, get_combined_training_df
 from Python.config_utils import load_project_config
+from Python.trade_learning import load_trade_memory
 from alerts.telegram_alerts import TelegramAlerter
 
 LOG_DIR = os.path.join(os.getcwd(), "logs")
@@ -115,7 +116,7 @@ def get_mt5_equity(default_balance: float = 10000.0, cfg: dict | None = None) ->
     return float(default_balance)
 
 
-def make_env(df, seed: int, initial_balance: float, reward_weights: dict):
+def make_env(df, seed: int, initial_balance: float, reward_weights: dict, trade_memory: dict | None = None):
     def _init():
         set_random_seed(seed)
         if isinstance(df, pl.DataFrame):
@@ -125,7 +126,7 @@ def make_env(df, seed: int, initial_balance: float, reward_weights: dict):
         if "time" in pdf.columns:
             pdf["time"] = pd.to_datetime(pdf["time"], utc=True)
             pdf = pdf.sort_values("time").set_index("time")
-        env = TradingEnv(pdf, initial_balance=initial_balance, reward_weights=reward_weights)
+        env = TradingEnv(pdf, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory)
         return Monitor(env)
 
     return _init
@@ -254,6 +255,9 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     candles = int(drl_cfg.get("candles_per_symbol", 100000))
     reward_cfg = drl_cfg.get("reward", {}) if isinstance(drl_cfg.get("reward", {}), dict) else {}
     reward_weights = reward_cfg.get("weights", {}) if isinstance(reward_cfg.get("weights", {}), dict) else {}
+    logs_root = os.path.join(os.getcwd(), "logs", "learning")
+    symbol_hint = symbols[0] if len(symbols) == 1 else None
+    trade_memory = load_trade_memory(logs_root, symbol=symbol_hint)
 
     per_symbol_mode = len(symbols) == 1
     logger.info(
@@ -275,11 +279,15 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     df = pl.from_pandas(df_pd)
     n_envs = 4
 
-    env = DummyVecEnv([make_env(df, i, initial_balance=initial_balance, reward_weights=reward_weights) for i in range(n_envs)])
+    env = DummyVecEnv(
+        [make_env(df, i, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory) for i in range(n_envs)]
+    )
     env = VecMonitor(env)
     env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
 
-    eval_env = DummyVecEnv([make_env(df, 99, initial_balance=initial_balance, reward_weights=reward_weights)])
+    eval_env = DummyVecEnv(
+        [make_env(df, 99, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory)]
+    )
     eval_env = VecMonitor(eval_env)
     eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
 

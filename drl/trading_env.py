@@ -22,6 +22,7 @@ class TradingEnv(gym.Env):
         window_size: int = 100,
         max_leverage: float = 1.0,
         reward_weights: dict | None = None,
+        trade_memory: dict | None = None,
     ):
         super().__init__()
         self.initial_balance = float(initial_balance)
@@ -32,6 +33,7 @@ class TradingEnv(gym.Env):
         self.max_leverage = float(max_leverage)
         self.feature_version = "engineered_v2"
         self.action_version = "multi_trade_v1"
+        self.trade_memory = trade_memory or {}
 
         w = reward_weights or {}
         self.reward_weights = {
@@ -41,6 +43,8 @@ class TradingEnv(gym.Env):
             "drawdown_penalty": float(w.get("drawdown_penalty", 3.0)),
             "cost_penalty": float(w.get("cost_penalty", 5.0)),
             "churn_penalty": float(w.get("churn_penalty", 0.5)),
+            "memory_expectancy_bonus": float(w.get("memory_expectancy_bonus", 0.5)),
+            "loss_streak_penalty": float(w.get("loss_streak_penalty", 0.4)),
         }
 
         os.makedirs(os.path.join(os.getcwd(), "logs"), exist_ok=True)
@@ -51,6 +55,8 @@ class TradingEnv(gym.Env):
         self.trailing_step_pct = float(os.environ.get("AGI_TRAILING_STEP_PCT", "0.001"))
         self.equity_curve = []
         self._trade_metrics = {}
+        self.memory_features = self._build_memory_features(self.trade_memory)
+        self.portfolio_feature_count = 6
 
         self.n_features = 0
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(1,), dtype=np.float32)
@@ -81,6 +87,24 @@ class TradingEnv(gym.Env):
     @staticmethod
     def _rolling_std(arr: np.ndarray, win: int) -> np.ndarray:
         return pd.Series(arr).rolling(win, min_periods=1).std().fillna(0.0).to_numpy(dtype=np.float64)
+
+    def _build_memory_features(self, memory: dict) -> dict:
+        m = memory if isinstance(memory, dict) else {}
+        win_rate = float(m.get("win_rate", 50.0))
+        expectancy = float(m.get("expectancy", 0.0))
+        avg_loss = abs(float(m.get("avg_loss", 0.0)))
+        if avg_loss < 1e-6:
+            avg_loss = 1.0
+        recent_loss_streak = int(m.get("recent_loss_streak", 0))
+        trades = int(m.get("trades", 0))
+        losses = int(m.get("losses", 0))
+        loss_ratio = float(losses / max(1, trades))
+        return {
+            "win_rate_norm": float(np.clip((win_rate / 50.0) - 1.0, -1.0, 1.0)),
+            "expectancy_norm": float(np.tanh(expectancy / avg_loss)),
+            "loss_streak_norm": float(np.clip(recent_loss_streak / 10.0, 0.0, 1.0)),
+            "loss_ratio_norm": float(np.clip((loss_ratio * 2.0) - 1.0, -1.0, 1.0)),
+        }
 
     @staticmethod
     def decode_action(action, max_leverage: float = 1.0) -> dict:
@@ -258,7 +282,7 @@ class TradingEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(self.window_size * self.n_features + 3,),
+            shape=(self.window_size * self.n_features + self.portfolio_feature_count,),
             dtype=np.float32,
         )
         self.reset()
@@ -278,7 +302,7 @@ class TradingEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(self.window_size * self.n_features + 3,),
+            shape=(self.window_size * self.n_features + self.portfolio_feature_count,),
             dtype=np.float32,
         )
         self.reset()
@@ -335,15 +359,21 @@ class TradingEnv(gym.Env):
         cost_penalty = total_cost / (prev_equity + 1e-12)
         churn_penalty = abs(delta)
         sharpe_bonus = max(0.0, sharpe)
-
         rw = self.reward_weights
+        mem_expectancy = float(self.memory_features.get("expectancy_norm", 0.0))
+        mem_loss_streak = float(self.memory_features.get("loss_streak_norm", 0.0))
+        memory_growth_scale = float(np.clip(1.0 + rw["memory_expectancy_bonus"] * mem_expectancy, 0.5, 1.5))
+        growth_term = memory_growth_scale * step_ret
+        loss_streak_penalty = rw["loss_streak_penalty"] * mem_loss_streak * churn_penalty
+
         reward = (
-            rw["growth"] * step_ret
+            rw["growth"] * growth_term
             + rw["payoff"] * payoff
             + rw["sharpe_bonus"] * sharpe_bonus
             - rw["drawdown_penalty"] * dd_penalty
             - rw["cost_penalty"] * cost_penalty
             - rw["churn_penalty"] * churn_penalty
+            - loss_streak_penalty
         )
         reward = float(np.clip(reward, -5.0, 5.0))
 
@@ -370,12 +400,14 @@ class TradingEnv(gym.Env):
                 "legacy": bool(action_meta.get("legacy", True)),
             },
             "reward_components": {
-                "growth": float(step_ret),
+                "growth": float(growth_term),
                 "payoff": float(payoff),
                 "sharpe_bonus": float(sharpe_bonus),
                 "drawdown_penalty": float(dd_penalty),
                 "cost_penalty": float(cost_penalty),
                 "churn_penalty": float(churn_penalty),
+                "loss_streak_penalty": float(loss_streak_penalty),
+                "memory_expectancy_norm": float(mem_expectancy),
                 "weights": rw,
             },
             "trade_state": self._trade_state_snapshot(current_price),
@@ -398,6 +430,9 @@ class TradingEnv(gym.Env):
                 self.equity / self.initial_balance,
                 self.position,
                 float(np.mean(self.recent_returns)),
+                float(self.memory_features.get("win_rate_norm", 0.0)),
+                float(self.memory_features.get("expectancy_norm", 0.0)),
+                float(self.memory_features.get("loss_ratio_norm", 0.0)),
             ],
             dtype=np.float32,
         )

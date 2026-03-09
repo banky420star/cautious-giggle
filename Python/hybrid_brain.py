@@ -162,8 +162,11 @@ class HybridBrain:
         obs_dim = self._expected_obs_dim()
         inferred_window = self.window_size
         n_features = 21
-        if obs_dim is not None and obs_dim > 3 and (obs_dim - 3) % n_features == 0:
-            inferred_window = max(10, int((obs_dim - 3) / n_features))
+        if obs_dim is not None:
+            for portfolio_dims in (6, 3):
+                if obs_dim > portfolio_dims and (obs_dim - portfolio_dims) % n_features == 0:
+                    inferred_window = max(10, int((obs_dim - portfolio_dims) / n_features))
+                    break
 
         if len(df) < inferred_window:
             return None

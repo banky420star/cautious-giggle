@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -1008,6 +1009,11 @@ def control_action(action, payload):
         if action == "run_cycle":
             if _is_running("tools/champion_cycle_loop.py") or _is_running("tools/champion_cycle.py"):
                 return {"ok": True, "message": "Champion cycle already running"}
+            if _is_running("training/train_lstm.py") or _is_running("training/train_drl.py"):
+                return {
+                    "ok": False,
+                    "message": "Cannot start champion cycle while standalone LSTM/PPO trainers are running. Stop them first.",
+                }
             pid = _spawn([_venv_python(), "tools/champion_cycle.py"], "champion_cycle_stdout.log", "champion_cycle_stderr.log")
             return {"ok": True, "message": f"Champion cycle started pid={pid}"}
 
@@ -1017,7 +1023,24 @@ def control_action(action, payload):
 
         if action == "restart_server":
             _kill_by_token("python.server_agi")
+            lock_path = os.path.join(ROOT, ".tmp", "server_agi.lock")
+            if os.path.exists(lock_path):
+                try:
+                    os.remove(lock_path)
+                except Exception:
+                    pass
             pid = _spawn([_venv_python(), "-m", "Python.Server_AGI", "--live"], "server_stdout.log", "server_stderr.log")
+            time.sleep(1.2)
+            if not _is_running("python.server_agi"):
+                try:
+                    err_path = os.path.join(LOG_DIR, "server_stderr.log")
+                    tail = ""
+                    if os.path.exists(err_path):
+                        with open(err_path, "r", encoding="utf-8", errors="replace") as f:
+                            tail = "".join(f.readlines()[-3:]).strip()
+                    return {"ok": False, "message": f"Server failed to start. {tail}"}
+                except Exception:
+                    return {"ok": False, "message": "Server failed to start."}
             return {"ok": True, "message": f"Server restarted pid={pid}"}
 
         if action == "normalize_owners":

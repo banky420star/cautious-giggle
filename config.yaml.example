@@ -46,6 +46,8 @@ drl:
       drawdown_penalty: 3.0
       cost_penalty: 5.0
       churn_penalty: 0.5
+      memory_expectancy_bonus: 0.5
+      loss_streak_penalty: 0.4
 
 training:
   lstm_epochs: 20
