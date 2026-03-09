@@ -200,6 +200,19 @@ def _runtime_owner_health():
         roots = [m for m in matches if m["ppid"] not in pid_set]
         exe_paths = sorted({m["exe"].lower() for m in matches if m["exe"]})
 
+        # Windows venv redirector pattern: venv python.exe root with base interpreter child.
+        has_venv = any(".venv312\\scripts\\python.exe" in p or ".venv\\scripts\\python.exe" in p for p in exe_paths)
+        has_base = any("users\\administrator\\desktop\\python.exe" in p for p in exe_paths)
+        all_nonvenv_are_children = True
+        if has_venv and has_base:
+            for m in matches:
+                exe = m["exe"].lower()
+                if "users\\administrator\\desktop\\python.exe" in exe and m["ppid"] not in pid_set:
+                    all_nonvenv_are_children = False
+                    break
+        if has_venv and has_base and all_nonvenv_are_children:
+            continue
+
         if len(roots) > 1:
             out["ok"] = False
             out["issues"].append(
