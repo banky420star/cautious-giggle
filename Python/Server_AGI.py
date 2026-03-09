@@ -382,8 +382,16 @@ def main(live=False):
                     },
                 )
 
-                brain.live_trade(symbol, exposure, max_lots)
+                action_meta = brain.get_last_action_meta()
+                order_meta = brain.live_trade(symbol, exposure, max_lots, action_meta=action_meta)
                 executor.manage_open_positions(symbol)
+                if order_meta:
+                    logger.info(
+                        f"ACTION {symbol} | mode={order_meta.get('entry_mode')} "
+                        f"volume={order_meta.get('volume_lots')} "
+                        f"TP={order_meta.get('tp_price')} SL={order_meta.get('sl_price')}"
+                    )
+                    alerter.trade_action(symbol, order_meta)
 
                 acc = mt5.account_info()
                 if acc:

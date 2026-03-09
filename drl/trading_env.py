@@ -1,4 +1,8 @@
-﻿import gymnasium as gym
+﻿import datetime
+import json
+import os
+
+import gymnasium as gym
 import numpy as np
 import polars as pl
 import pandas as pd
@@ -27,6 +31,7 @@ class TradingEnv(gym.Env):
         self.window_size = int(window_size)
         self.max_leverage = float(max_leverage)
         self.feature_version = "engineered_v2"
+        self.action_version = "multi_trade_v1"
 
         w = reward_weights or {}
         self.reward_weights = {
@@ -38,9 +43,18 @@ class TradingEnv(gym.Env):
             "churn_penalty": float(w.get("churn_penalty", 0.5)),
         }
 
+        os.makedirs(os.path.join(os.getcwd(), "logs"), exist_ok=True)
+        self.profit_log_path = os.path.join(os.getcwd(), "logs", "profitability.jsonl")
+        self.breakeven_trigger_pct = float(os.environ.get("AGI_BREAKEVEN_TRIGGER_PCT", "0.002"))
+        self.trailing_trigger_pct = float(os.environ.get("AGI_TRAILING_TRIGGER_PCT", "0.003"))
+        self.trailing_distance_pct = float(os.environ.get("AGI_TRAILING_DISTANCE_PCT", "0.002"))
+        self.trailing_step_pct = float(os.environ.get("AGI_TRAILING_STEP_PCT", "0.001"))
+        self.equity_curve = []
+        self._trade_metrics = {}
+
         self.n_features = 0
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(1,), dtype=np.float32)
-        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
 
         if df is not None:
             self._set_data(df)
@@ -67,6 +81,55 @@ class TradingEnv(gym.Env):
     @staticmethod
     def _rolling_std(arr: np.ndarray, win: int) -> np.ndarray:
         return pd.Series(arr).rolling(win, min_periods=1).std().fillna(0.0).to_numpy(dtype=np.float64)
+
+    @staticmethod
+    def decode_action(action, max_leverage: float = 1.0) -> dict:
+        raw = np.asarray(action, dtype=np.float32).reshape(-1)
+        if raw.size <= 1:
+            target = float(np.clip(raw[0] if raw.size else 0.0, -1.0, 1.0)) * float(max_leverage)
+            return {
+                "direction": float(np.clip(target / max(float(max_leverage), 1e-12), -1.0, 1.0)),
+                "size": float(min(1.0, abs(target) / max(float(max_leverage), 1e-12))),
+                "risk": 1.0,
+                "target": float(target),
+                "legacy": True,
+            }
+
+        direction_raw = float(np.clip(raw[0], -1.0, 1.0))
+        size_raw = float(np.clip(raw[1], -1.0, 1.0))
+        entry_mode_raw = float(np.clip(raw[2], -1.0, 1.0))
+        entry_offset_raw = float(np.clip(raw[3], -1.0, 1.0))
+        tp_raw = float(np.clip(raw[4], -1.0, 1.0))
+        sl_raw = float(np.clip(raw[5], -1.0, 1.0))
+
+        size = float(np.clip((size_raw + 1.0) * 0.5, 0.0, 1.0))
+        target = float(np.clip(direction_raw * size, -1.0, 1.0) * float(max_leverage))
+        entry_mode = TradingEnv._entry_mode_from_raw(entry_mode_raw)
+        entry_offset_pct = float(entry_offset_raw * 0.005)
+        tp_offset_pct = float(0.005 + max(0.0, tp_raw) * 0.015)
+        sl_offset_pct = float(0.005 + max(0.0, -sl_raw) * 0.015)
+
+        if abs(direction_raw) < 0.03 or size < 0.03:
+            target = 0.0
+
+        return {
+            "direction": direction_raw,
+            "size": size,
+            "target": float(target),
+            "entry_mode": entry_mode,
+            "entry_offset_pct": entry_offset_pct,
+            "tp_offset_pct": tp_offset_pct,
+            "sl_offset_pct": sl_offset_pct,
+            "legacy": False,
+        }
+
+    @staticmethod
+    def _entry_mode_from_raw(value: float) -> str:
+        if value <= -0.33:
+            return "market"
+        if value <= 0.33:
+            return "limit"
+        return "stop"
 
     def _extract_arrays(self, df):
         if isinstance(df, pl.DataFrame):
@@ -225,13 +288,17 @@ class TradingEnv(gym.Env):
         self.current_step = self.window_size
         self.equity = self.initial_balance
         self.position = 0.0
+        self.last_action = {"direction": 0.0, "size": 0.0, "target": 0.0, "legacy": False}
         self.peak_equity = self.initial_balance
         self.recent_returns = np.zeros(50, dtype=np.float32)
+        self.pending_order = None
+        self.open_trade = None
         return self._get_obs(), {}
 
     def step(self, action: np.ndarray):
-        target = float(np.clip(action[0], -1.0, 1.0)) * self.max_leverage
+        action_meta = self.decode_action(action, max_leverage=self.max_leverage)
         prev_equity = self.equity
+        prev_position = float(self.position)
 
         current_price = float(self.prices[self.current_step])
         prev_price = float(self.prices[self.current_step - 1])
@@ -240,16 +307,20 @@ class TradingEnv(gym.Env):
         pnl = self.position * prev_equity * price_ret
         self.equity += pnl
 
-        delta = target - self.position
+        self._process_action(action_meta, current_price)
+        self._update_open_trade(current_price)
+
+        delta = self.position - prev_position
         traded_notional = abs(delta) * self.equity
         commission_cost = traded_notional * self.commission_rate
         spread_cost = traded_notional * (self.spread_bps / 10000.0)
         total_cost = commission_cost + spread_cost
 
         self.equity -= total_cost
-        self.position = target
+        self.last_action = action_meta
 
         self.peak_equity = max(self.peak_equity, self.equity)
+        self.equity_curve.append(float(self.equity))
         drawdown = (self.peak_equity - self.equity) / (self.peak_equity + 1e-12)
 
         step_ret = (self.equity - prev_equity) / (prev_equity + 1e-12)
@@ -287,6 +358,17 @@ class TradingEnv(gym.Env):
             "sharpe": float(sharpe),
             "cost": float(total_cost),
             "feature_version": self.feature_version,
+            "action_version": self.action_version,
+            "action_components": {
+                "direction": float(action_meta.get("direction", 0.0)),
+                "size": float(action_meta.get("size", 0.0)),
+                "target": float(action_meta.get("target", 0.0)),
+                "entry_mode": action_meta.get("entry_mode", "market"),
+                "entry_offset_pct": float(action_meta.get("entry_offset_pct", 0.0)),
+                "tp_offset_pct": float(action_meta.get("tp_offset_pct", 0.0)),
+                "sl_offset_pct": float(action_meta.get("sl_offset_pct", 0.0)),
+                "legacy": bool(action_meta.get("legacy", True)),
+            },
             "reward_components": {
                 "growth": float(step_ret),
                 "payoff": float(payoff),
@@ -296,7 +378,14 @@ class TradingEnv(gym.Env):
                 "churn_penalty": float(churn_penalty),
                 "weights": rw,
             },
+            "trade_state": self._trade_state_snapshot(current_price),
+            "profitability": {
+                "equity_curve": list(self.equity_curve[-5:]),
+                "trade_metrics": dict(self._trade_metrics),
+            },
         }
+
+        self._log_profit_snapshot(current_price, info)
 
         self.current_step += 1
         return self._get_obs(), reward, terminated, truncated, info
@@ -313,3 +402,169 @@ class TradingEnv(gym.Env):
             dtype=np.float32,
         )
         return np.concatenate([obs_window, portfolio_state]).astype(np.float32)
+
+    def _trade_state_snapshot(self, current_price: float) -> dict:
+        return {
+            "open_trade": None if not self.open_trade else dict(self.open_trade),
+            "pending_order": None if not self.pending_order else dict(self.pending_order),
+            "current_price": float(current_price),
+        }
+
+    def _log_profit_snapshot(self, current_price: float, info: dict):
+        payload = {
+            "ts": datetime.datetime.utcnow().isoformat(),
+            "equity": float(self.equity),
+            "position": float(self.position),
+            "current_price": float(current_price),
+            "trade_state": info.get("trade_state"),
+            "profitability": info.get("profitability"),
+        }
+        try:
+            with open(self.profit_log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload) + "\n")
+        except Exception:
+            pass
+
+    def _process_action(self, action_meta: dict, current_price: float):
+        if self.open_trade and self.open_trade.get("is_open"):
+            return
+
+        direction = float(np.sign(action_meta.get("direction", 0.0)) or 1.0)
+        entry_mode = action_meta.get("entry_mode", "market")
+        entry_offset = float(action_meta.get("entry_offset_pct", 0.0))
+        if entry_mode == "market":
+            entry_price = self._compute_entry_price(direction, current_price, entry_offset)
+            self._open_trade(action_meta, entry_price)
+            return
+
+        entry_price = self._compute_entry_price(direction, current_price, entry_offset)
+        self.pending_order = {
+            "mode": action_meta["entry_mode"],
+            "entry_price": float(entry_price),
+            "direction": direction,
+            "size": float(action_meta["size"]),
+            "tp_offset_pct": float(action_meta["tp_offset_pct"]),
+            "sl_offset_pct": float(action_meta["sl_offset_pct"]),
+            "action_meta": action_meta,
+        }
+        self.position = 0.0
+
+    def _update_open_trade(self, current_price: float):
+        if self.pending_order and self.pending_order.get("mode"):
+            if self._check_pending_fill(current_price):
+                entry_price = float(self.pending_order["entry_price"])
+                self._open_trade(self.pending_order["action_meta"], entry_price)
+                self.pending_order = None
+
+        if self.open_trade and self.open_trade.get("is_open"):
+            direction = float(self.open_trade["direction"])
+            tp = float(self.open_trade["tp_price"])
+            sl = float(self.open_trade["sl_price"])
+            hit_tp = (direction > 0 and current_price >= tp) or (direction < 0 and current_price <= tp)
+            hit_sl = (direction > 0 and current_price <= sl) or (direction < 0 and current_price >= sl)
+            entry_price = float(self.open_trade["entry_price"])
+            if direction > 0:
+                fav = max(0.0, (current_price - entry_price) / (entry_price + 1e-12))
+                adv = max(0.0, (entry_price - current_price) / (entry_price + 1e-12))
+            else:
+                fav = max(0.0, (entry_price - current_price) / (entry_price + 1e-12))
+                adv = max(0.0, (current_price - entry_price) / (entry_price + 1e-12))
+            self.open_trade["max_fav"] = max(self.open_trade.get("max_fav", 0.0), fav)
+            self.open_trade["max_adv"] = max(self.open_trade.get("max_adv", 0.0), adv)
+
+            if not self.open_trade.get("breakeven_triggered") and self.open_trade["max_fav"] >= self.breakeven_trigger_pct:
+                self.open_trade["breakeven_triggered"] = True
+                self.open_trade["sl_price"] = float(entry_price)
+
+            if not self.open_trade.get("trailing_active") and self.open_trade["max_fav"] >= self.trailing_trigger_pct:
+                self.open_trade["trailing_active"] = True
+
+            if self.open_trade.get("trailing_active"):
+                trail_distance = self.trailing_distance_pct * entry_price
+                new_sl = current_price - trail_distance if direction > 0 else current_price + trail_distance
+                step = self.trailing_step_pct * entry_price
+                last_trail = self.open_trade.get("last_trailing_price", entry_price)
+                moved = abs(new_sl - float(self.open_trade["sl_price"]))
+                if moved >= step:
+                    self.open_trade["sl_price"] = float(new_sl)
+                    self.open_trade["last_trailing_price"] = float(new_sl)
+                    self.open_trade["trailing_moves"] = int(self.open_trade.get("trailing_moves", 0) + 1)
+
+            if hit_tp:
+                self._close_trade(current_price, "tp")
+            elif hit_sl:
+                self._close_trade(current_price, "sl")
+
+    def _compute_entry_price(self, direction: float, current_price: float, offset_pct: float) -> float:
+        if direction >= 0:
+            return float(current_price * (1.0 + offset_pct))
+        return float(current_price * (1.0 - offset_pct))
+
+    def _open_trade(self, action_meta: dict, entry_price: float):
+        direction = float(np.sign(action_meta.get("direction", 0.0)) or 1.0)
+        size = float(action_meta.get("size", 0.0))
+        tp_pct = float(action_meta.get("tp_offset_pct", 0.0))
+        sl_pct = float(action_meta.get("sl_offset_pct", 0.0))
+
+        if direction >= 0:
+            tp_price = float(entry_price * (1.0 + tp_pct))
+            sl_price = float(entry_price * (1.0 - sl_pct))
+        else:
+            tp_price = float(entry_price * (1.0 - tp_pct))
+            sl_price = float(entry_price * (1.0 + sl_pct))
+
+        self.open_trade = {
+            "direction": direction,
+            "size": size,
+            "entry_price": float(entry_price),
+            "tp_price": float(tp_price),
+            "sl_price": float(sl_price),
+            "entry_mode": action_meta.get("entry_mode", "market"),
+            "is_open": True,
+            "max_fav": 0.0,
+            "max_adv": 0.0,
+            "breakeven_triggered": False,
+            "trailing_active": False,
+            "trailing_moves": 0,
+            "last_entry": float(entry_price),
+        }
+        self.position = direction * size
+
+    def _close_trade(self, exit_price: float, exit_type: str):
+        if not self.open_trade:
+            return
+        entry_price = float(self.open_trade["entry_price"])
+        direction = float(self.open_trade["direction"])
+        profit = (exit_price - entry_price) if direction > 0 else (entry_price - exit_price)
+        exit_quality_reward = 1.0 if exit_type == "tp" else -1.0
+        max_fav = float(self.open_trade.get("max_fav", 0.0))
+        base = max(max_fav * entry_price, 1e-4)
+        trailing_efficiency = min(1.0, abs(profit) / base) if max_fav > 0 else 0.0
+        breakeven_reward = 1.0 if self.open_trade.get("breakeven_triggered") else 0.0
+        self._trade_metrics = {
+            "exit_type": exit_type,
+            "profit": float(profit),
+            "exit_quality_reward": exit_quality_reward,
+            "trailing_efficiency": float(trailing_efficiency),
+            "breakeven_reward": float(breakeven_reward),
+            "max_favorable": max_fav,
+            "max_adverse": float(self.open_trade.get("max_adv", 0.0)),
+            "trailing_moves": int(self.open_trade.get("trailing_moves", 0)),
+        }
+        self.position = 0.0
+        self.open_trade = None
+
+    def _check_pending_fill(self, current_price: float) -> bool:
+        pending = self.pending_order
+        if not pending:
+            return False
+
+        direction = float(pending["direction"])
+        mode = pending.get("mode", "limit")
+        entry_price = float(pending["entry_price"])
+
+        if mode == "limit":
+            return (direction > 0 and current_price <= entry_price) or (direction < 0 and current_price >= entry_price)
+        if mode == "stop":
+            return (direction > 0 and current_price >= entry_price) or (direction < 0 and current_price <= entry_price)
+        return True

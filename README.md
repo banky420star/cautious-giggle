@@ -1,125 +1,109 @@
-﻿# CautiousGiggle Trade Engine
+# Cautious Giggle — Autonomous Trading Control Plane
 
-MT5-first autonomous trading research/runtime stack with symbol-scoped model lifecycle and operator telemetry.
+An experimental local trading lab that lets you train, evaluate, and deploy PPO + LSTM agents against
+live MetaTrader 5 feeds, promote reliable champions, and watch the entire stack from a dashboard or Telegram.
 
-## What It Does
-- Ingests MT5 OHLCV bars per symbol.
-- Trains LSTM (regime/pattern) and PPO (exposure policy).
-- Evaluates candidate vs champion with hard gates and forward windows.
-- Publishes runtime status to API/UI and optional Telegram alerts.
-
-## What Is Live Now
-- MT5-only data path for runtime and training.
-- Symbol-scoped DRL training and model registry paths.
-- Candidate/canary/champion registry with promotion gates.
-- PPO backtest path that fails if artifacts are missing (no strategy fallback).
-
-## What Is Experimental
-- Reward-weight tuning (`drl.reward.weights`) and feature evolution.
-- Forward-window gate tuning and canary promotion cadence.
-- LSTM/PPO blend policy weight calibration.
+## Highlights
+- **Autonomous pipeline**: `tools/champion_cycle.py` crafts per-symbol LSTM context models, trains PPO challengers,
+  evaluates them against production champions, and promotes/rolls back builds.
+- **Live execution**: `Python.Server_AGI` houses HybridBrain (LSTM + PPO + risk-engine) and MT5 execution hooks.
+- **Observability**: HTTP + WebSocket dashboard (`tools/project_status_ui.py`) tracks trading state, queues control actions,
+  and mirrors key updates on Telegram via `alerts/telegram_alerts.py`.
+- **Data provenance**: Everything trains against MT5 candles (`Python/data_feed.py`), logs to `logs/`, and writes registry
+  snapshots under `models/registry`.
 
 ## Architecture
-- `Python/Server_AGI.py`: runtime loop, MT5 execution, telemetry.
-- `training/train_lstm.py`, `training/train_drl.py`: training pipelines.
-- `Python/model_registry.py`, `Python/model_evaluator.py`: registry + gates.
-- `Python/backtester.py`: PPO fidelity backtesting.
-- `tools/project_status_ui.py`: status UI/API.
+1. **Market data** – MT5 via `MetaTrader5.copy_rates_from_pos` and `Python/mt5_executor`.
+2. **Feature models** – `training/train_lstm.py` builds symbol/sequence-specific scalers and LSTM context classifiers.
+3. **Policy trainer** – `training/train_drl.py` runs PPO on the shared `drl/trading_env.py`, logging candidates under
+   `models/registry/candidates`.
+4. **Autonomy loop** – `Python/autonomy_loop.py` evaluates candidates, gates them with `model_evaluator.py`, and records
+   successes in `model_registry.py`.
+5. **Trading server** – `Python.Server_AGI.py` blends LSTM signals + PPO exposure, enforces cooldowns, fires MT5 trades,
+   and writes trade/audit events.
+6. **Control surface** – `tools/project_status_ui.py` provides API, WebSocket, Telegram alerts, and process controls.
 
-## Data Path
-1. MT5 bar fetch in `Python/data_feed.py`.
-2. Normalize to OHLCV frame.
-3. Engineered features in `drl/trading_env.py` (returns, microstructure, volatility, time context, trend/regime bucket).
+## Getting started
 
-## Training Path
-1. Run LSTM per symbol (`training/train_lstm.py`).
-2. Run PPO per symbol (default) or explicit combined mode (`training/train_drl.py`).
-3. Stage candidate with metadata (`scorecard.json`, `metadata.json`) including feature/reward versions and windows.
+### Prerequisites
+- Windows with MetaTrader 5 access to the symbols you plan to trade.
+- Python 3.11+ (the repo ships a `.venv312` to match the sandbox).
+- Telegram Bot token/chat for alerts.
 
-## Promotion Path
-1. Evaluate candidate vs champion with strict thresholds.
-2. Require per-symbol pass rate and forward-window win rate.
-3. Require champion beat on multiple metrics (score, return, Sharpe, drawdown).
-4. Set canary on pass; retain champion on fail.
-5. Promote canary only after survival checks pass (min trades, non-negative realized PnL, drawdown cap, minimum runtime).
-
-## How To Run
-
-### 1. Install
+### Install
 ```powershell
-cd C:\windows\system32\cautious-giggle
 python -m venv .venv312
-.\.venv312\Scripts\Activate.ps1
+.venv312\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure
-- Copy `config.yaml.example` to `config.yaml`.
-- Keep secrets out of git.
-- Set runtime secrets via env vars when possible:
-```powershell
-$env:MT5_LOGIN = "<login>"
-$env:MT5_PASSWORD = "<password>"
-$env:MT5_SERVER = "<server>"
-$env:TELEGRAM_TOKEN = "<token>"
-$env:TELEGRAM_CHAT_ID = "<chat_id>"
-```
+### Configure
+Copy `config.yaml.example` → `config.yaml` and set:
 
-### 3. Start Runtime
-```powershell
-.\.venv312\Scripts\python.exe -m Python.Server_AGI --live
-```
+- `mt5.login`, `mt5.server`, `mt5.password` to connect to your MT5 account.
+- `telegram.token` + `telegram.chat_id` for notification delivery.
+- `trading.symbols`, `confidence_threshold`, and `drl.` parameters to tune risk and candidate gates.
 
-### 4. Train + Evaluate
-```powershell
-.\.venv312\Scripts\python.exe training\train_lstm.py
-.\.venv312\Scripts\python.exe training\train_drl.py
-.\.venv312\Scripts\python.exe tools\champion_cycle.py
-.\.venv312\Scripts\python.exe tools\champion_cycle_loop.py --interval-minutes 30
-```
+Keep `models/registry/active.json` clean (champion/canary `null`) before your first run.
 
-### 5. One-Click Launcher + Desktop Icon
-```powershell
-powershell -ExecutionPolicy Bypass -File .\create_agi_trading_shortcut.ps1
-.\launch_agi_trading.ps1
-```
-This starts server, UI, n8n, and continuous champion-cycle retraining/promotion checks, then opens the UI.
+### Run
 
-## Known Limitations
-- Walk-forward orchestration is gate-driven but still file-registry based (no external experiment DB).
-- Champion promotion is gate-enforced and can be operator-overridden, but governance remains file-registry based.
-- MT5 availability/network state can block training/evaluation windows.
+1. **Live trading server**  
+   ```powershell
+   python -m Python.Server_AGI --live
+   ```
+   This will open sockets, start Telegram alerts, and poll MT5 for positions.
 
-## Evidence / Results
-- Runtime health: `http://127.0.0.1:8088/api/status`
-- Logs: `logs/server.log`, `logs/audit_events.jsonl`, `logs/trade_events.jsonl`
-- Cycle report: `logs/champion_cycle_last_report.json`
-- Add dashboards/screenshots under `docs/screenshots/`
+2. **Dashboard**  
+   ```powershell
+   python tools/project_status_ui.py
+   ```
+   Visit `http://127.0.0.1:8088` for realtime status, symbol performance cards, and control buttons.
 
-## Security Baseline
-- `config.yaml` is gitignored.
-- `config.yaml.example` contains placeholders only.
-- Live startup now rejects placeholder Telegram config values.
+3. **Training cycle** (optional autop-run)  
+   ```powershell
+   python tools/champion_cycle.py
+   ```
+   Use this to retrain LSTMs, stage PPO candidates, and promote new champions without touching production logic.
 
-## CI and Tests
-- GitHub Actions workflow: `.github/workflows/build.yml`
-- Test suite: `tests/`
-- Local run:
-```powershell
-pytest -q
-```
+4. **Reproducibility helpers**  
+   - `tools/profit_sweep.py` hunts for better thresholds/blend ratios.
+   - `training/train_lstm.py` & `training/train_drl.py` can run individually for diagnostics.
+   - Watch `logs/` (`server.log`, `trade_events.jsonl`, `champion_cycle*.log`, `ppo_training.log`) for audit trails.
 
-## Evidence Pack
-Generate walk-forward proof artifacts:
+### Metrics & Monitoring
+
+- Dashboard API: `http://127.0.0.1:8088/api/status`
+- WebSocket stream: `ws://127.0.0.1:8088/ws`
+- Telegram notifications: training start/finish, champion events, live heartbeats, and online/offline updates.
+
+## Testing
 
 ```powershell
-python tools\build_evidence_pack.py
+python -m pytest
 ```
 
-Outputs:
-- `docs/results/walk_forward_results.csv`
-- `docs/results/walk_forward_summary.md`
-- `docs/results/evidence_bundle.md`
+No tests? The command still ensures dependency installation and will pass even if there are zero tests.
 
-## Risk Warning
-Simulation/education tooling. Live trading carries financial risk.
+## Release summary
+
+- Use `python tools/release_summary.py` to snapshot the currently promoted champion/canary metadata plus the last five profitability entries.
+- The generated `docs/results/release_summary.md` becomes part of the evidence bundle you can publish alongside a new release tag.
+
+## Supporting info
+
+- `SETUP.md` explains the overall stack (MT5, Telegram, sandbox).
+- `requirements.txt` lists runtime requirements (`pandas`, `joblib`, `pyarrow`, etc.).
+- Keep `.tmp/` and `.venv312/` ignored; they contain runtime locks/logs.
+
+## Contribution
+
+1. Make a branch per feature.
+2. Add tests for any automation you touch.
+3. Update `docs/` + this README to capture new flows or configurations.
+
+## Next steps
+
+- Automate champion promotions via scheduled jobs.
+- Harden registries with integrity checks (hashes, timestamps, metadata).
+- Fill `models/registry/candidates` with multi-symbol results and share example metrics in `docs/metrics.md` (TBD).

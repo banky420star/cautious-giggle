@@ -15,7 +15,7 @@ drl:
   per_symbol: true
   period: "90d"
   interval: "M5"
-  candles_per_symbol: 500000
+  candles_per_symbol: 100000
   eval_period: "120d"
   model_path: "models/ppo_trading.zip"
   reward:
@@ -33,7 +33,7 @@ training:
   per_symbol: true
   lstm_period: "90d"
   lstm_interval: "M5"
-  lstm_candles: 500000
+  lstm_candles: 100000
 
 evaluation:
   max_drawdown: 0.10

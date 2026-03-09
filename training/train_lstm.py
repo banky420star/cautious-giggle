@@ -77,7 +77,7 @@ def _train_one_symbol(
     out_dir: str,
     period: str = "60d",
     interval: str = "5m",
-    candles: int = 500_000,
+    candles: int = 100_000,
     alerter=None,
 ):
     if alerter is not None:
@@ -211,7 +211,7 @@ def _train_one_symbol(
     }
 
 
-def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m", candles=500_000):
+def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m", candles=100_000):
     if symbols is None:
         symbols = ["EURUSDm", "GBPUSDm", "XAUUSDm"]
 
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     epochs = 20
     period = "60d"
     interval = "5m"
-    candles = 500_000
+    candles = 100_000
 
     if os.path.exists(cfg_path):
         with open(cfg_path, "r", encoding="utf-8") as f:
@@ -289,6 +289,6 @@ if __name__ == "__main__":
         epochs = int(tcfg.get("lstm_epochs", 20))
         period = str(tcfg.get("lstm_period", "90d"))
         interval = str(tcfg.get("lstm_interval", cfg.get("trading", {}).get("timeframe", "M5")))
-        candles = int(tcfg.get("lstm_candles", 500000))
+        candles = int(tcfg.get("lstm_candles", 100000))
 
     train_lstm(symbols=symbols, epochs=epochs, period=period, interval=interval, candles=candles)

@@ -31,18 +31,95 @@ if (-not $pythonExe) {
   throw "Python executable not found."
 }
 
-function Start-LauncherWindow {
+function Start-DetachedProcess {
   param(
-    [string]$Title,
-    [string]$InnerCommand
+    [string]$FilePath,
+    [string[]]$Arguments = @(),
+    [hashtable]$Environment = @{}
   )
 
-  $cmd = "Set-Location -Path '$repoRoot'; `$Host.UI.RawUI.WindowTitle = '$Title'; $InnerCommand"
-  Start-Process powershell.exe -ArgumentList @(
-    "-NoExit",
-    "-ExecutionPolicy", "Bypass",
-    "-Command", $cmd
-  ) | Out-Null
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $FilePath
+  $psi.WorkingDirectory = $repoRoot
+  $psi.UseShellExecute = $false
+  $psi.CreateNoWindow = $true
+  if ($Arguments -and $Arguments.Count -gt 0) {
+    $escaped = @()
+    foreach ($arg in $Arguments) {
+      $s = [string]$arg
+      if ($s.Contains(" ") -or $s.Contains('"')) {
+        $s = '"' + ($s -replace '"', '\"') + '"'
+      }
+      $escaped += $s
+    }
+    $psi.Arguments = ($escaped -join " ")
+  }
+  foreach ($entry in $Environment.GetEnumerator()) {
+    $psi.EnvironmentVariables[[string]$entry.Key] = [string]$entry.Value
+  }
+  $proc = [System.Diagnostics.Process]::Start($psi)
+  if ($null -eq $proc) {
+    throw "Failed to start process: $FilePath"
+  }
+  return [int]$proc.Id
+}
+
+function Get-LauncherShellRows {
+  $rows = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue
+  if (-not $rows) { return @() }
+  $needle = $repoRoot.ToLower().Replace("\", "/")
+  $matched = @()
+  foreach ($p in $rows) {
+    $cmd = ([string]$p.CommandLine).ToLower().Replace("\", "/")
+    if ($cmd.Contains($needle) -and $cmd.Contains("-noexit")) {
+      $matched += $p
+    }
+  }
+  return $matched
+}
+
+function Remove-IdleLauncherShells {
+  $shells = Get-LauncherShellRows
+  if (-not $shells) { return @() }
+  $all = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
+  $killed = @()
+  foreach ($p in $shells) {
+    $children = @($all | Where-Object { $_.ParentProcessId -eq $p.ProcessId })
+    $liveWorkers = @($children | Where-Object { $_.Name -in @("python.exe", "node.exe") })
+    if ($liveWorkers.Count -eq 0) {
+      try {
+        Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
+        $killed += [int]$p.ProcessId
+      } catch {
+      }
+    }
+  }
+  if ($killed.Count -gt 0) {
+    Write-Host "Removed idle launcher PowerShell process(es): $($killed -join ', ')"
+  }
+  return $killed
+}
+
+function Get-NodeExe {
+  try {
+    $cmd = Get-Command node -ErrorAction Stop
+    return [string]$cmd.Source
+  } catch {
+    return $null
+  }
+}
+
+function Get-N8NBin {
+  $candidates = @(
+    (Join-Path $env:APPDATA "npm\node_modules\n8n\bin\n8n"),
+    (Join-Path $env:APPDATA "npm\node_modules\n8n\bin\n8n.js")
+  )
+  foreach ($cand in $candidates) {
+    if (Test-Path $cand) {
+      return $cand
+    }
+  }
+  return $null
 }
 
 function Test-PortListening {
@@ -81,13 +158,32 @@ function Get-ProcessRowsByToken {
   return $matched
 }
 
+function Get-RootProcessRowsByToken {
+  param([string]$Token)
+  $rows = Get-ProcessRowsByToken -Token $Token
+  if (-not $rows) { return @() }
+
+  $pidSet = @{}
+  foreach ($p in $rows) {
+    $pidSet[[int]$p.ProcessId] = $true
+  }
+
+  $roots = @()
+  foreach ($p in $rows) {
+    if (-not $pidSet.ContainsKey([int]$p.ParentProcessId)) {
+      $roots += $p
+    }
+  }
+  return $roots
+}
+
 function Remove-StalePythonDuplicates {
   param(
     [string]$Token,
     [int]$Keep = 1
   )
 
-  $rows = Get-ProcessRowsByToken -Token $Token
+  $rows = Get-RootProcessRowsByToken -Token $Token
   if (-not $rows -or $rows.Count -le $Keep) { return @() }
 
   $ordered = $rows | Sort-Object CreationDate
@@ -193,6 +289,7 @@ if ($AutoBootstrapModel) {
 }
 
 # Keep one owner for runtime and training-cycle processes.
+Remove-IdleLauncherShells | Out-Null
 Remove-StalePythonDuplicates -Token "python.server_agi" | Out-Null
 Remove-StalePythonDuplicates -Token "tools/project_status_ui.py" | Out-Null
 Remove-StalePythonDuplicates -Token "tools/champion_cycle_loop.py" | Out-Null
@@ -201,18 +298,17 @@ Remove-StalePythonDuplicates -Token "training/train_drl.py" | Out-Null
 Remove-StalePythonDuplicates -Token "training/train_lstm.py" | Out-Null
 Remove-StaleServerLock
 
-$serverCmd = "& '$pythonExe' -m Python.Server_AGI --live"
-$uiCmd = "& '$pythonExe' tools\project_status_ui.py"
-
 if (-not (Test-ProcessToken -Token "python.server_agi")) {
-  Start-LauncherWindow -Title "AGI Server" -InnerCommand $serverCmd
+  $serverPid = Start-DetachedProcess -FilePath $pythonExe -Arguments @("-m", "Python.Server_AGI", "--live")
+  Write-Host "Started AGI Server pid=$serverPid"
   Start-Sleep -Seconds 2
 } else {
   Write-Host "Server already running; skipping duplicate launch."
 }
 
 if (-not (Test-PortListening -Port 8088)) {
-  Start-LauncherWindow -Title "AGI Status UI" -InnerCommand $uiCmd
+  $uiPid = Start-DetachedProcess -FilePath $pythonExe -Arguments @("tools\project_status_ui.py")
+  Write-Host "Started Status UI pid=$uiPid"
 } else {
   Write-Host "Status UI already listening on 8088; skipping duplicate launch."
 }
@@ -221,14 +317,19 @@ if ($StartN8N) {
   if (Test-PortListening -Port 5678) {
     Write-Host "n8n already listening on port 5678. Skipping n8n launch."
   } else {
-    $n8nCmd = @(
-      "`$env:NODES_EXCLUDE='[]'",
-      "`$env:N8N_DIAGNOSTICS_ENABLED='false'",
-      "`$env:N8N_VERSION_NOTIFICATIONS_ENABLED='false'",
-      "`$env:N8N_PERSONALIZATION_ENABLED='false'",
-      "n8n start"
-    ) -join "; "
-    Start-LauncherWindow -Title "n8n Orchestrator" -InnerCommand $n8nCmd
+    $nodeExe = Get-NodeExe
+    $n8nBin = Get-N8NBin
+    if (-not $nodeExe -or -not $n8nBin) {
+      Write-Host "n8n executable not found; skipping n8n launch."
+    } else {
+      $n8nPid = Start-DetachedProcess -FilePath $nodeExe -Arguments @($n8nBin, "start") -Environment @{
+        "NODES_EXCLUDE" = "[]"
+        "N8N_DIAGNOSTICS_ENABLED" = "false"
+        "N8N_VERSION_NOTIFICATIONS_ENABLED" = "false"
+        "N8N_PERSONALIZATION_ENABLED" = "false"
+      }
+      Write-Host "Started n8n pid=$n8nPid"
+    }
   }
 }
 
@@ -236,11 +337,12 @@ if ($StartTrainingCycle) {
   if (Test-ProcessToken -Token "tools/champion_cycle_loop.py") {
     Write-Host "Champion cycle loop already running; skipping duplicate launch."
   } else {
-    $cycleCmd = "& '$pythonExe' tools\champion_cycle_loop.py --interval-minutes $CycleIntervalMinutes"
-    Start-LauncherWindow -Title "AGI Champion Cycle Loop" -InnerCommand $cycleCmd
+    $cyclePid = Start-DetachedProcess -FilePath $pythonExe -Arguments @("tools\champion_cycle_loop.py", "--interval-minutes", "$CycleIntervalMinutes")
+    Write-Host "Started champion cycle loop pid=$cyclePid"
   }
 }
 
 Start-Sleep -Seconds 2
+Remove-IdleLauncherShells | Out-Null
 Start-Process $UiUrl | Out-Null
 Write-Host "AGI Trading launcher started. UI: $UiUrl"

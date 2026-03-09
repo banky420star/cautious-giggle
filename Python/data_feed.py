@@ -13,6 +13,8 @@ try:
 except Exception:
     yaml = None
 
+DEFAULT_MAX_MT5_BARS = 100_000
+
 
 def _to_mt5_timeframe(interval: str):
     m = (interval or "5m").lower().strip()
@@ -193,6 +195,18 @@ def fetch_training_data(
     tf = _to_mt5_timeframe(interval)
     bars_req = int(bars) if bars is not None else _bars_for(period, interval)
     min_required = int(min_bars) if min_bars is not None else 100
+    max_bars_raw = os.environ.get("AGI_MT5_MAX_BARS", str(DEFAULT_MAX_MT5_BARS))
+    try:
+        max_bars = max(100, int(max_bars_raw))
+    except Exception:
+        max_bars = DEFAULT_MAX_MT5_BARS
+    if bars_req > max_bars:
+        logger.warning(
+            f"requested MT5 bars exceed cap for {symbol} | tf={interval} requested={bars_req} capped={max_bars}"
+        )
+        bars_req = max_bars
+    if min_required > bars_req:
+        min_required = bars_req
 
     if not _initialize_mt5():
         msg = f"MT5 initialize failed for {symbol}: {mt5.last_error()}"

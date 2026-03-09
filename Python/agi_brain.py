@@ -105,6 +105,7 @@ class SmartAGI:
         self.prediction_count = 0
         self.symbol_models = {}
         self._warned_missing_symbol = set()
+        self._warned_incompatible_symbol = set()
 
         from Python.model_registry import ModelRegistry
 
@@ -176,19 +177,46 @@ class SmartAGI:
         scaler = os.path.join(root, "models", "per_symbol", f"lstm_scaler_{safe}.pkl")
         return model, scaler
 
+    def _is_compatible_lstm_model(self, model_path: str) -> bool:
+        if not os.path.exists(model_path):
+            return False
+        try:
+            state = torch.load(model_path, map_location="cpu", weights_only=True)
+            w = state.get("lstm.weight_ih_l0")
+            if w is None or len(w.shape) != 2:
+                return False
+            expected = len(FEATURE_COLUMNS)
+            got = int(w.shape[1])
+            return got == expected
+        except Exception:
+            return False
+
     def _bundle_for_symbol(self, symbol: str):
         if symbol in self.symbol_models:
             return self.symbol_models[symbol]
 
         model_path, scaler_path = self._symbol_artifact_paths(symbol)
         if os.path.exists(model_path) and os.path.exists(scaler_path):
+            if not self._is_compatible_lstm_model(model_path):
+                if symbol not in self._warned_incompatible_symbol:
+                    try:
+                        bad_model = model_path + ".incompatible"
+                        if os.path.exists(model_path) and not os.path.exists(bad_model):
+                            os.replace(model_path, bad_model)
+                        bad_scaler = scaler_path + ".incompatible"
+                        if os.path.exists(scaler_path) and not os.path.exists(bad_scaler):
+                            os.replace(scaler_path, bad_scaler)
+                    except Exception:
+                        pass
+                    logger.info(
+                        f"incompatible per-symbol model for {symbol} (feature shape mismatch); using default model"
+                    )
+                    self._warned_incompatible_symbol.add(symbol)
+                return self.default_bundle
             bundle = self._load_bundle(model_path, scaler_path, f"symbol[{symbol}]")
             self.symbol_models[symbol] = bundle
             return bundle
 
-        if symbol not in self._warned_missing_symbol:
-            logger.warning(f"no per-symbol artifacts for {symbol}; using default model")
-            self._warned_missing_symbol.add(symbol)
         return self.default_bundle
 
     def predict(self, df: pd.DataFrame, production: bool = False) -> dict:

@@ -8,6 +8,8 @@ import yaml
 
 from loguru import logger
 
+from Python.action_translator import translate_trade_action
+
 
 class HybridBrain:
     def __init__(self, risk, executor):
@@ -18,6 +20,7 @@ class HybridBrain:
 
         self.ppo_model = None
         self.vec_norm = None
+        self._last_action_meta = None
 
         cfg_blend = 0.55
         try:
@@ -94,15 +97,21 @@ class HybridBrain:
                 if not os.path.exists(model_path):
                     continue
 
-                self.ppo_model = PPO.load(model_path)
-                self.vec_norm = None
-                self._vecnorm_disabled = False
+                try:
+                    self.ppo_model = PPO.load(model_path)
+                    self.vec_norm = None
+                    self._vecnorm_disabled = False
 
-                if os.path.exists(vec_path):
-                    dummy = DummyVecEnv([lambda: TradingEnv()])
-                    self.vec_norm = VecNormalize.load(vec_path, dummy)
-                    self.vec_norm.training = False
-                    self.vec_norm.norm_reward = False
+                    if os.path.exists(vec_path):
+                        dummy = DummyVecEnv([lambda: TradingEnv()])
+                        self.vec_norm = VecNormalize.load(vec_path, dummy)
+                        self.vec_norm.training = False
+                        self.vec_norm.norm_reward = False
+                except Exception as exc:
+                    logger.warning(f"Skipping PPO artifact from {source} due to load error: {exc}")
+                    self.ppo_model = None
+                    self.vec_norm = None
+                    continue
 
                 if not self._validate_loaded_ppo():
                     logger.warning(f"Skipping incompatible PPO artifact from {source}: {model_path}")
@@ -125,8 +134,8 @@ class HybridBrain:
             return False
 
         try:
-            # Validate exact runtime path: optional VecNormalize + PPO.predict.
-            obs = np.zeros(self.window_size * 5 + 3, dtype=np.float32)
+            obs_dim = int(np.prod(self.ppo_model.observation_space.shape))
+            obs = np.zeros(obs_dim, dtype=np.float32)
             if self.vec_norm is not None:
                 obs = self.vec_norm.normalize_obs(obs.reshape(1, -1)).reshape(-1)
             self.ppo_model.predict(obs, deterministic=True)
@@ -134,26 +143,36 @@ class HybridBrain:
         except Exception as exc:
             logger.warning(f"PPO compatibility check failed: {exc}")
             return False
+
+    def _expected_obs_dim(self) -> Optional[int]:
+        if self.ppo_model is None:
+            return None
+        try:
+            return int(np.prod(self.ppo_model.observation_space.shape))
+        except Exception:
+            return None
+
     def _build_ppo_observation(self, df) -> Optional[np.ndarray]:
         req = ["open", "high", "low", "close", "volume"]
         if df is None or any(c not in df.columns for c in req):
             return None
-        if len(df) < self.window_size:
+
+        from drl.trading_env import TradingEnv
+
+        obs_dim = self._expected_obs_dim()
+        inferred_window = self.window_size
+        n_features = 21
+        if obs_dim is not None and obs_dim > 3 and (obs_dim - 3) % n_features == 0:
+            inferred_window = max(10, int((obs_dim - 3) / n_features))
+
+        if len(df) < inferred_window:
             return None
 
-        window = df[req].tail(self.window_size).copy()
-        arr = window.to_numpy(dtype=np.float32)
-
-        last_close = float(arr[-1, 3]) + 1e-12
-        arr[:, 0:4] = (arr[:, 0:4] / last_close) - 1.0
-        arr[:, 4] = np.log1p(np.maximum(arr[:, 4], 0.0))
-
-        closes = window["close"].to_numpy(dtype=np.float64)
-        rets = np.diff(closes) / (closes[:-1] + 1e-12)
-        mean_ret = float(np.mean(rets[-50:])) if rets.size else 0.0
-
-        portfolio_state = np.array([1.0, 0.0, mean_ret], dtype=np.float32)
-        obs = np.concatenate([arr.flatten().astype(np.float32), portfolio_state]).astype(np.float32)
+        env = TradingEnv(df=df.copy(), window_size=inferred_window)
+        obs, _ = env.reset()
+        obs = np.asarray(obs, dtype=np.float32).reshape(-1)
+        if obs_dim is not None and obs.shape[0] != obs_dim:
+            return None
         return obs
 
     def _normalize_obs_safe(self, obs: np.ndarray) -> np.ndarray:
@@ -169,29 +188,32 @@ class HybridBrain:
                 self._vecnorm_disabled = True
             return obs
 
-    def predict_ppo_exposure(self, symbol: str, df) -> Optional[float]:
+    def predict_ppo_action(self, symbol: str, df) -> Optional[dict]:
         if self.ppo_model is None:
+            self._last_action_meta = None
             return None
 
         try:
             obs = self._build_ppo_observation(df)
             if obs is None:
+                self._last_action_meta = None
                 return None
 
             obs = self._normalize_obs_safe(obs)
             action, _ = self.ppo_model.predict(obs, deterministic=True)
+            from drl.trading_env import TradingEnv
 
-            if isinstance(action, np.ndarray):
-                action_val = float(action[0])
-            else:
-                action_val = float(action)
+            action_meta = TradingEnv.decode_action(action, max_leverage=1.0)
+            action_val = float(np.clip(action_meta["target"], -1.0, 1.0))
 
-            action_val = float(np.clip(action_val, -1.0, 1.0))
             if abs(action_val) < self.ppo_min_abs:
-                return 0.0
+                self._ppo_error_count = 0
+                self._last_action_meta = None
+                return None
 
             self._ppo_error_count = 0
-            return action_val
+            self._last_action_meta = action_meta
+            return action_meta
         except Exception as exc:
             self._ppo_error_count += 1
             if self._ppo_error_count <= 3:
@@ -202,7 +224,17 @@ class HybridBrain:
                 logger.warning("Disabling PPO for this runtime due to repeated inference failures; AGI-only fallback active")
                 self.ppo_model = None
                 self.vec_norm = None
+            self._last_action_meta = None
             return None
+
+    def predict_ppo_exposure(self, symbol: str, df) -> Optional[float]:
+        action_meta = self.predict_ppo_action(symbol, df)
+        if action_meta is None:
+            return None
+        return float(np.clip(action_meta["target"], -1.0, 1.0))
+
+    def get_last_action_meta(self) -> Optional[dict]:
+        return self._last_action_meta
 
     def blend_exposure(self, agi_exposure: float, ppo_exposure: Optional[float], confidence: float = 1.0) -> float:
         if ppo_exposure is None:
@@ -215,9 +247,13 @@ class HybridBrain:
         mixed = agi_w * float(agi_exposure) + ppo_w * float(ppo_exposure)
         return float(np.clip(mixed, -1.0, 1.0))
 
-    def live_trade(self, symbol, exposure, max_lots):
+    def live_trade(self, symbol, exposure, max_lots, action_meta=None):
         if not self.risk.can_trade():
             return
+        meta = action_meta or self.get_last_action_meta()
+        tick = self.executor.get_tick(symbol)
+        order_meta = translate_trade_action(symbol, meta, exposure, max_lots, tick) if meta else None
         self.executor.reconcile_exposure(symbol, exposure, max_lots)
+        return order_meta
 
 

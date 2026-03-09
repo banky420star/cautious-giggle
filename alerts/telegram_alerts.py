@@ -64,6 +64,18 @@ class TelegramAlerter:
         )
         self._send(msg)
 
+    def trade_action(self, symbol, order_meta):
+        if not order_meta:
+            return
+        msg = (
+            "🧭 ACTION\n"
+            f"Symbol: {symbol}\n"
+            f"Mode: {order_meta.get('entry_mode')} | Side: {order_meta.get('order_type')}\n"
+            f"Volume: {order_meta.get('volume_lots')} | Exposure: {round(order_meta.get('exposure', 0.0), 3)}\n"
+            f"Entry: {order_meta.get('entry_price')} | TP: {order_meta.get('tp_price')} | SL: {order_meta.get('sl_price')}"
+        )
+        self._send(msg)
+
     def snapshot(self, balance, equity, pnl_today, floating, open_positions):
         msg = (
             "📊 STATUS SNAPSHOT\n"

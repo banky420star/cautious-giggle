@@ -149,13 +149,33 @@ def _prepare_df(symbols: list[str], period: str, interval: str, per_symbol_mode:
     return df
 
 
-def _stage_candidate(symbols, total_timesteps, period, interval, reward_cfg, df_rows, ppo_params, eval_windows):
+def _is_vecnorm_compatible(vec_path: str) -> bool:
+    try:
+        dummy = DummyVecEnv([lambda: TradingEnv()])
+        _ = VecNormalize.load(vec_path, dummy)
+        return True
+    except Exception:
+        return False
+
+
+def _stage_candidate(
+    symbols,
+    total_timesteps,
+    period,
+    interval,
+    reward_cfg,
+    df_rows,
+    ppo_params,
+    eval_windows,
+    src_model_path: str | None = None,
+    src_vec_path: str | None = None,
+):
     from Python.model_registry import ModelRegistry
 
     registry = ModelRegistry()
     best_dir = os.path.join("models", "best_eval_models")
-    src_model = os.path.join(best_dir, "best_model.zip")
-    src_vec = os.path.join(best_dir, "vec_normalize.pkl")
+    src_model = src_model_path or os.path.join(best_dir, "best_model.zip")
+    src_vec = src_vec_path or os.path.join(best_dir, "vec_normalize.pkl")
 
     if not os.path.exists(src_model) or not os.path.exists(src_vec):
         raise RuntimeError("Missing best_model.zip or vec_normalize.pkl after training")
@@ -206,7 +226,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
 
     period = str(drl_cfg.get("period", "90d"))
     interval = _normalize_interval(drl_cfg.get("interval", trading_cfg.get("timeframe", "M5")))
-    candles = int(drl_cfg.get("candles_per_symbol", 500000))
+    candles = int(drl_cfg.get("candles_per_symbol", 100000))
     reward_cfg = drl_cfg.get("reward", {}) if isinstance(drl_cfg.get("reward", {}), dict) else {}
     reward_weights = reward_cfg.get("weights", {}) if isinstance(reward_cfg.get("weights", {}), dict) else {}
 
@@ -301,11 +321,29 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     logger.info("Starting PPO training")
     model.learn(total_timesteps=total_timesteps, callback=[eval_callback, grad_callback], progress_bar=True)
 
+    # Persist current-run artifacts to avoid staging stale best_eval files.
+    latest_dir = os.path.join("models", "latest_run")
+    os.makedirs(latest_dir, exist_ok=True)
+    latest_model = os.path.join(latest_dir, "latest_model.zip")
+    latest_vec = os.path.join(latest_dir, "latest_vec_normalize.pkl")
+    model.save(latest_model)
+    env.save(latest_vec)
+
     eval_cfg = cfg.get("evaluation", {}) if isinstance(cfg.get("evaluation", {}), dict) else {}
     eval_windows = {
         "validate": str(drl_cfg.get("eval_period", "120d")),
         "forward": eval_cfg.get("forward_windows", []),
     }
+
+    stage_model = latest_model
+    stage_vec = latest_vec
+    if not _is_vecnorm_compatible(stage_vec):
+        best_dir = os.path.join("models", "best_eval_models")
+        best_model = os.path.join(best_dir, "best_model.zip")
+        best_vec = os.path.join(best_dir, "vec_normalize.pkl")
+        if os.path.exists(best_model) and os.path.exists(best_vec) and _is_vecnorm_compatible(best_vec):
+            stage_model = best_model
+            stage_vec = best_vec
 
     _stage_candidate(
         symbols,
@@ -316,6 +354,8 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         df_rows=len(df_pd),
         ppo_params=ppo_params,
         eval_windows=eval_windows,
+        src_model_path=stage_model,
+        src_vec_path=stage_vec,
     )
 
 

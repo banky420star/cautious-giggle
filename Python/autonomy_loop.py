@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import datetime
 import json
 import os
@@ -8,6 +8,7 @@ import time
 
 from loguru import logger
 
+from Python.config_utils import load_project_config
 from Python.model_evaluator import evaluate_candidate_vs_champion
 from Python.model_registry import ModelRegistry
 from alerts.telegram_alerts import TelegramAlerter
@@ -41,6 +42,7 @@ class AutonomyLoop:
         self._last_train_ts = 0.0
 
         self.alerter = self._init_alerter()
+        self.eval_config = self._load_evaluation_config()
 
     def _init_alerter(self):
         token = os.environ.get("TELEGRAM_TOKEN")
@@ -63,11 +65,32 @@ class AutonomyLoop:
             return TelegramAlerter(None, None)
         return TelegramAlerter(token, chat_id)
 
+    def _load_evaluation_config(self) -> dict:
+        try:
+            cfg = load_project_config(PROJECT_ROOT, live_mode=True)
+            return cfg.get("evaluation", {}) or {}
+        except Exception:
+            return {}
+
     def _notify(self, message: str):
         try:
             self.alerter.alert(message)
         except Exception:
             pass
+
+    def _update_candidate_metadata(self, candidate_dir: str, report: dict, gates_passed: bool, reasons: list[str]):
+        payload = {
+            "evaluation": {
+                "candidate_score": float(report.get("candidate", {}).get("avg_score", 0.0)),
+                "winner": bool(report.get("wins", False)),
+                "gates_passed": bool(gates_passed),
+                "gates_reasons": reasons,
+                "forward_windows": report.get("forward_windows", []),
+                "per_symbol": report.get("per_symbol_gates", []),
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        }
+        self.registry.update_metadata(candidate_dir, payload)
 
     def _latest_candidate_dir(self):
         root = self.registry.candidates_dir
@@ -118,6 +141,13 @@ class AutonomyLoop:
             delta = cand_score - champ_score
             if delta < self.min_score_delta:
                 reasons.append(f"score_delta_fail:{delta:.4f}<{self.min_score_delta:.4f}")
+
+        if not report.get("wins"):
+            reasons.append("candidate_win_checks_failed")
+
+        for fw in report.get("forward_windows", []):
+            if not bool(fw.get("wins")):
+                reasons.append(f"forward_{fw.get('period', 'unknown')}_loss")
 
         meta = self._read_candidate_metadata(candidate_dir)
         if self.require_walkforward:
@@ -184,6 +214,8 @@ class AutonomyLoop:
             champion_dir=self._get_champion_dir(),
             symbols=symbols,
             period=eval_period,
+            gates=self.eval_config,
+            interval="5m",
         )
 
         if report.get("error"):
@@ -199,6 +231,8 @@ class AutonomyLoop:
             f"dd={float(cand.get('worst_drawdown', 1.0)):.4f}, "
             f"sharpe={float(cand.get('avg_sharpe', -999.0)):.4f}"
         )
+
+        self._update_candidate_metadata(candidate_dir, report, gates_passed, reasons)
 
         if self.enable_auto_canary and report["wins"] and report["passes_thresholds"] and gates_passed:
             self.registry.set_canary(

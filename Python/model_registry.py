@@ -277,6 +277,13 @@ class ModelRegistry:
             json.dump(metadata, f, indent=2)
         logger.info(f"Candidate registered: {candidate_dir}")
 
+    def update_metadata(self, candidate_dir: str, patch: dict):
+        meta = self.read_metadata(candidate_dir)
+        if not isinstance(meta, dict):
+            meta = {}
+        meta.update(patch or {})
+        self.register_candidate(candidate_dir, meta)
+
     def read_metadata(self, version_dir: str) -> dict:
         meta_path = os.path.join(version_dir, "metadata.json")
         if not os.path.exists(meta_path):

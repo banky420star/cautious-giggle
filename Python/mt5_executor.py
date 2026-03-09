@@ -11,6 +11,15 @@ class MT5Executor:
     def _symbol_tick(self, symbol):
         return mt5.symbol_info_tick(symbol)
 
+    def get_tick(self, symbol):
+        return self._symbol_tick(symbol)
+
+    def get_mid_price(self, symbol):
+        tick = self._symbol_tick(symbol)
+        if tick is None:
+            return None
+        return float((tick.bid + tick.ask) / 2.0)
+
     def _select_filling_mode(self, symbol):
         info = self._symbol_info(symbol)
         if info is None:
