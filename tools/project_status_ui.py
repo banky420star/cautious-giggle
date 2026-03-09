@@ -1048,6 +1048,7 @@ def control_action(action, payload):
             return {"ok": True, "message": f"Normalized runtime owners; stopped pids={ids}"}
 
         if action == "set_canary_latest":
+            symbol = str(payload.get("symbol") or "").strip()
             cands = sorted(
                 [os.path.join(reg.candidates_dir, d) for d in os.listdir(reg.candidates_dir) if os.path.isdir(os.path.join(reg.candidates_dir, d))],
                 key=lambda p: os.path.getmtime(p),
@@ -1055,20 +1056,42 @@ def control_action(action, payload):
             )
             if not cands:
                 return {"ok": False, "message": "No candidates found"}
+            chosen = None
+            if symbol:
+                safe_symbol = symbol.upper()
+                for c in cands:
+                    sc = os.path.join(c, "scorecard.json")
+                    if not os.path.exists(sc):
+                        continue
+                    try:
+                        with open(sc, "r", encoding="utf-8") as f:
+                            meta = json.load(f) or {}
+                        if str(meta.get("symbol", "")).upper() == safe_symbol:
+                            chosen = c
+                            break
+                    except Exception:
+                        continue
+                if chosen is None:
+                    return {"ok": False, "message": f"No candidate found for symbol {symbol}"}
+                reg.set_canary(chosen, symbol=symbol)
+                return {"ok": True, "message": f"Canary set for {symbol}: {chosen}"}
             reg.set_canary(cands[0])
             return {"ok": True, "message": f"Canary set to {cands[0]}"}
 
         if action == "promote_canary":
-            reg.promote_canary_to_champion()
-            return {"ok": True, "message": "Canary promoted to champion"}
+            symbol = str(payload.get("symbol") or "").strip()
+            reg.promote_canary_to_champion(symbol=symbol or None)
+            return {"ok": True, "message": f"Canary promoted to champion{f' for {symbol}' if symbol else ''}"}
 
         if action == "promote_canary_force":
-            reg.promote_canary_to_champion(force=True)
-            return {"ok": True, "message": "Canary force-promoted to champion"}
+            symbol = str(payload.get("symbol") or "").strip()
+            reg.promote_canary_to_champion(symbol=symbol or None, force=True)
+            return {"ok": True, "message": f"Canary force-promoted to champion{f' for {symbol}' if symbol else ''}"}
 
         if action == "rollback_canary":
-            reg.rollback_to_champion()
-            return {"ok": True, "message": "Canary rolled back to champion"}
+            symbol = str(payload.get("symbol") or "").strip()
+            reg.rollback_to_champion(symbol=symbol or None)
+            return {"ok": True, "message": f"Canary rolled back to champion{f' for {symbol}' if symbol else ''}"}
     except Exception as exc:
         return {"ok": False, "message": str(exc)}
 
@@ -1134,7 +1157,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 6px;b
 <div class='card kpi'><div class='label'>Balance</div><div class='val' id='balance'>-</div></div><div class='card kpi'><div class='label'>Equity</div><div class='val' id='equity'>-</div></div><div class='card kpi'><div class='label'>Open Trades</div><div class='val' id='trades'>-</div></div><div class='card kpi'><div class='label'>Unrealized PnL</div><div class='val' id='pnl'>-</div></div>
 <div class='card wide'><div class='head'>Models / Runtime</div><div id='models'></div><div id='runtime'></div></div><div class='card wide'><div class='head'>n8n</div><div id='n8n'></div></div>
 <div class='card full trainingShell'><div class='head'>Training Radar</div><div id='training'></div></div>
-<div class='card full'><div class='head'>Controls</div><div class='controls'><button class='btn' onclick="act('start_lstm')">Start LSTM</button><button class='btn' onclick="act('stop_lstm')">Stop LSTM</button><button class='btn' onclick="act('start_drl',{timesteps:100000})">Start PPO</button><button class='btn' onclick="act('stop_drl')">Stop PPO</button><button class='btn' onclick="act('run_cycle')">Run Full Cycle</button><button class='btn' onclick="act('set_canary_latest')">Set Latest Canary</button><button class='btn' onclick="act('promote_canary')">Promote Canary</button><button class='btn' onclick="act('rollback_canary')">Rollback Canary</button><button class='btn' onclick="act('restart_server')">Restart Server</button><button class='btn' onclick="act('normalize_owners')">Normalize Owners</button></div><div class='sub' id='ctrlMsg'></div></div>
+<div class='card full'><div class='head'>Controls</div><div class='controls'><button class='btn' onclick="act('start_lstm')">Start LSTM</button><button class='btn' onclick="act('stop_lstm')">Stop LSTM</button><button class='btn' onclick="act('start_drl',{timesteps:100000})">Start PPO</button><button class='btn' onclick="act('stop_drl')">Stop PPO</button><button class='btn' onclick="act('run_cycle')">Run Full Cycle</button><button class='btn' onclick="act('set_canary_latest')">Set Latest Canary (Global)</button><button class='btn' onclick="act('promote_canary')">Promote Canary (Global)</button><button class='btn' onclick="act('rollback_canary')">Rollback Canary (Global)</button><button class='btn' onclick="act('restart_server')">Restart Server</button><button class='btn' onclick="act('normalize_owners')">Normalize Owners</button><input id='ctlSymbol' class='btn' style='min-width:180px;text-align:left' placeholder='Symbol e.g. EURUSDm' /><button class='btn' onclick="actSymbol('set_canary_latest')">Set Canary (Symbol)</button><button class='btn' onclick="actSymbol('promote_canary')">Promote (Symbol)</button><button class='btn' onclick="actSymbol('promote_canary_force')">Force Promote (Symbol)</button><button class='btn' onclick="actSymbol('rollback_canary')">Rollback (Symbol)</button></div><div class='sub' id='ctrlMsg'></div></div>
 <div class='card full'><div class='head'>Daily Profitability</div><div id='profitDaily' class='sub'>loading...</div></div>
 <div class='card full'><div class='head'>Per-Symbol Performance (7d)</div><div class='symGrid' id='symGrid'></div></div>
 <div class='card full'><div class='head'>Open Positions</div><div style='overflow:auto'><table><thead><tr><th>Ticket</th><th>Symbol</th><th>Side</th><th>Volume</th><th>PnL</th><th>TP Value USD</th><th>SL Value USD</th><th>Open</th><th>Current</th><th>SL</th><th>TP</th></tr></thead><tbody id='pos'></tbody></table></div></div>
@@ -1202,6 +1225,15 @@ let ws;
 async function pollOnce(){ try{ const r=await fetch('/api/status',{cache:'no-store'}); if(!r.ok) return; const d=await r.json(); render(d); if(ws==null||ws.readyState!==1){ byId('live').textContent='HTTP Polling'; } }catch(_){} }
 function connect(){ const proto=location.protocol==='https:'?'wss':'ws'; ws=new WebSocket(`${proto}://${location.host}/ws`); ws.onopen=()=>byId('live').textContent='WebSocket Connected'; ws.onclose=()=>{byId('live').textContent='Reconnecting...'; setTimeout(connect,1200)}; ws.onerror=()=>ws.close(); ws.onmessage=(ev)=>{try{render(JSON.parse(ev.data))}catch(_){}}; }
 async function act(action,payload={}){ try{ const r=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...payload})}); const d=await r.json(); byId('ctrlMsg').textContent=`${new Date().toLocaleTimeString()} :: ${d.message||'ok'}`; }catch(e){ byId('ctrlMsg').textContent='Control failed: '+e; } }
+function _controlSymbol(){ return (byId('ctlSymbol')?.value||'').trim(); }
+async function actSymbol(action){
+  const symbol=_controlSymbol();
+  if(!symbol){
+    byId('ctrlMsg').textContent='Enter symbol first (example: EURUSDm)';
+    return;
+  }
+  await act(action,{symbol});
+}
 connect();
 pollOnce();
 setInterval(pollOnce, 2000);
