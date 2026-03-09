@@ -14,7 +14,11 @@ $env:AGI_DZ_GBPUSD = "0.20"
 $env:AGI_DZ_XAUUSD = "0.22"
 
 Write-Host "Starting Grok AGI Server on Port 9090 with Token 'fuckyou2/'..."
-if (Test-Path ".\.venv\Scripts\Activate.ps1") {
-    .\.venv\Scripts\Activate.ps1
+$py = Join-Path $PSScriptRoot '.venv312\Scripts\python.exe'
+if (-not (Test-Path $py)) {
+    $py = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 }
-python -m Python.Server_AGI --live
+if (-not (Test-Path $py)) {
+    throw "No venv python found (.venv312/.venv). Refusing global python fallback."
+}
+& $py -m Python.Server_AGI --live

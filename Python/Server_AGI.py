@@ -157,6 +157,72 @@ def _training_state():
         pass
 
     return out
+
+
+def _runtime_owner_health():
+    out = {"ok": True, "issues": []}
+    try:
+        cmd = (
+            "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
+            "Select-Object ProcessId,ParentProcessId,ExecutablePath,CommandLine | ConvertTo-Json -Depth 4"
+        )
+        raw = subprocess.check_output(["powershell", "-NoProfile", "-Command", cmd], text=True, timeout=6)
+        rows = json.loads(raw)
+        if isinstance(rows, dict):
+            rows = [rows]
+    except Exception:
+        return out
+
+    tokens = [
+        ("server", "python.server_agi"),
+        ("ui", "tools/project_status_ui.py"),
+        ("cycle", "tools/champion_cycle.py"),
+        ("train_lstm", "training/train_lstm.py"),
+        ("train_drl", "training/train_drl.py"),
+    ]
+
+    for role, token in tokens:
+        matches = []
+        for r in rows or []:
+            cmdline = str((r or {}).get("CommandLine") or "").lower().replace("\\", "/")
+            if token in cmdline:
+                matches.append(
+                    {
+                        "pid": int((r or {}).get("ProcessId") or 0),
+                        "ppid": int((r or {}).get("ParentProcessId") or 0),
+                        "exe": str((r or {}).get("ExecutablePath") or ""),
+                    }
+                )
+        if not matches:
+            continue
+
+        pid_set = {m["pid"] for m in matches}
+        roots = [m for m in matches if m["ppid"] not in pid_set]
+        exe_paths = sorted({m["exe"].lower() for m in matches if m["exe"]})
+
+        if len(roots) > 1:
+            out["ok"] = False
+            out["issues"].append(
+                {
+                    "role": role,
+                    "type": "multiple_root_owners",
+                    "root_pids": [m["pid"] for m in roots],
+                    "exe_paths": exe_paths,
+                }
+            )
+        elif len(exe_paths) > 1:
+            out["ok"] = False
+            out["issues"].append(
+                {
+                    "role": role,
+                    "type": "mixed_executables",
+                    "root_pids": [m["pid"] for m in roots] or [matches[0]["pid"]],
+                    "exe_paths": exe_paths,
+                }
+            )
+    return out
+
+
 def _acquire_single_instance_lock():
     os.makedirs(LOCK_DIR, exist_ok=True)
     try:
@@ -421,6 +487,8 @@ def main(live=False):
     last_heartbeat = 0.0
     last_learning = 0.0
     last_models = {"champion": None, "canary": None}
+    last_owner_issue_key = None
+    last_owner_issue_time = 0.0
 
     while True:
         now = time.time()
@@ -464,6 +532,19 @@ def main(live=False):
             if models.get("canary") != last_models.get("canary"):
                 alerter.model(f"Canary changed: {models.get('canary') or 'none'}")
             last_models = models
+            owner_health = _runtime_owner_health()
+            _append_audit("runtime_owner_health", owner_health)
+            if not owner_health.get("ok", True):
+                issue_key = json.dumps(owner_health.get("issues", []), sort_keys=True, ensure_ascii=True)
+                if issue_key != last_owner_issue_key or (now - last_owner_issue_time) > 1800:
+                    lines = []
+                    for it in owner_health.get("issues", []):
+                        lines.append(
+                            f"{it.get('role')}: {it.get('type')} | roots={it.get('root_pids')} | exe={it.get('exe_paths')}"
+                        )
+                    alerter.alert("RUNTIME OWNERSHIP WARNING\n" + "\n".join(lines))
+                    last_owner_issue_key = issue_key
+                    last_owner_issue_time = now
             last_heartbeat = now
 
         # Observe-only event intelligence (calendar/news/websocket).

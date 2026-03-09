@@ -11,16 +11,11 @@ $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $pythonCandidates = @(
   (Join-Path $repoRoot ".venv312\Scripts\python.exe"),
-  (Join-Path $repoRoot ".venv\Scripts\python.exe"),
-  "python"
+  (Join-Path $repoRoot ".venv\Scripts\python.exe")
 )
 
 $pythonExe = $null
 foreach ($cand in $pythonCandidates) {
-  if ($cand -eq "python") {
-    $pythonExe = $cand
-    break
-  }
   if (Test-Path $cand) {
     $pythonExe = $cand
     break
@@ -28,7 +23,7 @@ foreach ($cand in $pythonCandidates) {
 }
 
 if (-not $pythonExe) {
-  throw "Python executable not found."
+  throw "Python executable not found in .venv312/.venv. Refusing global python fallback."
 }
 
 function Start-DetachedProcess {
