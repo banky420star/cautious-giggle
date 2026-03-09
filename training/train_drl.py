@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import torch
+import yaml
 from loguru import logger
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import EvalCallback
@@ -23,10 +24,34 @@ from drl.lstm_feature_extractor import LSTMFeatureExtractor
 from drl.trading_env import TradingEnv
 from Python.data_feed import fetch_training_data, get_combined_training_df
 from Python.config_utils import load_project_config
+from alerts.telegram_alerts import TelegramAlerter
 
 LOG_DIR = os.path.join(os.getcwd(), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "ppo_training.log"), rotation="10 MB", level="INFO")
+
+
+def _resolve_cfg_value(v):
+    if isinstance(v, str) and v.startswith("ENV:"):
+        return os.environ.get(v.split(":", 1)[1])
+    return v
+
+
+def _build_alerter(project_root: str):
+    cfg_path = os.path.join(project_root, "config.yaml")
+    cfg = {}
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
+        except Exception:
+            cfg = {}
+    tel = cfg.get("telegram", {}) if isinstance(cfg, dict) else {}
+    token = os.environ.get("TELEGRAM_TOKEN") or _resolve_cfg_value(tel.get("token"))
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or _resolve_cfg_value(tel.get("chat_id"))
+    if not token or not chat_id:
+        return TelegramAlerter(None, None)
+    return TelegramAlerter(token, str(chat_id))
 
 
 class EvalCallbackSaveVec(EvalCallback):
@@ -220,7 +245,7 @@ def _stage_candidate(
     return candidate_path
 
 
-def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_balance: float):
+def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_balance: float, alerter=None):
     drl_cfg = cfg.get("drl", {})
     trading_cfg = cfg.get("trading", {})
 
@@ -234,6 +259,14 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     logger.info(
         f"DRL Training | symbols={symbols} | timesteps={total_timesteps:,} | period={period} | tf={interval} | candles={candles:,} | per_symbol={per_symbol_mode} | initial_balance={initial_balance:.2f}"
     )
+    if alerter is not None:
+        try:
+            alerter.training(
+                "PPO",
+                f"Start {symbols} | timesteps={total_timesteps:,} | period={period} | tf={interval} | candles={candles:,}",
+            )
+        except Exception:
+            pass
 
     df_pd = _prepare_df(symbols, period=period, interval=interval, per_symbol_mode=per_symbol_mode, candles=candles)
     if df_pd.empty:
@@ -320,6 +353,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
 
     logger.info("Starting PPO training")
     model.learn(total_timesteps=total_timesteps, callback=[eval_callback, grad_callback], progress_bar=True)
+    best_score = float(eval_callback.best_mean_reward) if eval_callback.best_mean_reward is not None else None
 
     # Persist current-run artifacts to avoid staging stale best_eval files.
     latest_dir = os.path.join("models", "latest_run")
@@ -345,7 +379,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
             stage_model = best_model
             stage_vec = best_vec
 
-    _stage_candidate(
+    candidate_path = _stage_candidate(
         symbols,
         total_timesteps,
         period,
@@ -357,6 +391,14 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         src_model_path=stage_model,
         src_vec_path=stage_vec,
     )
+    if alerter is not None:
+        try:
+            alerter.training(
+                "PPO",
+                f"Complete {symbols} | best_score={best_score if best_score is not None else 'n/a'} | candidate={candidate_path}",
+            )
+        except Exception:
+            pass
 
 
 def train_drl():
@@ -375,15 +417,16 @@ def train_drl():
     initial_balance = get_mt5_equity(default_balance=10000.0, cfg=cfg)
 
     per_symbol = bool(cfg.get("drl", {}).get("per_symbol", True))
+    alerter = _build_alerter(project_root)
     if one_symbol:
-        _train_once(symbols, cfg, total_timesteps, initial_balance)
+        _train_once(symbols, cfg, total_timesteps, initial_balance, alerter=alerter)
         return
 
     if per_symbol:
         for symbol in symbols:
-            _train_once([symbol], cfg, total_timesteps, initial_balance)
+            _train_once([symbol], cfg, total_timesteps, initial_balance, alerter=alerter)
     else:
-        _train_once(symbols, cfg, total_timesteps, initial_balance)
+        _train_once(symbols, cfg, total_timesteps, initial_balance, alerter=alerter)
 
 
 if __name__ == "__main__":

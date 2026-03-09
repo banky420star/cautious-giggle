@@ -248,6 +248,10 @@ class AutonomyLoop:
             self._canary_start_trade_count = int(getattr(risk, "daily_trades", 0))
             self._canary_set_time = time.time()
             self._notify(f"Canary enabled: {os.path.basename(candidate_dir)} | {summary}")
+            try:
+                self.alerter.model(f"Canary set: {candidate_dir}")
+            except Exception:
+                pass
         else:
             detail = ", ".join(reasons) if reasons else "wins_or_thresholds_not_met"
             logger.info(f"candidate not promoted: {detail}")
@@ -309,6 +313,11 @@ class AutonomyLoop:
                 self._canary_set_time = None
                 self._maybe_reload_brain()
                 self._notify(f"Canary promoted. trades={trades_since}, realized={realized:.2f}")
+                try:
+                    champ = self.registry.load_active_model(prefer_canary=False)
+                    self.alerter.model(f"Champion promoted: {champ}")
+                except Exception:
+                    pass
             except Exception as exc:
                 logger.warning(f"Canary promotion blocked: {exc}")
 

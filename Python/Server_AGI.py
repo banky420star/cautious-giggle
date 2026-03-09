@@ -2,6 +2,7 @@
 import datetime
 import json
 import os
+import subprocess
 import time
 
 import MetaTrader5 as mt5
@@ -24,6 +25,7 @@ LOG_DIR = os.path.join(BASE_DIR, "logs")
 SERVER_LOG = os.path.join(LOG_DIR, "server.log")
 AUDIT_LOG = os.path.join(LOG_DIR, "audit_events.jsonl")
 TRADE_EVENTS_LOG = os.path.join(LOG_DIR, "trade_events.jsonl")
+ACTIVE_MODELS_PATH = os.path.join(BASE_DIR, "models", "registry", "active.json")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(SERVER_LOG, rotation="10 MB", level="INFO")
@@ -65,6 +67,96 @@ def _append_trade_event(event: str, payload: dict):
     _append_audit(event, payload)
 
 
+
+def _read_active_models():
+    if not os.path.exists(ACTIVE_MODELS_PATH):
+        return {"champion": None, "canary": None}
+    try:
+        with open(ACTIVE_MODELS_PATH, "r", encoding="utf-8") as f:
+            d = json.load(f)
+        if not isinstance(d, dict):
+            return {"champion": None, "canary": None}
+        return {"champion": d.get("champion"), "canary": d.get("canary")}
+    except Exception:
+        return {"champion": None, "canary": None}
+
+
+def _training_state():
+    out = {
+        "lstm_running": False,
+        "drl_running": False,
+        "cycle_running": False,
+        "lstm_symbol": None,
+        "lstm_epoch": None,
+        "lstm_epochs_total": None,
+        "lstm_score": None,
+        "drl_symbol": None,
+        "drl_score": None,
+    }
+    try:
+        cmd = (
+            "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
+            "Select-Object CommandLine | ConvertTo-Json -Depth 3"
+        )
+        raw = subprocess.check_output(["powershell", "-NoProfile", "-Command", cmd], text=True, timeout=6)
+        rows = json.loads(raw)
+        if isinstance(rows, dict):
+            rows = [rows]
+        lines = [str((r or {}).get("CommandLine") or "").lower().replace("\\", "/") for r in (rows or [])]
+        out["lstm_running"] = any("training/train_lstm.py" in x for x in lines)
+        out["drl_running"] = any("training/train_drl.py" in x for x in lines)
+        out["cycle_running"] = any(("tools/champion_cycle.py" in x or "tools/champion_cycle_loop.py" in x) for x in lines)
+    except Exception:
+        pass
+
+    try:
+        lstm_lines = []
+        lstm_log = os.path.join(LOG_DIR, "lstm_training.log")
+        if os.path.exists(lstm_log):
+            with open(lstm_log, "r", encoding="utf-8", errors="replace") as f:
+                lstm_lines = [x.rstrip("\n") for x in f.readlines()[-40:]]
+        for line in reversed(lstm_lines):
+            if " | epoch " in line and " | loss " in line:
+                parts = line.split("|")
+                if len(parts) >= 4:
+                    left = parts[1].strip()
+                    ep = parts[2].strip().replace("epoch", "").strip()
+                    score = parts[3].strip()
+                    sym = left.split()[-1]
+                    out["lstm_symbol"] = sym
+                    if "/" in ep:
+                        a, b = ep.split("/", 1)
+                        out["lstm_epoch"] = a.strip()
+                        out["lstm_epochs_total"] = b.strip()
+                    if "acc" in score.lower():
+                        out["lstm_score"] = score
+                    break
+    except Exception:
+        pass
+
+    try:
+        ppo_lines = []
+        ppo_log = os.path.join(LOG_DIR, "ppo_training.log")
+        if os.path.exists(ppo_log):
+            with open(ppo_log, "r", encoding="utf-8", errors="replace") as f:
+                ppo_lines = [x.rstrip("\n") for x in f.readlines()[-80:]]
+        for line in reversed(ppo_lines):
+            if "DRL Training | symbols=" in line:
+                idx = line.find("symbols=")
+                if idx >= 0:
+                    chunk = line[idx + len("symbols=") :]
+                    if "[" in chunk and "]" in chunk:
+                        s = chunk[chunk.find("[") + 1 : chunk.find("]")]
+                        first = s.split(",")[0].strip().strip("'\"")
+                        out["drl_symbol"] = first or None
+            if "best_score=" in line:
+                out["drl_score"] = line.split("best_score=", 1)[1].strip()
+                if out["drl_symbol"] is not None:
+                    break
+    except Exception:
+        pass
+
+    return out
 def _acquire_single_instance_lock():
     os.makedirs(LOCK_DIR, exist_ok=True)
     try:
@@ -264,6 +356,8 @@ def _scan_trade_events(alerter, known_open_tickets, seen_closed_deals, last_deal
                 pnl=pnl,
                 volume=payload["volume"],
                 price=payload["price"],
+                reason=payload.get("comment"),
+                deal_id=deal_id,
             )
         except Exception:
             continue
@@ -321,11 +415,12 @@ def main(live=False):
     last_deal_check = _utc_now() - datetime.timedelta(minutes=30)
 
     start_time = time.time()
-    heartbeat_sec = int(os.environ.get("AGI_HEARTBEAT_SEC", "60"))
+    heartbeat_sec = int(os.environ.get("AGI_HEARTBEAT_SEC", "600"))
     learning_sec = int(os.environ.get("AGI_TRADE_LEARN_SEC", "600"))
     loop_sleep_sec = int(os.environ.get("AGI_LOOP_SEC", "20"))
     last_heartbeat = 0.0
     last_learning = 0.0
+    last_models = {"champion": None, "canary": None}
 
     while True:
         now = time.time()
@@ -336,13 +431,26 @@ def main(live=False):
             if acc:
                 risk.update_equity(float(acc.equity))
 
-            alerter.heartbeat(
-                uptime=str(uptime) + " sec",
-                mt5_connected=mt5.initialize(),
-                trading_enabled=not risk.halt,
-            )
-
             snap = _account_snapshot()
+            tr_state = _training_state()
+            models = _read_active_models()
+            event_state = {}
+            try:
+                p = os.path.join(LOG_DIR, "event_intel_state.json")
+                if os.path.exists(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        event_state = json.load(f)
+            except Exception:
+                event_state = {}
+            alerter.heartbeat_full(
+                uptime=str(uptime) + " sec",
+                mt5_connected=(mt5.terminal_info() is not None),
+                trading_enabled=not risk.halt,
+                snapshot=snap,
+                training=tr_state,
+                models=models,
+                event_intel=event_state,
+            )
             alerter.snapshot(
                 balance=0.0 if snap["balance"] is None else snap["balance"],
                 equity=0.0 if snap["equity"] is None else snap["equity"],
@@ -351,6 +459,11 @@ def main(live=False):
                 open_positions=snap["open_positions"],
             )
             _append_audit("snapshot", snap)
+            if models.get("champion") != last_models.get("champion"):
+                alerter.model(f"Champion changed: {models.get('champion') or 'none'}")
+            if models.get("canary") != last_models.get("canary"):
+                alerter.model(f"Canary changed: {models.get('canary') or 'none'}")
+            last_models = models
             last_heartbeat = now
 
         # Observe-only event intelligence (calendar/news/websocket).
@@ -451,5 +564,4 @@ if __name__ == "__main__":
 
     live_flag = "--live" in sys.argv
     main(live=live_flag)
-
 

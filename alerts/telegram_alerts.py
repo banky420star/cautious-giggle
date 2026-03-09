@@ -39,6 +39,47 @@ class TelegramAlerter:
         )
         self._send(msg)
 
+    def heartbeat_full(
+        self,
+        uptime,
+        mt5_connected,
+        trading_enabled,
+        snapshot=None,
+        training=None,
+        models=None,
+        event_intel=None,
+    ):
+        snap = snapshot or {}
+        tr = training or {}
+        md = models or {}
+        ei = event_intel or {}
+        eis = ei.get("summary", {}) if isinstance(ei, dict) else {}
+        msg = (
+            "💓 HEARTBEAT (FULL)\n"
+            f"Uptime: {uptime}\n"
+            f"MT5: {'CONNECTED ✅' if mt5_connected else 'DISCONNECTED ❌'}\n"
+            f"Trading: {'ENABLED ✅' if trading_enabled else 'HALTED ❌'}\n"
+            f"Balance: {round(float(snap.get('balance', 0.0) or 0.0), 2)}\n"
+            f"Equity: {round(float(snap.get('equity', 0.0) or 0.0), 2)}\n"
+            f"Free Margin: {round(float(snap.get('free_margin', 0.0) or 0.0), 2)}\n"
+            f"PnL Today: {round(float(snap.get('pnl_today', 0.0) or 0.0), 2)}\n"
+            f"Floating: {round(float(snap.get('floating', 0.0) or 0.0), 2)}\n"
+            f"Open Positions: {int(snap.get('open_positions', 0) or 0)}\n"
+            f"LSTM: {'RUNNING' if tr.get('lstm_running') else 'IDLE'}"
+            f"{' | ' + str(tr.get('lstm_symbol')) if tr.get('lstm_symbol') else ''}"
+            f"{' | epoch ' + str(tr.get('lstm_epoch')) + '/' + str(tr.get('lstm_epochs_total')) if tr.get('lstm_epoch') and tr.get('lstm_epochs_total') else ''}\n"
+            f"{'LSTM Score: ' + str(tr.get('lstm_score')) + chr(10) if tr.get('lstm_score') else ''}"
+            f"PPO: {'RUNNING' if tr.get('drl_running') else 'IDLE'}"
+            f"{' | ' + str(tr.get('drl_symbol')) if tr.get('drl_symbol') else ''}"
+            f"{' | score ' + str(tr.get('drl_score')) if tr.get('drl_score') else ''}\n"
+            f"Cycle: {'RUNNING' if tr.get('cycle_running') else 'IDLE'}\n"
+            f"Champion: {md.get('champion') or 'none'}\n"
+            f"Canary: {md.get('canary') or 'none'}\n"
+            f"Event Active: {int(eis.get('active_window', 0) or 0)} | High Active: {int(eis.get('high_active', 0) or 0)}\n"
+            f"Time: {datetime.datetime.utcnow().strftime('%H:%M:%S')} UTC"
+        )
+        self._send(msg)
+
     def trade(self, symbol, action, exposure, confidence, balance, equity, free_margin):
         msg = (
             "📈 TRADE EXECUTED\n"
@@ -52,14 +93,17 @@ class TelegramAlerter:
         )
         self._send(msg)
 
-    def trade_closed(self, symbol, ticket, pnl, volume, price):
-        icon = "✅" if pnl >= 0 else "❌"
+    def trade_closed(self, symbol, ticket, pnl, volume, price, reason=None, deal_id=None):
+        icon = "🟢⬆️" if pnl >= 0 else "🔴⬇️"
+        why = reason if reason else "n/a"
         msg = (
             f"📉 TRADE CLOSED {icon}\n"
             f"Symbol: {symbol}\n"
             f"Ticket: {ticket}\n"
+            f"Deal ID: {deal_id if deal_id is not None else 'n/a'}\n"
             f"Volume: {round(volume, 4)}\n"
             f"Close Price: {round(price, 6)}\n"
+            f"Reason: {why}\n"
             f"Realized PnL: {round(pnl, 2)}"
         )
         self._send(msg)
@@ -67,12 +111,25 @@ class TelegramAlerter:
     def trade_action(self, symbol, order_meta):
         if not order_meta:
             return
+        entry = float(order_meta.get("entry_price", 0.0) or 0.0)
+        tp = float(order_meta.get("tp_price", 0.0) or 0.0)
+        sl = float(order_meta.get("sl_price", 0.0) or 0.0)
+        side = str(order_meta.get("order_type", "BUY")).upper()
+        lots = float(order_meta.get("volume_lots", 0.0) or 0.0)
+        if side == "BUY":
+            tp_dist = max(0.0, tp - entry)
+            sl_dist = max(0.0, entry - sl)
+        else:
+            tp_dist = max(0.0, entry - tp)
+            sl_dist = max(0.0, sl - entry)
+        rr = (tp_dist / sl_dist) if sl_dist > 1e-12 else 0.0
         msg = (
             "🧭 ACTION\n"
             f"Symbol: {symbol}\n"
             f"Mode: {order_meta.get('entry_mode')} | Side: {order_meta.get('order_type')}\n"
             f"Volume: {order_meta.get('volume_lots')} | Exposure: {round(order_meta.get('exposure', 0.0), 3)}\n"
-            f"Entry: {order_meta.get('entry_price')} | TP: {order_meta.get('tp_price')} | SL: {order_meta.get('sl_price')}"
+            f"Entry: {order_meta.get('entry_price')} | TP: {order_meta.get('tp_price')} | SL: {order_meta.get('sl_price')}\n"
+            f"Expected Profit(px): {round(tp_dist, 6)} | Expected Loss(px): {round(sl_dist, 6)} | RR: {round(rr, 3)} | Lots: {round(lots, 2)}"
         )
         self._send(msg)
 
