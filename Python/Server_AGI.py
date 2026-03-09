@@ -516,9 +516,11 @@ def main(live=False):
 
     start_time = time.time()
     heartbeat_sec = int(os.environ.get("AGI_HEARTBEAT_SEC", "600"))
+    symbol_card_sec = int(os.environ.get("AGI_SYMBOL_CARD_SEC", "90"))
     learning_sec = int(os.environ.get("AGI_TRADE_LEARN_SEC", "600"))
     loop_sleep_sec = int(os.environ.get("AGI_LOOP_SEC", "20"))
     last_heartbeat = 0.0
+    last_symbol_cards = 0.0
     last_learning = 0.0
     last_models = {"champion": None, "canary": None}
     last_owner_issue_key = None
@@ -582,37 +584,6 @@ def main(live=False):
                     alerter.alert("RUNTIME OWNERSHIP WARNING\n" + "\n".join(lines))
                     last_owner_issue_key = issue_key
                     last_owner_issue_time = now
-            for symbol in symbols:
-                sym = str(symbol)
-                sstate = dict(last_symbol_state.get(sym, {}))
-                pos_rows = mt5.positions_get(symbol=sym) or []
-                sstate["open_positions"] = len(pos_rows)
-                sstate["floating_pnl"] = sum(float(getattr(p, "profit", 0.0)) for p in pos_rows)
-                if pos_rows:
-                    p0 = pos_rows[0]
-                    p_side = "BUY" if int(getattr(p0, "type", 0)) == int(mt5.ORDER_TYPE_BUY) else "SELL"
-                    p_vol = float(getattr(p0, "volume", 0.0) or 0.0)
-                    p_entry = float(getattr(p0, "price_open", 0.0) or 0.0)
-                    p_tp = float(getattr(p0, "tp", 0.0) or 0.0)
-                    p_sl = float(getattr(p0, "sl", 0.0) or 0.0)
-                    sstate["position_side"] = p_side
-                    sstate["position_volume"] = p_vol
-                    sstate["position_entry"] = p_entry
-                    sstate["position_tp"] = p_tp
-                    sstate["position_sl"] = p_sl
-                    tpv, slv = _expected_usd(sym, p_side, p_entry, p_tp, p_sl, p_vol)
-                    sstate["position_tp_value_usd"] = None if tpv is None else float(tpv)
-                    sstate["position_sl_value_usd"] = None if slv is None else float(slv)
-                else:
-                    sstate["position_side"] = None
-                    sstate["position_volume"] = None
-                    sstate["position_entry"] = None
-                    sstate["position_tp"] = None
-                    sstate["position_sl"] = None
-                    sstate["position_tp_value_usd"] = None
-                    sstate["position_sl_value_usd"] = None
-                sstate["last_closed"] = last_closed_by_symbol.get(sym)
-                alerter.symbol_status(sym, sstate)
             last_heartbeat = now
 
         # Observe-only event intelligence (calendar/news/websocket).
@@ -737,6 +708,40 @@ def main(live=False):
                 last_closed_by_symbol[str(c.get("symbol", "?"))] = c
             except Exception:
                 pass
+
+        if now - last_symbol_cards >= max(15, symbol_card_sec):
+            for symbol in symbols:
+                sym = str(symbol)
+                sstate = dict(last_symbol_state.get(sym, {}))
+                pos_rows = mt5.positions_get(symbol=sym) or []
+                sstate["open_positions"] = len(pos_rows)
+                sstate["floating_pnl"] = sum(float(getattr(p, "profit", 0.0)) for p in pos_rows)
+                if pos_rows:
+                    p0 = pos_rows[0]
+                    p_side = "BUY" if int(getattr(p0, "type", 0)) == int(mt5.ORDER_TYPE_BUY) else "SELL"
+                    p_vol = float(getattr(p0, "volume", 0.0) or 0.0)
+                    p_entry = float(getattr(p0, "price_open", 0.0) or 0.0)
+                    p_tp = float(getattr(p0, "tp", 0.0) or 0.0)
+                    p_sl = float(getattr(p0, "sl", 0.0) or 0.0)
+                    sstate["position_side"] = p_side
+                    sstate["position_volume"] = p_vol
+                    sstate["position_entry"] = p_entry
+                    sstate["position_tp"] = p_tp
+                    sstate["position_sl"] = p_sl
+                    tpv, slv = _expected_usd(sym, p_side, p_entry, p_tp, p_sl, p_vol)
+                    sstate["position_tp_value_usd"] = None if tpv is None else float(tpv)
+                    sstate["position_sl_value_usd"] = None if slv is None else float(slv)
+                else:
+                    sstate["position_side"] = None
+                    sstate["position_volume"] = None
+                    sstate["position_entry"] = None
+                    sstate["position_tp"] = None
+                    sstate["position_sl"] = None
+                    sstate["position_tp_value_usd"] = None
+                    sstate["position_sl_value_usd"] = None
+                sstate["last_closed"] = last_closed_by_symbol.get(sym)
+                alerter.symbol_status(sym, sstate)
+            last_symbol_cards = now
 
         time.sleep(max(5, loop_sleep_sec))
 

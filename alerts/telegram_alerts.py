@@ -285,14 +285,15 @@ class TelegramAlerter:
         c_pnl_txt = "-" if c_pnl is None else f"{float(c_pnl):.2f}"
 
         msg = (
-            f"🪪 SYMBOL {symbol}\n"
-            f"Signal: {sig} | Conf: {conf_txt}\n"
-            f"AGI: {agi_txt} | PPO: {ppo_txt} | Blend: {blend_txt}\n"
-            f"Open Positions: {pos_count} | Floating: {floating:.2f}\n"
-            f"Position: {side} | Vol: {vol_txt}\n"
-            f"Entry: {entry_txt} | TP: {tp_txt} | SL: {sl_txt}\n"
-            f"TP Value(USD): {tp_usd_txt} | SL Value(USD): {sl_usd_txt}\n"
-            f"Last Closed {c_icon}: deal={c_deal if c_deal is not None else 'n/a'} | pnl={c_pnl_txt} | reason={c_reason}\n"
-            f"Updated: {datetime.datetime.utcnow().strftime('%H:%M:%S')} UTC"
+            f"🪪 {symbol}\n"
+            f"📶 Signal: {sig} ({conf_txt})\n"
+            f"⚖️ Exposure: AGI {agi_txt} | PPO {ppo_txt} | Blend {blend_txt}\n"
+            f"📂 Open: {pos_count} | Floating: ${floating:.2f}\n"
+            f"📍 Position: {side} {vol_txt} lots\n"
+            f"Entry: {entry_txt}\n"
+            f"TP: {tp_txt} | ${tp_usd_txt}\n"
+            f"SL: {sl_txt} | ${sl_usd_txt}\n"
+            f"🧾 Last Close: {c_icon} {c_pnl_txt} | {c_reason} | deal {c_deal if c_deal is not None else 'n/a'}\n"
+            f"⏱ Updated: {datetime.datetime.utcnow().strftime('%H:%M:%S')} UTC"
         )
         self._upsert_card(f"symbol_{symbol}", msg)
