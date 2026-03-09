@@ -18,7 +18,18 @@ from drl.trading_env import TradingEnv
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
-logger.add(os.path.join(LOG_DIR, "backtester.log"), rotation="10 MB", level="INFO")
+try:
+    # Avoid Windows rotation file-lock contention when multiple backtests run in parallel.
+    logger.add(
+        os.path.join(LOG_DIR, "backtester.log"),
+        level="INFO",
+        enqueue=True,
+        mode="a",
+        backtrace=False,
+        diagnose=False,
+    )
+except Exception:
+    pass
 
 
 def _normalize_interval(interval: str | None) -> str:

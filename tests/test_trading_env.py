@@ -17,11 +17,14 @@ def test_trading_env_exposes_reward_components():
 
     env = TradingEnv(df, window_size=50)
     obs, _ = env.reset()
-    assert obs.shape[0] == 50 * env.n_features + 3
+    assert obs.shape[0] == 50 * env.n_features + env.portfolio_feature_count
     assert env.n_features >= 15
+    assert env.portfolio_feature_count >= 6
 
     obs, reward, terminated, truncated, info = env.step([0.2])
     assert isinstance(reward, float)
     assert "reward_components" in info
     assert "growth" in info["reward_components"]
+    assert "loss_streak_penalty" in info["reward_components"]
+    assert "memory_expectancy_norm" in info["reward_components"]
     assert info.get("feature_version") == "engineered_v2"

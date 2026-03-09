@@ -447,7 +447,7 @@ class TradingEnv(gym.Env):
 
     def _log_profit_snapshot(self, current_price: float, info: dict):
         payload = {
-            "ts": datetime.datetime.utcnow().isoformat(),
+            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "equity": float(self.equity),
             "position": float(self.position),
             "current_price": float(current_price),
