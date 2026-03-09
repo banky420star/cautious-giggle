@@ -354,6 +354,25 @@ def _account_snapshot():
     }
 
 
+def _expected_usd(symbol: str, side: str, entry: float, tp: float, sl: float, lots: float):
+    try:
+        info = mt5.symbol_info(symbol)
+        tick_size = float(getattr(info, "trade_tick_size", 0.0) or 0.0)
+        tick_value = float(getattr(info, "trade_tick_value", 0.0) or 0.0)
+        if tick_size <= 0 or tick_value <= 0:
+            return None, None
+        usd_per_price = tick_value / tick_size
+        if str(side).upper() == "BUY":
+            profit_dist = max(0.0, float(tp) - float(entry))
+            loss_dist = max(0.0, float(entry) - float(sl))
+        else:
+            profit_dist = max(0.0, float(entry) - float(tp))
+            loss_dist = max(0.0, float(sl) - float(entry))
+        return profit_dist * usd_per_price * float(lots), loss_dist * usd_per_price * float(lots)
+    except Exception:
+        return None, None
+
+
 def _scan_trade_events(alerter, known_open_tickets, seen_closed_deals, last_deal_check):
     now_utc = _utc_now()
 
@@ -489,6 +508,7 @@ def main(live=False):
     last_models = {"champion": None, "canary": None}
     last_owner_issue_key = None
     last_owner_issue_time = 0.0
+    last_daily_profit_date = None
 
     while True:
         now = time.time()
@@ -573,6 +593,14 @@ def main(live=False):
                         "total_pnl": float(learn.get("total_pnl", 0.0)),
                     },
                 )
+                try:
+                    day = _utc_now().date().isoformat()
+                    daily_hour = int(os.environ.get("AGI_DAILY_PROFIT_HOUR_UTC", "0"))
+                    if _utc_now().hour >= max(0, min(23, daily_hour)) and day != last_daily_profit_date:
+                        alerter.profitability_daily(learn)
+                        last_daily_profit_date = day
+                except Exception:
+                    pass
             except Exception as e:
                 logger.warning(f"trade learning update failed: {e}")
             last_learning = now
@@ -615,6 +643,18 @@ def main(live=False):
                 order_meta = brain.live_trade(symbol, exposure, max_lots, action_meta=action_meta)
                 executor.manage_open_positions(symbol)
                 if order_meta:
+                    exp_profit_usd, exp_loss_usd = _expected_usd(
+                        symbol=symbol,
+                        side=str(order_meta.get("order_type", "BUY")),
+                        entry=float(order_meta.get("entry_price", 0.0) or 0.0),
+                        tp=float(order_meta.get("tp_price", 0.0) or 0.0),
+                        sl=float(order_meta.get("sl_price", 0.0) or 0.0),
+                        lots=float(order_meta.get("volume_lots", 0.0) or 0.0),
+                    )
+                    if exp_profit_usd is not None:
+                        order_meta["expected_profit_usd"] = float(exp_profit_usd)
+                    if exp_loss_usd is not None:
+                        order_meta["expected_loss_usd"] = float(exp_loss_usd)
                     logger.info(
                         f"ACTION {symbol} | mode={order_meta.get('entry_mode')} "
                         f"volume={order_meta.get('volume_lots')} "

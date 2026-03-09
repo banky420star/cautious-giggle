@@ -123,13 +123,19 @@ class TelegramAlerter:
             tp_dist = max(0.0, entry - tp)
             sl_dist = max(0.0, sl - entry)
         rr = (tp_dist / sl_dist) if sl_dist > 1e-12 else 0.0
+        exp_profit_usd = order_meta.get("expected_profit_usd")
+        exp_loss_usd = order_meta.get("expected_loss_usd")
+        if exp_profit_usd is None or exp_loss_usd is None:
+            exp_profit_usd = tp_dist
+            exp_loss_usd = sl_dist
+
         msg = (
             "🧭 ACTION\n"
             f"Symbol: {symbol}\n"
             f"Mode: {order_meta.get('entry_mode')} | Side: {order_meta.get('order_type')}\n"
             f"Volume: {order_meta.get('volume_lots')} | Exposure: {round(order_meta.get('exposure', 0.0), 3)}\n"
             f"Entry: {order_meta.get('entry_price')} | TP: {order_meta.get('tp_price')} | SL: {order_meta.get('sl_price')}\n"
-            f"Expected Profit(px): {round(tp_dist, 6)} | Expected Loss(px): {round(sl_dist, 6)} | RR: {round(rr, 3)} | Lots: {round(lots, 2)}"
+            f"Expected Profit(USD): {round(float(exp_profit_usd), 2)} | Expected Loss(USD): {round(float(exp_loss_usd), 2)} | RR: {round(rr, 3)} | Lots: {round(lots, 2)}"
         )
         self._send(msg)
 
@@ -152,3 +158,20 @@ class TelegramAlerter:
 
     def alert(self, message):
         self._send(f"⚠️ ALERT\n{message}")
+
+    def profitability_daily(self, summary):
+        s = summary or {}
+        best = (s.get("best_symbols") or [])[:2]
+        worst = (s.get("worst_symbols") or [])[:2]
+        btxt = ", ".join([f"{x.get('symbol')} {x.get('total_pnl')}" for x in best]) if best else "n/a"
+        wtxt = ", ".join([f"{x.get('symbol')} {x.get('total_pnl')}" for x in worst]) if worst else "n/a"
+        msg = (
+            "📅 DAILY PROFITABILITY\n"
+            f"Trades: {int(s.get('trades', 0) or 0)} | Win Rate: {float(s.get('win_rate', 0.0) or 0.0):.2f}%\n"
+            f"Total PnL: {float(s.get('total_pnl', 0.0) or 0.0):.2f}\n"
+            f"Expectancy: {float(s.get('expectancy', 0.0) or 0.0):.4f} | PF: {float(s.get('profit_factor', 0.0) or 0.0):.3f}\n"
+            f"Best: {btxt}\n"
+            f"Worst: {wtxt}\n"
+            f"Generated: {s.get('generated_at_utc', 'n/a')}"
+        )
+        self._send(msg)

@@ -251,6 +251,75 @@ def _filter_cmd(procs, token):
             out.append(p)
     return out
 
+
+def _runtime_owner_health(procs):
+    roles = [
+        ("server", "python.server_agi"),
+        ("ui", "tools/project_status_ui.py"),
+        ("cycle", "tools/champion_cycle.py"),
+        ("train_lstm", "training/train_lstm.py"),
+        ("train_drl", "training/train_drl.py"),
+    ]
+    issues = []
+    for role, token in roles:
+        rows = _filter_cmd(procs, token)
+        if not rows:
+            continue
+        pid_set = {int(r.get("pid") or 0) for r in rows}
+        roots = [r for r in rows if int(r.get("ppid") or 0) not in pid_set]
+        exes = sorted({str(r.get("name") or "").lower() + "|" + str((r.get("cmd") or "")).lower() for r in rows})
+        exe_paths = sorted({str((r.get("cmd") or "")).split(" ")[0].strip('"').lower() for r in rows if str((r.get("cmd") or "")).strip()})
+        if len(roots) > 1:
+            issues.append({"role": role, "type": "multiple_root_owners", "root_pids": [int(r.get("pid") or 0) for r in roots], "exe_paths": exe_paths})
+        elif len(exes) > 1 and len(exe_paths) > 1:
+            issues.append({"role": role, "type": "mixed_executables", "root_pids": [int(roots[0].get("pid") or 0)] if roots else [int(rows[0].get("pid") or 0)], "exe_paths": exe_paths})
+    return {"ok": len(issues) == 0, "issues": issues}
+
+
+def _normalize_single_owner():
+    procs = _processes()
+    roles = [
+        "python.server_agi",
+        "tools/project_status_ui.py",
+        "tools/champion_cycle.py",
+        "training/train_lstm.py",
+        "training/train_drl.py",
+    ]
+    venv_hint = os.path.join(ROOT, ".venv312", "scripts", "python.exe").lower().replace("\\", "/")
+    killed = []
+    for token in roles:
+        rows = _filter_cmd(procs, token)
+        if not rows:
+            continue
+        pid_set = {int(r.get("pid") or 0) for r in rows}
+        roots = [r for r in rows if int(r.get("ppid") or 0) not in pid_set]
+        if len(roots) <= 1:
+            continue
+        keep = None
+        for r in roots:
+            cmd = str(r.get("cmd") or "").lower().replace("\\", "/")
+            if venv_hint in cmd:
+                keep = int(r.get("pid") or 0)
+                break
+        if keep is None:
+            keep = int(roots[-1].get("pid") or 0)
+        for r in roots:
+            pid = int(r.get("pid") or 0)
+            if pid and pid != keep:
+                subprocess.run(["powershell", "-NoProfile", "-Command", f"Stop-Process -Id {pid} -Force"], check=False)
+                killed.append(pid)
+        # Also remove any non-venv executable workers chained under the kept root.
+        for r in rows:
+            pid = int(r.get("pid") or 0)
+            if not pid:
+                continue
+            cmd = str(r.get("cmd") or "").lower().replace("\\", "/")
+            if venv_hint not in cmd and pid != keep:
+                subprocess.run(["powershell", "-NoProfile", "-Command", f"Stop-Process -Id {pid} -Force"], check=False)
+                killed.append(pid)
+    return killed
+
+
 def _is_running(token: str) -> bool:
     return len(_filter_cmd(_processes(), token)) > 0
 
@@ -724,17 +793,41 @@ def _mt5_snapshot():
         base["open_positions"] = len(positions)
         rows = []
         for p in positions:
+            symbol = str(p.symbol)
+            side = "BUY" if int(p.type) == 0 else "SELL"
+            entry = float(p.price_open)
+            tp = float(p.tp) if p.tp else 0.0
+            sl = float(p.sl) if p.sl else 0.0
+            volume = float(p.volume)
+            exp_profit = None
+            exp_loss = None
+            try:
+                sinfo = mt5.symbol_info(symbol)
+                tick_size = float(getattr(sinfo, "trade_tick_size", 0.0) or 0.0)
+                tick_value = float(getattr(sinfo, "trade_tick_value", 0.0) or 0.0)
+                if tick_size > 0 and tick_value > 0:
+                    usd_per_price = tick_value / tick_size
+                    if side == "BUY":
+                        exp_profit = max(0.0, tp - entry) * usd_per_price * volume
+                        exp_loss = max(0.0, entry - sl) * usd_per_price * volume
+                    else:
+                        exp_profit = max(0.0, entry - tp) * usd_per_price * volume
+                        exp_loss = max(0.0, sl - entry) * usd_per_price * volume
+            except Exception:
+                pass
             rows.append(
                 {
                     "ticket": int(p.ticket),
-                    "symbol": str(p.symbol),
-                    "type": "BUY" if int(p.type) == 0 else "SELL",
-                    "volume": float(p.volume),
+                    "symbol": symbol,
+                    "type": side,
+                    "volume": volume,
                     "profit": float(p.profit),
-                    "open_price": float(p.price_open),
+                    "open_price": entry,
                     "current_price": float(p.price_current),
-                    "sl": float(p.sl) if p.sl else 0.0,
-                    "tp": float(p.tp) if p.tp else 0.0,
+                    "sl": sl,
+                    "tp": tp,
+                    "expected_profit_usd": None if exp_profit is None else float(exp_profit),
+                    "expected_loss_usd": None if exp_loss is None else float(exp_loss),
                 }
             )
         base["positions"] = rows
@@ -807,6 +900,7 @@ def _collect_status():
         "active_models": _active_models(),
         "canary_gate": {"ready": bool(canary_ok), "reason": canary_reason},
         "server": _server_state(procs),
+        "runtime_owner": _runtime_owner_health(procs),
         "n8n": _n8n_state(),
         "training": _training_state(procs),
         "account": _mt5_snapshot(),
@@ -898,6 +992,10 @@ def control_action(action, payload):
             pid = _spawn([_venv_python(), "-m", "Python.Server_AGI", "--live"], "server_stdout.log", "server_stderr.log")
             return {"ok": True, "message": f"Server restarted pid={pid}"}
 
+        if action == "normalize_owners":
+            ids = _normalize_single_owner()
+            return {"ok": True, "message": f"Normalized runtime owners; stopped pids={ids}"}
+
         if action == "set_canary_latest":
             cands = sorted(
                 [os.path.join(reg.candidates_dir, d) for d in os.listdir(reg.candidates_dir) if os.path.isdir(os.path.join(reg.candidates_dir, d))],
@@ -985,9 +1083,10 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 6px;b
 <div class='card kpi'><div class='label'>Balance</div><div class='val' id='balance'>-</div></div><div class='card kpi'><div class='label'>Equity</div><div class='val' id='equity'>-</div></div><div class='card kpi'><div class='label'>Open Trades</div><div class='val' id='trades'>-</div></div><div class='card kpi'><div class='label'>Unrealized PnL</div><div class='val' id='pnl'>-</div></div>
 <div class='card wide'><div class='head'>Models / Runtime</div><div id='models'></div><div id='runtime'></div></div><div class='card wide'><div class='head'>n8n</div><div id='n8n'></div></div>
 <div class='card full trainingShell'><div class='head'>Training Radar</div><div id='training'></div></div>
-<div class='card full'><div class='head'>Controls</div><div class='controls'><button class='btn' onclick="act('start_lstm')">Start LSTM</button><button class='btn' onclick="act('stop_lstm')">Stop LSTM</button><button class='btn' onclick="act('start_drl',{timesteps:100000})">Start PPO</button><button class='btn' onclick="act('stop_drl')">Stop PPO</button><button class='btn' onclick="act('run_cycle')">Run Full Cycle</button><button class='btn' onclick="act('set_canary_latest')">Set Latest Canary</button><button class='btn' onclick="act('promote_canary')">Promote Canary</button><button class='btn' onclick="act('rollback_canary')">Rollback Canary</button><button class='btn' onclick="act('restart_server')">Restart Server</button></div><div class='sub' id='ctrlMsg'></div></div>
+<div class='card full'><div class='head'>Controls</div><div class='controls'><button class='btn' onclick="act('start_lstm')">Start LSTM</button><button class='btn' onclick="act('stop_lstm')">Stop LSTM</button><button class='btn' onclick="act('start_drl',{timesteps:100000})">Start PPO</button><button class='btn' onclick="act('stop_drl')">Stop PPO</button><button class='btn' onclick="act('run_cycle')">Run Full Cycle</button><button class='btn' onclick="act('set_canary_latest')">Set Latest Canary</button><button class='btn' onclick="act('promote_canary')">Promote Canary</button><button class='btn' onclick="act('rollback_canary')">Rollback Canary</button><button class='btn' onclick="act('restart_server')">Restart Server</button><button class='btn' onclick="act('normalize_owners')">Normalize Owners</button></div><div class='sub' id='ctrlMsg'></div></div>
+<div class='card full'><div class='head'>Daily Profitability</div><div id='profitDaily' class='sub'>loading...</div></div>
 <div class='card full'><div class='head'>Per-Symbol Performance (7d)</div><div class='symGrid' id='symGrid'></div></div>
-<div class='card full'><div class='head'>Open Positions</div><div style='overflow:auto'><table><thead><tr><th>Ticket</th><th>Symbol</th><th>Side</th><th>Volume</th><th>PnL</th><th>Open</th><th>Current</th><th>SL</th><th>TP</th></tr></thead><tbody id='pos'></tbody></table></div></div>
+<div class='card full'><div class='head'>Open Positions</div><div style='overflow:auto'><table><thead><tr><th>Ticket</th><th>Symbol</th><th>Side</th><th>Volume</th><th>PnL</th><th>Exp Profit USD</th><th>Exp Loss USD</th><th>Open</th><th>Current</th><th>SL</th><th>TP</th></tr></thead><tbody id='pos'></tbody></table></div></div>
 <div class='card wide'><div class='head'>Server Log</div><div class='mono' id='server'></div></div><div class='card wide'><div class='head'>PPO Log</div><div class='mono' id='ppo'></div></div><div class='card wide'><div class='head'>LSTM Log</div><div class='mono' id='lstm'></div></div><div class='card wide'><div class='head'>Audit</div><div class='mono' id='audit'></div></div>
 </div></div>
 <script>
@@ -1028,7 +1127,7 @@ function renderTraining(root){
   return `<div class='trainingBoard'>${hero}<div class='stageRail'>${stageHtml}</div><div class='runGrid'>${lstmCard}${ppoCard}</div><div><div class='head' style='margin-bottom:10px'>LSTM Symbol Lane</div><div class='symbolLane'>${laneHtml}</div></div></div>`;
 }
 function render(d){
-const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{},n=d.n8n||{},tl=d.trade_learning||{},ei=d.event_intel||{},eis=ei.summary||{};
+const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{},n=d.n8n||{},tl=d.trade_learning||{},ei=d.event_intel||{},eis=ei.summary||{},ro=d.runtime_owner||{};
 byId('meta').textContent=`UTC ${d.timestamp_utc}`;
 byId('balance').textContent=fmt(a.balance);
 byId('equity').textContent=fmt(a.equity);
@@ -1038,10 +1137,14 @@ const pe=byId('pnl');
 pe.textContent=fmt(p);
 pe.className='val '+(p>=0?'good':'bad');
 byId('models').innerHTML=`<span class='chip'>Champion: ${esc(m.champion||'none')}</span><span class='chip'>Canary: ${esc(m.canary||'none')}</span><span class='chip'>Canary Gate: ${d.canary_gate?.ready?'READY':'HOLD'}</span><span class='chip'>Gate Reason: ${esc(d.canary_gate?.reason||'n/a')}</span>`;
-byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${esc((s.pids||[]).join(', ')||'-')}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span><span class='chip'>Training Stage: ${esc(t.visual?.active_stage||'idle')}</span><span class='chip'>Memory Trades: ${fmtInt(tl.trades)}</span><span class='chip'>Win Rate: ${Number(tl.win_rate||0).toFixed(2)}%</span><span class='chip'>Expectancy: ${Number(tl.expectancy||0).toFixed(4)}</span><span class='chip'>PF: ${Number(tl.profit_factor||0).toFixed(3)}</span><span class='chip'>Event Active: ${fmtInt(eis.active_window||0)}</span><span class='chip'>High Impact Active: ${fmtInt(eis.high_active||0)}</span><span class='chip'>High Impact 24h: ${fmtInt(eis.high_upcoming_24h||0)}</span>`;
+byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${esc((s.pids||[]).join(', ')||'-')}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span><span class='chip'>Owner Health: ${ro.ok===false?'WARN':'OK'}</span><span class='chip'>Training Stage: ${esc(t.visual?.active_stage||'idle')}</span><span class='chip'>Memory Trades: ${fmtInt(tl.trades)}</span><span class='chip'>Win Rate: ${Number(tl.win_rate||0).toFixed(2)}%</span><span class='chip'>Expectancy: ${Number(tl.expectancy||0).toFixed(4)}</span><span class='chip'>PF: ${Number(tl.profit_factor||0).toFixed(3)}</span><span class='chip'>Event Active: ${fmtInt(eis.active_window||0)}</span><span class='chip'>High Impact Active: ${fmtInt(eis.high_active||0)}</span><span class='chip'>High Impact 24h: ${fmtInt(eis.high_upcoming_24h||0)}</span>`;
+const best=(tl.best_symbols||[]).slice(0,2).map(x=>`${x.symbol}:${fmt(x.total_pnl)}`).join(' | ')||'n/a';
+const worst=(tl.worst_symbols||[]).slice(0,2).map(x=>`${x.symbol}:${fmt(x.total_pnl)}`).join(' | ')||'n/a';
+const ownerIssues=(ro.issues||[]).map(x=>`${x.role}:${x.type}`).join(', ')||'none';
+byId('profitDaily').textContent=`Generated ${tl.generated_at_utc||'-'} | Trades ${fmtInt(tl.trades)} | PnL ${fmt(tl.total_pnl)} | WinRate ${Number(tl.win_rate||0).toFixed(2)}% | Expectancy ${Number(tl.expectancy||0).toFixed(4)} | PF ${Number(tl.profit_factor||0).toFixed(3)} | Best ${best} | Worst ${worst} | Owner Issues ${ownerIssues}`;
 byId('training').innerHTML=renderTraining(d);
 byId('n8n').innerHTML=`<span class='chip'>State: ${n.running?'RUNNING':'STOPPED'}</span><span class='chip'>PID: ${esc(n.pid||'-')}</span><span class='chip'>Ports: ${esc((n.ports||[]).join(', ')||'-')}</span><span class='chip'>Py Runner: ${esc(n.python_task_runner||'unknown')}</span>`;
-const rows=(a.positions||[]).map(p=>`<tr><td>${p.ticket}</td><td>${esc(p.symbol)}</td><td>${esc(p.type)}</td><td>${p.volume}</td><td class='${p.profit>=0?'good':'bad'}'>${fmt(p.profit)}</td><td>${p.open_price}</td><td>${p.current_price}</td><td>${p.sl}</td><td>${p.tp}</td></tr>`).join(''); byId('pos').innerHTML=rows||'<tr><td colspan="9">No open trades</td></tr>';
+const rows=(a.positions||[]).map(p=>`<tr><td>${p.ticket}</td><td>${esc(p.symbol)}</td><td>${esc(p.type)}</td><td>${p.volume}</td><td class='${p.profit>=0?'good':'bad'}'>${fmt(p.profit)}</td><td class='good'>${fmt(p.expected_profit_usd)}</td><td class='bad'>${fmt(p.expected_loss_usd)}</td><td>${p.open_price}</td><td>${p.current_price}</td><td>${p.sl}</td><td>${p.tp}</td></tr>`).join(''); byId('pos').innerHTML=rows||'<tr><td colspan="11">No open trades</td></tr>';
 const cards=(d.symbol_perf||[]).map(s=>`<div class='sym'><div style='display:flex;justify-content:space-between'><strong>${esc(s.symbol)}</strong><span class='${s.pnl>=0?'good':'bad'}'>${fmt(s.pnl)}</span></div><div class='sub'>Trades ${s.trades} | Win ${s.win_rate}%</div>${spark(s.curve)}</div>`).join(''); byId('symGrid').innerHTML=cards||'<div class="sub">No closed deals in selected window.</div>';
 byId('server').textContent=(d.logs?.server||[]).join(String.fromCharCode(10)); byId('ppo').textContent=(d.logs?.ppo||[]).join(String.fromCharCode(10)); byId('lstm').textContent=(d.logs?.lstm||[]).join(String.fromCharCode(10)); byId('audit').textContent=(d.logs?.audit||[]).join(String.fromCharCode(10)); }
 let ws;
