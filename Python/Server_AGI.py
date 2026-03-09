@@ -363,12 +363,12 @@ def _expected_usd(symbol: str, side: str, entry: float, tp: float, sl: float, lo
             return None, None
         usd_per_price = tick_value / tick_size
         if str(side).upper() == "BUY":
-            profit_dist = max(0.0, float(tp) - float(entry))
-            loss_dist = max(0.0, float(entry) - float(sl))
+            tp_outcome = (float(tp) - float(entry)) * usd_per_price * float(lots)
+            sl_outcome = (float(sl) - float(entry)) * usd_per_price * float(lots)
         else:
-            profit_dist = max(0.0, float(entry) - float(tp))
-            loss_dist = max(0.0, float(sl) - float(entry))
-        return profit_dist * usd_per_price * float(lots), loss_dist * usd_per_price * float(lots)
+            tp_outcome = (float(entry) - float(tp)) * usd_per_price * float(lots)
+            sl_outcome = (float(entry) - float(sl)) * usd_per_price * float(lots)
+        return tp_outcome, sl_outcome
     except Exception:
         return None, None
 
@@ -643,7 +643,7 @@ def main(live=False):
                 order_meta = brain.live_trade(symbol, exposure, max_lots, action_meta=action_meta)
                 executor.manage_open_positions(symbol)
                 if order_meta:
-                    exp_profit_usd, exp_loss_usd = _expected_usd(
+                    tp_outcome_usd, sl_outcome_usd = _expected_usd(
                         symbol=symbol,
                         side=str(order_meta.get("order_type", "BUY")),
                         entry=float(order_meta.get("entry_price", 0.0) or 0.0),
@@ -651,10 +651,12 @@ def main(live=False):
                         sl=float(order_meta.get("sl_price", 0.0) or 0.0),
                         lots=float(order_meta.get("volume_lots", 0.0) or 0.0),
                     )
-                    if exp_profit_usd is not None:
-                        order_meta["expected_profit_usd"] = float(exp_profit_usd)
-                    if exp_loss_usd is not None:
-                        order_meta["expected_loss_usd"] = float(exp_loss_usd)
+                    if tp_outcome_usd is not None:
+                        order_meta["tp_outcome_usd"] = float(tp_outcome_usd)
+                        order_meta["expected_profit_usd"] = float(tp_outcome_usd)
+                    if sl_outcome_usd is not None:
+                        order_meta["sl_outcome_usd"] = float(sl_outcome_usd)
+                        order_meta["expected_loss_usd"] = float(sl_outcome_usd)
                     logger.info(
                         f"ACTION {symbol} | mode={order_meta.get('entry_mode')} "
                         f"volume={order_meta.get('volume_lots')} "

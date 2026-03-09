@@ -123,8 +123,8 @@ class TelegramAlerter:
             tp_dist = max(0.0, entry - tp)
             sl_dist = max(0.0, sl - entry)
         rr = (tp_dist / sl_dist) if sl_dist > 1e-12 else 0.0
-        exp_profit_usd = order_meta.get("expected_profit_usd")
-        exp_loss_usd = order_meta.get("expected_loss_usd")
+        exp_profit_usd = order_meta.get("tp_outcome_usd", order_meta.get("expected_profit_usd"))
+        exp_loss_usd = order_meta.get("sl_outcome_usd", order_meta.get("expected_loss_usd"))
         if exp_profit_usd is None or exp_loss_usd is None:
             exp_profit_usd = tp_dist
             exp_loss_usd = sl_dist
@@ -135,7 +135,7 @@ class TelegramAlerter:
             f"Mode: {order_meta.get('entry_mode')} | Side: {order_meta.get('order_type')}\n"
             f"Volume: {order_meta.get('volume_lots')} | Exposure: {round(order_meta.get('exposure', 0.0), 3)}\n"
             f"Entry: {order_meta.get('entry_price')} | TP: {order_meta.get('tp_price')} | SL: {order_meta.get('sl_price')}\n"
-            f"Expected Profit(USD): {round(float(exp_profit_usd), 2)} | Expected Loss(USD): {round(float(exp_loss_usd), 2)} | RR: {round(rr, 3)} | Lots: {round(lots, 2)}"
+            f"TP Value(USD): {round(float(exp_profit_usd), 2)} | SL Value(USD): {round(float(exp_loss_usd), 2)} | RR: {round(rr, 3)} | Lots: {round(lots, 2)}"
         )
         self._send(msg)
 

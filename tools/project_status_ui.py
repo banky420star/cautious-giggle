@@ -799,8 +799,8 @@ def _mt5_snapshot():
             tp = float(p.tp) if p.tp else 0.0
             sl = float(p.sl) if p.sl else 0.0
             volume = float(p.volume)
-            exp_profit = None
-            exp_loss = None
+            tp_value = None
+            sl_value = None
             try:
                 sinfo = mt5.symbol_info(symbol)
                 tick_size = float(getattr(sinfo, "trade_tick_size", 0.0) or 0.0)
@@ -808,11 +808,11 @@ def _mt5_snapshot():
                 if tick_size > 0 and tick_value > 0:
                     usd_per_price = tick_value / tick_size
                     if side == "BUY":
-                        exp_profit = max(0.0, tp - entry) * usd_per_price * volume
-                        exp_loss = max(0.0, entry - sl) * usd_per_price * volume
+                        tp_value = (tp - entry) * usd_per_price * volume
+                        sl_value = (sl - entry) * usd_per_price * volume
                     else:
-                        exp_profit = max(0.0, entry - tp) * usd_per_price * volume
-                        exp_loss = max(0.0, sl - entry) * usd_per_price * volume
+                        tp_value = (entry - tp) * usd_per_price * volume
+                        sl_value = (entry - sl) * usd_per_price * volume
             except Exception:
                 pass
             rows.append(
@@ -826,8 +826,10 @@ def _mt5_snapshot():
                     "current_price": float(p.price_current),
                     "sl": sl,
                     "tp": tp,
-                    "expected_profit_usd": None if exp_profit is None else float(exp_profit),
-                    "expected_loss_usd": None if exp_loss is None else float(exp_loss),
+                    "tp_value_usd": None if tp_value is None else float(tp_value),
+                    "sl_value_usd": None if sl_value is None else float(sl_value),
+                    "expected_profit_usd": None if tp_value is None else float(tp_value),
+                    "expected_loss_usd": None if sl_value is None else float(sl_value),
                 }
             )
         base["positions"] = rows
@@ -1086,7 +1088,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 6px;b
 <div class='card full'><div class='head'>Controls</div><div class='controls'><button class='btn' onclick="act('start_lstm')">Start LSTM</button><button class='btn' onclick="act('stop_lstm')">Stop LSTM</button><button class='btn' onclick="act('start_drl',{timesteps:100000})">Start PPO</button><button class='btn' onclick="act('stop_drl')">Stop PPO</button><button class='btn' onclick="act('run_cycle')">Run Full Cycle</button><button class='btn' onclick="act('set_canary_latest')">Set Latest Canary</button><button class='btn' onclick="act('promote_canary')">Promote Canary</button><button class='btn' onclick="act('rollback_canary')">Rollback Canary</button><button class='btn' onclick="act('restart_server')">Restart Server</button><button class='btn' onclick="act('normalize_owners')">Normalize Owners</button></div><div class='sub' id='ctrlMsg'></div></div>
 <div class='card full'><div class='head'>Daily Profitability</div><div id='profitDaily' class='sub'>loading...</div></div>
 <div class='card full'><div class='head'>Per-Symbol Performance (7d)</div><div class='symGrid' id='symGrid'></div></div>
-<div class='card full'><div class='head'>Open Positions</div><div style='overflow:auto'><table><thead><tr><th>Ticket</th><th>Symbol</th><th>Side</th><th>Volume</th><th>PnL</th><th>Exp Profit USD</th><th>Exp Loss USD</th><th>Open</th><th>Current</th><th>SL</th><th>TP</th></tr></thead><tbody id='pos'></tbody></table></div></div>
+<div class='card full'><div class='head'>Open Positions</div><div style='overflow:auto'><table><thead><tr><th>Ticket</th><th>Symbol</th><th>Side</th><th>Volume</th><th>PnL</th><th>TP Value USD</th><th>SL Value USD</th><th>Open</th><th>Current</th><th>SL</th><th>TP</th></tr></thead><tbody id='pos'></tbody></table></div></div>
 <div class='card wide'><div class='head'>Server Log</div><div class='mono' id='server'></div></div><div class='card wide'><div class='head'>PPO Log</div><div class='mono' id='ppo'></div></div><div class='card wide'><div class='head'>LSTM Log</div><div class='mono' id='lstm'></div></div><div class='card wide'><div class='head'>Audit</div><div class='mono' id='audit'></div></div>
 </div></div>
 <script>
@@ -1144,7 +1146,7 @@ const ownerIssues=(ro.issues||[]).map(x=>`${x.role}:${x.type}`).join(', ')||'non
 byId('profitDaily').textContent=`Generated ${tl.generated_at_utc||'-'} | Trades ${fmtInt(tl.trades)} | PnL ${fmt(tl.total_pnl)} | WinRate ${Number(tl.win_rate||0).toFixed(2)}% | Expectancy ${Number(tl.expectancy||0).toFixed(4)} | PF ${Number(tl.profit_factor||0).toFixed(3)} | Best ${best} | Worst ${worst} | Owner Issues ${ownerIssues}`;
 byId('training').innerHTML=renderTraining(d);
 byId('n8n').innerHTML=`<span class='chip'>State: ${n.running?'RUNNING':'STOPPED'}</span><span class='chip'>PID: ${esc(n.pid||'-')}</span><span class='chip'>Ports: ${esc((n.ports||[]).join(', ')||'-')}</span><span class='chip'>Py Runner: ${esc(n.python_task_runner||'unknown')}</span>`;
-const rows=(a.positions||[]).map(p=>`<tr><td>${p.ticket}</td><td>${esc(p.symbol)}</td><td>${esc(p.type)}</td><td>${p.volume}</td><td class='${p.profit>=0?'good':'bad'}'>${fmt(p.profit)}</td><td class='good'>${fmt(p.expected_profit_usd)}</td><td class='bad'>${fmt(p.expected_loss_usd)}</td><td>${p.open_price}</td><td>${p.current_price}</td><td>${p.sl}</td><td>${p.tp}</td></tr>`).join(''); byId('pos').innerHTML=rows||'<tr><td colspan="11">No open trades</td></tr>';
+const rows=(a.positions||[]).map(p=>`<tr><td>${p.ticket}</td><td>${esc(p.symbol)}</td><td>${esc(p.type)}</td><td>${p.volume}</td><td class='${p.profit>=0?'good':'bad'}'>${fmt(p.profit)}</td><td class='${(p.tp_value_usd??0)>=0?'good':'bad'}'>${fmt(p.tp_value_usd)}</td><td class='${(p.sl_value_usd??0)>=0?'good':'bad'}'>${fmt(p.sl_value_usd)}</td><td>${p.open_price}</td><td>${p.current_price}</td><td>${p.sl}</td><td>${p.tp}</td></tr>`).join(''); byId('pos').innerHTML=rows||'<tr><td colspan="11">No open trades</td></tr>';
 const cards=(d.symbol_perf||[]).map(s=>`<div class='sym'><div style='display:flex;justify-content:space-between'><strong>${esc(s.symbol)}</strong><span class='${s.pnl>=0?'good':'bad'}'>${fmt(s.pnl)}</span></div><div class='sub'>Trades ${s.trades} | Win ${s.win_rate}%</div>${spark(s.curve)}</div>`).join(''); byId('symGrid').innerHTML=cards||'<div class="sub">No closed deals in selected window.</div>';
 byId('server').textContent=(d.logs?.server||[]).join(String.fromCharCode(10)); byId('ppo').textContent=(d.logs?.ppo||[]).join(String.fromCharCode(10)); byId('lstm').textContent=(d.logs?.lstm||[]).join(String.fromCharCode(10)); byId('audit').textContent=(d.logs?.audit||[]).join(String.fromCharCode(10)); }
 let ws;
