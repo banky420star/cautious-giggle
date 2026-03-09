@@ -196,8 +196,8 @@ class TradingEnv(gym.Env):
         if dates is not None:
             dt = pd.to_datetime(dates, utc=True, errors="coerce")
             if isinstance(dt, pd.DatetimeIndex):
-                hour = dt.hour.to_numpy(dtype=np.float64)
-                dow = dt.dayofweek.to_numpy(dtype=np.float64)
+                hour = dt.hour.astype(np.float64)
+                dow = dt.dayofweek.astype(np.float64)
             else:
                 hour = dt.dt.hour.to_numpy(dtype=np.float64)
                 dow = dt.dt.dayofweek.to_numpy(dtype=np.float64)

@@ -548,6 +548,8 @@ def _training_state(procs):
     drl = _filter_cmd(procs, "training/train_drl.py")
     lstm = _filter_cmd(procs, "training/train_lstm.py")
     cycle = _filter_cmd(procs, "tools/champion_cycle_loop.py")
+    if not cycle:
+        cycle = _filter_cmd(procs, "tools/champion_cycle.py")
     progress = _latest_training_progress()
     drl_running = len(drl) > 0
     lstm_running = len(lstm) > 0
