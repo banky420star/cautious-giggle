@@ -128,6 +128,8 @@ class TelegramAlerter:
         if exp_profit_usd is None or exp_loss_usd is None:
             exp_profit_usd = tp_dist
             exp_loss_usd = sl_dist
+        tp_icon = "🟢" if float(exp_profit_usd) >= 0 else "🔴"
+        sl_icon = "🟢" if float(exp_loss_usd) >= 0 else "🔴"
 
         msg = (
             "🧭 ACTION\n"
@@ -135,7 +137,9 @@ class TelegramAlerter:
             f"Mode: {order_meta.get('entry_mode')} | Side: {order_meta.get('order_type')}\n"
             f"Volume: {order_meta.get('volume_lots')} | Exposure: {round(order_meta.get('exposure', 0.0), 3)}\n"
             f"Entry: {order_meta.get('entry_price')} | TP: {order_meta.get('tp_price')} | SL: {order_meta.get('sl_price')}\n"
-            f"TP Value(USD): {round(float(exp_profit_usd), 2)} | SL Value(USD): {round(float(exp_loss_usd), 2)} | RR: {round(rr, 3)} | Lots: {round(lots, 2)}"
+            f"{tp_icon} TP Value(USD): {round(float(exp_profit_usd), 2)}\n"
+            f"{sl_icon} SL Value(USD): {round(float(exp_loss_usd), 2)}\n"
+            f"RR: {round(rr, 3)} | Lots: {round(lots, 2)}"
         )
         self._send(msg)
 
