@@ -13,6 +13,7 @@ from Python.hybrid_brain import HybridBrain
 from Python.mt5_executor import MT5Executor
 from Python.risk_engine import RiskEngine
 from Python.config_utils import load_project_config
+from Python.event_intel import EventIntel
 from Python.trade_learning import build_trade_learning
 from alerts.telegram_alerts import TelegramAlerter
 
@@ -298,6 +299,7 @@ def main(live=False):
 
     token, chat_id = _load_telegram_cfg(cfg)
     alerter = TelegramAlerter(token, chat_id)
+    event_intel = EventIntel(cfg, LOG_DIR)
 
     alerter.online("Trading engine initialized")
 
@@ -350,6 +352,15 @@ def main(live=False):
             )
             _append_audit("snapshot", snap)
             last_heartbeat = now
+
+        # Observe-only event intelligence (calendar/news/websocket).
+        try:
+            event_state = event_intel.tick(symbols)
+            _append_audit("event_intel", event_state.get("summary", {}))
+            for msg in event_intel.pop_alerts():
+                alerter.alert(msg)
+        except Exception as e:
+            logger.warning(f"event_intel tick failed: {e}")
 
         if now - last_learning >= max(120, learning_sec):
             try:

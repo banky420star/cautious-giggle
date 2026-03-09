@@ -10,6 +10,18 @@ telegram:
   token: "YOUR_BOT_TOKEN_HERE"
   chat_id: "YOUR_CHAT_ID_HERE"
 
+event_intel:
+  enabled: true
+  poll_sec: 60
+  pre_event_min: 60
+  post_event_min: 30
+  news_hold_min: 20
+  max_events: 200
+  # Optional feeds:
+  # calendar_url: "https://your-calendar-feed/events"
+  # news_url: "https://your-news-feed/headlines"
+  # websocket_url: "wss://your-feed/ws"
+
 drl:
   total_timesteps: 500000
   per_symbol: true

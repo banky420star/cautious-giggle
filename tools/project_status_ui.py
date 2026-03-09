@@ -30,6 +30,7 @@ from Python.model_registry import ModelRegistry
 
 LOG_DIR = os.path.join(ROOT, "logs")
 ACTIVE_PATH = os.path.join(ROOT, "models", "registry", "active.json")
+EVENT_INTEL_PATH = os.path.join(LOG_DIR, "event_intel_state.json")
 LOG_TS_FMT = "%Y-%m-%d %H:%M:%S"
 STATUS_CACHE = {
     "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -189,6 +190,33 @@ def _trade_learning_status():
             "generated_at_utc": None,
             "best_symbols": [],
             "worst_symbols": [],
+        }
+
+
+def _event_intel_status():
+    if not os.path.exists(EVENT_INTEL_PATH):
+        return {
+            "enabled": False,
+            "updated_utc": None,
+            "summary": {"upcoming_24h": 0, "active_window": 0, "high_upcoming_24h": 0, "high_active": 0},
+            "upcoming": [],
+            "active": [],
+            "by_symbol": {},
+            "sources": {"calendar_url": False, "news_url": False, "websocket_url": False},
+        }
+    try:
+        with open(EVENT_INTEL_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {
+            "enabled": False,
+            "updated_utc": None,
+            "summary": {"upcoming_24h": 0, "active_window": 0, "high_upcoming_24h": 0, "high_active": 0},
+            "upcoming": [],
+            "active": [],
+            "by_symbol": {},
+            "sources": {"calendar_url": False, "news_url": False, "websocket_url": False},
         }
 
 
@@ -784,6 +812,7 @@ def _collect_status():
         "account": _mt5_snapshot(),
         "symbol_perf": _mt5_symbol_perf(7),
         "trade_learning": _trade_learning_status(),
+        "event_intel": _event_intel_status(),
         "logs": {
             "server": _tail(os.path.join(LOG_DIR, "server.log"), 50),
             "lstm": _tail(os.path.join(LOG_DIR, "lstm_training.log"), 50),
@@ -999,7 +1028,7 @@ function renderTraining(root){
   return `<div class='trainingBoard'>${hero}<div class='stageRail'>${stageHtml}</div><div class='runGrid'>${lstmCard}${ppoCard}</div><div><div class='head' style='margin-bottom:10px'>LSTM Symbol Lane</div><div class='symbolLane'>${laneHtml}</div></div></div>`;
 }
 function render(d){
-const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{},n=d.n8n||{},tl=d.trade_learning||{};
+const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{},n=d.n8n||{},tl=d.trade_learning||{},ei=d.event_intel||{},eis=ei.summary||{};
 byId('meta').textContent=`UTC ${d.timestamp_utc}`;
 byId('balance').textContent=fmt(a.balance);
 byId('equity').textContent=fmt(a.equity);
@@ -1009,7 +1038,7 @@ const pe=byId('pnl');
 pe.textContent=fmt(p);
 pe.className='val '+(p>=0?'good':'bad');
 byId('models').innerHTML=`<span class='chip'>Champion: ${esc(m.champion||'none')}</span><span class='chip'>Canary: ${esc(m.canary||'none')}</span><span class='chip'>Canary Gate: ${d.canary_gate?.ready?'READY':'HOLD'}</span><span class='chip'>Gate Reason: ${esc(d.canary_gate?.reason||'n/a')}</span>`;
-byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${esc((s.pids||[]).join(', ')||'-')}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span><span class='chip'>Training Stage: ${esc(t.visual?.active_stage||'idle')}</span><span class='chip'>Memory Trades: ${fmtInt(tl.trades)}</span><span class='chip'>Win Rate: ${Number(tl.win_rate||0).toFixed(2)}%</span><span class='chip'>Expectancy: ${Number(tl.expectancy||0).toFixed(4)}</span><span class='chip'>PF: ${Number(tl.profit_factor||0).toFixed(3)}</span>`;
+byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${esc((s.pids||[]).join(', ')||'-')}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span><span class='chip'>Training Stage: ${esc(t.visual?.active_stage||'idle')}</span><span class='chip'>Memory Trades: ${fmtInt(tl.trades)}</span><span class='chip'>Win Rate: ${Number(tl.win_rate||0).toFixed(2)}%</span><span class='chip'>Expectancy: ${Number(tl.expectancy||0).toFixed(4)}</span><span class='chip'>PF: ${Number(tl.profit_factor||0).toFixed(3)}</span><span class='chip'>Event Active: ${fmtInt(eis.active_window||0)}</span><span class='chip'>High Impact Active: ${fmtInt(eis.high_active||0)}</span><span class='chip'>High Impact 24h: ${fmtInt(eis.high_upcoming_24h||0)}</span>`;
 byId('training').innerHTML=renderTraining(d);
 byId('n8n').innerHTML=`<span class='chip'>State: ${n.running?'RUNNING':'STOPPED'}</span><span class='chip'>PID: ${esc(n.pid||'-')}</span><span class='chip'>Ports: ${esc((n.ports||[]).join(', ')||'-')}</span><span class='chip'>Py Runner: ${esc(n.python_task_runner||'unknown')}</span>`;
 const rows=(a.positions||[]).map(p=>`<tr><td>${p.ticket}</td><td>${esc(p.symbol)}</td><td>${esc(p.type)}</td><td>${p.volume}</td><td class='${p.profit>=0?'good':'bad'}'>${fmt(p.profit)}</td><td>${p.open_price}</td><td>${p.current_price}</td><td>${p.sl}</td><td>${p.tp}</td></tr>`).join(''); byId('pos').innerHTML=rows||'<tr><td colspan="9">No open trades</td></tr>';
