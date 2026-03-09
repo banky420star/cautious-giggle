@@ -730,7 +730,18 @@ def _training_state(procs):
 
 def _server_state(procs):
     servers = _filter_cmd(procs, "python.server_agi")
-    return {"running": len(servers) > 0, "pids": [p["pid"] for p in servers]}
+    if len(servers) > 0:
+        return {"running": True, "pids": [p["pid"] for p in servers]}
+
+    # Fallback: query process table directly to avoid false negatives when the
+    # shared process snapshot is stale or unavailable.
+    rows = _powershell_json(
+        "Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | "
+        "Where-Object { $_.CommandLine -like '*Python.Server_AGI*' } | "
+        "Select-Object ProcessId | ConvertTo-Json -Depth 3"
+    )
+    pids = [int(r.get("ProcessId") or 0) for r in rows if int(r.get("ProcessId") or 0) > 0]
+    return {"running": len(pids) > 0, "pids": pids}
 
 
 def _n8n_state():

@@ -36,9 +36,9 @@ class AutonomyLoop:
         self.require_walkforward = os.environ.get("AGI_GATE_REQUIRE_WALKFORWARD", "false").lower() == "true"
         self.require_papertrade = os.environ.get("AGI_GATE_REQUIRE_PAPERTRADE", "false").lower() == "true"
         self.min_paper_trades = int(os.environ.get("AGI_GATE_MIN_PAPER_TRADES", "20"))
-        self._canary_start_trade_count = None
-        self._canary_set_time = None
-        self._last_evaluated_candidate = None
+        self._canary_start_trade_count_by_symbol = {}
+        self._canary_set_time_by_symbol = {}
+        self._last_evaluated_candidate_by_symbol = {}
         self._last_train_ts = 0.0
 
         self.alerter = self._init_alerter()
@@ -92,7 +92,15 @@ class AutonomyLoop:
         }
         self.registry.update_metadata(candidate_dir, payload)
 
-    def _latest_candidate_dir(self):
+    def _load_symbols_cfg(self):
+        try:
+            cfg = load_project_config(PROJECT_ROOT, live_mode=True)
+            symbols = cfg.get("trading", {}).get("symbols", ["EURUSDm", "GBPUSDm"])
+            return [str(s) for s in (symbols or [])]
+        except Exception:
+            return ["EURUSDm", "GBPUSDm"]
+
+    def _latest_candidate_dir(self, symbol: str | None = None):
         root = self.registry.candidates_dir
         if not os.path.exists(root):
             return None
@@ -100,13 +108,35 @@ class AutonomyLoop:
         if not dirs:
             return None
         dirs.sort(key=lambda p: os.path.getmtime(p), reverse=True)
-        return dirs[0]
+        if not symbol:
+            return dirs[0]
 
-    def _get_champion_dir(self):
-        return self.registry._read_active().get("champion")
+        target = str(symbol).replace("/", "_")
+        for d in dirs:
+            scorecard = os.path.join(d, "scorecard.json")
+            if not os.path.exists(scorecard):
+                continue
+            try:
+                with open(scorecard, "r", encoding="utf-8") as f:
+                    sc = json.load(f) or {}
+                sym = str(sc.get("symbol", "")).replace("/", "_")
+                if sym == target:
+                    return d
+            except Exception:
+                continue
+        return None
 
-    def _get_canary_dir(self):
-        return self.registry._read_active().get("canary")
+    def _get_champion_dir(self, symbol: str | None = None):
+        active = self.registry._read_active()
+        if symbol:
+            return active.get("symbols", {}).get(symbol, {}).get("champion")
+        return active.get("champion")
+
+    def _get_canary_dir(self, symbol: str | None = None):
+        active = self.registry._read_active()
+        if symbol:
+            return active.get("symbols", {}).get(symbol, {}).get("canary")
+        return active.get("canary")
 
     def _read_candidate_metadata(self, candidate_dir: str) -> dict:
         meta_path = os.path.join(candidate_dir, "metadata.json")
@@ -168,16 +198,24 @@ class AutonomyLoop:
 
     async def _train_candidate(self):
         started = time.time()
-        self._notify("Autonomy training started: LSTM + PPO")
+        symbols = self._load_symbols_cfg()
+        self._notify(f"Autonomy training started: per-symbol LSTM + PPO | symbols={symbols}")
 
         subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT)
         self._notify("LSTM training finished")
 
-        subprocess.check_call([sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT)
-        cand = self._latest_candidate_dir()
+        for symbol in symbols:
+            env = os.environ.copy()
+            env["AGI_DRL_SYMBOL"] = str(symbol)
+            subprocess.check_call([sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT, env=env)
+            cand = self._latest_candidate_dir(symbol=symbol)
+            if cand:
+                self._last_evaluated_candidate_by_symbol[symbol] = cand
+                self._maybe_set_canary(cand, symbol)
+
         elapsed = int(time.time() - started)
         self._notify(
-            f"PPO training finished. candidate={os.path.basename(cand) if cand else 'none'} elapsed={elapsed}s"
+            f"Per-symbol PPO training finished. elapsed={elapsed}s"
         )
 
     def _maybe_reload_brain(self):
@@ -187,17 +225,15 @@ class AutonomyLoop:
             except Exception as exc:
                 logger.warning(f"brain reload failed: {exc}")
 
-    def _maybe_set_canary(self, candidate_dir: str):
+    def _maybe_set_canary(self, candidate_dir: str, symbol: str):
         import yaml
 
         cfg_path = os.path.join(PROJECT_ROOT, "config.yaml")
         if not os.path.exists(cfg_path):
-            symbols = ["EURUSDm", "GBPUSDm"]
             eval_period = "120d"
         else:
             with open(cfg_path, "r", encoding="utf-8") as f:
                 cfg = yaml.safe_load(f) or {}
-            symbols = cfg.get("trading", {}).get("symbols", ["EURUSDm", "GBPUSDm"])
             eval_period = cfg.get("drl", {}).get("eval_period", "120d")
 
             # keep evaluation window bounded for short-interval market data backtests
@@ -211,8 +247,8 @@ class AutonomyLoop:
 
         report = evaluate_candidate_vs_champion(
             candidate_dir=candidate_dir,
-            champion_dir=self._get_champion_dir(),
-            symbols=symbols,
+            champion_dir=self._get_champion_dir(symbol=symbol),
+            symbols=[symbol],
             period=eval_period,
             gates=self.eval_config,
             interval="5m",
@@ -237,6 +273,7 @@ class AutonomyLoop:
         if self.enable_auto_canary and report["wins"] and report["passes_thresholds"] and gates_passed:
             self.registry.set_canary(
                 candidate_dir,
+                symbol=symbol,
                 policy={
                     "min_trades": self.canary_min_trades,
                     "min_realized_pnl": 0.0,
@@ -245,31 +282,33 @@ class AutonomyLoop:
                 },
             )
             risk = getattr(self.brain, "risk_engine", None)
-            self._canary_start_trade_count = int(getattr(risk, "daily_trades", 0))
-            self._canary_set_time = time.time()
-            self._notify(f"Canary enabled: {os.path.basename(candidate_dir)} | {summary}")
+            by_symbol = getattr(risk, "daily_trades_by_symbol", {}) if risk is not None else {}
+            self._canary_start_trade_count_by_symbol[symbol] = int(by_symbol.get(symbol, 0))
+            self._canary_set_time_by_symbol[symbol] = time.time()
+            self._notify(f"Canary enabled {symbol}: {os.path.basename(candidate_dir)} | {summary}")
             try:
-                self.alerter.model(f"Canary set: {candidate_dir}")
+                self.alerter.model(f"Canary set {symbol}: {candidate_dir}")
             except Exception:
                 pass
         else:
             detail = ", ".join(reasons) if reasons else "wins_or_thresholds_not_met"
             logger.info(f"candidate not promoted: {detail}")
-            self._notify(f"Candidate blocked by release gates: {detail} | {summary}")
+            self._notify(f"Candidate blocked {symbol}: {detail} | {summary}")
 
-    def _canary_monitor(self):
-        canary = self._get_canary_dir()
+    def _canary_monitor(self, symbol: str):
+        canary = self._get_canary_dir(symbol=symbol)
         if not canary:
             return
 
         risk = getattr(self.brain, "risk_engine", None)
-        trades_now = int(getattr(risk, "daily_trades", 0))
+        by_symbol = getattr(risk, "daily_trades_by_symbol", {}) if risk is not None else {}
+        trades_now = int(by_symbol.get(symbol, 0))
 
-        if self._canary_start_trade_count is None:
-            self._canary_start_trade_count = trades_now
-            self._canary_set_time = time.time()
+        if symbol not in self._canary_start_trade_count_by_symbol:
+            self._canary_start_trade_count_by_symbol[symbol] = trades_now
+            self._canary_set_time_by_symbol[symbol] = time.time()
 
-        trades_since = trades_now - self._canary_start_trade_count
+        trades_since = trades_now - int(self._canary_start_trade_count_by_symbol.get(symbol, 0))
 
         realized = 0.0
         try:
@@ -282,44 +321,49 @@ class AutonomyLoop:
                 lookback = now_utc - datetime.timedelta(days=7)
                 deals = mt5.history_deals_get(lookback, now_utc)
                 if deals:
-                    realized = sum(deal.profit for deal in deals if deal.entry == mt5.DEAL_ENTRY_OUT)
+                    realized = sum(
+                        deal.profit
+                        for deal in deals
+                        if deal.entry == mt5.DEAL_ENTRY_OUT and str(getattr(deal, "symbol", "")) == str(symbol)
+                    )
         except Exception as exc:
             logger.warning(f"Autonomy MT5 PnL check failed: {exc}")
 
         dd_pct = float(getattr(risk, "current_dd", 0.0)) / 100.0
         runtime_minutes = 0.0
-        if self._canary_set_time is not None:
-            runtime_minutes = max(0.0, (time.time() - self._canary_set_time) / 60.0)
+        if symbol in self._canary_set_time_by_symbol:
+            runtime_minutes = max(0.0, (time.time() - float(self._canary_set_time_by_symbol[symbol])) / 60.0)
 
         self.registry.update_canary_metrics(
             trades=trades_since,
             realized_pnl=realized,
             drawdown=dd_pct,
             runtime_minutes=runtime_minutes,
+            symbol=symbol,
         )
 
         if realized <= -self.canary_max_loss or dd_pct >= self.canary_max_dd:
-            self.registry.rollback_to_champion()
-            self._canary_start_trade_count = None
-            self._canary_set_time = None
+            self.registry.rollback_to_champion(symbol=symbol)
+            self._canary_start_trade_count_by_symbol.pop(symbol, None)
+            self._canary_set_time_by_symbol.pop(symbol, None)
             self._maybe_reload_brain()
-            self._notify(f"Canary rollback triggered. realized={realized:.2f}, dd={dd_pct:.3f}")
+            self._notify(f"Canary rollback {symbol}. realized={realized:.2f}, dd={dd_pct:.3f}")
             return
 
         if trades_since >= self.canary_min_trades and realized >= 0:
             try:
-                self.registry.promote_canary_to_champion()
-                self._canary_start_trade_count = None
-                self._canary_set_time = None
+                self.registry.promote_canary_to_champion(symbol=symbol)
+                self._canary_start_trade_count_by_symbol.pop(symbol, None)
+                self._canary_set_time_by_symbol.pop(symbol, None)
                 self._maybe_reload_brain()
-                self._notify(f"Canary promoted. trades={trades_since}, realized={realized:.2f}")
+                self._notify(f"Canary promoted {symbol}. trades={trades_since}, realized={realized:.2f}")
                 try:
-                    champ = self.registry.load_active_model(prefer_canary=False)
-                    self.alerter.model(f"Champion promoted: {champ}")
+                    champ = self.registry.load_active_model(prefer_canary=False, symbol=symbol)
+                    self.alerter.model(f"Champion promoted {symbol}: {champ}")
                 except Exception:
                     pass
             except Exception as exc:
-                logger.warning(f"Canary promotion blocked: {exc}")
+                logger.warning(f"Canary promotion blocked for {symbol}: {exc}")
 
     async def nightly_training_loop(self):
         while True:
@@ -355,12 +399,16 @@ class AutonomyLoop:
 
         while True:
             try:
-                self._canary_monitor()
-                candidate = self._latest_candidate_dir()
-                if candidate and candidate != self._last_evaluated_candidate:
-                    self._last_evaluated_candidate = candidate
-                    if not self._get_canary_dir():
-                        self._maybe_set_canary(candidate)
+                for symbol in self._load_symbols_cfg():
+                    self._canary_monitor(symbol)
+                    candidate = self._latest_candidate_dir(symbol=symbol)
+                    if not candidate:
+                        continue
+                    last_eval = self._last_evaluated_candidate_by_symbol.get(symbol)
+                    if candidate != last_eval:
+                        self._last_evaluated_candidate_by_symbol[symbol] = candidate
+                        if not self._get_canary_dir(symbol=symbol):
+                            self._maybe_set_canary(candidate, symbol)
             except Exception as exc:
                 logger.warning(f"Autonomy loop error: {exc}")
                 self._notify(f"Autonomy loop error: {exc}")
