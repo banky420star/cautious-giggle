@@ -1,8 +1,17 @@
-﻿import json
+import hashlib
+import json
 import os
+import shutil
+import subprocess
+import tempfile
 from datetime import datetime, timezone
 
 from loguru import logger
+
+from Python.config_utils import load_project_config
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+INTEGRITY_TARGETS = {"model": "ppo_trading.zip", "vec_normalize": "vec_normalize.pkl"}
 
 
 class ModelRegistry:
@@ -19,8 +28,13 @@ class ModelRegistry:
         "champion": <path or null>,
         "canary": <path or null>,
         "symbols": {
-          "EURUSDm": {"champion": <path or null>, "canary": <path or null>},
+          "EURUSDm": {"champion": <path or null>, "canary": <path or null>, "canary_policy": {...}, "canary_state": {...}},
           ...
+        },
+        "registry_metadata": {
+          "git_commit": "...",
+          "champion_metadata": {...},
+          "canary_metadata": {...}
         }
       }
     """
@@ -40,6 +54,11 @@ class ModelRegistry:
 
         if not os.path.exists(self.active_path):
             self._write_active({"champion": None, "canary": None, "symbols": {}})
+
+        self.registry_config = self._load_registry_config()
+        self._canary_policy_cfg = self.registry_config.get("canary_policy", {}) or {}
+        self._canary_default_overrides = self._canary_policy_cfg.get("default", {}) or {}
+        self._canary_symbol_overrides = self._canary_policy_cfg.get("per_symbol", {}) or {}
 
     def _normalize_active(self, payload: dict) -> dict:
         out = payload if isinstance(payload, dict) else {}
@@ -73,9 +92,129 @@ class ModelRegistry:
             payload = json.load(f)
         return self._normalize_active(payload)
 
+    def _load_registry_config(self) -> dict:
+        try:
+            cfg = load_project_config(PROJECT_ROOT, live_mode=False)
+            return cfg.get("registry", {}) or {}
+        except Exception:
+            return {}
+
     def _write_active(self, payload: dict):
-        with open(self.active_path, "w", encoding="utf-8") as f:
-            json.dump(self._normalize_active(payload), f, indent=2)
+        normalized = self._normalize_active(payload)
+        normalized["registry_metadata"] = self._build_registry_metadata(normalized)
+
+        tmp = tempfile.NamedTemporaryFile(mode="w", delete=False, dir=self.root, suffix=".json", encoding="utf-8")
+        try:
+            json.dump(normalized, tmp, indent=2)
+        finally:
+            tmp.close()
+
+        if os.path.exists(self.active_path):
+            backup_path = f"{self.active_path}.bak"
+            try:
+                shutil.copy2(self.active_path, backup_path)
+            except Exception:
+                logger.warning("Unable to backup active registry file.")
+
+        shutil.move(tmp.name, self.active_path)
+
+    def _build_registry_metadata(self, active: dict) -> dict:
+        meta = {
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        commit = self._current_git_commit_hash()
+        if commit:
+            meta["git_commit"] = commit
+
+        for role in ("champion", "canary"):
+            path = active.get(role)
+            meta[f"{role}_metadata"] = self._gather_candidate_metadata(path)
+        return meta
+
+    def _gather_candidate_metadata(self, candidate_dir: str | None) -> dict:
+        if not candidate_dir or not os.path.isdir(candidate_dir):
+            return {}
+        meta = dict(self.read_metadata(candidate_dir) or {})
+        scorecard = self._read_scorecard(candidate_dir)
+        if scorecard:
+            meta["scorecard"] = scorecard
+            if "timesteps" in scorecard:
+                meta.setdefault("training_timesteps", int(scorecard.get("timesteps") or 0))
+        integrity = self._integrity_snapshot(candidate_dir)
+        if integrity:
+            meta["integrity"] = integrity
+        return meta
+
+    def _read_scorecard(self, candidate_dir: str | None) -> dict:
+        if not candidate_dir:
+            return {}
+        scorecard_path = os.path.join(candidate_dir, "scorecard.json")
+        if not os.path.exists(scorecard_path):
+            return {}
+        try:
+            with open(scorecard_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+                return payload if isinstance(payload, dict) else {}
+        except Exception:
+            return {}
+
+    def _integrity_snapshot(self, candidate_dir: str | None) -> dict:
+        targets = INTEGRITY_TARGETS
+        snapshot = {}
+        if not candidate_dir:
+            return snapshot
+        for label, fname in targets.items():
+            path = os.path.join(candidate_dir, fname)
+            if os.path.exists(path):
+                snapshot[label] = self._file_hash(path)
+        return snapshot
+
+    def _clear_active_entry(self, active: dict, role_key: str, symbol: str | None = None):
+        normalized_role = "canary" if "canary" in role_key else "champion"
+        if symbol:
+            symbols = active.setdefault("symbols", {})
+            cur = dict(symbols.get(symbol, {"champion": None, "canary": None, "canary_policy": {}, "canary_state": {}}))
+            cur[normalized_role] = None
+            if normalized_role == "canary":
+                cur["canary_state"] = {}
+            symbols[symbol] = cur
+            return
+        active[normalized_role] = None
+
+    def _validate_candidate_integrity(self, candidate_dir: str | None) -> bool:
+        if not candidate_dir or not os.path.isdir(candidate_dir):
+            return False
+        recorded = self.read_metadata(candidate_dir).get("integrity")
+        if not isinstance(recorded, dict) or not recorded:
+            return True
+        for label, expected in recorded.items():
+            target = INTEGRITY_TARGETS.get(label)
+            if not target or not expected:
+                continue
+            path = os.path.join(candidate_dir, target)
+            if not os.path.exists(path):
+                return False
+            actual = self._file_hash(path)
+            if not actual or str(actual) != str(expected):
+                return False
+        return True
+
+    def _file_hash(self, path: str) -> str:
+        hash_obj = hashlib.sha256()
+        try:
+            with open(path, "rb") as f:
+                while chunk := f.read(8192):
+                    hash_obj.update(chunk)
+        except Exception:
+            return ""
+        return hash_obj.hexdigest()
+
+    def _current_git_commit_hash(self) -> str | None:
+        try:
+            output = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT, text=True)
+            return output.strip()
+        except Exception:
+            return None
 
     def _timestamp_version(self):
         return datetime.utcnow().strftime("%Y%m%d_%H%M%S")
@@ -96,15 +235,24 @@ class ModelRegistry:
         )
 
     def _default_canary_policy(self) -> dict:
-        return {
+        base = {
             "min_trades": 10,
             "min_realized_pnl": 0.0,
             "max_drawdown": 0.12,
             "min_runtime_minutes": 30,
         }
+        base.update(self._canary_default_overrides)
+        return base
 
-    def _merge_canary_policy(self, policy: dict | None) -> dict:
-        out = self._default_canary_policy()
+    def _policy_for_symbol(self, symbol: str | None) -> dict:
+        policy = dict(self._default_canary_policy())
+        if symbol and symbol in self._canary_symbol_overrides:
+            overrides = self._canary_symbol_overrides.get(symbol) or {}
+            policy.update(overrides)
+        return policy
+
+    def _merge_canary_policy(self, policy: dict | None, symbol: str | None = None) -> dict:
+        out = self._policy_for_symbol(symbol)
         if isinstance(policy, dict):
             for k in out.keys():
                 if k in policy:
@@ -129,23 +277,60 @@ class ModelRegistry:
 
     def load_active_model(self, prefer_canary: bool = True, symbol: str | None = None) -> str | None:
         active = self._read_active()
+        updated = False
+
+        def resolve_path(path: str | None, role: str, sym: str | None = None) -> str | None:
+            nonlocal updated
+            if not path:
+                return None
+            if self._validate_candidate_integrity(path):
+                return path
+            logger.error("Candidate integrity mismatch for %s (%s). Clearing entry.", role, path)
+            self._clear_active_entry(active, role, sym)
+            updated = True
+            return None
+
+        symbols = active.get("symbols", {})
+        symbol_entry = symbols.get(symbol, {}) if symbol else {}
 
         if symbol:
-            s = active.get("symbols", {}).get(symbol, {})
-            if prefer_canary and s.get("canary"):
-                return s["canary"]
-            if s.get("champion"):
-                return s["champion"]
+            canary_path = symbol_entry.get("canary")
+            champion_path = symbol_entry.get("champion")
+            if prefer_canary:
+                resolved = resolve_path(canary_path, "symbol_canary", symbol)
+                if resolved:
+                    if updated:
+                        self._write_active(active)
+                        updated = False
+                    return resolved
+            resolved = resolve_path(champion_path, "symbol_champion", symbol)
+            if resolved:
+                if updated:
+                    self._write_active(active)
+                    updated = False
+                return resolved
 
-        if prefer_canary and active.get("canary"):
-            return active["canary"]
-        if active.get("champion"):
-            return active["champion"]
+        if prefer_canary:
+            resolved = resolve_path(active.get("canary"), "canary")
+            if resolved:
+                if updated:
+                    self._write_active(active)
+                    updated = False
+                return resolved
+        resolved = resolve_path(active.get("champion"), "champion")
+        if resolved:
+            if updated:
+                self._write_active(active)
+                updated = False
+            return resolved
+
+        if updated:
+            self._write_active(active)
         return None
 
     def set_canary(self, version_dir: str, symbol: str | None = None, policy: dict | None = None):
         active = self._read_active()
-        merged = self._merge_canary_policy(policy)
+        merged = self._merge_canary_policy(policy, symbol)
         if symbol:
             symbols = active.setdefault("symbols", {})
             cur = dict(symbols.get(symbol, {"champion": None, "canary": None, "canary_policy": {}, "canary_state": {}}))
@@ -183,7 +368,7 @@ class ModelRegistry:
         if symbol:
             symbols = active.setdefault("symbols", {})
             cur = dict(symbols.get(symbol, {"champion": None, "canary": None, "canary_policy": {}, "canary_state": {}}))
-            policy = self._merge_canary_policy(cur.get("canary_policy"))
+            policy = self._merge_canary_policy(cur.get("canary_policy"), symbol)
             passed, reason = self._canary_passes(policy, state)
             state["passed"] = bool(passed)
             state["reason"] = reason
@@ -271,10 +456,20 @@ class ModelRegistry:
     def rollback_to_champion(self, symbol: str | None = None):
         self.clear_canary(symbol=symbol)
 
-    def register_candidate(self, candidate_dir: str, metadata: dict):
+    def register_candidate(self, candidate_dir: str, metadata: dict | None = None):
+        meta = dict(self.read_metadata(candidate_dir) or {})
+        meta.update(metadata or {})
+        integrity = self._integrity_snapshot(candidate_dir)
+        if integrity:
+            meta["integrity"] = integrity
+        scorecard = self._read_scorecard(candidate_dir)
+        if scorecard:
+            meta["scorecard"] = scorecard
+            meta.setdefault("training_timesteps", int(scorecard.get("timesteps", 0) or 0))
+        meta["registered_at"] = datetime.now(timezone.utc).isoformat()
         meta_path = os.path.join(candidate_dir, "metadata.json")
         with open(meta_path, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2)
+            json.dump(meta, f, indent=2)
         logger.info(f"Candidate registered: {candidate_dir}")
 
     def update_metadata(self, candidate_dir: str, patch: dict):

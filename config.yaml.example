@@ -69,3 +69,18 @@ evaluation:
   forward_windows: ["60d", "90d", "120d"]
   min_forward_win_rate: 0.67
 
+registry:
+  canary_policy:
+    default:
+      min_trades: 30
+      min_realized_pnl: 0.0
+      max_drawdown: 0.12
+      min_runtime_minutes: 45
+    per_symbol:
+      EURUSDm:
+        max_drawdown: 0.15
+        min_trades: 40
+      BTCUSDm:
+        max_drawdown: 0.08
+        min_trades: 60
+

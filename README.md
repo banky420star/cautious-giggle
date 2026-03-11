@@ -43,6 +43,7 @@ Copy `config.yaml.example` → `config.yaml` and set:
 - `mt5.login`, `mt5.server`, `mt5.password` to connect to your MT5 account.
 - `telegram.token` + `telegram.chat_id` for notification delivery.
 - `trading.symbols`, `confidence_threshold`, and `drl.` parameters to tune risk and candidate gates.
+- `registry.canary_policy` exposes default + per-symbol gating (min trades, max drawdown, runtime) so you can give BTCUSD tighter thresholds than EURUSD.
 
 Keep `models/registry/active.json` clean (champion/canary `null`) before your first run.
 
