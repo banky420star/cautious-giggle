@@ -153,10 +153,12 @@ python tools/release_summary.py
 - `tools/release_summary.py` writes `docs/results/release_summary.md`
 - `tools/build_evidence_pack.py` rebuilds the public evidence bundle in `docs/results/`
 - `tools/profit_sweep.py` records profitability sweep output in `logs/`
+- `python tools/create_migration_backup.py` writes a GitHub-safe VPS migration snapshot into `backups/`
 - `docs/metrics.md` documents the current trading/profitability story
 
 ## Notes
 
 - The runtime is designed for one active owner per role; Windows venv redirector child processes are expected.
-- Generated logs, local runtime locks, and machine-local config are intentionally not tracked.
+- Raw runtime logs and model artifacts are normally not tracked; use `tools/create_migration_backup.py` when you need a point-in-time backup committed for VPS migration.
+- Machine-local secrets from `config.yaml` should stay out of git; the migration backup writes a redacted reference copy instead.
 - The promoted model set, not the code alone, determines whether the live bot actually trades.
