@@ -1,133 +1,109 @@
-# SETUP GUIDE — cautious-giggle AGI Trading System
+# Setup Guide
 
-## Option 1: Docker (easiest — recommended)
+This repo is designed to run locally on Windows against MetaTrader 5. Docker files exist, but the active production path in this repo is the Windows/MT5 runtime.
 
-```bash
-git clone https://github.com/banky420star/cautious-giggle.git
-cd cautious-giggle
-docker compose up --build
-```
+## 1. Python environment
 
-This starts the AGI server (`:9090`), n8n (`:5678`), and Redis (`:6379`).
-
-Open **http://localhost:5678** → import `n8n-workflow/mt5-autonomous.json` → activate the workflow.
-
----
-
-## Option 2: Manual Setup (Mac)
-
-### Prerequisites
-- Python 3.11+ (Python 3.12 recommended)
-- pip / venv
-
-### 1. Clone & install
-```bash
-git clone https://github.com/banky420star/cautious-giggle.git
-cd cautious-giggle
-python3 -m venv venv && source venv/bin/activate
+```powershell
+python -m venv .venv312
+.venv312\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure
-Edit `config.yaml`:
-```yaml
-trading:
-  symbols: ["EURUSD", "GBPUSD", "XAUUSD"]
-  timeframe: "M5"
-  risk_percent: 1.0
-  max_drawdown: 10.0
-  confidence_threshold: 0.85
+## 2. Configuration
 
-telegram:
-  token: "YOUR_BOT_TOKEN"
-  chat_id: "YOUR_CHAT_ID"
+Copy:
 
-drl:
-  total_timesteps: 500000
-  model_path: "models/ppo_trading.zip"
-```
-
-### 3. Train models (recommended before live)
-```bash
-# LSTM brain
-python training/train_lstm.py
-
-# DRL PPO agent
-python training/train_drl.py
-```
-
-### 4. Run the AGI server
-```bash
-python Python/Server_AGI.py
-```
-Server listens on `127.0.0.1:9090`.
-
-### 5. Start n8n
-The `Execute Command` node is disabled by default in n8n for security. You must allow it to run Python scripts natively.
-
-**Windows (PowerShell):**
 ```powershell
-npm install -g n8n
-$env:NODES_EXCLUDE="[]"
-n8n start
+Copy-Item config.yaml.example config.yaml
 ```
 
-**Mac / Linux:**
-```bash
-npm install -g n8n
-export NODES_EXCLUDE="[]"
-n8n start
+Then set at minimum:
+
+- `mt5.login`
+- `mt5.password`
+- `mt5.server`
+- `telegram.token`
+- `telegram.chat_id`
+- `trading.symbols`
+
+Recommended current defaults:
+
+- `training.feature_version: ultimate_150`
+- `drl.feature_version: ultimate_150`
+- `drl.dreamer.enabled: true`
+- `drl.dreamer.train_in_cycle: true`
+
+`config.yaml` is local-only and ignored by git.
+
+## 3. Start the stack
+
+Live server:
+
+```powershell
+python -m Python.Server_AGI --live
 ```
 
-Open http://localhost:5678 → import `n8n-workflow/mt5-autonomous.json` → activate.
+Dashboard:
 
-### 6. Backtest (optional)
-```bash
-python Python/backtester.py
+```powershell
+python tools/project_status_ui.py
 ```
 
-### 7. Test the bridge manually
-```bash
-python Python/agi_n8n_bridge.py ANALYZE EURUSD
-python Python/agi_n8n_bridge.py TRADE GBPUSD
+Full cycle:
+
+```powershell
+python tools/champion_cycle.py
 ```
 
----
+## 4. Useful one-shot helpers
 
-## File Structure
-```
-cautious-giggle/
-├── Python/
-│   ├── Server_AGI.py        # Socket server
-│   ├── agi_brain.py          # LSTM model
-│   ├── agi_n8n_bridge.py     # n8n CLI bridge
-│   ├── data_feed.py          # Yahoo Finance data
-│   ├── risk_engine.py        # Risk management
-│   └── backtester.py         # VectorBT backtester
-├── drl/
-│   ├── trading_env.py        # Gymnasium environment
-│   └── ppo_agent.py          # PPO agent
-├── training/
-│   ├── train_lstm.py         # LSTM training
-│   └── train_drl.py          # DRL training
-├── alerts/
-│   └── telegram_alerts.py    # Telegram notifications
-├── n8n-workflow/
-│   └── mt5-autonomous.json   # n8n workflow
-├── config.yaml               # Configuration
-├── requirements.txt          # Python dependencies
-├── Dockerfile                # Docker image
-├── docker-compose.yml        # Docker services
-└── README.md                 # Overview
+Build trade memory:
+
+```powershell
+python training/build_trade_memory.py
 ```
 
----
+Run release summary:
 
-## Telegram Setup
-1. Create a bot via [@BotFather](https://t.me/BotFather)
-2. Get your chat ID from [@userinfobot](https://t.me/userinfobot)
-3. Put both in `config.yaml`
+```powershell
+python tools/release_summary.py
+```
 
----
+Run drift check:
 
-**Risk warning:** For simulation/education only. Trade at your own risk.
+```powershell
+python tools/backtest_vs_live_drift.py
+```
+
+## 5. Health checks
+
+Tests:
+
+```powershell
+.venv312\Scripts\python.exe -m pytest
+```
+
+Compile checks:
+
+```powershell
+.venv312\Scripts\python.exe -m compileall Python training tools drl
+```
+
+Dashboard API:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8088/api/status
+```
+
+## 6. Important directories
+
+- `logs/` runtime, training, and audit logs
+- `models/per_symbol/` LSTM artifacts
+- `models/registry/candidates/` PPO candidates
+- `models/dreamer/` Dreamer artifacts
+- `docs/results/` release and evidence outputs
+
+## 7. Operational note
+
+The code can be healthy while the live bot still stays flat if the currently promoted champion is weak. Training/promoting updated artifacts is a separate step from code hygiene.
