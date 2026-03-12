@@ -30,6 +30,8 @@ from alerts.telegram_alerts import TelegramAlerter
 from Python.model_registry import ModelRegistry
 
 LOG_DIR = os.path.join(ROOT, "logs")
+UI_ASSET_DIR = os.path.join(ROOT, "tools", "ui_assets")
+UI_HTML_PATH = os.path.join(UI_ASSET_DIR, "project_status_ui.html")
 ACTIVE_PATH = os.path.join(ROOT, "models", "registry", "active.json")
 EVENT_INTEL_PATH = os.path.join(LOG_DIR, "event_intel_state.json")
 LOG_TS_FMT = "%Y-%m-%d %H:%M:%S"
@@ -919,14 +921,129 @@ def _mt5_symbol_perf(days=7, max_points=24):
         return []
 
 
+def _file_status(path: str, stale_minutes: int = 15):
+    if not os.path.exists(path):
+        return {"path": path, "exists": False, "fresh": False, "updated_utc": None, "age_seconds": None}
+    try:
+        ts = datetime.fromtimestamp(os.path.getmtime(path), tz=timezone.utc)
+        age = (datetime.now(timezone.utc) - ts).total_seconds()
+        return {
+            "path": path,
+            "exists": True,
+            "fresh": age <= max(60, int(stale_minutes) * 60),
+            "updated_utc": ts.isoformat(),
+            "age_seconds": round(age, 2),
+        }
+    except Exception:
+        return {"path": path, "exists": True, "fresh": False, "updated_utc": None, "age_seconds": None}
+
+
+def _source_health():
+    return {
+        "server_log": _file_status(os.path.join(LOG_DIR, "server.log"), stale_minutes=5),
+        "ppo_log": _file_status(os.path.join(LOG_DIR, "ppo_training.log"), stale_minutes=60),
+        "lstm_log": _file_status(os.path.join(LOG_DIR, "lstm_training.log"), stale_minutes=60),
+        "audit_log": _file_status(os.path.join(LOG_DIR, "audit_events.jsonl"), stale_minutes=10),
+        "trade_learning": _file_status(os.path.join(LOG_DIR, "learning", "trade_learning_latest.json"), stale_minutes=60),
+        "event_intel": _file_status(EVENT_INTEL_PATH, stale_minutes=30),
+        "active_registry": _file_status(ACTIVE_PATH, stale_minutes=1440),
+    }
+
+
+def _incident_feed(limit: int = 40):
+    path = os.path.join(LOG_DIR, "audit_events.jsonl")
+    if not os.path.exists(path):
+        return []
+
+    rows = []
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()[-max(limit * 4, 120) :]
+    except Exception:
+        return []
+
+    for raw in reversed(lines):
+        try:
+            item = json.loads(raw)
+        except Exception:
+            continue
+        event = str(item.get("event") or "")
+        payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+        payload_text = json.dumps(payload, ensure_ascii=True)
+        merged = f"{event} {payload_text}".lower()
+
+        severity = "info"
+        if any(token in merged for token in ("error", "fail", "exception", "traceback")):
+            severity = "critical"
+        elif any(token in merged for token in ("warning", "halt", "risk_supervisor_block", "multiple_root_owners", "mixed_executables")):
+            severity = "warning"
+        elif event in {"trade_open", "trade_closed", "signal"}:
+            severity = "activity"
+
+        symbol = payload.get("symbol")
+        summary = event.replace("_", " ").strip() or "event"
+        if symbol:
+            summary = f"{symbol} · {summary}"
+        if event == "risk_supervisor_block":
+            summary = f"{symbol or 'runtime'} · blocked by risk supervisor"
+        elif event == "runtime_owner_health" and payload.get("issues"):
+            summary = "runtime ownership warning"
+        elif event == "signal":
+            summary = f"{symbol or 'symbol'} · {payload.get('signal', 'signal')} @ {payload.get('confidence', '-')}"
+
+        rows.append(
+            {
+                "ts": item.get("ts"),
+                "event": event,
+                "severity": severity,
+                "symbol": symbol,
+                "subsystem": event.split("_", 1)[0] if "_" in event else event,
+                "summary": summary,
+                "payload": payload,
+            }
+        )
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def _registry_summary(active: dict):
+    symbols = active.get("symbols", {}) if isinstance(active, dict) else {}
+    symbol_rows = []
+    for symbol, cfg in sorted(symbols.items()):
+        if not isinstance(cfg, dict):
+            continue
+        canary_state = cfg.get("canary_state", {}) if isinstance(cfg.get("canary_state"), dict) else {}
+        symbol_rows.append(
+            {
+                "symbol": symbol,
+                "champion": cfg.get("champion"),
+                "canary": cfg.get("canary"),
+                "canary_ready": bool(canary_state.get("passed", False)),
+                "canary_reason": canary_state.get("reason"),
+                "min_trades": (cfg.get("canary_policy", {}) or {}).get("min_trades"),
+                "max_drawdown": (cfg.get("canary_policy", {}) or {}).get("max_drawdown"),
+            }
+        )
+    return {
+        "champion": active.get("champion"),
+        "canary": active.get("canary"),
+        "champion_history": list(active.get("champion_history", []) or [])[:6],
+        "symbol_rows": symbol_rows,
+        "symbol_count": len(symbol_rows),
+    }
+
+
 def _collect_status():
     procs = _processes()
     reg = ModelRegistry()
     canary_ok, canary_reason = reg.can_promote_canary()
+    active = _active_models()
     return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "repo_root": ROOT,
-        "active_models": _active_models(),
+        "active_models": active,
+        "registry": _registry_summary(active),
         "canary_gate": {"ready": bool(canary_ok), "reason": canary_reason},
         "server": _server_state(procs),
         "runtime_owner": _runtime_owner_health(procs),
@@ -936,6 +1053,8 @@ def _collect_status():
         "symbol_perf": _mt5_symbol_perf(7),
         "trade_learning": _trade_learning_status(),
         "event_intel": _event_intel_status(),
+        "incidents": _incident_feed(40),
+        "source_health": _source_health(),
         "logs": {
             "server": _tail(os.path.join(LOG_DIR, "server.log"), 50),
             "lstm": _tail(os.path.join(LOG_DIR, "lstm_training.log"), 50),
@@ -945,9 +1064,9 @@ def _collect_status():
     }
 
 
-def read_status():
+def read_status(refresh_if_booting: bool = True):
     global STATUS_CACHE
-    if STATUS_CACHE.get("state") == "booting":
+    if refresh_if_booting and STATUS_CACHE.get("state") == "booting":
         try:
             STATUS_CACHE = _collect_status()
         except Exception:
@@ -1098,154 +1217,20 @@ def control_action(action, payload):
     return {"ok": False, "message": f"Unknown action: {action}"}
 
 
-HTML = """<!doctype html><html><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width, initial-scale=1'/><title>AGI TradeOS Live</title>
-<style>
-:root{--bg0:#061018;--bg1:#0b1724;--bg2:#11253a;--glass:rgba(13,20,34,.66);--line:rgba(255,255,255,.11);--ink:#edf4ff;--muted:#97a8c8;--cyan:#5ecbff;--teal:#81f7ff;--gold:#ffb55e;--lime:#38f4a3;--rose:#ff6a7e;--amber:#ffd36b}
-*{box-sizing:border-box}body{margin:0;font-family:Bahnschrift,"Segoe UI",sans-serif;color:var(--ink);background:radial-gradient(900px 520px at 88% -12%, rgba(255,181,94,.18), transparent 60%),radial-gradient(1200px 680px at -10% 0%, rgba(94,203,255,.16), transparent 62%),linear-gradient(160deg,var(--bg0),var(--bg1) 55%,var(--bg2));min-height:100vh}
-.shell{max-width:1360px;margin:0 auto;padding:18px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px;padding:16px 18px;border:1px solid var(--line);border-radius:20px;background:var(--glass);backdrop-filter:blur(12px)}
-.title{font-size:28px;font-weight:700;letter-spacing:.02em}.sub{color:var(--muted);font-size:13px}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}.card{background:var(--glass);border:1px solid var(--line);border-radius:18px;padding:14px;backdrop-filter:blur(10px)}
-.kpi{grid-column:span 3}.kpi .label{font-size:12px;color:var(--muted)}.kpi .val{font-size:26px;font-weight:700;margin-top:4px}.good{color:var(--lime)}.bad{color:var(--rose)}.wide{grid-column:span 6}.full{grid-column:1/-1}
-.head{font-size:12px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.9px}.mono{font-family:Consolas,monospace;font-size:12px;line-height:1.45;white-space:pre-wrap;max-height:260px;overflow:auto}
-.chip{display:inline-flex;align-items:center;padding:4px 8px;border:1px solid var(--line);border-radius:999px;font-size:11px;color:var(--muted);margin-right:6px;margin-bottom:6px;background:rgba(255,255,255,.02)}.btn{background:#16233d;border:1px solid #334b7a;color:#dce9ff;padding:8px 10px;border-radius:10px;cursor:pointer;font-size:12px}
-.controls{display:flex;flex-wrap:wrap;gap:8px}.symGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.sym{padding:10px;border:1px solid var(--line);border-radius:12px;background:rgba(8,13,22,.45)} .spark{width:100%;height:48px}
-table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}th{color:var(--muted)}
-.trainingShell{background:linear-gradient(180deg,rgba(9,16,28,.88),rgba(17,26,41,.74));border-color:rgba(129,247,255,.18)}
-.trainingBoard{display:grid;gap:14px}
-.trainHero{position:relative;overflow:hidden;padding:18px;border:1px solid rgba(129,247,255,.18);border-radius:18px;background:linear-gradient(140deg,rgba(10,23,36,.96),rgba(16,30,50,.88) 52%,rgba(34,22,16,.58))}
-.trainHero:after{content:'';position:absolute;inset:auto -20% -55% auto;width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(255,181,94,.20),transparent 62%);pointer-events:none}
-.trainHeroTop{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;position:relative;z-index:1}
-.trainHeadline{font-size:24px;font-weight:700;line-height:1.15}.trainCopy{max-width:760px}.trainBadge{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
-.trainBadge.active{border-color:rgba(255,181,94,.45);color:#ffe0b7}.trainBadge.done{border-color:rgba(56,244,163,.45);color:#bbffd7}.trainBadge.idle{border-color:rgba(255,255,255,.14)}
-.trainStats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px;position:relative;z-index:1}
-.trainStat{padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.03)}
-.trainStat .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.trainStat .val{margin-top:4px;font-size:18px;font-weight:700}
-.alertBox{margin-top:12px;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,106,126,.35);background:rgba(79,15,28,.42);color:#ffd7de}
-.stageRail{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
-.railStage{padding:14px 12px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);min-height:96px}
-.railStage .eyebrow{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.railStage .name{margin-top:6px;font-size:16px;font-weight:700}.railStage .note{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.35}
-.railStage.active{border-color:rgba(255,181,94,.4);background:linear-gradient(180deg,rgba(255,181,94,.14),rgba(255,181,94,.04));box-shadow:0 0 0 1px rgba(255,181,94,.08) inset}
-.railStage.done{border-color:rgba(56,244,163,.34);background:linear-gradient(180deg,rgba(56,244,163,.12),rgba(56,244,163,.04))}
-.railStage.idle{opacity:.84}
-.stagePill,.statePill,.summaryPill{display:inline-flex;align-items:center;justify-content:center;min-width:68px;padding:4px 9px;border-radius:999px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;border:1px solid rgba(255,255,255,.12)}
-.stagePill.active,.statePill.active{border-color:rgba(255,181,94,.4);color:#ffe0b7;background:rgba(255,181,94,.12)}
-.stagePill.done,.statePill.done{border-color:rgba(56,244,163,.34);color:#bbffd7;background:rgba(56,244,163,.12)}
-.stagePill.idle,.statePill.queued{color:var(--muted);background:rgba(255,255,255,.03)}
-.statePill.failed{border-color:rgba(255,106,126,.34);color:#ffd1d8;background:rgba(255,106,126,.12)}
-.statePill.partial{border-color:rgba(94,203,255,.34);color:#c9f1ff;background:rgba(94,203,255,.10)}
-.runGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
-.runCard{padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03)}
-.runCardHead{display:flex;justify-content:space-between;align-items:center;gap:10px}.runCardTitle{font-size:17px;font-weight:700}.runMeta{font-size:12px;color:var(--muted);line-height:1.45}
-.meter{height:12px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;position:relative;margin:10px 0 8px}
-.meterFill{height:100%;border-radius:999px}.meterFill.cyan{background:linear-gradient(90deg,var(--cyan),var(--teal))}.meterFill.gold{background:linear-gradient(90deg,#ff9b54,var(--gold))}.meterFill.green{background:linear-gradient(90deg,#1fd18a,var(--lime))}.meterFill.red{background:linear-gradient(90deg,#ff7d8d,var(--rose))}
-.meter.indeterminate .meterFill{position:absolute;left:-35%;animation:sweep 1.8s linear infinite}
-@keyframes sweep{0%{left:-35%}100%{left:100%}}
-.summaryRow{display:flex;flex-wrap:wrap;gap:8px}
-.summaryPill{color:var(--muted);background:rgba(255,255,255,.03)}
-.symbolLane{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
-.symbolTile{padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.025);min-height:124px}
-.symbolTile.active{border-color:rgba(255,181,94,.38);background:linear-gradient(180deg,rgba(255,181,94,.13),rgba(255,181,94,.04))}
-.symbolTile.done{border-color:rgba(56,244,163,.30);background:linear-gradient(180deg,rgba(56,244,163,.11),rgba(56,244,163,.04))}
-.symbolTile.failed{border-color:rgba(255,106,126,.30);background:linear-gradient(180deg,rgba(255,106,126,.12),rgba(255,106,126,.04))}
-.symbolTile.partial{border-color:rgba(94,203,255,.30);background:linear-gradient(180deg,rgba(94,203,255,.10),rgba(94,203,255,.04))}
-.symbolHead{display:flex;justify-content:space-between;align-items:center;gap:10px}.symbolName{font-size:15px;font-weight:700}.symbolMeta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);margin-top:6px}.symbolStat{font-size:12px;color:var(--muted);margin-top:4px}
-.emptyState{padding:16px;border:1px dashed rgba(255,255,255,.14);border-radius:14px;color:var(--muted);text-align:center}
-@media (max-width:980px){.kpi{grid-column:span 6}.wide{grid-column:1/-1}.stageRail{grid-template-columns:1fr 1fr}.trainHeadline{font-size:21px}}
-@media (max-width:640px){.kpi{grid-column:1/-1}.stageRail{grid-template-columns:1fr}.runGrid{grid-template-columns:1fr}}
-</style></head><body>
-<div class='shell'><div class='top'><div><div class='title'>AGI TradeOS Live</div><div class='sub' id='meta'>connecting...</div></div><div class='sub' id='live'>WebSocket</div></div>
-<div class='grid'>
-<div class='card kpi'><div class='label'>Balance</div><div class='val' id='balance'>-</div></div><div class='card kpi'><div class='label'>Equity</div><div class='val' id='equity'>-</div></div><div class='card kpi'><div class='label'>Open Trades</div><div class='val' id='trades'>-</div></div><div class='card kpi'><div class='label'>Unrealized PnL</div><div class='val' id='pnl'>-</div></div>
-<div class='card wide'><div class='head'>Models / Runtime</div><div id='models'></div><div id='runtime'></div></div><div class='card wide'><div class='head'>n8n</div><div id='n8n'></div></div>
-<div class='card full trainingShell'><div class='head'>Training Radar</div><div id='training'></div></div>
-<div class='card full'><div class='head'>Controls</div><div class='controls'><button class='btn' onclick="act('start_lstm')">Start LSTM</button><button class='btn' onclick="act('stop_lstm')">Stop LSTM</button><button class='btn' onclick="act('start_drl',{timesteps:100000})">Start PPO</button><button class='btn' onclick="act('stop_drl')">Stop PPO</button><button class='btn' onclick="act('run_cycle')">Run Full Cycle</button><button class='btn' onclick="act('set_canary_latest')">Set Latest Canary (Global)</button><button class='btn' onclick="act('promote_canary')">Promote Canary (Global)</button><button class='btn' onclick="act('rollback_canary')">Rollback Canary (Global)</button><button class='btn' onclick="act('restart_server')">Restart Server</button><button class='btn' onclick="act('normalize_owners')">Normalize Owners</button><input id='ctlSymbol' class='btn' style='min-width:180px;text-align:left' placeholder='Symbol e.g. EURUSDm' /><button class='btn' onclick="actSymbol('set_canary_latest')">Set Canary (Symbol)</button><button class='btn' onclick="actSymbol('promote_canary')">Promote (Symbol)</button><button class='btn' onclick="actSymbol('promote_canary_force')">Force Promote (Symbol)</button><button class='btn' onclick="actSymbol('rollback_canary')">Rollback (Symbol)</button></div><div class='sub' id='ctrlMsg'></div></div>
-<div class='card full'><div class='head'>Daily Profitability</div><div id='profitDaily' class='sub'>loading...</div></div>
-<div class='card full'><div class='head'>Per-Symbol Performance (7d)</div><div class='symGrid' id='symGrid'></div></div>
-<div class='card full'><div class='head'>Open Positions</div><div style='overflow:auto'><table><thead><tr><th>Ticket</th><th>Symbol</th><th>Side</th><th>Volume</th><th>PnL</th><th>TP Value USD</th><th>SL Value USD</th><th>Open</th><th>Current</th><th>SL</th><th>TP</th></tr></thead><tbody id='pos'></tbody></table></div></div>
-<div class='card wide'><div class='head'>Server Log</div><div class='mono' id='server'></div></div><div class='card wide'><div class='head'>PPO Log</div><div class='mono' id='ppo'></div></div><div class='card wide'><div class='head'>LSTM Log</div><div class='mono' id='lstm'></div></div><div class='card wide'><div class='head'>Audit</div><div class='mono' id='audit'></div></div>
-</div></div>
-<script>
-const byId=(i)=>document.getElementById(i);
-const fmt=(v)=>v===null||v===undefined?'-':Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
-const fmtInt=(v)=>v===null||v===undefined||v===''?'-':Number(String(v).replace(/,/g,'')).toLocaleString();
-const pct=(v)=>`${Math.max(0,Math.min(100,Number(v)||0)).toFixed(0)}%`;
-function esc(v){return String(v??'-').replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function compactId(v){if(!v)return'none';const s=String(v);return s.length>36?`...${s.slice(-36)}`:s;}
-function shortTime(iso){if(!iso)return'-';const d=new Date(iso);return Number.isNaN(d.getTime())?iso:d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}
-function progressBar(value,{tone='cyan',indeterminate=false}={}){const width=indeterminate?34:Math.max(0,Math.min(100,Number(value)||0));return `<div class='meter ${indeterminate?'indeterminate':''}'><div class='meterFill ${tone}' style='width:${width}%'></div></div>`;}
-function spark(points){ if(!points||points.length<2) return ''; const w=220,h=48,p=4; const min=Math.min(...points),max=Math.max(...points),span=(max-min)||1; const coords=points.map((v,i)=>{const x=p+i*(w-2*p)/(points.length-1); const y=h-p-((v-min)/span)*(h-2*p); return `${x},${y}`}).join(' '); return `<svg class='spark' viewBox='0 0 ${w} ${h}'><polyline fill='none' stroke='#6cd1ff' stroke-width='2' points='${coords}'/></svg>`; }
-function renderTraining(root){
-  const t=root.training||{}, visual=t.visual||{}, lstm=visual.lstm||{}, ppo=visual.ppo||{}, canary=root.canary_gate||{}, models=root.active_models||{};
-  const summary=lstm.summary||{}, queue=lstm.queue||[];
-  const activeStage=visual.active_stage||'idle';
-  const stageTone=(state)=>state==='done'?'done':state==='active'?'active':'idle';
-  const currentSymbol=t.lstm_running?(t.lstm_symbol||lstm.current_symbol||'-'):t.drl_running?(t.drl_symbol||ppo.current_symbol||'-'):(lstm.current_symbol||ppo.current_symbol||'-');
-  const completed=summary.completed_symbols||0, total=summary.total_symbols||0, queued=summary.queued_symbols||0, failed=summary.failed_symbols||0, activeCount=summary.active_symbols||0;
-  const activeLane=queue.find((item)=>item.status==='active')||queue.find((item)=>item.status==='partial')||null;
-  const lstmPct=t.lstm_running?(activeLane?activeLane.progress_pct:summary.completion_pct||0):(summary.completion_pct||0);
-  const ppoRunning=t.drl_running===true;
-  const ppoTone=ppo.candidate_ready?'green':ppoRunning?'gold':'cyan';
-  const stages=[
-    {label:'Cycle',state:t.cycle_running?'active':'idle',note:t.cycle_running?`Loop armed · ${(t.cycle_pids||[]).join(', ')||'-'}`:'Manual only'},
-    {label:'LSTM',state:t.lstm_running?'active':(completed===total&&total>0?'done':(completed>0?'done':'idle')),note:total?`${completed}/${total} symbols complete`:'No parsed symbol cycle'},
-    {label:'PPO',state:ppoRunning?'active':(ppo.candidate_ready?'done':'idle'),note:ppo.current_symbol?`${ppo.current_symbol} · ${fmtInt(ppo.target_timesteps)} steps`:'Waiting for policy run'},
-    {label:'Canary',state:models.canary?(canary.ready?'done':'active'):'idle',note:models.canary?(canary.ready?'Promotion gate passed':(canary.reason||'Canary collecting evidence')):'No active canary'},
-    {label:'Champion',state:models.champion?'done':'idle',note:models.champion?compactId(models.champion):'No champion selected'},
-  ];
-  const stageHtml=stages.map((stage,idx)=>`<div class='railStage ${stageTone(stage.state)}'><div class='eyebrow'>Stage ${idx+1}</div><div class='name'>${esc(stage.label)}</div><div style='margin-top:8px'><span class='stagePill ${stageTone(stage.state)}'>${esc(stage.state)}</span></div><div class='note'>${esc(stage.note)}</div></div>`).join('');
-  const summaryHtml=`<div class='summaryRow'><span class='summaryPill'>Completed ${completed}/${total||0}</span><span class='summaryPill'>Active ${activeCount}</span><span class='summaryPill'>Queued ${queued}</span><span class='summaryPill'>Failed ${failed}</span><span class='summaryPill'>Cycle ${t.cycle_running?'RUNNING':'IDLE'}</span></div>`;
-  const hero=`<div class='trainHero'><div class='trainHeroTop'><div class='trainCopy'><div class='trainBadge ${activeStage==='idle'?'idle':activeStage==='canary'?'done':'active'}'>${esc((visual.active_label||'Training idle').toUpperCase())}</div><div class='trainHeadline' style='margin-top:12px'>${esc(currentSymbol)} is the current training focus</div><div class='sub' style='margin-top:8px'>Visual lane is sourced from the live LSTM and PPO logs. It shows symbol order, progress, and where the cycle is waiting next.</div></div><div>${summaryHtml}</div></div><div class='trainStats'><div class='trainStat'><div class='label'>Current Symbol</div><div class='val'>${esc(currentSymbol)}</div></div><div class='trainStat'><div class='label'>LSTM Queue</div><div class='val'>${total||0}</div></div><div class='trainStat'><div class='label'>Candles</div><div class='val'>${fmtInt(lstm.candles||ppo.candles)}</div></div><div class='trainStat'><div class='label'>PPO Steps</div><div class='val'>${fmtInt(ppo.target_timesteps||t.drl_timesteps)}</div></div></div>${t.train_error?`<div class='alertBox'>Recent train error: ${esc(t.train_error)}</div>`:''}</div>`;
-  const lstmCard=`<div class='runCard'><div class='runCardHead'><div class='runCardTitle'>LSTM Feature Engine</div><span class='statePill ${t.lstm_running?'active':completed===total&&total>0?'done':'queued'}'>${t.lstm_running?'training':completed===total&&total>0?'complete':'idle'}</span></div>${progressBar(lstmPct,{tone:t.lstm_running?'gold':completed===total&&total>0?'green':'cyan',indeterminate:t.lstm_running&&!activeLane})}<div class='runMeta'>${t.lstm_running?`${esc(t.lstm_symbol||lstm.current_symbol||'-')} · epoch ${esc(t.lstm_epoch&&t.lstm_epochs_total?`${t.lstm_epoch}/${t.lstm_epochs_total}`:'-')}`:`${completed}/${total||0} symbols complete`}<br/>Candles per symbol: ${fmtInt(lstm.candles)} · Last update: ${esc(shortTime(lstm.updated_utc))}<br/>PID(s): ${esc((t.lstm_pids||[]).join(', ')||'-')}</div></div>`;
-  const ppoLabel=ppo.phase==='candidate_ready'?'candidate ready':ppo.phase||'idle';
-  const ppoCard=`<div class='runCard'><div class='runCardHead'><div class='runCardTitle'>PPO Policy Engine</div><span class='statePill ${ppoRunning?'active':ppo.candidate_ready?'done':'queued'}'>${esc(ppoLabel)}</span></div>${progressBar(ppo.candidate_ready?100:42,{tone:ppoTone,indeterminate:ppoRunning})}<div class='runMeta'>${esc(ppo.current_symbol||t.drl_symbol||'-')} · target ${fmtInt(ppo.target_timesteps||t.drl_timesteps)} steps<br/>Candles: ${fmtInt(ppo.candles||t.drl_candles)} · Last update: ${esc(shortTime(ppo.updated_utc))}<br/>Candidate: ${esc(compactId(ppo.candidate_path))} · PID(s): ${esc((t.drl_pids||[]).join(', ')||'-')}</div></div>`;
-  const laneHtml=queue.length?queue.map((item)=>{const tone=item.status==='done'?'green':item.status==='failed'?'red':item.status==='active'?'gold':item.status==='partial'?'cyan':'cyan';const copy=item.status==='queued'?'Awaiting slot':item.status==='failed'?'Skipped in this cycle':`Epoch ${item.epoch||0}/${item.epochs_total||0}`;const metric=item.loss!==null&&item.loss!==undefined?`Loss ${Number(item.loss).toFixed(4)} · Acc ${Number(item.acc||0).toFixed(2)}%`:`Updated ${shortTime(item.updated_utc)}`;return `<div class='symbolTile ${esc(item.status)}'><div class='symbolHead'><div class='symbolName'>${esc(item.symbol)}</div><span class='statePill ${esc(item.status)}'>${esc(item.status)}</span></div>${progressBar(item.progress_pct,{tone})}<div class='symbolMeta'><span>${esc(copy)}</span><span>${pct(item.progress_pct)}</span></div><div class='symbolStat'>${esc(metric)}</div></div>`;}).join(''):`<div class='emptyState'>No symbol queue parsed from the latest training cycle yet.</div>`;
-  return `<div class='trainingBoard'>${hero}<div class='stageRail'>${stageHtml}</div><div class='runGrid'>${lstmCard}${ppoCard}</div><div><div class='head' style='margin-bottom:10px'>LSTM Symbol Lane</div><div class='symbolLane'>${laneHtml}</div></div></div>`;
-}
-function render(d){
-const a=d.account||{},t=d.training||{},s=d.server||{},m=d.active_models||{},n=d.n8n||{},tl=d.trade_learning||{},ei=d.event_intel||{},eis=ei.summary||{},ro=d.runtime_owner||{};
-byId('meta').textContent=`UTC ${d.timestamp_utc}`;
-byId('balance').textContent=fmt(a.balance);
-byId('equity').textContent=fmt(a.equity);
-byId('trades').textContent=String(a.open_positions??0);
-const p=a.profit??0;
-const pe=byId('pnl');
-pe.textContent=fmt(p);
-pe.className='val '+(p>=0?'good':'bad');
-byId('models').innerHTML=`<span class='chip'>Champion: ${esc(m.champion||'none')}</span><span class='chip'>Canary: ${esc(m.canary||'none')}</span><span class='chip'>Canary Gate: ${d.canary_gate?.ready?'READY':'HOLD'}</span><span class='chip'>Gate Reason: ${esc(d.canary_gate?.reason||'n/a')}</span>`;
-byId('runtime').innerHTML=`<span class='chip'>Server: ${s.running?'RUNNING':'STOPPED'}</span><span class='chip'>PIDs: ${esc((s.pids||[]).join(', ')||'-')}</span><span class='chip'>MT5: ${a.connected?'CONNECTED':'DISCONNECTED'}</span><span class='chip'>Owner Health: ${ro.ok===false?'WARN':'OK'}</span><span class='chip'>Training Stage: ${esc(t.visual?.active_stage||'idle')}</span><span class='chip'>Memory Trades: ${fmtInt(tl.trades)}</span><span class='chip'>Win Rate: ${Number(tl.win_rate||0).toFixed(2)}%</span><span class='chip'>Expectancy: ${Number(tl.expectancy||0).toFixed(4)}</span><span class='chip'>PF: ${Number(tl.profit_factor||0).toFixed(3)}</span><span class='chip'>Event Active: ${fmtInt(eis.active_window||0)}</span><span class='chip'>High Impact Active: ${fmtInt(eis.high_active||0)}</span><span class='chip'>High Impact 24h: ${fmtInt(eis.high_upcoming_24h||0)}</span>`;
-const best=(tl.best_symbols||[]).slice(0,2).map(x=>`${x.symbol}:${fmt(x.total_pnl)}`).join(' | ')||'n/a';
-const worst=(tl.worst_symbols||[]).slice(0,2).map(x=>`${x.symbol}:${fmt(x.total_pnl)}`).join(' | ')||'n/a';
-const ownerIssues=(ro.issues||[]).map(x=>`${x.role}:${x.type}`).join(', ')||'none';
-byId('profitDaily').textContent=`Generated ${tl.generated_at_utc||'-'} | Trades ${fmtInt(tl.trades)} | PnL ${fmt(tl.total_pnl)} | WinRate ${Number(tl.win_rate||0).toFixed(2)}% | Expectancy ${Number(tl.expectancy||0).toFixed(4)} | PF ${Number(tl.profit_factor||0).toFixed(3)} | Best ${best} | Worst ${worst} | Owner Issues ${ownerIssues}`;
-byId('training').innerHTML=renderTraining(d);
-byId('n8n').innerHTML=`<span class='chip'>State: ${n.running?'RUNNING':'STOPPED'}</span><span class='chip'>PID: ${esc(n.pid||'-')}</span><span class='chip'>Ports: ${esc((n.ports||[]).join(', ')||'-')}</span><span class='chip'>Py Runner: ${esc(n.python_task_runner||'unknown')}</span>`;
-const rows=(a.positions||[]).map(p=>`<tr><td>${p.ticket}</td><td>${esc(p.symbol)}</td><td>${esc(p.type)}</td><td>${p.volume}</td><td class='${p.profit>=0?'good':'bad'}'>${fmt(p.profit)}</td><td class='${(p.tp_value_usd??0)>=0?'good':'bad'}'>${fmt(p.tp_value_usd)}</td><td class='${(p.sl_value_usd??0)>=0?'good':'bad'}'>${fmt(p.sl_value_usd)}</td><td>${p.open_price}</td><td>${p.current_price}</td><td>${p.sl}</td><td>${p.tp}</td></tr>`).join(''); byId('pos').innerHTML=rows||'<tr><td colspan="11">No open trades</td></tr>';
-const cards=(d.symbol_perf||[]).map(s=>`<div class='sym'><div style='display:flex;justify-content:space-between'><strong>${esc(s.symbol)}</strong><span class='${s.pnl>=0?'good':'bad'}'>${fmt(s.pnl)}</span></div><div class='sub'>Trades ${s.trades} | Win ${s.win_rate}%</div>${spark(s.curve)}</div>`).join(''); byId('symGrid').innerHTML=cards||'<div class="sub">No closed deals in selected window.</div>';
-byId('server').textContent=(d.logs?.server||[]).join(String.fromCharCode(10)); byId('ppo').textContent=(d.logs?.ppo||[]).join(String.fromCharCode(10)); byId('lstm').textContent=(d.logs?.lstm||[]).join(String.fromCharCode(10)); byId('audit').textContent=(d.logs?.audit||[]).join(String.fromCharCode(10)); }
-let ws;
-async function pollOnce(){ try{ const r=await fetch('/api/status',{cache:'no-store'}); if(!r.ok) return; const d=await r.json(); render(d); if(ws==null||ws.readyState!==1){ byId('live').textContent='HTTP Polling'; } }catch(_){} }
-function connect(){ const proto=location.protocol==='https:'?'wss':'ws'; ws=new WebSocket(`${proto}://${location.host}/ws`); ws.onopen=()=>byId('live').textContent='WebSocket Connected'; ws.onclose=()=>{byId('live').textContent='Reconnecting...'; setTimeout(connect,1200)}; ws.onerror=()=>ws.close(); ws.onmessage=(ev)=>{try{render(JSON.parse(ev.data))}catch(_){}}; }
-async function act(action,payload={}){ try{ const r=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...payload})}); const d=await r.json(); byId('ctrlMsg').textContent=`${new Date().toLocaleTimeString()} :: ${d.message||'ok'}`; }catch(e){ byId('ctrlMsg').textContent='Control failed: '+e; } }
-function _controlSymbol(){ return (byId('ctlSymbol')?.value||'').trim(); }
-async function actSymbol(action){
-  const symbol=_controlSymbol();
-  if(!symbol){
-    byId('ctrlMsg').textContent='Enter symbol first (example: EURUSDm)';
-    return;
-  }
-  await act(action,{symbol});
-}
-connect();
-pollOnce();
-setInterval(pollOnce, 2000);
-</script></body></html>"""
+def _load_ui_html():
+    try:
+        with open(UI_HTML_PATH, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as exc:
+        return f"<html><body><h1>UI asset missing</h1><pre>{exc}</pre></body></html>"
 
 
 async def index(_request):
-    return web.Response(text=HTML, content_type="text/html")
+    return web.Response(text=_load_ui_html(), content_type="text/html")
 
 
 async def api_status(_request):
-    return web.json_response(read_status())
+    return web.json_response(read_status(refresh_if_booting=False))
 
 
 async def api_control(request):
@@ -1263,7 +1248,7 @@ async def ws_status(request):
     await ws.prepare(request)
     try:
         while not ws.closed:
-            await ws.send_str(json.dumps(read_status(), ensure_ascii=False))
+            await ws.send_str(json.dumps(read_status(refresh_if_booting=False), ensure_ascii=False))
             await asyncio.sleep(2)
     except Exception:
         pass
@@ -1277,7 +1262,10 @@ async def notify_loop(app):
     prev = None
     while True:
         try:
-            d = read_status()
+            d = read_status(refresh_if_booting=False)
+            if d.get("state") == "booting":
+                await asyncio.sleep(1)
+                continue
             cur = {
                 "server": d["server"]["running"],
                 "drl": d["training"]["drl_running"],
