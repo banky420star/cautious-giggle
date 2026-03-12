@@ -15,7 +15,7 @@ if PROJECT_ROOT not in sys.path:
 
 from Python.agi_brain import AGIModel
 from Python.data_feed import fetch_training_data
-from Python.feature_pipeline import ENGINEERED_V2, build_lstm_feature_frame
+from Python.feature_pipeline import ENGINEERED_V2, ULTIMATE_150, build_lstm_feature_frame, normalize_feature_version
 from alerts.telegram_alerts import TelegramAlerter
 
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
@@ -80,7 +80,7 @@ def _train_one_symbol(
     period: str = "60d",
     interval: str = "5m",
     candles: int = 100_000,
-    feature_version: str = ENGINEERED_V2,
+    feature_version: str = ULTIMATE_150,
     data_source: str | None = None,
     alerter=None,
 ):
@@ -238,7 +238,7 @@ def train_lstm(
     period="60d",
     interval="5m",
     candles=100_000,
-    feature_version: str = ENGINEERED_V2,
+    feature_version: str = ULTIMATE_150,
     data_source: str | None = None,
 ):
     if symbols is None:
@@ -312,7 +312,7 @@ if __name__ == "__main__":
     period = "60d"
     interval = "5m"
     candles = 100_000
-    feature_version = ENGINEERED_V2
+    feature_version = ULTIMATE_150
     data_source = None
 
     if os.path.exists(cfg_path):
@@ -324,8 +324,13 @@ if __name__ == "__main__":
         period = str(tcfg.get("lstm_period", "90d"))
         interval = str(tcfg.get("lstm_interval", cfg.get("trading", {}).get("timeframe", "M5")))
         candles = int(tcfg.get("lstm_candles", 100000))
-        feature_version = str(tcfg.get("feature_version", ENGINEERED_V2) or ENGINEERED_V2)
+        feature_version = normalize_feature_version(
+            os.environ.get("AGI_FEATURE_VERSION") or tcfg.get("feature_version", ULTIMATE_150),
+            default=ULTIMATE_150,
+        )
         data_source = tcfg.get("data_source")
+    else:
+        feature_version = normalize_feature_version(os.environ.get("AGI_FEATURE_VERSION"), default=ULTIMATE_150)
 
     train_lstm(
         symbols=symbols,

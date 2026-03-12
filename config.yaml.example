@@ -47,10 +47,18 @@ drl:
   candles_per_symbol: 100000
   eval_period: "120d"
   model_path: "models/ppo_trading.zip"
-  feature_version: "engineered_v2"
+  feature_version: "ultimate_150"
   data_source: "mt5"
   optuna_trials: 0
   optuna_timesteps: 10000
+  dreamer:
+    enabled: true
+    train_in_cycle: true
+    steps: 5000
+    window: 64
+    feature_version: "ultimate_150"
+    # Optional subset; defaults to trading.symbols when empty.
+    symbols: []
   ensemble:
     enabled: false
     min_votes: 2
@@ -73,7 +81,7 @@ training:
   lstm_period: "90d"
   lstm_interval: "M5"
   lstm_candles: 100000
-  feature_version: "engineered_v2"
+  feature_version: "ultimate_150"
   data_source: "mt5"
 
 evaluation:

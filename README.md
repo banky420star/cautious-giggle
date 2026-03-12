@@ -44,6 +44,8 @@ Copy `config.yaml.example` → `config.yaml` and set:
 - `telegram.token` + `telegram.chat_id` for notification delivery.
 - `trading.symbols`, `confidence_threshold`, and `drl.` parameters to tune risk and candidate gates.
 - `registry.canary_policy` exposes default + per-symbol gating (min trades, max drawdown, runtime) so you can give BTCUSD tighter thresholds than EURUSD.
+- `training.feature_version` and `drl.feature_version` now default to `ultimate_150` for all newly trained LSTM/PPO artifacts; keep legacy champions on their recorded metadata until they are replaced.
+- `drl.dreamer` lets you enable per-symbol Dreamer training/inference across the whole configured symbol set instead of only a single pilot symbol.
 
 Keep `models/registry/active.json` clean (champion/canary `null`) before your first run.
 
@@ -70,6 +72,7 @@ Keep `models/registry/active.json` clean (champion/canary `null`) before your fi
 4. **Reproducibility helpers**  
    - `tools/profit_sweep.py` hunts for better thresholds/blend ratios.
    - `training/train_lstm.py` & `training/train_drl.py` can run individually for diagnostics.
+   - `training/train_dreamer.py` now trains every configured symbol by default and writes per-symbol artifacts under `models/dreamer/`.
    - Watch `logs/` (`server.log`, `trade_events.jsonl`, `champion_cycle*.log`, `ppo_training.log`) for audit trails.
 
 ### Metrics & Monitoring

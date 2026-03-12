@@ -23,14 +23,39 @@ class HybridBrain:
         self.vec_norm = None
         self.ppo_bundles = []
         self.ppo_metadata = {}
-        self.dreamer_enabled = os.environ.get("AGI_DREAMER_ENABLED", "false").lower() == "true"
-        self.dreamer_blend = float(os.environ.get("AGI_DREAMER_BLEND", "0.15"))
+        self.dreamer_enabled = False
+        self.dreamer_blend = 0.15
+        self.dreamer_symbols = []
         self.dreamer_policies = {}
         self._last_action_meta = None
 
         cfg = self._load_cfg()
         drl_cfg = (cfg.get("drl", {}) or {}) if isinstance(cfg, dict) else {}
         ensemble_cfg = (drl_cfg.get("ensemble", {}) or {}) if isinstance(drl_cfg.get("ensemble", {}), dict) else {}
+        dreamer_cfg = (drl_cfg.get("dreamer", {}) or {}) if isinstance(drl_cfg.get("dreamer", {}), dict) else {}
+        trading_cfg = (cfg.get("trading", {}) or {}) if isinstance(cfg, dict) else {}
+
+        def _cfg_bool(env_key: str, cfg_value, default: bool = False) -> bool:
+            raw = os.environ.get(env_key)
+            if raw is None:
+                raw = cfg_value
+            if raw is None:
+                return bool(default)
+            return str(raw).strip().lower() == "true"
+
+        def _cfg_float(env_key: str, cfg_value, default: float) -> float:
+            raw = os.environ.get(env_key)
+            if raw is None:
+                raw = cfg_value
+            try:
+                return float(raw)
+            except Exception:
+                return float(default)
+
+        self.dreamer_enabled = _cfg_bool("AGI_DREAMER_ENABLED", dreamer_cfg.get("enabled"), default=False)
+        self.dreamer_blend = _cfg_float("AGI_DREAMER_BLEND", dreamer_cfg.get("blend"), default=0.15)
+        configured_dreamer_symbols = dreamer_cfg.get("symbols", []) if isinstance(dreamer_cfg.get("symbols", []), (list, tuple)) else []
+        self.dreamer_symbols = [str(sym) for sym in (configured_dreamer_symbols or trading_cfg.get("symbols", []) or []) if str(sym).strip()]
 
         cfg_blend = float(drl_cfg.get("ppo_blend", 0.55))
         self.ppo_enabled = os.environ.get("AGI_PPO_ENABLED", "true").lower() == "true"
@@ -209,8 +234,7 @@ class HybridBrain:
         try:
             from Python.dreamer_policy import DreamerPolicy
 
-            cfg = self._load_cfg()
-            symbols = list((cfg.get("trading", {}) or {}).get("symbols", []) or [])
+            symbols = self.dreamer_symbols
             for symbol in symbols:
                 policy = DreamerPolicy.load_symbol(symbol)
                 if policy is not None:

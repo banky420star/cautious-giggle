@@ -69,6 +69,32 @@ def _run_train_drl(symbol: str | None = None):
     subprocess.check_call([sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT, env=env)
 
 
+def _dreamer_cfg(cfg: dict) -> dict:
+    drl_cfg = cfg.get("drl", {}) if isinstance(cfg, dict) else {}
+    raw = drl_cfg.get("dreamer", {})
+    return raw if isinstance(raw, dict) else {}
+
+
+def _run_train_dreamer(cfg: dict, symbols: list[str]):
+    dreamer_cfg = _dreamer_cfg(cfg)
+    if not str(dreamer_cfg.get("enabled", False)).lower() == "true":
+        return False
+    if not str(dreamer_cfg.get("train_in_cycle", False)).lower() == "true":
+        return False
+
+    env = os.environ.copy()
+    env["AGI_DREAMER_SYMBOLS"] = ",".join(symbols)
+    if dreamer_cfg.get("steps") is not None:
+        env["AGI_DREAMER_STEPS"] = str(int(dreamer_cfg.get("steps")))
+    if dreamer_cfg.get("window") is not None:
+        env["AGI_DREAMER_WINDOW"] = str(int(dreamer_cfg.get("window")))
+    if dreamer_cfg.get("feature_version"):
+        env["AGI_DREAMER_FEATURE_VERSION"] = str(dreamer_cfg.get("feature_version"))
+    logger.info(f"Cycle step: train Dreamer for symbols={symbols}")
+    subprocess.check_call([sys.executable, "training/train_dreamer.py"], cwd=PROJECT_ROOT, env=env)
+    return True
+
+
 def main():
     cfg = load_project_config(PROJECT_ROOT, live_mode=False)
 
@@ -86,6 +112,7 @@ def main():
 
     logger.info("Cycle start: train LSTM per symbol")
     subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT)
+    dreamer_trained = _run_train_dreamer(cfg, symbols)
 
     reg = ModelRegistry()
     cycle_report = {
@@ -94,6 +121,7 @@ def main():
         "eval_period": eval_period,
         "eval_interval": eval_interval,
         "gates": gates,
+        "dreamer_trained": bool(dreamer_trained),
     }
 
     if per_symbol:

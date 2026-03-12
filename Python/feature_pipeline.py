@@ -4,6 +4,7 @@ import pandas as pd
 
 ENGINEERED_V2 = "engineered_v2"
 ULTIMATE_150 = "ultimate_150"
+FEATURE_VERSIONS = {ENGINEERED_V2, ULTIMATE_150}
 
 ENGINEERED_LSTM_COLUMNS = [
     "open",
@@ -33,6 +34,11 @@ def _as_series(df: pd.DataFrame, col: str) -> pd.Series:
     return obj.astype(float)
 
 
+def normalize_feature_version(feature_version: str | None, default: str = ENGINEERED_V2) -> str:
+    version = str(feature_version or default).strip().lower()
+    return version if version in FEATURE_VERSIONS else str(default)
+
+
 def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     out.columns = [str(c).lower() for c in out.columns]
@@ -57,7 +63,7 @@ def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_lstm_feature_frame(df: pd.DataFrame, feature_version: str = ENGINEERED_V2) -> tuple[pd.DataFrame, list[str]]:
-    version = str(feature_version or ENGINEERED_V2).strip().lower()
+    version = normalize_feature_version(feature_version, default=ENGINEERED_V2)
     if version == ULTIMATE_150:
         features = _build_ultimate_feature_frame(df)
         return features, list(features.columns)
@@ -66,7 +72,7 @@ def build_lstm_feature_frame(df: pd.DataFrame, feature_version: str = ENGINEERED
 
 
 def build_env_feature_matrix(df: pd.DataFrame, feature_version: str = ENGINEERED_V2) -> np.ndarray:
-    version = str(feature_version or ENGINEERED_V2).strip().lower()
+    version = normalize_feature_version(feature_version, default=ENGINEERED_V2)
     if version == ULTIMATE_150:
         features, _ = build_lstm_feature_frame(df, feature_version=ULTIMATE_150)
         return features.to_numpy(dtype=np.float32)
@@ -74,7 +80,7 @@ def build_env_feature_matrix(df: pd.DataFrame, feature_version: str = ENGINEERED
 
 
 def feature_count_for_version(feature_version: str) -> int:
-    version = str(feature_version or ENGINEERED_V2).strip().lower()
+    version = normalize_feature_version(feature_version, default=ENGINEERED_V2)
     if version == ULTIMATE_150:
         sample = pd.DataFrame(
             {

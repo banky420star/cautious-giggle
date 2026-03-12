@@ -25,7 +25,7 @@ from drl.lstm_feature_extractor import LSTMFeatureExtractor
 from drl.trading_env import TradingEnv
 from Python.config_utils import load_project_config
 from Python.data_feed import fetch_training_data, get_combined_training_df
-from Python.feature_pipeline import ENGINEERED_V2, ULTIMATE_150
+from Python.feature_pipeline import ENGINEERED_V2, ULTIMATE_150, normalize_feature_version
 from Python.trade_learning import load_trade_memory
 from alerts.telegram_alerts import TelegramAlerter
 
@@ -124,7 +124,7 @@ def make_env(
     initial_balance: float,
     reward_weights: dict,
     trade_memory: dict | None = None,
-    feature_version: str = ENGINEERED_V2,
+    feature_version: str = ULTIMATE_150,
 ):
     def _init():
         set_random_seed(seed)
@@ -390,7 +390,10 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     logs_root = os.path.join(os.getcwd(), "logs", "learning")
     symbol_hint = symbols[0] if len(symbols) == 1 else None
     trade_memory = load_trade_memory(logs_root, symbol=symbol_hint)
-    feature_version = str(drl_cfg.get("feature_version", ENGINEERED_V2) or ENGINEERED_V2)
+    feature_version = normalize_feature_version(
+        os.environ.get("AGI_FEATURE_VERSION") or drl_cfg.get("feature_version", ULTIMATE_150),
+        default=ULTIMATE_150,
+    )
     data_source = drl_cfg.get("data_source")
 
     per_symbol_mode = len(symbols) == 1
