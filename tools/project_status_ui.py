@@ -1229,6 +1229,7 @@ def _source_health():
         "server_log": _file_status(os.path.join(LOG_DIR, "server.log"), stale_minutes=5),
         "ppo_log": _file_status(os.path.join(LOG_DIR, "ppo_training.log"), stale_minutes=60),
         "lstm_log": _file_status(os.path.join(LOG_DIR, "lstm_training.log"), stale_minutes=60),
+        "dreamer_log": _file_status(os.path.join(LOG_DIR, "dreamer_training.log"), stale_minutes=60),
         "audit_log": _file_status(os.path.join(LOG_DIR, "audit_events.jsonl"), stale_minutes=10),
         "account_history": _file_status(ACCOUNT_HISTORY_PATH, stale_minutes=15),
         "trade_learning": _file_status(os.path.join(LOG_DIR, "learning", "trade_learning_latest.json"), stale_minutes=60),
@@ -1363,6 +1364,7 @@ def _collect_status():
             "server": _tail(os.path.join(LOG_DIR, "server.log"), 50),
             "lstm": _tail(os.path.join(LOG_DIR, "lstm_training.log"), 50),
             "ppo": _tail(os.path.join(LOG_DIR, "ppo_training.log"), 50),
+            "dreamer": _tail(os.path.join(LOG_DIR, "dreamer_training.log"), 50),
             "audit": _tail(os.path.join(LOG_DIR, "audit_events.jsonl"), 30),
         },
     }

@@ -48,6 +48,7 @@ def test_status_payload_shape(monkeypatch):
     assert "telegram" in out
     assert "charts" in out
     assert set(out["canary_gate"].keys()) == {"ready", "reason"}
+    assert set(out["logs"].keys()) >= {"server", "lstm", "ppo", "dreamer", "audit"}
 
 
 def test_profitability_chart_series_parses_recent_entries(tmp_path, monkeypatch):
