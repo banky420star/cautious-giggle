@@ -71,3 +71,28 @@ def test_profitability_chart_series_parses_recent_entries(tmp_path, monkeypatch)
     assert out["source"] == "profitability_log"
     assert out["equity"] == [1000.0, 995.0, 1005.0]
     assert out["drawdown_pct"] == [0.0, 0.5, 0.0]
+
+
+def test_account_history_series_and_preference(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    account_log = log_dir / "account_history.jsonl"
+    account_log.write_text(
+        "\n".join(
+            [
+                '{"ts":"2026-03-12T00:00:00+00:00","equity":1000.0}',
+                '{"ts":"2026-03-12T00:00:05+00:00","equity":998.0}',
+                '{"ts":"2026-03-12T00:00:10+00:00","equity":1003.0}',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(ui, "ACCOUNT_HISTORY_PATH", str(account_log))
+
+    series = ui._account_history_series(limit=8)
+    charts = ui._dashboard_charts({"equity": 1003.0}, [])
+
+    assert series["source"] == "account_history"
+    assert series["equity"] == [1000.0, 998.0, 1003.0]
+    assert charts["equity_curve"]["source"] == "account_history"
+    assert charts["drawdown_curve"]["values"] == [0.0, 0.2, 0.0]

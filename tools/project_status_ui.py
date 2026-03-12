@@ -34,7 +34,11 @@ UI_ASSET_DIR = os.path.join(ROOT, "tools", "ui_assets")
 UI_HTML_PATH = os.path.join(UI_ASSET_DIR, "project_status_ui.html")
 ACTIVE_PATH = os.path.join(ROOT, "models", "registry", "active.json")
 EVENT_INTEL_PATH = os.path.join(LOG_DIR, "event_intel_state.json")
+ACCOUNT_HISTORY_PATH = os.path.join(LOG_DIR, "account_history.jsonl")
 LOG_TS_FMT = "%Y-%m-%d %H:%M:%S"
+ACCOUNT_HISTORY_INTERVAL_SECONDS = 5
+_ACCOUNT_HISTORY_LAST_TS = None
+_ACCOUNT_HISTORY_LAST_SIG = None
 STATUS_CACHE = {
     "timestamp_utc": datetime.now(timezone.utc).isoformat(),
     "repo_root": ROOT,
@@ -931,6 +935,104 @@ def _mt5_symbol_perf(days=7, max_points=24):
         return []
 
 
+def _record_account_history(account: dict):
+    global _ACCOUNT_HISTORY_LAST_TS, _ACCOUNT_HISTORY_LAST_SIG
+
+    if not isinstance(account, dict) or not account.get("connected"):
+        return
+
+    try:
+        balance = float(account.get("balance")) if account.get("balance") is not None else None
+        equity = float(account.get("equity")) if account.get("equity") is not None else None
+        profit = float(account.get("profit")) if account.get("profit") is not None else None
+        free_margin = float(account.get("free_margin")) if account.get("free_margin") is not None else None
+        open_positions = int(account.get("open_positions") or 0)
+    except Exception:
+        return
+
+    if balance is None or equity is None:
+        return
+
+    now = datetime.now(timezone.utc)
+    sig = (
+        round(balance, 2),
+        round(equity, 2),
+        round(0.0 if profit is None else profit, 2),
+        round(0.0 if free_margin is None else free_margin, 2),
+        open_positions,
+    )
+    if (
+        _ACCOUNT_HISTORY_LAST_TS is not None
+        and sig == _ACCOUNT_HISTORY_LAST_SIG
+        and (now - _ACCOUNT_HISTORY_LAST_TS).total_seconds() < ACCOUNT_HISTORY_INTERVAL_SECONDS
+    ):
+        return
+
+    row = {
+        "ts": now.isoformat(),
+        "balance": balance,
+        "equity": equity,
+        "profit": 0.0 if profit is None else profit,
+        "free_margin": 0.0 if free_margin is None else free_margin,
+        "open_positions": open_positions,
+    }
+    try:
+        os.makedirs(os.path.dirname(ACCOUNT_HISTORY_PATH), exist_ok=True)
+        with open(ACCOUNT_HISTORY_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=True) + "\n")
+        _ACCOUNT_HISTORY_LAST_TS = now
+        _ACCOUNT_HISTORY_LAST_SIG = sig
+    except Exception:
+        return
+
+
+def _account_history_series(limit: int = 64):
+    base = {"source": "unavailable", "labels": [], "equity": [], "drawdown_pct": []}
+    if not os.path.exists(ACCOUNT_HISTORY_PATH):
+        return base
+
+    entries = []
+    for raw in _tail(ACCOUNT_HISTORY_PATH, max(limit * 4, 240)):
+        try:
+            item = json.loads(raw)
+        except Exception:
+            continue
+        ts_raw = item.get("ts")
+        equity = item.get("equity")
+        if ts_raw is None or equity is None:
+            continue
+        try:
+            entries.append({"ts": str(ts_raw), "equity": float(equity)})
+        except Exception:
+            continue
+
+    if not entries:
+        return base
+
+    deduped = []
+    for item in entries:
+        if deduped and deduped[-1]["ts"] == item["ts"]:
+            deduped[-1] = item
+        else:
+            deduped.append(item)
+    entries = deduped[-limit:]
+
+    peak = None
+    drawdown = []
+    for item in entries:
+        eq = float(item["equity"])
+        peak = eq if peak is None else max(peak, eq)
+        dd = 0.0 if not peak else max(0.0, (peak - eq) / peak * 100.0)
+        drawdown.append(round(dd, 2))
+
+    return {
+        "source": "account_history",
+        "labels": [_compact_time_label(item["ts"]) for item in entries],
+        "equity": [round(float(item["equity"]), 2) for item in entries],
+        "drawdown_pct": drawdown,
+    }
+
+
 def _compact_time_label(raw_ts):
     if not raw_ts:
         return "-"
@@ -1004,9 +1106,15 @@ def _symbol_pnl_chart(symbol_perf):
 
 
 def _dashboard_charts(account: dict, symbol_perf):
+    history = _account_history_series()
     profitability = _profitability_chart_series()
-    equity_values = profitability.get("equity") or []
-    drawdown_values = profitability.get("drawdown_pct") or []
+
+    preferred = history if len(history.get("equity") or []) >= 2 else profitability
+    if not (preferred.get("equity") or []):
+        preferred = history if history.get("equity") else profitability
+
+    equity_values = preferred.get("equity") or []
+    drawdown_values = preferred.get("drawdown_pct") or []
 
     if not equity_values:
         fallback_equity = None
@@ -1026,13 +1134,13 @@ def _dashboard_charts(account: dict, symbol_perf):
 
     return {
         "equity_curve": {
-            "source": profitability.get("source", "unavailable"),
-            "labels": profitability.get("labels", []),
+            "source": preferred.get("source", "unavailable"),
+            "labels": preferred.get("labels", []),
             "values": equity_values,
         },
         "drawdown_curve": {
-            "source": profitability.get("source", "unavailable"),
-            "labels": profitability.get("labels", []),
+            "source": preferred.get("source", "unavailable"),
+            "labels": preferred.get("labels", []),
             "values": drawdown_values,
         },
         "symbol_pnl": _symbol_pnl_chart(symbol_perf),
@@ -1062,6 +1170,7 @@ def _source_health():
         "ppo_log": _file_status(os.path.join(LOG_DIR, "ppo_training.log"), stale_minutes=60),
         "lstm_log": _file_status(os.path.join(LOG_DIR, "lstm_training.log"), stale_minutes=60),
         "audit_log": _file_status(os.path.join(LOG_DIR, "audit_events.jsonl"), stale_minutes=10),
+        "account_history": _file_status(ACCOUNT_HISTORY_PATH, stale_minutes=15),
         "trade_learning": _file_status(os.path.join(LOG_DIR, "learning", "trade_learning_latest.json"), stale_minutes=60),
         "event_intel": _file_status(EVENT_INTEL_PATH, stale_minutes=30),
         "active_registry": _file_status(ACTIVE_PATH, stale_minutes=1440),
@@ -1170,6 +1279,7 @@ def _collect_status():
     canary_ok, canary_reason = reg.can_promote_canary()
     active = _active_models()
     account = _mt5_snapshot()
+    _record_account_history(account)
     symbol_perf = _mt5_symbol_perf(7)
     return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
