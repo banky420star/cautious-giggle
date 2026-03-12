@@ -138,3 +138,18 @@ def test_symbol_cards_from_status_uses_positions_and_signals():
     assert out["BTCUSDm"]["position_side"] == "SELL"
     assert out["BTCUSDm"]["signal"] == "LOW_VOLATILITY"
     assert out["BTCUSDm"]["dreamer_exposure"] == -1.0
+
+
+def test_dreamer_visual_parses_active_run():
+    lines = [
+        "2026-03-12 19:01:20.719 | INFO | __main__:_train_symbol:138 - Dreamer training start | symbol=XAUUSDm | steps=5000 | window=64 | obs_dim=10497 | device=cpu | features=ultimate_150",
+        "2026-03-12 20:29:19.144 | SUCCESS | __main__:_train_symbol:179 - Dreamer artifact saved: C:\\repo\\models\\dreamer\\dreamer_XAUUSDm.pt",
+        "2026-03-12 20:29:22.646 | INFO | __main__:_train_symbol:138 - Dreamer training start | symbol=BTCUSDm | steps=5000 | window=64 | obs_dim=10497 | device=cpu | features=ultimate_150",
+    ]
+
+    out = ui._build_dreamer_visual(lines, running=True)
+
+    assert out["phase"] == "optimizing"
+    assert out["current_symbol"] == "BTCUSDm"
+    assert out["last_saved_symbol"] == "XAUUSDm"
+    assert out["steps"] == 5000

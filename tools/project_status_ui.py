@@ -642,15 +642,61 @@ def _build_ppo_visual(lines, running: bool) -> dict:
     return out
 
 
-def _build_training_visuals(lstm_lines, ppo_lines, lstm_running: bool, drl_running: bool) -> dict:
+def _build_dreamer_visual(lines, running: bool) -> dict:
+    out = {
+        "current_symbol": None,
+        "steps": None,
+        "window": None,
+        "obs_dim": None,
+        "phase": "queued",
+        "last_saved_symbol": None,
+        "updated_utc": None,
+    }
+    if not lines:
+        return out
+
+    start_re = re.compile(
+        r"Dreamer training start\s*\|\s*symbol=([A-Za-z0-9_]+)\s*\|\s*steps=(\d+)\s*\|\s*window=(\d+)\s*\|\s*obs_dim=(\d+)",
+        re.IGNORECASE,
+    )
+    saved_re = re.compile(r"dreamer_([A-Za-z0-9_]+)\.pt", re.IGNORECASE)
+    latest_ts = None
+
+    for line in lines:
+        sm = start_re.search(line)
+        if sm:
+            out["current_symbol"] = sm.group(1)
+            out["steps"] = _as_int(sm.group(2), 0) or None
+            out["window"] = _as_int(sm.group(3), 0) or None
+            out["obs_dim"] = _as_int(sm.group(4), 0) or None
+            latest_ts = _line_ts_utc(line) or latest_ts
+            continue
+        mm = saved_re.search(line)
+        if mm:
+            out["last_saved_symbol"] = mm.group(1)
+            latest_ts = _line_ts_utc(line) or latest_ts
+
+    out["updated_utc"] = latest_ts.isoformat() if latest_ts else None
+    if running:
+        out["phase"] = "optimizing"
+    elif out["last_saved_symbol"]:
+        out["phase"] = "completed"
+    return out
+
+
+def _build_training_visuals(lstm_lines, ppo_lines, dreamer_lines, lstm_running: bool, drl_running: bool, dreamer_running: bool) -> dict:
     lstm = _build_lstm_visual(lstm_lines, lstm_running)
     ppo = _build_ppo_visual(ppo_lines, drl_running)
+    dreamer = _build_dreamer_visual(dreamer_lines, dreamer_running)
     if lstm_running and drl_running:
         active_stage = "parallel"
         active_label = "LSTM and PPO running"
     elif lstm_running:
         active_stage = "lstm"
         active_label = "LSTM feature training in progress"
+    elif dreamer_running:
+        active_stage = "dreamer"
+        active_label = "Dreamer world-model training in progress"
     elif drl_running:
         active_stage = "ppo"
         active_label = "PPO policy optimization in progress"
@@ -669,6 +715,7 @@ def _build_training_visuals(lstm_lines, ppo_lines, lstm_running: bool, drl_runni
         "active_label": active_label,
         "lstm": lstm,
         "ppo": ppo,
+        "dreamer": dreamer,
     }
 
 
@@ -719,21 +766,33 @@ def _latest_training_progress() -> dict:
 def _training_state(procs):
     drl = _filter_cmd(procs, "training/train_drl.py")
     lstm = _filter_cmd(procs, "training/train_lstm.py")
+    dreamer = _filter_cmd(procs, "training/train_dreamer.py")
     cycle = _filter_cmd(procs, "tools/champion_cycle_loop.py")
     if not cycle:
         cycle = _filter_cmd(procs, "tools/champion_cycle.py")
     progress = _latest_training_progress()
     drl_running = len(drl) > 0
     lstm_running = len(lstm) > 0
+    dreamer_running = len(dreamer) > 0
     lstm_lines = _tail(os.path.join(LOG_DIR, "lstm_training.log"), 800)
     ppo_lines = _tail(os.path.join(LOG_DIR, "ppo_training.log"), 400)
-    visual = _build_training_visuals(lstm_lines, ppo_lines, lstm_running=lstm_running, drl_running=drl_running)
+    dreamer_lines = _tail(os.path.join(LOG_DIR, "dreamer_training.log"), 400)
+    visual = _build_training_visuals(
+        lstm_lines,
+        ppo_lines,
+        dreamer_lines,
+        lstm_running=lstm_running,
+        drl_running=drl_running,
+        dreamer_running=dreamer_running,
+    )
     return {
         "drl_running": drl_running,
         "lstm_running": lstm_running,
+        "dreamer_running": dreamer_running,
         "cycle_running": len(cycle) > 0,
         "drl_pids": [p["pid"] for p in drl],
         "lstm_pids": [p["pid"] for p in lstm],
+        "dreamer_pids": [p["pid"] for p in dreamer],
         "cycle_pids": [p["pid"] for p in cycle],
         "drl_symbol": progress.get("drl_symbol") if drl_running else None,
         "drl_timesteps": progress.get("drl_timesteps") if drl_running else None,
