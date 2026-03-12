@@ -319,6 +319,9 @@ if __name__ == "__main__":
         with open(cfg_path, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
         symbols = cfg.get("trading", {}).get("symbols")
+        env_symbols = os.environ.get("AGI_LSTM_SYMBOLS")
+        if env_symbols:
+            symbols = [s.strip() for s in env_symbols.split(",") if s.strip()]
         tcfg = cfg.get("training", {}) or {}
         epochs = int(tcfg.get("lstm_epochs", 20))
         period = str(tcfg.get("lstm_period", "90d"))

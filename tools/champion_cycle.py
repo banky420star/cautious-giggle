@@ -15,6 +15,18 @@ from Python.model_registry import ModelRegistry
 from Python.config_utils import load_project_config
 
 
+def _has_lstm_artifact(symbol: str) -> bool:
+    return Path(PROJECT_ROOT, "models", "per_symbol", f"lstm_{symbol}.pt").exists()
+
+
+def _has_dreamer_artifact(symbol: str) -> bool:
+    return Path(PROJECT_ROOT, "models", "dreamer", f"dreamer_{symbol}.pt").exists()
+
+
+def _pending_symbols(symbols: list[str], checker) -> list[str]:
+    return [symbol for symbol in symbols if not checker(symbol)]
+
+
 def _latest_candidate(reg: ModelRegistry, symbol: str | None = None):
     root = reg.candidates_dir
     dirs = [os.path.join(root, d) for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))]
@@ -69,6 +81,12 @@ def _run_train_drl(symbol: str | None = None):
     subprocess.check_call([sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT, env=env)
 
 
+def _run_train_lstm(symbols: list[str]):
+    env = os.environ.copy()
+    env["AGI_LSTM_SYMBOLS"] = ",".join(symbols)
+    subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT, env=env)
+
+
 def _dreamer_cfg(cfg: dict) -> dict:
     drl_cfg = cfg.get("drl", {}) if isinstance(cfg, dict) else {}
     raw = drl_cfg.get("dreamer", {})
@@ -100,6 +118,7 @@ def main():
 
     trading_cfg = cfg.get("trading", {})
     drl_cfg = cfg.get("drl", {})
+    cycle_cfg = cfg.get("cycle", {}) if isinstance(cfg.get("cycle", {}), dict) else {}
 
     symbols = trading_cfg.get("symbols", ["EURUSDm", "GBPUSDm"])
     eval_period = str(drl_cfg.get("eval_period", "120d"))
@@ -109,10 +128,26 @@ def main():
 
     per_symbol = bool(drl_cfg.get("per_symbol", True))
     gates = _gates_from_cfg(cfg)
+    skip_completed = bool(cycle_cfg.get("skip_completed_training", True))
+    force_skip_lstm = bool(cycle_cfg.get("skip_lstm", False))
+    force_skip_dreamer = bool(cycle_cfg.get("skip_dreamer", False))
+    lstm_pending = _pending_symbols(symbols, _has_lstm_artifact) if skip_completed else list(symbols)
+    dreamer_pending = _pending_symbols(symbols, _has_dreamer_artifact) if skip_completed else list(symbols)
+    skip_lstm = force_skip_lstm or (skip_completed and not lstm_pending)
+    skip_dreamer = force_skip_dreamer or (skip_completed and not dreamer_pending)
 
-    logger.info("Cycle start: train LSTM per symbol")
-    subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT)
-    dreamer_trained = _run_train_dreamer(cfg, symbols)
+    if skip_lstm:
+        logger.warning(f"Skipping LSTM; completed artifacts already exist for symbols={symbols}")
+    else:
+        logger.info(f"Cycle start: train LSTM per symbol | pending={lstm_pending}")
+        _run_train_lstm(lstm_pending)
+
+    if skip_dreamer:
+        logger.warning(f"Skipping Dreamer; completed artifacts already exist for symbols={symbols}")
+        dreamer_trained = False
+    else:
+        logger.info(f"Cycle step: train Dreamer for pending symbols={dreamer_pending}")
+        dreamer_trained = _run_train_dreamer(cfg, dreamer_pending)
 
     reg = ModelRegistry()
     cycle_report = {
@@ -121,6 +156,11 @@ def main():
         "eval_period": eval_period,
         "eval_interval": eval_interval,
         "gates": gates,
+        "skip_completed_training": skip_completed,
+        "lstm_pending": lstm_pending,
+        "dreamer_pending": dreamer_pending,
+        "skip_lstm": skip_lstm,
+        "skip_dreamer": skip_dreamer,
         "dreamer_trained": bool(dreamer_trained),
     }
 

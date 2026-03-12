@@ -1,11 +1,14 @@
-﻿trading:
-  symbols: ["EURUSDm", "GBPUSDm", "XAUUSDm"]
-  timeframe: "M5"
+trading:
+  symbols: &id001
+  - BTCUSDm
+  - XAUUSDm
+  - EURUSDm
+  - GBPUSDm
+  timeframe: M5
   risk_percent: 1.0
   max_drawdown: 10.0
   confidence_threshold: 0.85
   magic_number: 505
-
 risk:
   max_daily_loss: 1000
   max_daily_trades: 500
@@ -22,11 +25,9 @@ risk:
     max_positions_per_symbol: 3
     min_trade_interval_sec: 45
     max_spread_bps: 25.0
-
 telegram:
-  token: "YOUR_BOT_TOKEN_HERE"
-  chat_id: "YOUR_CHAT_ID_HERE"
-
+  token: YOUR_BOT_TOKEN_HERE
+  chat_id: YOUR_CHAT_ID_HERE
 event_intel:
   enabled: true
   poll_sec: 60
@@ -34,21 +35,16 @@ event_intel:
   post_event_min: 30
   news_hold_min: 20
   max_events: 200
-  # Optional feeds:
-  # calendar_url: "https://your-calendar-feed/events"
-  # news_url: "https://your-news-feed/headlines"
-  # websocket_url: "wss://your-feed/ws"
-
 drl:
   total_timesteps: 500000
   per_symbol: true
-  period: "90d"
-  interval: "M5"
+  period: 90d
+  interval: M5
   candles_per_symbol: 100000
-  eval_period: "120d"
-  model_path: "models/ppo_trading.zip"
-  feature_version: "ultimate_150"
-  data_source: "mt5"
+  eval_period: 120d
+  model_path: models/ppo_trading.zip
+  feature_version: ultimate_150
+  data_source: mt5
   optuna_trials: 0
   optuna_timesteps: 10000
   dreamer:
@@ -56,15 +52,14 @@ drl:
     train_in_cycle: true
     steps: 5000
     window: 64
-    feature_version: "ultimate_150"
-    # Optional subset; defaults to trading.symbols when empty.
-    symbols: []
+    feature_version: ultimate_150
+    symbols: *id001
   ensemble:
     enabled: false
     min_votes: 2
     agreement_threshold: 0.5
   reward:
-    version: "v2_risk_adjusted"
+    version: v2_risk_adjusted
     weights:
       growth: 8.0
       payoff: 2.0
@@ -74,29 +69,29 @@ drl:
       churn_penalty: 0.5
       memory_expectancy_bonus: 0.5
       loss_streak_penalty: 0.4
-
 training:
   lstm_epochs: 20
   per_symbol: true
-  lstm_period: "90d"
-  lstm_interval: "M5"
+  lstm_period: 90d
+  lstm_interval: M5
   lstm_candles: 100000
-  feature_version: "ultimate_150"
-  data_source: "mt5"
-
+  feature_version: ultimate_150
+  data_source: mt5
 evaluation:
-  max_drawdown: 0.10
-  min_sharpe: 0.30
+  max_drawdown: 0.1
+  min_sharpe: 0.3
   min_return: 0.015
-  score_margin: 0.30
+  score_margin: 0.3
   min_steps_per_symbol: 600
-  min_pass_rate: 0.80
+  min_pass_rate: 0.8
   return_margin: 0.0
   sharpe_margin: 0.05
   drawdown_margin: 0.0
-  forward_windows: ["60d", "90d", "120d"]
+  forward_windows:
+  - 60d
+  - 90d
+  - 120d
   min_forward_win_rate: 0.67
-
 registry:
   ensemble:
     history_limit: 3
@@ -113,7 +108,7 @@ registry:
       BTCUSDm:
         max_drawdown: 0.08
         min_trades: 60
-
 data:
-  source: "mt5"
-
+  source: mt5
+cycle:
+  skip_completed_training: false

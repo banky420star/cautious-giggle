@@ -764,6 +764,7 @@ def _latest_training_progress() -> dict:
 
 
 def _training_state(procs):
+    configured_symbols = _configured_symbols()
     drl = _filter_cmd(procs, "training/train_drl.py")
     lstm = _filter_cmd(procs, "training/train_lstm.py")
     dreamer = _filter_cmd(procs, "training/train_dreamer.py")
@@ -790,6 +791,7 @@ def _training_state(procs):
         "lstm_running": lstm_running,
         "dreamer_running": dreamer_running,
         "cycle_running": len(cycle) > 0,
+        "configured_symbols": configured_symbols,
         "drl_pids": [p["pid"] for p in drl],
         "lstm_pids": [p["pid"] for p in lstm],
         "dreamer_pids": [p["pid"] for p in dreamer],
