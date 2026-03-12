@@ -163,6 +163,26 @@ class AutonomyLoop:
             return active.get("symbols", {}).get(symbol, {}).get("canary")
         return active.get("canary")
 
+    def _resolve_canary_target(self, symbol: str) -> tuple[str | None, str | None]:
+        symbol_canary = self._get_canary_dir(symbol=symbol)
+        if symbol_canary:
+            return symbol_canary, "symbol"
+
+        active = self.registry._read_active()
+        global_canary = active.get("canary")
+        if not global_canary:
+            return None, None
+
+        meta = (active.get("registry_metadata", {}) or {}).get("canary_metadata", {}) or {}
+        symbols = meta.get("symbols")
+        if not isinstance(symbols, list) or not symbols:
+            sym = meta.get("symbol")
+            symbols = [sym] if sym else []
+        symbol_set = {str(s) for s in symbols if s}
+        if str(symbol) in symbol_set:
+            return global_canary, "global"
+        return None, None
+
     def _read_candidate_metadata(self, candidate_dir: str) -> dict:
         meta_path = os.path.join(candidate_dir, "metadata.json")
         if not os.path.exists(meta_path):
@@ -321,7 +341,7 @@ class AutonomyLoop:
             self._notify(f"Candidate blocked {symbol}: {detail} | {summary}")
 
     def _canary_monitor(self, symbol: str):
-        canary = self._get_canary_dir(symbol=symbol)
+        canary, scope = self._resolve_canary_target(symbol)
         if not canary:
             return
 
@@ -364,11 +384,11 @@ class AutonomyLoop:
             realized_pnl=realized,
             drawdown=dd_pct,
             runtime_minutes=runtime_minutes,
-            symbol=symbol,
+            symbol=(symbol if scope == "symbol" else None),
         )
 
         if realized <= -self.canary_max_loss or dd_pct >= self.canary_max_dd:
-            self.registry.rollback_to_champion(symbol=symbol)
+            self.registry.rollback_to_champion(symbol=(symbol if scope == "symbol" else None))
             self._canary_start_trade_count_by_symbol.pop(symbol, None)
             self._canary_set_time_by_symbol.pop(symbol, None)
             self._maybe_reload_brain()
@@ -377,13 +397,16 @@ class AutonomyLoop:
 
         if trades_since >= self.canary_min_trades and realized >= 0:
             try:
-                self.registry.promote_canary_to_champion(symbol=symbol)
+                self.registry.promote_canary_to_champion(symbol=(symbol if scope == "symbol" else None))
                 self._canary_start_trade_count_by_symbol.pop(symbol, None)
                 self._canary_set_time_by_symbol.pop(symbol, None)
                 self._maybe_reload_brain()
                 self._notify(f"Canary promoted {symbol}. trades={trades_since}, realized={realized:.2f}")
                 try:
-                    champ = self.registry.load_active_model(prefer_canary=False, symbol=symbol)
+                    champ = self.registry.load_active_model(
+                        prefer_canary=False,
+                        symbol=(symbol if scope == "symbol" else None),
+                    )
                     self.alerter.model(f"Champion promoted {symbol}: {champ}")
                 except Exception:
                     pass

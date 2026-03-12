@@ -302,7 +302,41 @@ def _to_mt5_timeframe(tf: str):
     return mapping.get((tf or "M5").upper(), mt5.TIMEFRAME_M5)
 
 
-def _signal_to_exposure(signal: str, confidence: float, closes):
+def _low_volatility_memory_base(trade_memory: dict | None) -> float:
+    memory = trade_memory if isinstance(trade_memory, dict) else {}
+    trades = int(memory.get("trades", 0) or 0)
+    expectancy = float(memory.get("expectancy", 0.0) or 0.0)
+    profit_factor = float(memory.get("profit_factor", 0.0) or 0.0)
+    recent_loss_streak = int(memory.get("recent_loss_streak", 0) or 0)
+
+    min_trades = int(os.environ.get("AGI_LOW_VOL_MIN_TRADES", "20"))
+    min_profit_factor = float(os.environ.get("AGI_LOW_VOL_MIN_PROFIT_FACTOR", "1.15"))
+    min_expectancy = float(os.environ.get("AGI_LOW_VOL_MIN_EXPECTANCY", "0.0"))
+    max_recent_loss_streak = int(os.environ.get("AGI_LOW_VOL_MAX_RECENT_LOSS_STREAK", "3"))
+    base_floor = float(os.environ.get("AGI_LOW_VOL_BASE_EXPOSURE", "0.08"))
+    base_cap = float(os.environ.get("AGI_LOW_VOL_MAX_EXPOSURE", "0.16"))
+
+    if trades < min_trades:
+        return 0.0
+    if expectancy <= min_expectancy:
+        return 0.0
+    if profit_factor < min_profit_factor:
+        return 0.0
+    if recent_loss_streak > max_recent_loss_streak:
+        return 0.0
+
+    expectancy_bonus = min(0.04, expectancy / 250.0)
+    profit_factor_bonus = min(0.04, max(0.0, profit_factor - min_profit_factor) / 5.0)
+    return float(min(base_cap, base_floor + expectancy_bonus + profit_factor_bonus))
+
+
+def _signal_to_exposure(
+    signal: str,
+    confidence: float,
+    closes,
+    trade_memory: dict | None = None,
+    low_vol_base: float | None = None,
+):
     if len(closes) < 8:
         return 0.0
 
@@ -310,7 +344,7 @@ def _signal_to_exposure(signal: str, confidence: float, closes):
     direction = 1.0 if momentum >= 0 else -1.0
 
     if signal == "LOW_VOLATILITY":
-        base = 0.0
+        base = _low_volatility_memory_base(trade_memory) if low_vol_base is None else float(low_vol_base)
     elif signal == "MED_VOLATILITY":
         base = 0.35
     else:
@@ -532,6 +566,7 @@ def main(live=False):
     last_daily_profit_date = None
     last_symbol_state = {str(s): {} for s in symbols}
     last_closed_by_symbol = {}
+    trade_learning_by_symbol = {}
 
     while True:
         now = time.time()
@@ -624,6 +659,11 @@ def main(live=False):
                         last_daily_profit_date = day
                 except Exception:
                     pass
+                trade_learning_by_symbol = {
+                    str((row or {}).get("symbol", "")): dict(row or {})
+                    for row in (learn.get("by_symbol", []) if isinstance(learn, dict) else [])
+                    if isinstance(row, dict) and row.get("symbol")
+                }
             except Exception as e:
                 logger.warning(f"trade learning update failed: {e}")
             last_learning = now
@@ -637,13 +677,26 @@ def main(live=False):
                 pred = agi.predict(df, production=True)
                 conf = float(pred.get("confidence", 0.0))
                 sig = str(pred.get("signal", "LOW_VOLATILITY"))
+                trade_memory = trade_learning_by_symbol.get(str(symbol), {})
+                low_vol_base = _low_volatility_memory_base(trade_memory) if sig == "LOW_VOLATILITY" else 0.0
 
                 agi_exposure = 0.0
                 if conf >= confidence_threshold:
-                    agi_exposure = _signal_to_exposure(sig, conf, df["close"].values)
+                    agi_exposure = _signal_to_exposure(
+                        sig,
+                        conf,
+                        df["close"].values,
+                        trade_memory=trade_memory,
+                        low_vol_base=low_vol_base,
+                    )
 
                 ppo_exposure = brain.predict_ppo_exposure(symbol, df)
                 exposure = brain.blend_exposure(agi_exposure, ppo_exposure, conf)
+                if sig == "LOW_VOLATILITY":
+                    if low_vol_base <= 0.0:
+                        exposure = 0.0
+                    else:
+                        exposure = max(-low_vol_base, min(low_vol_base, float(exposure)))
 
                 logger.info(
                     f"DECISION {symbol} | signal={sig} conf={conf:.4f} agi={agi_exposure:.4f} "
@@ -659,6 +712,13 @@ def main(live=False):
                         "ppo_exposure": None if ppo_exposure is None else float(ppo_exposure),
                         "exposure": float(exposure),
                         "threshold": float(confidence_threshold),
+                        "trade_memory": {
+                            "trades": int(trade_memory.get("trades", 0) or 0),
+                            "expectancy": float(trade_memory.get("expectancy", 0.0) or 0.0),
+                            "profit_factor": float(trade_memory.get("profit_factor", 0.0) or 0.0),
+                            "recent_loss_streak": int(trade_memory.get("recent_loss_streak", 0) or 0),
+                            "low_vol_base": float(low_vol_base),
+                        },
                     },
                 )
                 sym_state = last_symbol_state.setdefault(str(symbol), {})

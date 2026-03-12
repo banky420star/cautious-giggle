@@ -14,6 +14,8 @@ def translate_trade_action(
 ) -> Optional[dict]:
     if action_meta is None or tick is None:
         return None
+    if abs(float(exposure)) < 0.01:
+        return None
 
     direction = 1 if action_meta.get("direction", 0.0) >= 0.0 else -1
     size = float(action_meta.get("size", 0.0))

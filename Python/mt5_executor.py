@@ -120,19 +120,34 @@ class MT5Executor:
 
         net_lots = long_lots - short_lots
         target_lots = round(float(target_exposure) * float(max_lots), 2)
-        delta = target_lots - net_lots
-
-        if abs(delta) < 0.01:
-            return
-
-        if delta > 0:
-            if short_lots > 0:
-                self.close_positions(shorts)
-            self.open_position(symbol, mt5.ORDER_TYPE_BUY, abs(delta))
-        else:
+        if abs(target_lots) < 0.01:
             if long_lots > 0:
                 self.close_positions(longs)
-            self.open_position(symbol, mt5.ORDER_TYPE_SELL, abs(delta))
+            if short_lots > 0:
+                self.close_positions(shorts)
+            return
+
+        if target_lots > 0:
+            if short_lots > 0:
+                self.close_positions(shorts)
+                short_lots = 0.0
+            if long_lots > target_lots + 0.01:
+                self.close_positions(longs)
+                long_lots = 0.0
+            add_lots = round(target_lots - long_lots, 2)
+            if add_lots >= 0.01:
+                self.open_position(symbol, mt5.ORDER_TYPE_BUY, add_lots)
+        else:
+            desired_short_lots = abs(target_lots)
+            if long_lots > 0:
+                self.close_positions(longs)
+                long_lots = 0.0
+            if short_lots > desired_short_lots + 0.01:
+                self.close_positions(shorts)
+                short_lots = 0.0
+            add_lots = round(desired_short_lots - short_lots, 2)
+            if add_lots >= 0.01:
+                self.open_position(symbol, mt5.ORDER_TYPE_SELL, add_lots)
 
         self.risk.record_trade(symbol)
 
