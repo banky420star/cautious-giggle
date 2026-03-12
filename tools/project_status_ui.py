@@ -931,6 +931,114 @@ def _mt5_symbol_perf(days=7, max_points=24):
         return []
 
 
+def _compact_time_label(raw_ts):
+    if not raw_ts:
+        return "-"
+    try:
+        dt = datetime.fromisoformat(str(raw_ts).replace("Z", "+00:00"))
+        return dt.astimezone().strftime("%m-%d %H:%M")
+    except Exception:
+        return str(raw_ts)[11:16] if len(str(raw_ts)) >= 16 else str(raw_ts)
+
+
+def _profitability_chart_series(limit: int = 32):
+    path = os.path.join(LOG_DIR, "profitability.jsonl")
+    base = {"source": "unavailable", "labels": [], "equity": [], "drawdown_pct": []}
+    if not os.path.exists(path):
+        return base
+
+    entries = []
+    for raw in _tail(path, max(limit * 6, 240)):
+        try:
+            item = json.loads(raw)
+        except Exception:
+            continue
+        ts_raw = item.get("ts")
+        equity = item.get("equity")
+        if ts_raw is None or equity is None:
+            continue
+        try:
+            entries.append(
+                {
+                    "ts": str(ts_raw),
+                    "equity": float(equity),
+                }
+            )
+        except Exception:
+            continue
+
+    if not entries:
+        return base
+
+    deduped = []
+    for item in entries:
+        if deduped and deduped[-1]["ts"] == item["ts"]:
+            deduped[-1] = item
+        else:
+            deduped.append(item)
+    entries = deduped[-limit:]
+
+    peak = None
+    drawdown = []
+    for item in entries:
+        eq = float(item["equity"])
+        peak = eq if peak is None else max(peak, eq)
+        dd = 0.0 if not peak else max(0.0, (peak - eq) / peak * 100.0)
+        drawdown.append(round(dd, 2))
+
+    return {
+        "source": "profitability_log",
+        "labels": [_compact_time_label(item["ts"]) for item in entries],
+        "equity": [round(float(item["equity"]), 2) for item in entries],
+        "drawdown_pct": drawdown,
+    }
+
+
+def _symbol_pnl_chart(symbol_perf):
+    rows = list(symbol_perf or [])[:8]
+    return {
+        "source": "mt5_deals" if rows else "unavailable",
+        "labels": [str(row.get("symbol", "?")) for row in rows],
+        "values": [round(float(row.get("pnl", 0.0)), 2) for row in rows],
+    }
+
+
+def _dashboard_charts(account: dict, symbol_perf):
+    profitability = _profitability_chart_series()
+    equity_values = profitability.get("equity") or []
+    drawdown_values = profitability.get("drawdown_pct") or []
+
+    if not equity_values:
+        fallback_equity = None
+        try:
+            fallback_equity = float(account.get("equity")) if account.get("equity") is not None else None
+        except Exception:
+            fallback_equity = None
+        if fallback_equity is not None:
+            profitability = {
+                "source": "mt5_snapshot",
+                "labels": ["now"],
+                "equity": [round(fallback_equity, 2)],
+                "drawdown_pct": [0.0],
+            }
+            equity_values = profitability["equity"]
+            drawdown_values = profitability["drawdown_pct"]
+
+    return {
+        "equity_curve": {
+            "source": profitability.get("source", "unavailable"),
+            "labels": profitability.get("labels", []),
+            "values": equity_values,
+        },
+        "drawdown_curve": {
+            "source": profitability.get("source", "unavailable"),
+            "labels": profitability.get("labels", []),
+            "values": drawdown_values,
+        },
+        "symbol_pnl": _symbol_pnl_chart(symbol_perf),
+    }
+
+
 def _file_status(path: str, stale_minutes: int = 15):
     if not os.path.exists(path):
         return {"path": path, "exists": False, "fresh": False, "updated_utc": None, "age_seconds": None}
@@ -1061,6 +1169,8 @@ def _collect_status():
     reg = ModelRegistry()
     canary_ok, canary_reason = reg.can_promote_canary()
     active = _active_models()
+    account = _mt5_snapshot()
+    symbol_perf = _mt5_symbol_perf(7)
     return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "repo_root": ROOT,
@@ -1071,8 +1181,9 @@ def _collect_status():
         "runtime_owner": _runtime_owner_health(procs),
         "n8n": _n8n_state(),
         "training": _training_state(procs),
-        "account": _mt5_snapshot(),
-        "symbol_perf": _mt5_symbol_perf(7),
+        "account": account,
+        "symbol_perf": symbol_perf,
+        "charts": _dashboard_charts(account, symbol_perf),
         "trade_learning": _trade_learning_status(),
         "event_intel": _event_intel_status(),
         "incidents": _incident_feed(40),
