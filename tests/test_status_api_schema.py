@@ -36,4 +36,5 @@ def test_status_payload_shape(monkeypatch):
     assert "symbol_perf" in out
     assert "logs" in out
     assert "canary_gate" in out
+    assert "telegram" in out
     assert set(out["canary_gate"].keys()) == {"ready", "reason"}

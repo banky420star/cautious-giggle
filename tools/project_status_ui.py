@@ -950,6 +950,18 @@ def _source_health():
     }
 
 
+def _telegram_status():
+    cfg = _load_cfg()
+    tel = cfg.get("telegram", {}) if isinstance(cfg, dict) else {}
+    token = os.environ.get("TELEGRAM_TOKEN") or _resolve_cfg_value(tel.get("token"))
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or _resolve_cfg_value(tel.get("chat_id"))
+    configured = bool(token and chat_id)
+    cards = TelegramAlerter(None, None).state_summary(limit=14)
+    cards["configured"] = configured
+    cards["delivery_target"] = "both" if configured else "dashboard_only"
+    return cards
+
+
 def _incident_feed(limit: int = 40):
     path = os.path.join(LOG_DIR, "audit_events.jsonl")
     if not os.path.exists(path):
@@ -1055,6 +1067,7 @@ def _collect_status():
         "event_intel": _event_intel_status(),
         "incidents": _incident_feed(40),
         "source_health": _source_health(),
+        "telegram": _telegram_status(),
         "logs": {
             "server": _tail(os.path.join(LOG_DIR, "server.log"), 50),
             "lstm": _tail(os.path.join(LOG_DIR, "lstm_training.log"), 50),
