@@ -37,6 +37,7 @@ EVENT_INTEL_PATH = os.path.join(LOG_DIR, "event_intel_state.json")
 ACCOUNT_HISTORY_PATH = os.path.join(LOG_DIR, "account_history.jsonl")
 LOG_TS_FMT = "%Y-%m-%d %H:%M:%S"
 ACCOUNT_HISTORY_INTERVAL_SECONDS = 5
+TELEGRAM_CARD_SYNC_SECONDS = 45
 _ACCOUNT_HISTORY_LAST_TS = None
 _ACCOUNT_HISTORY_LAST_SIG = None
 STATUS_CACHE = {
@@ -1318,6 +1319,116 @@ def read_status(refresh_if_booting: bool = True):
     return STATUS_CACHE
 
 
+def _symbol_cards_from_status(status: dict):
+    cards = {}
+    positions = (status.get("account", {}) or {}).get("positions", []) or []
+    for row in positions:
+        symbol = str(row.get("symbol") or "")
+        if not symbol:
+            continue
+        side = str(row.get("type") or "n/a")
+        cards[symbol] = {
+            "signal": side,
+            "confidence": None,
+            "agi_exposure": None,
+            "ppo_exposure": None,
+            "dreamer_exposure": None,
+            "blend_exposure": None,
+            "open_positions": 1,
+            "floating_pnl": float(row.get("profit", 0.0) or 0.0),
+            "position_side": side,
+            "position_volume": float(row.get("volume", 0.0) or 0.0),
+            "position_entry": row.get("open_price"),
+            "position_tp": row.get("tp"),
+            "position_sl": row.get("sl"),
+            "position_tp_value_usd": row.get("tp_value_usd"),
+            "position_sl_value_usd": row.get("sl_value_usd"),
+            "last_closed": {},
+        }
+
+    for item in status.get("incidents", []) or []:
+        if str(item.get("event") or "") != "signal":
+            continue
+        payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+        symbol = str(payload.get("symbol") or item.get("symbol") or "")
+        if not symbol:
+            continue
+        card = cards.setdefault(
+            symbol,
+            {
+                "signal": payload.get("signal", "n/a"),
+                "confidence": None,
+                "agi_exposure": None,
+                "ppo_exposure": None,
+                "dreamer_exposure": None,
+                "blend_exposure": None,
+                "open_positions": 0,
+                "floating_pnl": 0.0,
+                "position_side": "n/a",
+                "position_volume": 0.0,
+                "position_entry": None,
+                "position_tp": None,
+                "position_sl": None,
+                "position_tp_value_usd": None,
+                "position_sl_value_usd": None,
+                "last_closed": {},
+            },
+        )
+        card["signal"] = payload.get("signal", card.get("signal", "n/a"))
+        card["confidence"] = payload.get("confidence")
+        card["agi_exposure"] = payload.get("agi_exposure")
+        card["ppo_exposure"] = payload.get("ppo_exposure")
+        card["dreamer_exposure"] = payload.get("dreamer_exposure")
+        card["blend_exposure"] = payload.get("exposure")
+
+    return cards
+
+
+def _sync_dashboard_cards(alerter, status: dict):
+    if alerter is None:
+        return
+
+    account = status.get("account", {}) or {}
+    training = status.get("training", {}) or {}
+    active_models = status.get("active_models", {}) or {}
+    trade_learning = status.get("trade_learning", {}) or {}
+    event_intel = status.get("event_intel", {}) or {}
+
+    snapshot = {
+        "balance": account.get("balance"),
+        "equity": account.get("equity"),
+        "free_margin": account.get("free_margin"),
+        "pnl_today": trade_learning.get("total_pnl"),
+        "floating": account.get("profit"),
+        "open_positions": account.get("open_positions"),
+    }
+    alerter.heartbeat_full(
+        uptime="dashboard-live",
+        mt5_connected=bool(account.get("connected")),
+        trading_enabled=bool(status.get("server", {}).get("running")),
+        snapshot=snapshot,
+        training=training,
+        models=active_models,
+        event_intel=event_intel,
+    )
+    alerter.snapshot(
+        balance=account.get("balance"),
+        equity=account.get("equity"),
+        pnl_today=trade_learning.get("total_pnl"),
+        floating=account.get("profit"),
+        open_positions=account.get("open_positions"),
+    )
+    alerter.profitability_daily(trade_learning)
+    alerter.model(
+        f"champion={active_models.get('champion') or 'none'} | "
+        f"canary={active_models.get('canary') or 'none'} | "
+        f"gate={status.get('canary_gate', {}).get('reason') or 'n/a'}"
+    )
+
+    for symbol, payload in sorted(_symbol_cards_from_status(status).items()):
+        alerter.symbol_status(symbol, payload)
+
+
 def _spawn(args, stdout_name, stderr_name, env=None):
     os.makedirs(LOG_DIR, exist_ok=True)
     out = open(os.path.join(LOG_DIR, stdout_name), "a", encoding="utf-8")
@@ -1527,10 +1638,23 @@ async def notify_loop(app):
         await asyncio.sleep(8)
 
 
+async def telegram_card_sync_loop(app):
+    alerter = app.get("alerter")
+    while True:
+        try:
+            status = read_status(refresh_if_booting=False)
+            if status.get("state") != "booting":
+                await asyncio.to_thread(_sync_dashboard_cards, alerter, status)
+        except Exception:
+            pass
+        await asyncio.sleep(TELEGRAM_CARD_SYNC_SECONDS)
+
+
 async def on_startup(app):
     app["alerter"] = _build_alerter()
     app["status_task"] = asyncio.create_task(status_refresh_loop())
     app["notify_task"] = asyncio.create_task(notify_loop(app))
+    app["telegram_task"] = asyncio.create_task(telegram_card_sync_loop(app))
 
 
 async def status_refresh_loop():

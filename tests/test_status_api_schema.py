@@ -96,3 +96,45 @@ def test_account_history_series_and_preference(tmp_path, monkeypatch):
     assert series["equity"] == [1000.0, 998.0, 1003.0]
     assert charts["equity_curve"]["source"] == "account_history"
     assert charts["drawdown_curve"]["values"] == [0.0, 0.2, 0.0]
+
+
+def test_symbol_cards_from_status_uses_positions_and_signals():
+    status = {
+        "account": {
+            "positions": [
+                {
+                    "symbol": "BTCUSDm",
+                    "type": "SELL",
+                    "volume": 0.04,
+                    "profit": 12.5,
+                    "open_price": 70000.0,
+                    "tp": 69000.0,
+                    "sl": 70500.0,
+                    "tp_value_usd": 40.0,
+                    "sl_value_usd": -20.0,
+                }
+            ]
+        },
+        "incidents": [
+            {
+                "event": "signal",
+                "symbol": "BTCUSDm",
+                "payload": {
+                    "symbol": "BTCUSDm",
+                    "signal": "LOW_VOLATILITY",
+                    "confidence": 0.99,
+                    "agi_exposure": 0.1,
+                    "ppo_exposure": -0.2,
+                    "dreamer_exposure": -1.0,
+                    "exposure": 0.0,
+                },
+            }
+        ],
+    }
+
+    out = ui._symbol_cards_from_status(status)
+
+    assert "BTCUSDm" in out
+    assert out["BTCUSDm"]["position_side"] == "SELL"
+    assert out["BTCUSDm"]["signal"] == "LOW_VOLATILITY"
+    assert out["BTCUSDm"]["dreamer_exposure"] == -1.0
