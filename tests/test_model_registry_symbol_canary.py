@@ -16,7 +16,7 @@ def _tmp_registry_root() -> Path:
 def test_symbol_canary_requires_symbol_metrics_to_promote():
     root = _tmp_registry_root()
     try:
-        reg = ModelRegistry(root=str(root))
+        reg = ModelRegistry(root=str(root), registry_config={})
         reg.set_canary("candidate_eur_v1", symbol="EURUSDm")
 
         with pytest.raises(RuntimeError):
@@ -42,7 +42,7 @@ def test_symbol_canary_requires_symbol_metrics_to_promote():
 def test_symbol_rollback_only_clears_target_symbol_canary():
     root = _tmp_registry_root()
     try:
-        reg = ModelRegistry(root=str(root))
+        reg = ModelRegistry(root=str(root), registry_config={})
         reg.set_canary("candidate_eur_v2", symbol="EURUSDm")
         reg.set_canary("candidate_xau_v2", symbol="XAUUSDm")
 

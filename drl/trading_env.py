@@ -8,6 +8,10 @@ import polars as pl
 import pandas as pd
 from gymnasium import spaces
 
+ENGINEERED_FEATURE_COUNT = 21
+DEFAULT_PORTFOLIO_FEATURE_COUNT = 3
+MAX_PORTFOLIO_FEATURE_COUNT = 6
+
 
 class TradingEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
@@ -23,6 +27,7 @@ class TradingEnv(gym.Env):
         max_leverage: float = 1.0,
         reward_weights: dict | None = None,
         trade_memory: dict | None = None,
+        portfolio_feature_count: int | None = None,
     ):
         super().__init__()
         self.initial_balance = float(initial_balance)
@@ -56,7 +61,11 @@ class TradingEnv(gym.Env):
         self.equity_curve = []
         self._trade_metrics = {}
         self.memory_features = self._build_memory_features(self.trade_memory)
-        self.portfolio_feature_count = 6
+        self.max_portfolio_features = MAX_PORTFOLIO_FEATURE_COUNT
+        if portfolio_feature_count is not None:
+            self.portfolio_feature_count = min(int(portfolio_feature_count), self.max_portfolio_features)
+        else:
+            self.portfolio_feature_count = self._default_portfolio_feature_count()
 
         self.n_features = 0
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(1,), dtype=np.float32)
@@ -106,6 +115,29 @@ class TradingEnv(gym.Env):
             "loss_ratio_norm": float(np.clip((loss_ratio * 2.0) - 1.0, -1.0, 1.0)),
         }
 
+    def _default_portfolio_feature_count(self) -> int:
+        raw = os.environ.get("AGI_PORTFOLIO_FEATURE_COUNT", str(DEFAULT_PORTFOLIO_FEATURE_COUNT))
+        try:
+            count = int(raw)
+        except Exception:
+            count = DEFAULT_PORTFOLIO_FEATURE_COUNT
+        return max(0, min(self.max_portfolio_features, count))
+
+    @staticmethod
+    def infer_portfolio_feature_count(
+        obs_dim: int | None,
+        window_size: int = 100,
+        n_features: int = ENGINEERED_FEATURE_COUNT,
+        default: int = DEFAULT_PORTFOLIO_FEATURE_COUNT,
+        max_features: int = MAX_PORTFOLIO_FEATURE_COUNT,
+    ) -> int:
+        if obs_dim is None:
+            return default
+        residual = int(obs_dim) - int(window_size) * int(n_features)
+        if 0 <= residual <= max_features:
+            return residual
+        return default
+
     @staticmethod
     def decode_action(action, max_leverage: float = 1.0) -> dict:
         raw = np.asarray(action, dtype=np.float32).reshape(-1)
@@ -116,6 +148,31 @@ class TradingEnv(gym.Env):
                 "size": float(min(1.0, abs(target) / max(float(max_leverage), 1e-12))),
                 "risk": 1.0,
                 "target": float(target),
+                "legacy": True,
+            }
+
+        if raw.size == 3:
+            direction_raw = float(np.clip(raw[0], -1.0, 1.0))
+            size_raw = float(np.clip(raw[1], -1.0, 1.0))
+            risk_raw = float(np.clip(raw[2], -1.0, 1.0))
+
+            size = float(np.clip((size_raw + 1.0) * 0.5, 0.0, 1.0))
+            risk = float(np.clip((risk_raw + 1.0) * 0.5, 0.0, 1.0))
+            target = float(np.clip(direction_raw * size, -1.0, 1.0) * float(max_leverage))
+            tp_sl_offset_pct = float(0.005 + risk * 0.015)
+
+            if abs(direction_raw) < 0.03 or size < 0.03:
+                target = 0.0
+
+            return {
+                "direction": direction_raw,
+                "size": size,
+                "risk": risk,
+                "target": float(target),
+                "entry_mode": "market",
+                "entry_offset_pct": 0.0,
+                "tp_offset_pct": tp_sl_offset_pct,
+                "sl_offset_pct": tp_sl_offset_pct,
                 "legacy": True,
             }
 
@@ -279,12 +336,7 @@ class TradingEnv(gym.Env):
         self.feature_data = self._build_feature_matrix(o, h, l, c, v, dates)
         self.n_features = int(self.feature_data.shape[1])
 
-        self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(self.window_size * self.n_features + self.portfolio_feature_count,),
-            dtype=np.float32,
-        )
+        self._update_observation_space()
         self.reset()
 
     def _use_synthetic(self):
@@ -299,12 +351,7 @@ class TradingEnv(gym.Env):
         self.prices = price.astype(np.float64)
         self.feature_data = self._build_feature_matrix(o, h, l, price, v, dates)
         self.n_features = int(self.feature_data.shape[1])
-        self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
-            shape=(self.window_size * self.n_features + self.portfolio_feature_count,),
-            dtype=np.float32,
-        )
+        self._update_observation_space()
         self.reset()
 
     def reset(self, seed=None, options=None):
@@ -425,18 +472,34 @@ class TradingEnv(gym.Env):
     def _get_obs(self):
         window = self.feature_data[self.current_step - self.window_size : self.current_step].copy()
         obs_window = window.flatten().astype(np.float32)
-        portfolio_state = np.array(
-            [
-                self.equity / self.initial_balance,
-                self.position,
-                float(np.mean(self.recent_returns)),
-                float(self.memory_features.get("win_rate_norm", 0.0)),
-                float(self.memory_features.get("expectancy_norm", 0.0)),
-                float(self.memory_features.get("loss_ratio_norm", 0.0)),
-            ],
+        portfolio_state = np.array(self._build_portfolio_state(), dtype=np.float32)
+        return np.concatenate([obs_window, portfolio_state]).astype(np.float32)
+
+    def _build_portfolio_state(self) -> list[float]:
+        base = [
+            self.equity / self.initial_balance,
+            self.position,
+            float(np.mean(self.recent_returns)),
+            float(self.memory_features.get("win_rate_norm", 0.0)),
+            float(self.memory_features.get("expectancy_norm", 0.0)),
+            float(self.memory_features.get("loss_ratio_norm", 0.0)),
+        ]
+        if self.portfolio_feature_count <= 0:
+            return []
+        return base[: min(self.portfolio_feature_count, len(base))]
+
+    def set_portfolio_feature_count(self, count: int):
+        self.portfolio_feature_count = max(0, min(self.max_portfolio_features, int(count)))
+        self._update_observation_space()
+
+    def _update_observation_space(self):
+        shape = self.window_size * self.n_features + self.portfolio_feature_count
+        self.observation_space = spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(shape,),
             dtype=np.float32,
         )
-        return np.concatenate([obs_window, portfolio_state]).astype(np.float32)
 
     def _trade_state_snapshot(self, current_price: float) -> dict:
         return {

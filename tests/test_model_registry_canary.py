@@ -16,7 +16,7 @@ def _tmp_registry_root() -> Path:
 def test_canary_promotion_requires_survival_metrics():
     root = _tmp_registry_root()
     try:
-        reg = ModelRegistry(root=str(root))
+        reg = ModelRegistry(root=str(root), registry_config={})
         reg.set_canary("candidate_v1")
 
         with pytest.raises(RuntimeError):
@@ -35,7 +35,7 @@ def test_canary_promotion_requires_survival_metrics():
 def test_rollback_clears_canary_without_touching_champion():
     root = _tmp_registry_root()
     try:
-        reg = ModelRegistry(root=str(root))
+        reg = ModelRegistry(root=str(root), registry_config={})
         active = reg._read_active()
         active["champion"] = "champion_v1"
         reg._write_active(active)

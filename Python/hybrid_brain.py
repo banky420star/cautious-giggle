@@ -43,6 +43,12 @@ class HybridBrain:
         self._load_ppo_from_registry()
         self._start_autonomy_if_enabled()
 
+    @staticmethod
+    def _infer_portfolio_feature_count(obs_dim: Optional[int]) -> int:
+        from drl.trading_env import TradingEnv
+
+        return TradingEnv.infer_portfolio_feature_count(obs_dim)
+
     def _start_autonomy_if_enabled(self):
         if os.environ.get("AGI_AUTONOMY_ENABLED", "true").lower() != "true":
             return
@@ -103,7 +109,11 @@ class HybridBrain:
                     self._vecnorm_disabled = False
 
                     if os.path.exists(vec_path):
-                        dummy = DummyVecEnv([lambda: TradingEnv()])
+                        obs_dim = self._expected_obs_dim()
+                        portfolio_feature_count = self._infer_portfolio_feature_count(obs_dim)
+                        dummy = DummyVecEnv(
+                            [lambda count=portfolio_feature_count: TradingEnv(portfolio_feature_count=count)]
+                        )
                         self.vec_norm = VecNormalize.load(vec_path, dummy)
                         self.vec_norm.training = False
                         self.vec_norm.norm_reward = False
@@ -161,17 +171,20 @@ class HybridBrain:
 
         obs_dim = self._expected_obs_dim()
         inferred_window = self.window_size
-        n_features = 21
-        if obs_dim is not None:
-            for portfolio_dims in (6, 3):
-                if obs_dim > portfolio_dims and (obs_dim - portfolio_dims) % n_features == 0:
-                    inferred_window = max(10, int((obs_dim - portfolio_dims) / n_features))
-                    break
+        n_features = getattr(TradingEnv, "ENGINEERED_FEATURE_COUNT", 21)
+        portfolio_feature_count = self._infer_portfolio_feature_count(obs_dim)
+        if obs_dim is not None and obs_dim > portfolio_feature_count:
+            if (obs_dim - portfolio_feature_count) % n_features == 0:
+                inferred_window = max(10, int((obs_dim - portfolio_feature_count) / n_features))
 
         if len(df) < inferred_window:
             return None
 
-        env = TradingEnv(df=df.copy(), window_size=inferred_window)
+        env = TradingEnv(
+            df=df.copy(),
+            window_size=inferred_window,
+            portfolio_feature_count=portfolio_feature_count,
+        )
         obs, _ = env.reset()
         obs = np.asarray(obs, dtype=np.float32).reshape(-1)
         if obs_dim is not None and obs.shape[0] != obs_dim:

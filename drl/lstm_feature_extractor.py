@@ -16,7 +16,17 @@ class LSTMFeatureExtractor(BaseFeaturesExtractor):
     """
 
     def __init__(self, observation_space: spaces.Box, features_dim: int = 256):
-        super().__init__(observation_space, features_dim=features_dim + 3)
+        total_obs = int(observation_space.shape[0])
+        self.seq_window = 100
+        self.portfolio_dim = total_obs % self.seq_window
+        seq_flat = total_obs - self.portfolio_dim
+        if seq_flat <= 0 or seq_flat % self.seq_window != 0:
+            raise ValueError(
+                f"Invalid observation shape for LSTM extractor: total={total_obs}, "
+                f"window={self.seq_window}, portfolio_dim={self.portfolio_dim}"
+            )
+
+        super().__init__(observation_space, features_dim=features_dim + self.portfolio_dim)
 
         logger.info("initializing LSTMFeatureExtractor")
         self.lstm_brain = SmartAGI()
@@ -27,15 +37,6 @@ class LSTMFeatureExtractor(BaseFeaturesExtractor):
         for param in self.lstm_brain.model.parameters():
             param.requires_grad = True
 
-        total_obs = int(observation_space.shape[0])
-        self.portfolio_dim = 3
-        self.seq_window = 100
-        seq_flat = total_obs - self.portfolio_dim
-        if seq_flat <= 0 or seq_flat % self.seq_window != 0:
-            raise ValueError(
-                f"Invalid observation shape for LSTM extractor: total={total_obs}, "
-                f"window={self.seq_window}, portfolio_dim={self.portfolio_dim}"
-            )
         self.seq_feature_dim = seq_flat // self.seq_window
 
     def forward(self, observations: torch.Tensor) -> torch.Tensor:

@@ -41,7 +41,10 @@ def load_model():
         
         vec_env = None
         if os.path.exists(VEC_NORM_PATH):
-            dummy = DummyVecEnv([make_env()])
+            obs_dim = int(model.observation_space.shape[0])
+            portfolio_feature_count = TradingEnv.infer_portfolio_feature_count(obs_dim)
+            dummy = DummyVecEnv([make_env(None)])
+            dummy.env_method("set_portfolio_feature_count", portfolio_feature_count)
             vec_env = VecNormalize.load(VEC_NORM_PATH, dummy)
             vec_env.training = False
             vec_env.norm_reward = False

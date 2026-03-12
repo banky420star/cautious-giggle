@@ -43,11 +43,22 @@ def _normalize_interval(interval: str | None) -> str:
     return m
 
 
-def _make_env(df_pd: pd.DataFrame, initial_balance: float = 10000.0, reward_weights: dict | None = None):
+def _make_env(
+    df_pd: pd.DataFrame,
+    initial_balance: float = 10000.0,
+    reward_weights: dict | None = None,
+    portfolio_feature_count: int | None = None,
+):
     def _init():
-        return TradingEnv(df_pd, initial_balance=initial_balance, reward_weights=reward_weights)
+        return TradingEnv(
+            df_pd,
+            initial_balance=initial_balance,
+            reward_weights=reward_weights,
+            portfolio_feature_count=portfolio_feature_count,
+        )
 
     return DummyVecEnv([_init])
+
 
 
 def run_ppo_backtest(
@@ -64,18 +75,28 @@ def run_ppo_backtest(
     if df is None or df.empty or len(df) < 400:
         raise RuntimeError(f"Insufficient data for {symbol} (len={0 if df is None else len(df)})")
 
-    env = _make_env(df, initial_balance=initial_balance, reward_weights=reward_weights)
+    if not os.path.exists(model_path):
+        raise RuntimeError(f"Missing model file: {model_path}")
+    model = PPO.load(model_path, device="cpu")
+    expected_obs_dim = None
+    obs_space = getattr(model, "observation_space", None)
+    if obs_space is not None and getattr(obs_space, "shape", None):
+        expected_obs_dim = int(np.prod(obs_space.shape))
+    portfolio_feature_count = (
+        TradingEnv.infer_portfolio_feature_count(expected_obs_dim) if expected_obs_dim is not None else None
+    )
+    env = _make_env(
+        df,
+        initial_balance=initial_balance,
+        reward_weights=reward_weights,
+        portfolio_feature_count=portfolio_feature_count,
+    )
     if not os.path.exists(vecnorm_path):
         raise RuntimeError(f"Missing vecnorm file: {vecnorm_path}")
 
     env = VecNormalize.load(vecnorm_path, env)
     env.training = False
     env.norm_reward = False
-
-    if not os.path.exists(model_path):
-        raise RuntimeError(f"Missing model file: {model_path}")
-
-    model = PPO.load(model_path, device="cpu")
 
     obs = env.reset()
     equities, costs, positions, rewards, step_rets = [], [], [], [], []

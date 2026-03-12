@@ -39,7 +39,7 @@ class ModelRegistry:
       }
     """
 
-    def __init__(self, root=None):
+    def __init__(self, root=None, registry_config: dict | None = None):
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.root = root or os.path.join(base, "models", "registry")
         os.makedirs(self.root, exist_ok=True)
@@ -55,7 +55,8 @@ class ModelRegistry:
         if not os.path.exists(self.active_path):
             self._write_active({"champion": None, "canary": None, "symbols": {}})
 
-        self.registry_config = self._load_registry_config()
+        self._explicit_registry_config = registry_config
+        self.registry_config = registry_config if registry_config is not None else self._load_registry_config()
         self._canary_policy_cfg = self.registry_config.get("canary_policy", {}) or {}
         self._canary_default_overrides = self._canary_policy_cfg.get("default", {}) or {}
         self._canary_symbol_overrides = self._canary_policy_cfg.get("per_symbol", {}) or {}

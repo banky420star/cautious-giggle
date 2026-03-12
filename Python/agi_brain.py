@@ -110,7 +110,7 @@ class SmartAGI:
         from Python.model_registry import ModelRegistry
 
         self.registry = ModelRegistry()
-        self.active_dir = self.registry.load_active_model(prefer_canary=True)
+        self.active_dir = self._resolve_registry_default_dir()
 
         if self.active_dir:
             model_path = os.path.join(self.active_dir, "lstm_model.pth")
@@ -127,6 +127,24 @@ class SmartAGI:
         self.model = self.default_bundle["model"]
         self.scaler = self.default_bundle["scaler"]
         self.scaler_loaded = self.default_bundle["scaler_loaded"]
+
+    def _resolve_registry_default_dir(self) -> str | None:
+        preferred = self.registry.load_active_model(prefer_canary=True)
+        if self._has_default_bundle(preferred):
+            return preferred
+
+        champion = self.registry.load_active_model(prefer_canary=False)
+        if self._has_default_bundle(champion):
+            return champion
+        return None
+
+    @staticmethod
+    def _has_default_bundle(candidate_dir: str | None) -> bool:
+        if not candidate_dir:
+            return False
+        model_path = os.path.join(candidate_dir, "lstm_model.pth")
+        scaler_path = os.path.join(candidate_dir, "lstm_scaler.pkl")
+        return os.path.exists(model_path) and os.path.exists(scaler_path)
 
     def _load_bundle(self, model_path: str, scaler_path: str, label: str):
         model = AGIModel().to(self.device)
