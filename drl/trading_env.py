@@ -7,6 +7,7 @@ import numpy as np
 import polars as pl
 import pandas as pd
 from gymnasium import spaces
+from Python.feature_pipeline import ENGINEERED_V2, build_env_feature_matrix, feature_count_for_version
 
 ENGINEERED_FEATURE_COUNT = 21
 DEFAULT_PORTFOLIO_FEATURE_COUNT = 3
@@ -28,6 +29,7 @@ class TradingEnv(gym.Env):
         reward_weights: dict | None = None,
         trade_memory: dict | None = None,
         portfolio_feature_count: int | None = None,
+        feature_version: str = ENGINEERED_V2,
     ):
         super().__init__()
         self.initial_balance = float(initial_balance)
@@ -36,7 +38,7 @@ class TradingEnv(gym.Env):
         self.max_drawdown = float(max_drawdown)
         self.window_size = int(window_size)
         self.max_leverage = float(max_leverage)
-        self.feature_version = "engineered_v2"
+        self.feature_version = str(feature_version or ENGINEERED_V2)
         self.action_version = "multi_trade_v1"
         self.trade_memory = trade_memory or {}
 
@@ -333,7 +335,17 @@ class TradingEnv(gym.Env):
     def _set_data(self, df):
         o, h, l, c, v, dates = self._extract_arrays(df)
         self.prices = c.astype(np.float64)
-        self.feature_data = self._build_feature_matrix(o, h, l, c, v, dates)
+        base = pd.DataFrame(
+            {
+                "time": dates if dates is not None else pd.RangeIndex(len(c)),
+                "open": o,
+                "high": h,
+                "low": l,
+                "close": c,
+                "volume": v,
+            }
+        )
+        self.feature_data = build_env_feature_matrix(base, feature_version=self.feature_version)
         self.n_features = int(self.feature_data.shape[1])
 
         self._update_observation_space()
@@ -349,7 +361,17 @@ class TradingEnv(gym.Env):
         dates = pd.date_range("2026-01-01", periods=n, freq="5min", tz="UTC")
 
         self.prices = price.astype(np.float64)
-        self.feature_data = self._build_feature_matrix(o, h, l, price, v, dates)
+        base = pd.DataFrame(
+            {
+                "time": dates,
+                "open": o,
+                "high": h,
+                "low": l,
+                "close": price,
+                "volume": v,
+            }
+        )
+        self.feature_data = build_env_feature_matrix(base, feature_version=self.feature_version)
         self.n_features = int(self.feature_data.shape[1])
         self._update_observation_space()
         self.reset()

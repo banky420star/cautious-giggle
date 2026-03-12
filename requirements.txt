@@ -20,3 +20,6 @@ pydantic-settings
 MetaTrader5; sys_platform == 'win32'
 joblib
 pyarrow
+optuna
+metaapi-cloud-sdk
+dukascopy-python

@@ -1,4 +1,4 @@
-﻿import datetime
+import datetime
 import json
 import os
 import shutil
@@ -20,10 +20,12 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
 
 from analysis.gradient_flow_analyzer import LSTMGradientDiagnostics
+from drl.adaptive_feature_extractor import AdaptiveLSTMFeatureExtractor
 from drl.lstm_feature_extractor import LSTMFeatureExtractor
 from drl.trading_env import TradingEnv
-from Python.data_feed import fetch_training_data, get_combined_training_df
 from Python.config_utils import load_project_config
+from Python.data_feed import fetch_training_data, get_combined_training_df
+from Python.feature_pipeline import ENGINEERED_V2, ULTIMATE_150
 from Python.trade_learning import load_trade_memory
 from alerts.telegram_alerts import TelegramAlerter
 
@@ -116,7 +118,14 @@ def get_mt5_equity(default_balance: float = 10000.0, cfg: dict | None = None) ->
     return float(default_balance)
 
 
-def make_env(df, seed: int, initial_balance: float, reward_weights: dict, trade_memory: dict | None = None):
+def make_env(
+    df,
+    seed: int,
+    initial_balance: float,
+    reward_weights: dict,
+    trade_memory: dict | None = None,
+    feature_version: str = ENGINEERED_V2,
+):
     def _init():
         set_random_seed(seed)
         if isinstance(df, pl.DataFrame):
@@ -126,13 +135,19 @@ def make_env(df, seed: int, initial_balance: float, reward_weights: dict, trade_
         if "time" in pdf.columns:
             pdf["time"] = pd.to_datetime(pdf["time"], utc=True)
             pdf = pdf.sort_values("time").set_index("time")
-        env = TradingEnv(pdf, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory)
+        env = TradingEnv(
+            pdf,
+            initial_balance=initial_balance,
+            reward_weights=reward_weights,
+            trade_memory=trade_memory,
+            feature_version=feature_version,
+        )
         return Monitor(env)
 
     return _init
 
 
-def _prepare_df(symbols: list[str], period: str, interval: str, per_symbol_mode: bool, candles: int) -> pd.DataFrame:
+def _prepare_df(symbols: list[str], period: str, interval: str, per_symbol_mode: bool, candles: int, data_source: str | None) -> pd.DataFrame:
     if per_symbol_mode and len(symbols) == 1:
         df = fetch_training_data(
             symbols[0],
@@ -141,6 +156,7 @@ def _prepare_df(symbols: list[str], period: str, interval: str, per_symbol_mode:
             strict=False,
             bars=int(candles),
             min_bars=int(candles),
+            source=data_source,
         )
     else:
         df = get_combined_training_df(
@@ -149,6 +165,7 @@ def _prepare_df(symbols: list[str], period: str, interval: str, per_symbol_mode:
             interval=interval,
             bars=int(candles),
             min_bars=int(candles),
+            source=data_source,
         )
 
     if df is None or df.empty:
@@ -175,13 +192,124 @@ def _prepare_df(symbols: list[str], period: str, interval: str, per_symbol_mode:
     return df
 
 
-def _is_vecnorm_compatible(vec_path: str) -> bool:
+def _is_vecnorm_compatible(vec_path: str, feature_version: str) -> bool:
     try:
-        dummy = DummyVecEnv([lambda: TradingEnv()])
+        dummy = DummyVecEnv([lambda: TradingEnv(feature_version=feature_version)])
         _ = VecNormalize.load(vec_path, dummy)
         return True
     except Exception:
         return False
+
+
+def _default_ppo_params() -> dict:
+    return {
+        "learning_rate": 1e-4,
+        "n_steps": 4096,
+        "batch_size": 512,
+        "n_epochs": 10,
+        "gamma": 0.995,
+        "gae_lambda": 0.95,
+        "clip_range": 0.2,
+        "ent_coef": 0.005,
+        "vf_coef": 0.5,
+        "max_grad_norm": 0.5,
+        "target_kl": 0.01,
+        "use_sde": True,
+        "sde_sample_freq": 4,
+    }
+
+
+def _policy_kwargs_for(feature_version: str) -> dict:
+    if feature_version == ULTIMATE_150:
+        return dict(
+            features_extractor_class=AdaptiveLSTMFeatureExtractor,
+            features_extractor_kwargs=dict(features_dim=256, window_size=100),
+            net_arch=[512, 256],
+            activation_fn=torch.nn.ReLU,
+        )
+    return dict(
+        features_extractor_class=LSTMFeatureExtractor,
+        features_extractor_kwargs=dict(features_dim=256),
+        net_arch=[512, 256],
+        activation_fn=torch.nn.ReLU,
+    )
+
+
+def _build_model(env, feature_version: str, ppo_params: dict):
+    return PPO(
+        "MlpPolicy",
+        env,
+        policy_kwargs=_policy_kwargs_for(feature_version),
+        learning_rate=linear_schedule(ppo_params["learning_rate"]),
+        n_steps=ppo_params["n_steps"],
+        batch_size=ppo_params["batch_size"],
+        n_epochs=ppo_params["n_epochs"],
+        gamma=ppo_params["gamma"],
+        gae_lambda=ppo_params["gae_lambda"],
+        clip_range=ppo_params["clip_range"],
+        ent_coef=ppo_params["ent_coef"],
+        vf_coef=ppo_params["vf_coef"],
+        max_grad_norm=ppo_params["max_grad_norm"],
+        target_kl=ppo_params["target_kl"],
+        use_sde=ppo_params["use_sde"],
+        sde_sample_freq=ppo_params["sde_sample_freq"],
+        tensorboard_log=os.path.join(LOG_DIR, "drl_joint"),
+        device="cuda"
+        if torch.cuda.is_available()
+        else ("mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available() else "cpu"),
+        verbose=1,
+    )
+
+
+def _maybe_optimize_ppo_params(df_pd: pd.DataFrame, cfg: dict, initial_balance: float, reward_weights: dict, trade_memory: dict | None, feature_version: str) -> dict:
+    drl_cfg = cfg.get("drl", {}) or {}
+    trials = int(drl_cfg.get("optuna_trials", 0) or 0)
+    if trials <= 0:
+        return _default_ppo_params()
+
+    try:
+        import optuna
+    except Exception as exc:
+        logger.warning(f"Optuna disabled because the package is unavailable: {exc}")
+        return _default_ppo_params()
+
+    timesteps = int(drl_cfg.get("optuna_timesteps", min(25_000, max(5_000, int(drl_cfg.get("total_timesteps", 100_000)) // 5))) or 10_000)
+    sample_rows = min(len(df_pd), max(2_000, int(drl_cfg.get("optuna_rows", 10_000) or 10_000)))
+    sample_df = df_pd.tail(sample_rows).copy()
+    df = pl.from_pandas(sample_df)
+
+    def objective(trial):
+        params = _default_ppo_params()
+        params["learning_rate"] = trial.suggest_float("learning_rate", 3e-5, 5e-4, log=True)
+        params["clip_range"] = trial.suggest_float("clip_range", 0.1, 0.3)
+        params["ent_coef"] = trial.suggest_float("ent_coef", 1e-4, 2e-2, log=True)
+        params["gae_lambda"] = trial.suggest_float("gae_lambda", 0.9, 0.99)
+
+        env = DummyVecEnv([make_env(df, 11, initial_balance, reward_weights, trade_memory=trade_memory, feature_version=feature_version)])
+        env = VecMonitor(env)
+        env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
+        eval_env = DummyVecEnv([make_env(df, 99, initial_balance, reward_weights, trade_memory=trade_memory, feature_version=feature_version)])
+        eval_env = VecMonitor(eval_env)
+        eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
+        eval_env.obs_rms = env.obs_rms
+        eval_env.training = False
+        eval_env.norm_reward = False
+
+        model = _build_model(env, feature_version, params)
+        callback = EvalCallback(eval_env, best_model_save_path=None, log_path=None, eval_freq=max(1_000, timesteps // 4), deterministic=True, render=False)
+        model.learn(total_timesteps=timesteps, callback=callback, progress_bar=False)
+        score = float(callback.best_mean_reward) if callback.best_mean_reward is not None else -1e9
+        env.close()
+        eval_env.close()
+        return score
+
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective, n_trials=trials, show_progress_bar=False)
+    best = _default_ppo_params()
+    if study.best_trial:
+        best.update(study.best_trial.params)
+        logger.info(f"Optuna best params selected: {study.best_trial.params}")
+    return best
 
 
 def _stage_candidate(
@@ -193,6 +321,8 @@ def _stage_candidate(
     df_rows,
     ppo_params,
     eval_windows,
+    feature_version,
+    data_source,
     src_model_path: str | None = None,
     src_vec_path: str | None = None,
 ):
@@ -221,12 +351,14 @@ def _stage_candidate(
         "period": str(period),
         "candles": int(df_rows),
         "timesteps": int(total_timesteps),
-        "data_source": "mt5",
-        "feature_set_version": "engineered_v2",
+        "data_source": str(data_source or "mt5"),
+        "feature_set_version": str(feature_version),
         "normalization_version": "vecnorm_v1",
         "reward": reward_cfg,
         "reward_version": str(reward_cfg.get("version", "v2_risk_adjusted")),
         "ppo_params": ppo_params,
+        "policy_extractor": "adaptive_lstm" if feature_version == ULTIMATE_150 else "agi_lstm",
+        "window_size": 100,
         "windows": {
             "train": str(period),
             "validate": str(eval_windows.get("validate", "120d")),
@@ -258,21 +390,23 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     logs_root = os.path.join(os.getcwd(), "logs", "learning")
     symbol_hint = symbols[0] if len(symbols) == 1 else None
     trade_memory = load_trade_memory(logs_root, symbol=symbol_hint)
+    feature_version = str(drl_cfg.get("feature_version", ENGINEERED_V2) or ENGINEERED_V2)
+    data_source = drl_cfg.get("data_source")
 
     per_symbol_mode = len(symbols) == 1
     logger.info(
-        f"DRL Training | symbols={symbols} | timesteps={total_timesteps:,} | period={period} | tf={interval} | candles={candles:,} | per_symbol={per_symbol_mode} | initial_balance={initial_balance:.2f}"
+        f"DRL Training | symbols={symbols} | timesteps={total_timesteps:,} | period={period} | tf={interval} | candles={candles:,} | per_symbol={per_symbol_mode} | initial_balance={initial_balance:.2f} | features={feature_version} | source={data_source or 'mt5'}"
     )
     if alerter is not None:
         try:
             alerter.training(
                 "PPO",
-                f"Start {symbols} | timesteps={total_timesteps:,} | period={period} | tf={interval} | candles={candles:,}",
+                f"Start {symbols} | timesteps={total_timesteps:,} | period={period} | tf={interval} | candles={candles:,} | features={feature_version}",
             )
         except Exception:
             pass
 
-    df_pd = _prepare_df(symbols, period=period, interval=interval, per_symbol_mode=per_symbol_mode, candles=candles)
+    df_pd = _prepare_df(symbols, period=period, interval=interval, per_symbol_mode=per_symbol_mode, candles=candles, data_source=data_source)
     if df_pd.empty:
         raise RuntimeError("No valid training data found")
 
@@ -280,13 +414,13 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     n_envs = 4
 
     env = DummyVecEnv(
-        [make_env(df, i, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory) for i in range(n_envs)]
+        [make_env(df, i, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory, feature_version=feature_version) for i in range(n_envs)]
     )
     env = VecMonitor(env)
     env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
 
     eval_env = DummyVecEnv(
-        [make_env(df, 99, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory)]
+        [make_env(df, 99, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory, feature_version=feature_version)]
     )
     eval_env = VecMonitor(eval_env)
     eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
@@ -295,52 +429,8 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     eval_env.training = False
     eval_env.norm_reward = False
 
-    policy_kwargs = dict(
-        features_extractor_class=LSTMFeatureExtractor,
-        features_extractor_kwargs=dict(features_dim=256),
-        net_arch=[512, 256],
-        activation_fn=torch.nn.ReLU,
-    )
-
-    ppo_params = {
-        "learning_rate": 1e-4,
-        "n_steps": 4096,
-        "batch_size": 512,
-        "n_epochs": 10,
-        "gamma": 0.995,
-        "gae_lambda": 0.95,
-        "clip_range": 0.2,
-        "ent_coef": 0.005,
-        "vf_coef": 0.5,
-        "max_grad_norm": 0.5,
-        "target_kl": 0.01,
-        "use_sde": True,
-        "sde_sample_freq": 4,
-    }
-
-    model = PPO(
-        "MlpPolicy",
-        env,
-        policy_kwargs=policy_kwargs,
-        learning_rate=linear_schedule(ppo_params["learning_rate"]),
-        n_steps=ppo_params["n_steps"],
-        batch_size=ppo_params["batch_size"],
-        n_epochs=ppo_params["n_epochs"],
-        gamma=ppo_params["gamma"],
-        gae_lambda=ppo_params["gae_lambda"],
-        clip_range=ppo_params["clip_range"],
-        ent_coef=ppo_params["ent_coef"],
-        vf_coef=ppo_params["vf_coef"],
-        max_grad_norm=ppo_params["max_grad_norm"],
-        target_kl=ppo_params["target_kl"],
-        use_sde=ppo_params["use_sde"],
-        sde_sample_freq=ppo_params["sde_sample_freq"],
-        tensorboard_log=os.path.join(LOG_DIR, "drl_joint"),
-        device="cuda"
-        if torch.cuda.is_available()
-        else ("mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available() else "cpu"),
-        verbose=1,
-    )
+    ppo_params = _maybe_optimize_ppo_params(df_pd, cfg, initial_balance, reward_weights, trade_memory, feature_version)
+    model = _build_model(env, feature_version, ppo_params)
 
     best_dir = os.path.join("models", "best_eval_models")
     os.makedirs(best_dir, exist_ok=True)
@@ -363,7 +453,6 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     model.learn(total_timesteps=total_timesteps, callback=[eval_callback, grad_callback], progress_bar=True)
     best_score = float(eval_callback.best_mean_reward) if eval_callback.best_mean_reward is not None else None
 
-    # Persist current-run artifacts to avoid staging stale best_eval files.
     latest_dir = os.path.join("models", "latest_run")
     os.makedirs(latest_dir, exist_ok=True)
     latest_model = os.path.join(latest_dir, "latest_model.zip")
@@ -379,11 +468,10 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
 
     stage_model = latest_model
     stage_vec = latest_vec
-    if not _is_vecnorm_compatible(stage_vec):
-        best_dir = os.path.join("models", "best_eval_models")
+    if not _is_vecnorm_compatible(stage_vec, feature_version=feature_version):
         best_model = os.path.join(best_dir, "best_model.zip")
         best_vec = os.path.join(best_dir, "vec_normalize.pkl")
-        if os.path.exists(best_model) and os.path.exists(best_vec) and _is_vecnorm_compatible(best_vec):
+        if os.path.exists(best_model) and os.path.exists(best_vec) and _is_vecnorm_compatible(best_vec, feature_version=feature_version):
             stage_model = best_model
             stage_vec = best_vec
 
@@ -396,6 +484,8 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         df_rows=len(df_pd),
         ppo_params=ppo_params,
         eval_windows=eval_windows,
+        feature_version=feature_version,
+        data_source=data_source,
         src_model_path=stage_model,
         src_vec_path=stage_vec,
     )

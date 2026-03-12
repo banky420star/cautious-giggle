@@ -1,4 +1,5 @@
-﻿import os
+import json
+import os
 import sys
 
 import numpy as np
@@ -12,8 +13,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from Python.agi_brain import AGIModel, FEATURE_COLUMNS, build_feature_frame
+from Python.agi_brain import AGIModel
 from Python.data_feed import fetch_training_data
+from Python.feature_pipeline import ENGINEERED_V2, build_lstm_feature_frame
 from alerts.telegram_alerts import TelegramAlerter
 
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
@@ -78,13 +80,15 @@ def _train_one_symbol(
     period: str = "60d",
     interval: str = "5m",
     candles: int = 100_000,
+    feature_version: str = ENGINEERED_V2,
+    data_source: str | None = None,
     alerter=None,
 ):
     if alerter is not None:
         try:
             alerter.training(
                 "LSTM",
-                f"Start {symbol} | epochs={epochs} | seq_len={seq_len} | period={period} | tf={interval}",
+                f"Start {symbol} | epochs={epochs} | seq_len={seq_len} | period={period} | tf={interval} | features={feature_version}",
             )
         except Exception:
             pass
@@ -96,6 +100,7 @@ def _train_one_symbol(
         strict=False,
         bars=int(candles),
         min_bars=int(candles),
+        source=data_source,
     )
     if df.empty or len(df) < seq_len + 50:
         logger.warning(f"insufficient data for {symbol}, skipping")
@@ -106,7 +111,7 @@ def _train_one_symbol(
                 pass
         return None
 
-    fdf = build_feature_frame(df)
+    fdf, feature_columns = build_lstm_feature_frame(df, feature_version=feature_version)
     if len(fdf) < seq_len + 50:
         logger.warning(f"insufficient engineered rows for {symbol}, skipping")
         if alerter is not None:
@@ -116,13 +121,13 @@ def _train_one_symbol(
                 pass
         return None
 
-    feat = fdf[FEATURE_COLUMNS].values.astype(np.float32)
+    feat = fdf[feature_columns].values.astype(np.float32)
     scaler = MinMaxScaler()
     feat_scaled = scaler.fit_transform(feat)
 
-    close_col = FEATURE_COLUMNS.index("close")
-    atr_col = FEATURE_COLUMNS.index("atr_14")
-    rsi_col = FEATURE_COLUMNS.index("rsi_14")
+    close_col = feature_columns.index("close") if "close" in feature_columns else 0
+    atr_col = feature_columns.index("atr_14") if "atr_14" in feature_columns else close_col
+    rsi_col = feature_columns.index("rsi_14") if "rsi_14" in feature_columns else close_col
 
     X, y = create_sequences(feat_scaled, close_col, atr_col, rsi_col, seq_len=seq_len)
     if len(X) == 0:
@@ -134,7 +139,7 @@ def _train_one_symbol(
                 pass
         return None
 
-    model = AGIModel(input_dim=len(FEATURE_COLUMNS)).to(device)
+    model = AGIModel(input_dim=len(feature_columns)).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = nn.CrossEntropyLoss()
 
@@ -190,12 +195,26 @@ def _train_one_symbol(
     safe = symbol.replace("/", "_")
     model_path = os.path.join(out_dir, f"lstm_{safe}.pt")
     scaler_path = os.path.join(out_dir, f"lstm_scaler_{safe}.pkl")
+    meta_path = os.path.join(out_dir, f"lstm_{safe}.meta.json")
 
     torch.save(model.state_dict(), model_path)
 
     import joblib
 
     joblib.dump(scaler, scaler_path)
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "symbol": symbol,
+                "feature_version": feature_version,
+                "feature_columns": feature_columns,
+                "seq_len": int(seq_len),
+                "epochs": int(epochs),
+                "samples": int(len(X)),
+            },
+            f,
+            indent=2,
+        )
     if alerter is not None:
         try:
             alerter.training("LSTM", f"Complete {symbol} | loss={last_loss:.4f} | samples={int(len(X))}")
@@ -206,12 +225,22 @@ def _train_one_symbol(
         "symbol": symbol,
         "model_path": model_path,
         "scaler_path": scaler_path,
+        "meta_path": meta_path,
         "loss": last_loss,
         "samples": int(len(X)),
     }
 
 
-def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m", candles=100_000):
+def train_lstm(
+    symbols=None,
+    epochs=20,
+    seq_len=60,
+    period="60d",
+    interval="5m",
+    candles=100_000,
+    feature_version: str = ENGINEERED_V2,
+    data_source: str | None = None,
+):
     if symbols is None:
         symbols = ["EURUSDm", "GBPUSDm", "XAUUSDm"]
 
@@ -223,13 +252,13 @@ def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m",
         device = "cpu"
 
     logger.info(
-        f"LSTM per-symbol training on {device.upper()} | symbols={symbols} | epochs={epochs} | period={period} | tf={interval} | candles={candles:,}"
+        f"LSTM per-symbol training on {device.upper()} | symbols={symbols} | epochs={epochs} | period={period} | tf={interval} | candles={candles:,} | features={feature_version}"
     )
     alerter = _build_alerter()
     try:
         alerter.training(
             "LSTM",
-            f"Batch start | symbols={len(symbols)} | device={device.upper()} | epochs={epochs} | period={period} | tf={interval}",
+            f"Batch start | symbols={len(symbols)} | device={device.upper()} | epochs={epochs} | period={period} | tf={interval} | features={feature_version}",
         )
     except Exception:
         pass
@@ -248,6 +277,8 @@ def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m",
             period=period,
             interval=interval,
             candles=candles,
+            feature_version=feature_version,
+            data_source=data_source,
             alerter=alerter,
         )
         if res:
@@ -266,6 +297,7 @@ def train_lstm(symbols=None, epochs=20, seq_len=60, period="60d", interval="5m",
 
     shutil.copy2(best["model_path"], os.path.join(model_dir, "lstm_agi_trained.pt"))
     shutil.copy2(best["scaler_path"], os.path.join(model_dir, "lstm_scaler.pkl"))
+    shutil.copy2(best["meta_path"], os.path.join(model_dir, "lstm_agi_trained.meta.json"))
     logger.success(f"default lstm artifacts now point to best symbol model: {best['symbol']}")
     try:
         alerter.model(f"LSTM best model selected: {best['symbol']} | loss={best['loss']:.4f} | samples={best['samples']}")
@@ -280,6 +312,8 @@ if __name__ == "__main__":
     period = "60d"
     interval = "5m"
     candles = 100_000
+    feature_version = ENGINEERED_V2
+    data_source = None
 
     if os.path.exists(cfg_path):
         with open(cfg_path, "r", encoding="utf-8") as f:
@@ -290,5 +324,15 @@ if __name__ == "__main__":
         period = str(tcfg.get("lstm_period", "90d"))
         interval = str(tcfg.get("lstm_interval", cfg.get("trading", {}).get("timeframe", "M5")))
         candles = int(tcfg.get("lstm_candles", 100000))
+        feature_version = str(tcfg.get("feature_version", ENGINEERED_V2) or ENGINEERED_V2)
+        data_source = tcfg.get("data_source")
 
-    train_lstm(symbols=symbols, epochs=epochs, period=period, interval=interval, candles=candles)
+    train_lstm(
+        symbols=symbols,
+        epochs=epochs,
+        period=period,
+        interval=interval,
+        candles=candles,
+        feature_version=feature_version,
+        data_source=data_source,
+    )

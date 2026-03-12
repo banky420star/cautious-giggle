@@ -7,26 +7,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from loguru import logger
 from sklearn.preprocessing import MinMaxScaler
+from Python.feature_pipeline import ENGINEERED_V2, ENGINEERED_LSTM_COLUMNS, build_lstm_feature_frame
 
-FEATURE_COLUMNS = [
-    "open",
-    "high",
-    "low",
-    "close",
-    "volume",
-    "ret_1",
-    "ret_5",
-    "ret_10",
-    "rsi_14",
-    "atr_14",
-    "ema_12",
-    "ema_26",
-    "macd_line",
-    "macd_signal",
-    "bb_width_20",
-    "stoch_k_14",
-    "vol_z_20",
-]
+FEATURE_COLUMNS = list(ENGINEERED_LSTM_COLUMNS)
 
 
 def _as_series(df: pd.DataFrame, col: str) -> pd.Series:
@@ -37,49 +20,8 @@ def _as_series(df: pd.DataFrame, col: str) -> pd.Series:
 
 
 def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
-    # Feature engineering section (MT5 OHLCV -> LSTM feature engine)
-    out = df.copy()
-    out = out.loc[:, ~out.columns.duplicated(keep="first")]
-
-    close = _as_series(out, "close")
-    high = _as_series(out, "high")
-    low = _as_series(out, "low")
-    volume = _as_series(out, "volume")
-
-    out["ret_1"] = close.pct_change().fillna(0.0)
-    out["ret_5"] = close.pct_change(5).fillna(0.0)
-    out["ret_10"] = close.pct_change(10).fillna(0.0)
-
-    delta = close.diff().fillna(0.0)
-    gain = delta.clip(lower=0).rolling(14).mean()
-    loss = (-delta.clip(upper=0)).rolling(14).mean()
-    rs = gain / (loss + 1e-12)
-    out["rsi_14"] = (100 - (100 / (1 + rs))).fillna(50.0)
-
-    tr1 = (high - low).abs()
-    tr2 = (high - close.shift(1)).abs()
-    tr3 = (low - close.shift(1)).abs()
-    out["atr_14"] = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1).rolling(14).mean().bfill()
-
-    out["ema_12"] = close.ewm(span=12, adjust=False).mean()
-    out["ema_26"] = close.ewm(span=26, adjust=False).mean()
-    out["macd_line"] = out["ema_12"] - out["ema_26"]
-    out["macd_signal"] = out["macd_line"].ewm(span=9, adjust=False).mean()
-
-    bb_mid = close.rolling(20).mean()
-    bb_std = close.rolling(20).std().fillna(0.0)
-    out["bb_width_20"] = ((bb_std * 4.0) / (bb_mid.abs() + 1e-12)).fillna(0.0)
-
-    low_14 = low.rolling(14).min()
-    high_14 = high.rolling(14).max()
-    out["stoch_k_14"] = (((close - low_14) / ((high_14 - low_14) + 1e-12)) * 100.0).fillna(50.0)
-
-    vol_mean_20 = volume.rolling(20).mean()
-    vol_std_20 = volume.rolling(20).std().fillna(0.0)
-    out["vol_z_20"] = ((volume - vol_mean_20) / (vol_std_20 + 1e-12)).fillna(0.0)
-
-    out = out.replace([np.inf, -np.inf], np.nan).ffill().bfill().dropna()
-    return out
+    features, _ = build_lstm_feature_frame(df, feature_version=ENGINEERED_V2)
+    return features
 
 
 class AGIModel(nn.Module):
@@ -147,7 +89,23 @@ class SmartAGI:
         return os.path.exists(model_path) and os.path.exists(scaler_path)
 
     def _load_bundle(self, model_path: str, scaler_path: str, label: str):
-        model = AGIModel().to(self.device)
+        feature_columns = list(FEATURE_COLUMNS)
+        feature_version = ENGINEERED_V2
+        metadata_path = os.path.splitext(model_path)[0] + ".meta.json"
+        if os.path.exists(metadata_path):
+            try:
+                import json
+
+                with open(metadata_path, "r", encoding="utf-8") as f:
+                    metadata = json.load(f) or {}
+                cols = metadata.get("feature_columns")
+                if isinstance(cols, list) and cols:
+                    feature_columns = [str(col) for col in cols]
+                feature_version = str(metadata.get("feature_version", ENGINEERED_V2) or ENGINEERED_V2)
+            except Exception as exc:
+                logger.warning(f"{label} metadata load failed: {exc}")
+
+        model = AGIModel(input_dim=len(feature_columns)).to(self.device)
         scaler = MinMaxScaler()
         scaler_loaded = False
 
@@ -172,7 +130,13 @@ class SmartAGI:
             except Exception as exc:
                 logger.warning(f"{label} scaler load failed: {exc}")
 
-        return {"model": model, "scaler": scaler, "scaler_loaded": scaler_loaded}
+        return {
+            "model": model,
+            "scaler": scaler,
+            "scaler_loaded": scaler_loaded,
+            "feature_columns": feature_columns,
+            "feature_version": feature_version,
+        }
 
     def _symbol_artifact_paths(self, symbol: str):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -203,7 +167,19 @@ class SmartAGI:
             w = state.get("lstm.weight_ih_l0")
             if w is None or len(w.shape) != 2:
                 return False
+            metadata_path = os.path.splitext(model_path)[0] + ".meta.json"
             expected = len(FEATURE_COLUMNS)
+            if os.path.exists(metadata_path):
+                try:
+                    import json
+
+                    with open(metadata_path, "r", encoding="utf-8") as f:
+                        metadata = json.load(f) or {}
+                    cols = metadata.get("feature_columns")
+                    if isinstance(cols, list) and cols:
+                        expected = len(cols)
+                except Exception:
+                    pass
             got = int(w.shape[1])
             return got == expected
         except Exception:
@@ -243,11 +219,14 @@ class SmartAGI:
         symbol = str(df["symbol"].iloc[0]) if "symbol" in df.columns and len(df) else "UNKNOWN"
         bundle = self._bundle_for_symbol(symbol)
 
-        feat_df = build_feature_frame(df)
+        feature_version = str(bundle.get("feature_version", ENGINEERED_V2) or ENGINEERED_V2)
+        feat_df, available_columns = build_lstm_feature_frame(df, feature_version=feature_version)
         if len(feat_df) < 60:
             return {"signal": "LOW_VOLATILITY", "confidence": 0.0, "symbol": symbol}
 
-        features = feat_df[FEATURE_COLUMNS].astype(float).values
+        bundle_columns = [str(col) for col in bundle.get("feature_columns", FEATURE_COLUMNS)]
+        use_columns = bundle_columns if set(bundle_columns).issubset(set(available_columns)) else available_columns
+        features = feat_df[use_columns].astype(float).values
 
         scaler = bundle["scaler"]
         if bundle["scaler_loaded"] and hasattr(scaler, "n_features_in_") and int(scaler.n_features_in_) == features.shape[1]:
@@ -255,7 +234,7 @@ class SmartAGI:
         else:
             data = scaler.fit_transform(features)
 
-        seq = torch.tensor(data[-60:].reshape(1, 60, len(FEATURE_COLUMNS)), dtype=torch.float32).to(self.device)
+        seq = torch.tensor(data[-60:].reshape(1, 60, features.shape[1]), dtype=torch.float32).to(self.device)
 
         with torch.no_grad():
             logits = bundle["model"](seq)

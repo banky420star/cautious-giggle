@@ -12,6 +12,16 @@ risk:
   max_daily_trades_per_symbol: 50
   max_daily_losing_trades_per_symbol: 10
   max_lots: 1.0
+  supervisor:
+    enabled: true
+    max_daily_loss: 1000
+    max_drawdown_pct: 8.0
+    max_symbol_exposure: 0.35
+    max_total_exposure: 1.2
+    max_open_positions: 6
+    max_positions_per_symbol: 3
+    min_trade_interval_sec: 45
+    max_spread_bps: 25.0
 
 telegram:
   token: "YOUR_BOT_TOKEN_HERE"
@@ -37,6 +47,14 @@ drl:
   candles_per_symbol: 100000
   eval_period: "120d"
   model_path: "models/ppo_trading.zip"
+  feature_version: "engineered_v2"
+  data_source: "mt5"
+  optuna_trials: 0
+  optuna_timesteps: 10000
+  ensemble:
+    enabled: false
+    min_votes: 2
+    agreement_threshold: 0.5
   reward:
     version: "v2_risk_adjusted"
     weights:
@@ -55,6 +73,8 @@ training:
   lstm_period: "90d"
   lstm_interval: "M5"
   lstm_candles: 100000
+  feature_version: "engineered_v2"
+  data_source: "mt5"
 
 evaluation:
   max_drawdown: 0.10
@@ -70,6 +90,8 @@ evaluation:
   min_forward_win_rate: 0.67
 
 registry:
+  ensemble:
+    history_limit: 3
   canary_policy:
     default:
       min_trades: 30
@@ -83,4 +105,7 @@ registry:
       BTCUSDm:
         max_drawdown: 0.08
         min_trades: 60
+
+data:
+  source: "mt5"
 

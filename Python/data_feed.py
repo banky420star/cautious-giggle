@@ -1,6 +1,6 @@
-﻿import math
+import math
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 import MetaTrader5 as mt5
@@ -14,6 +14,8 @@ except Exception:
     yaml = None
 
 DEFAULT_MAX_MT5_BARS = 100_000
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_ROOT = os.path.join(PROJECT_ROOT, "data", "dukascopy")
 
 
 def _to_mt5_timeframe(interval: str):
@@ -30,8 +32,17 @@ def _to_mt5_timeframe(interval: str):
     return mapping.get(m, mt5.TIMEFRAME_M5)
 
 
+def _normalize_interval(interval: str | None) -> str:
+    m = str(interval or "5m").lower().strip()
+    if m.startswith("m") and m[1:].isdigit():
+        return f"{m[1:]}m"
+    if m.startswith("h") and m[1:].isdigit():
+        return f"{m[1:]}h"
+    return m
+
+
 def _interval_minutes(interval: str) -> int:
-    m = (interval or "5m").lower().strip()
+    m = _normalize_interval(interval)
     if m.endswith("m"):
         return max(1, int(m[:-1]))
     if m.endswith("h"):
@@ -50,6 +61,8 @@ def _period_days(period: str) -> int:
             return max(1, int(p[:-1])) * 7
         if p.endswith("mo"):
             return max(1, int(p[:-2])) * 30
+        if p.endswith("y"):
+            return max(1, int(p[:-1])) * 365
     except Exception:
         pass
     return 60
@@ -69,14 +82,25 @@ def _resolve_cfg_value(v):
 
 
 def _load_mt5_cfg() -> dict:
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    cfg_path = os.path.join(root, "config.yaml")
+    cfg_path = os.path.join(PROJECT_ROOT, "config.yaml")
     if not os.path.exists(cfg_path) or yaml is None:
         return {}
     try:
         with open(cfg_path, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
         return cfg.get("mt5", {}) if isinstance(cfg, dict) else {}
+    except Exception:
+        return {}
+
+
+def _load_data_cfg() -> dict:
+    cfg_path = os.path.join(PROJECT_ROOT, "config.yaml")
+    if not os.path.exists(cfg_path) or yaml is None:
+        return {}
+    try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        return cfg.get("data", {}) if isinstance(cfg, dict) else {}
     except Exception:
         return {}
 
@@ -107,7 +131,6 @@ def _ensure_symbol_ready(symbol: str) -> bool:
 def _fetch_rates_any(symbol: str, tf: int, bars_req: int):
     now_utc = datetime.now(timezone.utc)
     start_utc = datetime(2005, 1, 1, tzinfo=timezone.utc)
-    # 1) paged position-based pull with adaptive chunk sizes.
     for chunk_max in (100_000, 50_000, 20_000, 10_000, 5_000, 2_000, 1_000):
         first = mt5.copy_rates_from_pos(symbol, tf, 0, min(chunk_max, bars_req))
         if first is None or len(first) == 0:
@@ -131,12 +154,10 @@ def _fetch_rates_any(symbol: str, tf: int, bars_req: int):
         except Exception:
             return chunks[0]
 
-    # 2) point-in-time pull
     rates = mt5.copy_rates_from(symbol, tf, now_utc, min(5_000, bars_req))
     if rates is not None and len(rates) > 0:
         return rates
 
-    # 3) wide-range historical pull
     rates = mt5.copy_rates_range(symbol, tf, start_utc, now_utc)
     if rates is not None and len(rates) > 0:
         return rates
@@ -183,18 +204,139 @@ def _assert_recent_bars(df: pd.DataFrame, interval: str, stale_bars: int = 3):
         )
 
 
-def fetch_training_data(
+def _resolve_source(source: str | None) -> str:
+    if source:
+        return str(source).strip().lower()
+    data_cfg = _load_data_cfg()
+    return str(data_cfg.get("source", "mt5") or "mt5").strip().lower()
+
+
+def _dukascopy_cache_path(symbol: str, interval: str) -> str:
+    safe_symbol = str(symbol).replace("/", "_")
+    safe_interval = _normalize_interval(interval)
+    os.makedirs(DATA_ROOT, exist_ok=True)
+    return os.path.join(DATA_ROOT, f"{safe_symbol}_{safe_interval}.parquet")
+
+
+def _dukascopy_to_frame(raw: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    frame = raw.copy()
+    frame.columns = [str(c).lower() for c in frame.columns]
+    if "timestamp" in frame.columns and "time" not in frame.columns:
+        frame = frame.rename(columns={"timestamp": "time"})
+    if "date" in frame.columns and "time" not in frame.columns:
+        frame = frame.rename(columns={"date": "time"})
+    if "bidvolume" in frame.columns and "volume" not in frame.columns:
+        frame = frame.rename(columns={"bidvolume": "volume"})
+    if "tick_volume" in frame.columns and "volume" not in frame.columns:
+        frame = frame.rename(columns={"tick_volume": "volume"})
+    if "time" not in frame.columns and isinstance(frame.index, pd.DatetimeIndex):
+        frame = frame.reset_index().rename(columns={frame.index.name or "index": "time"})
+    frame["time"] = pd.to_datetime(frame["time"], utc=True, errors="coerce")
+    frame = frame.dropna(subset=["time"]).sort_values("time").drop_duplicates(subset=["time"], keep="last")
+    frame = frame.set_index("time")
+    frame = _normalize_ohlcv(frame)
+    frame["symbol"] = symbol
+    return frame
+
+
+def _load_dukascopy_cache(symbol: str, interval: str) -> pd.DataFrame:
+    cache_path = _dukascopy_cache_path(symbol, interval)
+    if not os.path.exists(cache_path):
+        return pd.DataFrame()
+    try:
+        cached = pd.read_parquet(cache_path)
+        return _dukascopy_to_frame(cached, symbol)
+    except Exception as exc:
+        logger.warning(f"Failed loading Dukascopy cache for {symbol}: {exc}")
+        return pd.DataFrame()
+
+
+def _save_dukascopy_cache(df: pd.DataFrame, symbol: str, interval: str):
+    cache_path = _dukascopy_cache_path(symbol, interval)
+    try:
+        df.reset_index().to_parquet(cache_path, index=False)
+    except Exception as exc:
+        logger.warning(f"Failed writing Dukascopy cache for {symbol}: {exc}")
+
+
+def _dukascopy_interval(interval: str) -> str:
+    mapping = {
+        "1m": "1min",
+        "5m": "5min",
+        "15m": "15min",
+        "30m": "30min",
+        "1h": "1hour",
+        "4h": "4hour",
+        "1d": "1day",
+    }
+    return mapping.get(_normalize_interval(interval), "5min")
+
+
+def _download_dukascopy(symbol: str, period: str, interval: str) -> pd.DataFrame:
+    try:
+        from dukascopy_python import fetch
+    except Exception as exc:
+        raise RuntimeError(f"dukascopy_python is not installed: {exc}")
+
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=_period_days(period))
+    instrument = str(symbol).replace("/", "").upper().replace("M", "")
+    df = fetch(
+        instrument=instrument,
+        interval=_dukascopy_interval(interval),
+        offer_side="bid",
+        start=start,
+        end=end,
+    )
+    if df is None or len(df) == 0:
+        raise RuntimeError(f"empty Dukascopy payload for {symbol}")
+    return _dukascopy_to_frame(pd.DataFrame(df), symbol)
+
+
+def _fetch_dukascopy_data(
     symbol: str,
-    period: str = "60d",
-    interval: str = "5m",
-    strict: bool = False,
-    require_fresh: bool = False,
-    bars: int | None = None,
-    min_bars: int | None = None,
+    period: str,
+    interval: str,
+    bars_req: int,
+    min_required: int,
+    strict: bool,
+    require_fresh: bool,
 ) -> pd.DataFrame:
-    tf = _to_mt5_timeframe(interval)
-    bars_req = int(bars) if bars is not None else _bars_for(period, interval)
-    min_required = int(min_bars) if min_bars is not None else 100
+    df = _load_dukascopy_cache(symbol, interval)
+    if len(df) < min_required:
+        try:
+            logger.info(f"Fetching Dukascopy history for {symbol} | period={period} tf={interval}")
+            downloaded = _download_dukascopy(symbol, period=period, interval=interval)
+            if not downloaded.empty:
+                df = downloaded
+                _save_dukascopy_cache(df, symbol, interval)
+        except Exception as exc:
+            if strict:
+                raise
+            logger.warning(f"Dukascopy fetch failed for {symbol}: {exc}")
+
+    if df.empty:
+        return pd.DataFrame()
+
+    df = df.tail(int(bars_req)).copy()
+    if len(df) < min_required and strict:
+        raise RuntimeError(
+            f"insufficient Dukascopy data for {symbol} | tf={interval} requested={bars_req} got={len(df)} required={min_required}"
+        )
+    if require_fresh:
+        _assert_recent_bars(df, interval=interval, stale_bars=12)
+    return df
+
+
+def _fetch_mt5_data(
+    symbol: str,
+    period: str,
+    interval: str,
+    bars_req: int,
+    min_required: int,
+    strict: bool,
+    require_fresh: bool,
+) -> pd.DataFrame:
     max_bars_raw = os.environ.get("AGI_MT5_MAX_BARS", str(DEFAULT_MAX_MT5_BARS))
     try:
         max_bars = max(100, int(max_bars_raw))
@@ -222,7 +364,7 @@ def fetch_training_data(
             raise RuntimeError(msg)
         return pd.DataFrame()
 
-    rates = _fetch_rates_any(symbol, tf, bars_req)
+    rates = _fetch_rates_any(symbol, _to_mt5_timeframe(interval), bars_req)
     got = 0 if rates is None else len(rates)
     if rates is None or got < 100:
         msg = (
@@ -239,11 +381,6 @@ def fetch_training_data(
         )
 
     raw = pd.DataFrame(rates)
-    if raw.empty:
-        if strict:
-            raise RuntimeError(f"empty MT5 frame for {symbol}")
-        return pd.DataFrame()
-
     raw["time"] = pd.to_datetime(raw["time"], unit="s", utc=True)
     raw = raw.set_index("time")
 
@@ -263,16 +400,55 @@ def fetch_training_data(
     return df
 
 
+def fetch_training_data(
+    symbol: str,
+    period: str = "60d",
+    interval: str = "5m",
+    strict: bool = False,
+    require_fresh: bool = False,
+    bars: int | None = None,
+    min_bars: int | None = None,
+    source: str | None = None,
+) -> pd.DataFrame:
+    bars_req = int(bars) if bars is not None else _bars_for(period, interval)
+    min_required = int(min_bars) if min_bars is not None else 100
+    resolved_source = _resolve_source(source)
+
+    if resolved_source == "dukascopy":
+        return _fetch_dukascopy_data(symbol, period, interval, bars_req, min_required, strict, require_fresh)
+
+    if resolved_source == "auto":
+        primary = _fetch_mt5_data(symbol, period, interval, bars_req, min_required, strict=False, require_fresh=require_fresh)
+        if len(primary) >= min_required:
+            return primary
+        fallback = _fetch_dukascopy_data(symbol, period, interval, bars_req, min_required, strict=False, require_fresh=False)
+        if not fallback.empty:
+            return fallback
+        if strict and primary.empty:
+            raise RuntimeError(f"No valid training data found for {symbol} from MT5 or Dukascopy")
+        return primary
+
+    return _fetch_mt5_data(symbol, period, interval, bars_req, min_required, strict, require_fresh)
+
+
 def get_combined_training_df(
     symbols: Iterable[str],
     period: str = "60d",
     interval: str = "5m",
     bars: int | None = None,
     min_bars: int | None = None,
+    source: str | None = None,
 ) -> pd.DataFrame:
     frames = []
     for symbol in symbols:
-        df = fetch_training_data(symbol, period=period, interval=interval, bars=bars, min_bars=min_bars)
+        df = fetch_training_data(
+            symbol,
+            period=period,
+            interval=interval,
+            bars=bars,
+            min_bars=min_bars,
+            source=source,
+        )
         if not df.empty:
             frames.append(df)
 

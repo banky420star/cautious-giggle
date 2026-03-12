@@ -13,6 +13,7 @@ from Python.agi_brain import SmartAGI
 from Python.hybrid_brain import HybridBrain
 from Python.mt5_executor import MT5Executor
 from Python.risk_engine import RiskEngine
+from Python.risk_supervisor import RiskSupervisor
 from Python.config_utils import load_project_config
 from Python.event_intel import EventIntel
 from Python.trade_learning import build_trade_learning
@@ -420,6 +421,36 @@ def _expected_usd(symbol: str, side: str, entry: float, tp: float, sl: float, lo
         return None, None
 
 
+def _tick_spread_bps(symbol: str) -> float | None:
+    try:
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            return None
+        bid = float(getattr(tick, "bid", 0.0) or 0.0)
+        ask = float(getattr(tick, "ask", 0.0) or 0.0)
+        mid = (bid + ask) * 0.5
+        if bid <= 0.0 or ask <= 0.0 or mid <= 0.0:
+            return None
+        return float(((ask - bid) / mid) * 10000.0)
+    except Exception:
+        return None
+
+
+def _position_exposure_state(symbol: str, max_lots: float) -> tuple[float, float, int, int]:
+    positions = mt5.positions_get() or []
+    symbol_positions = [p for p in positions if str(getattr(p, "symbol", "")) == str(symbol)]
+    current_symbol_exposure = 0.0
+    total_exposure = 0.0
+    for pos in positions:
+        volume = float(getattr(pos, "volume", 0.0) or 0.0)
+        side = -1.0 if int(getattr(pos, "type", 0)) == int(mt5.ORDER_TYPE_SELL) else 1.0
+        exp = side * (volume / max(max_lots, 1e-8))
+        total_exposure += abs(exp)
+        if str(getattr(pos, "symbol", "")) == str(symbol):
+            current_symbol_exposure += exp
+    return float(current_symbol_exposure), float(total_exposure), len(symbol_positions), len(positions)
+
+
 def _scan_trade_events(alerter, risk, known_open_tickets, seen_closed_deals, last_deal_check):
     now_utc = _utc_now()
     closed_events = []
@@ -519,6 +550,7 @@ def main(live=False):
         raise RuntimeError(f"MT5 init failed: {mt5.last_error()}")
 
     risk = RiskEngine()
+    supervisor = RiskSupervisor(cfg)
     executor = MT5Executor(risk)
     brain = HybridBrain(risk, executor)
     agi = SmartAGI()
@@ -691,7 +723,8 @@ def main(live=False):
                     )
 
                 ppo_exposure = brain.predict_ppo_exposure(symbol, df)
-                exposure = brain.blend_exposure(agi_exposure, ppo_exposure, conf)
+                dreamer_exposure = brain.predict_dreamer_exposure(symbol, df)
+                exposure = brain.blend_exposure(agi_exposure, ppo_exposure, conf, dreamer_exposure=dreamer_exposure)
                 if sig == "LOW_VOLATILITY":
                     if low_vol_base <= 0.0:
                         exposure = 0.0
@@ -700,7 +733,9 @@ def main(live=False):
 
                 logger.info(
                     f"DECISION {symbol} | signal={sig} conf={conf:.4f} agi={agi_exposure:.4f} "
-                    f"ppo={(0.0 if ppo_exposure is None else float(ppo_exposure)):.4f} blend={exposure:.4f}"
+                    f"ppo={(0.0 if ppo_exposure is None else float(ppo_exposure)):.4f} "
+                    f"dreamer={(0.0 if dreamer_exposure is None else float(dreamer_exposure)):.4f} "
+                    f"blend={exposure:.4f}"
                 )
                 _append_audit(
                     "signal",
@@ -710,6 +745,7 @@ def main(live=False):
                         "confidence": conf,
                         "agi_exposure": float(agi_exposure),
                         "ppo_exposure": None if ppo_exposure is None else float(ppo_exposure),
+                        "dreamer_exposure": None if dreamer_exposure is None else float(dreamer_exposure),
                         "exposure": float(exposure),
                         "threshold": float(confidence_threshold),
                         "trade_memory": {
@@ -726,10 +762,47 @@ def main(live=False):
                 sym_state["confidence"] = conf
                 sym_state["agi_exposure"] = float(agi_exposure)
                 sym_state["ppo_exposure"] = None if ppo_exposure is None else float(ppo_exposure)
+                sym_state["dreamer_exposure"] = None if dreamer_exposure is None else float(dreamer_exposure)
                 sym_state["blend_exposure"] = float(exposure)
 
                 action_meta = brain.get_last_action_meta()
-                order_meta = brain.live_trade(symbol, exposure, max_lots, action_meta=action_meta)
+                current_symbol_exposure, total_exposure, symbol_positions, total_positions = _position_exposure_state(
+                    symbol, max_lots
+                )
+                supervisor_decision = supervisor.allow_trade(
+                    symbol=symbol,
+                    target_exposure=float(exposure),
+                    confidence=conf,
+                    spread_bps=_tick_spread_bps(symbol),
+                    snapshot=snap,
+                    symbol_positions=symbol_positions,
+                    total_positions=total_positions,
+                    current_symbol_exposure=current_symbol_exposure,
+                    total_exposure=total_exposure,
+                    drawdown_pct=float(risk.current_dd),
+                )
+                sym_state["risk_supervisor"] = {
+                    "allowed": bool(supervisor_decision.allowed),
+                    "reason": supervisor_decision.reason,
+                    "current_symbol_exposure": float(current_symbol_exposure),
+                    "total_exposure": float(total_exposure),
+                }
+                if supervisor_decision.allowed:
+                    order_meta = brain.live_trade(symbol, exposure, max_lots, action_meta=action_meta)
+                    if order_meta:
+                        supervisor.mark_trade(symbol)
+                else:
+                    order_meta = None
+                    _append_audit(
+                        "risk_supervisor_block",
+                        {
+                            "symbol": symbol,
+                            "target_exposure": float(exposure),
+                            "reason": supervisor_decision.reason,
+                            "confidence": conf,
+                            "signal": sig,
+                        },
+                    )
                 executor.manage_open_positions(symbol)
                 if order_meta:
                     tp_outcome_usd, sl_outcome_usd = _expected_usd(

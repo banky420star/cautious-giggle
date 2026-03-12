@@ -14,6 +14,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from Python.data_feed import fetch_training_data
+from Python.feature_pipeline import ENGINEERED_V2, feature_count_for_version
 from drl.trading_env import TradingEnv
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
@@ -48,6 +49,7 @@ def _make_env(
     initial_balance: float = 10000.0,
     reward_weights: dict | None = None,
     portfolio_feature_count: int | None = None,
+    feature_version: str = ENGINEERED_V2,
 ):
     def _init():
         return TradingEnv(
@@ -55,6 +57,7 @@ def _make_env(
             initial_balance=initial_balance,
             reward_weights=reward_weights,
             portfolio_feature_count=portfolio_feature_count,
+            feature_version=feature_version,
         )
 
     return DummyVecEnv([_init])
@@ -71,6 +74,15 @@ def run_ppo_backtest(
     max_steps: int | None = None,
     reward_weights: dict | None = None,
 ) -> dict | None:
+    metadata_path = os.path.join(model_dir := os.path.dirname(model_path), "metadata.json")
+    feature_version = ENGINEERED_V2
+    if os.path.exists(metadata_path):
+        try:
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                meta = json.load(f) or {}
+            feature_version = str(meta.get("feature_set_version", ENGINEERED_V2) or ENGINEERED_V2)
+        except Exception:
+            feature_version = ENGINEERED_V2
     df = fetch_training_data(symbol, period=period, interval=interval, strict=True, require_fresh=True)
     if df is None or df.empty or len(df) < 400:
         raise RuntimeError(f"Insufficient data for {symbol} (len={0 if df is None else len(df)})")
@@ -83,13 +95,19 @@ def run_ppo_backtest(
     if obs_space is not None and getattr(obs_space, "shape", None):
         expected_obs_dim = int(np.prod(obs_space.shape))
     portfolio_feature_count = (
-        TradingEnv.infer_portfolio_feature_count(expected_obs_dim) if expected_obs_dim is not None else None
+        TradingEnv.infer_portfolio_feature_count(
+            expected_obs_dim,
+            n_features=feature_count_for_version(feature_version),
+        )
+        if expected_obs_dim is not None
+        else None
     )
     env = _make_env(
         df,
         initial_balance=initial_balance,
         reward_weights=reward_weights,
         portfolio_feature_count=portfolio_feature_count,
+        feature_version=feature_version,
     )
     if not os.path.exists(vecnorm_path):
         raise RuntimeError(f"Missing vecnorm file: {vecnorm_path}")

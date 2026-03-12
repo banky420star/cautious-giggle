@@ -71,11 +71,19 @@ class ModelRegistry:
             out["canary_policy"] = {}
         if "canary_state" not in out or not isinstance(out.get("canary_state"), dict):
             out["canary_state"] = {}
+        if "champion_history" not in out or not isinstance(out.get("champion_history"), list):
+            out["champion_history"] = []
         if "symbols" not in out or not isinstance(out.get("symbols"), dict):
             out["symbols"] = {}
         for sym, cfg in list(out["symbols"].items()):
             if not isinstance(cfg, dict):
-                out["symbols"][sym] = {"champion": None, "canary": None, "canary_policy": {}, "canary_state": {}}
+                out["symbols"][sym] = {
+                    "champion": None,
+                    "canary": None,
+                    "canary_policy": {},
+                    "canary_state": {},
+                    "champion_history": [],
+                }
                 continue
             if "champion" not in cfg:
                 cfg["champion"] = None
@@ -85,6 +93,8 @@ class ModelRegistry:
                 cfg["canary_policy"] = {}
             if "canary_state" not in cfg or not isinstance(cfg.get("canary_state"), dict):
                 cfg["canary_state"] = {}
+            if "champion_history" not in cfg or not isinstance(cfg.get("champion_history"), list):
+                cfg["champion_history"] = []
             out["symbols"][sym] = cfg
         return out
 
@@ -244,6 +254,25 @@ class ModelRegistry:
         }
         base.update(self._canary_default_overrides)
         return base
+
+    def _max_history(self) -> int:
+        try:
+            return max(1, int((self.registry_config.get("ensemble", {}) or {}).get("history_limit", 3) or 3))
+        except Exception:
+            return 3
+
+    def _append_history(self, history: list, candidate_dir: str | None):
+        if not candidate_dir:
+            return list(history or [])
+        items = list(history or [])
+        entry = {
+            "path": candidate_dir,
+            "recorded_at": datetime.now(timezone.utc).isoformat(),
+            "metadata": self._gather_candidate_metadata(candidate_dir),
+        }
+        items = [item for item in items if str(item.get("path")) != str(candidate_dir)]
+        items.insert(0, entry)
+        return items[: self._max_history()]
 
     def _policy_for_symbol(self, symbol: str | None) -> dict:
         policy = dict(self._default_canary_policy())
@@ -417,6 +446,7 @@ class ModelRegistry:
                 ok, reason = self.can_promote_canary(symbol=symbol)
                 if not ok:
                     raise RuntimeError(f"Canary promotion blocked for {symbol}: {reason}")
+            cur["champion_history"] = self._append_history(cur.get("champion_history", []), cur.get("canary"))
             cur["champion"] = cur["canary"]
             cur["canary"] = None
             cur["canary_state"] = {}
@@ -431,6 +461,7 @@ class ModelRegistry:
             ok, reason = self.can_promote_canary()
             if not ok:
                 raise RuntimeError(f"Canary promotion blocked: {reason}")
+        active["champion_history"] = self._append_history(active.get("champion_history", []), active.get("canary"))
         active["champion"] = active["canary"]
         active["canary"] = None
         active["canary_state"] = {}
@@ -486,3 +517,9 @@ class ModelRegistry:
             return {}
         with open(meta_path, "r", encoding="utf-8") as f:
             return json.load(f)
+
+    def get_recent_champions(self, symbol: str | None = None) -> list[dict]:
+        active = self._read_active()
+        if symbol:
+            return list((active.get("symbols", {}).get(symbol, {}) or {}).get("champion_history", []) or [])
+        return list(active.get("champion_history", []) or [])
