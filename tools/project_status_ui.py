@@ -271,21 +271,31 @@ def _runtime_owner_health(procs):
         pid_set = {int(r.get("pid") or 0) for r in rows}
         roots = [r for r in rows if int(r.get("ppid") or 0) not in pid_set]
         exes = sorted({str(r.get("name") or "").lower() + "|" + str((r.get("cmd") or "")).lower() for r in rows})
-        exe_paths = sorted({str((r.get("cmd") or "")).split(" ")[0].strip('"').lower() for r in rows if str((r.get("cmd") or "")).strip()})
+        exe_paths = sorted(
+            {
+                str((r.get("cmd") or "")).split(" ")[0].strip('"').lower().replace("\\", "/")
+                for r in rows
+                if str((r.get("cmd") or "")).strip()
+            }
+        )
 
-        # Windows venv redirector pair: venv launcher + base interpreter child.
-        has_venv = any(".venv312/scripts/python.exe" in p or ".venv/scripts/python.exe" in p for p in exe_paths)
-        has_base = any("users/administrator/desktop/python.exe" in p for p in exe_paths)
-        all_nonvenv_are_children = True
-        if has_venv and has_base:
+        # Windows venv redirector chain: venv launcher roots the tree and the base
+        # interpreter appears only as a child process for the same role token.
+        allowed_paths = {
+            "users/administrator/desktop/python.exe",
+            ".venv312/scripts/python.exe",
+            ".venv/scripts/python.exe",
+        }
+        if len(roots) == 1 and exe_paths and all(any(token in p for token in allowed_paths) for p in exe_paths):
+            non_root_children_ok = True
             for r in rows:
-                cmd = str((r.get("cmd") or "")).lower().replace("\\", "/")
+                pid = int(r.get("pid") or 0)
                 ppid = int(r.get("ppid") or 0)
-                if "users/administrator/desktop/python.exe" in cmd and ppid not in pid_set:
-                    all_nonvenv_are_children = False
+                if pid != int(roots[0].get("pid") or 0) and ppid not in pid_set:
+                    non_root_children_ok = False
                     break
-        if has_venv and has_base and all_nonvenv_are_children:
-            continue
+            if non_root_children_ok:
+                continue
 
         if len(roots) > 1:
             issues.append({"role": role, "type": "multiple_root_owners", "root_pids": [int(r.get("pid") or 0) for r in roots], "exe_paths": exe_paths})
