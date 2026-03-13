@@ -1,4 +1,5 @@
-﻿import json
+import atexit
+import json
 import os
 import subprocess
 import sys
@@ -10,9 +11,56 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+LOCK_DIR = os.path.join(PROJECT_ROOT, ".tmp")
+LOCK_PATH = os.path.join(LOCK_DIR, "champion_cycle.lock")
+
 from Python.model_evaluator import evaluate_candidate_vs_champion
 from Python.model_registry import ModelRegistry
 from Python.config_utils import load_project_config
+
+
+def _pid_exists(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _acquire_single_instance_lock() -> None:
+    os.makedirs(LOCK_DIR, exist_ok=True)
+
+    if os.path.exists(LOCK_PATH):
+        existing_pid = None
+        try:
+            with open(LOCK_PATH, "r", encoding="utf-8") as handle:
+                existing_pid = int((handle.read() or "0").strip())
+        except Exception:
+            existing_pid = None
+        if existing_pid and _pid_exists(existing_pid):
+            raise RuntimeError(f"champion_cycle is already running with pid={existing_pid}")
+        try:
+            os.remove(LOCK_PATH)
+        except Exception as exc:
+            raise RuntimeError(f"Could not clear stale champion_cycle lock: {exc}") from exc
+
+    fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    os.write(fd, str(os.getpid()).encode("utf-8"))
+    os.close(fd)
+
+    def _cleanup_lock():
+        try:
+            if os.path.exists(LOCK_PATH):
+                with open(LOCK_PATH, "r", encoding="utf-8") as handle:
+                    raw = handle.read().strip()
+                if raw == str(os.getpid()):
+                    os.remove(LOCK_PATH)
+        except Exception:
+            pass
+
+    atexit.register(_cleanup_lock)
 
 
 def _has_lstm_artifact(symbol: str) -> bool:
@@ -114,6 +162,7 @@ def _run_train_dreamer(cfg: dict, symbols: list[str]):
 
 
 def main():
+    _acquire_single_instance_lock()
     cfg = load_project_config(PROJECT_ROOT, live_mode=False)
 
     trading_cfg = cfg.get("trading", {})

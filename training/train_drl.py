@@ -1,3 +1,4 @@
+import atexit
 import datetime
 import json
 import os
@@ -33,6 +34,52 @@ from alerts.telegram_alerts import TelegramAlerter
 LOG_DIR = os.path.join(os.getcwd(), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "ppo_training.log"), rotation="10 MB", level="INFO")
+LOCK_DIR = os.path.join(os.getcwd(), ".tmp")
+LOCK_PATH = os.path.join(LOCK_DIR, "train_drl.lock")
+
+
+def _pid_exists(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _acquire_single_instance_lock() -> None:
+    os.makedirs(LOCK_DIR, exist_ok=True)
+
+    if os.path.exists(LOCK_PATH):
+        existing_pid = None
+        try:
+            with open(LOCK_PATH, "r", encoding="utf-8") as handle:
+                existing_pid = int((handle.read() or "0").strip())
+        except Exception:
+            existing_pid = None
+        if existing_pid and _pid_exists(existing_pid):
+            raise RuntimeError(f"train_drl is already running with pid={existing_pid}")
+        try:
+            os.remove(LOCK_PATH)
+        except Exception as exc:
+            raise RuntimeError(f"Could not clear stale train_drl lock: {exc}") from exc
+
+    fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    os.write(fd, str(os.getpid()).encode("utf-8"))
+    os.close(fd)
+
+    def _cleanup_lock():
+        try:
+            if os.path.exists(LOCK_PATH):
+                with open(LOCK_PATH, "r", encoding="utf-8") as handle:
+                    raw = handle.read().strip()
+                if raw == str(os.getpid()):
+                    os.remove(LOCK_PATH)
+        except Exception:
+            pass
+
+    atexit.register(_cleanup_lock)
 
 
 def _resolve_cfg_value(v):
@@ -76,7 +123,7 @@ class EvalCallbackSaveVec(EvalCallback):
 
 
 class PPOProgressCallback(BaseCallback):
-    def __init__(self, total_timesteps: int, symbols: list[str], log_interval: int = 10_000):
+    def __init__(self, total_timesteps: int, symbols: list[str], log_interval: int = 1_000):
         super().__init__()
         self.total_timesteps = max(1, int(total_timesteps))
         self.symbols = list(symbols)
@@ -89,6 +136,9 @@ class PPOProgressCallback(BaseCallback):
         self._start_step = int(getattr(self.model, "num_timesteps", 0) or 0)
         self._last_log_step = 0
         self._start_time = time.time()
+        logger.info(
+            f"PPO progress | symbols={self.symbols} | step=0/{self.total_timesteps:,} | pct=0.00 | elapsed_s=0 | eta_s=unknown"
+        )
 
     def _on_step(self) -> bool:
         current_total = int(getattr(self.model, "num_timesteps", 0) or 0)
@@ -568,4 +618,5 @@ def train_drl():
 
 
 if __name__ == "__main__":
+    _acquire_single_instance_lock()
     train_drl()

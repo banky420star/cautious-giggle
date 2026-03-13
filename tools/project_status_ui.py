@@ -636,10 +636,10 @@ def _build_ppo_visual(lines, running: bool) -> dict:
             progress_symbols = _parse_symbol_list(pm.group(1)) or out["symbols"]
             out["symbols"] = progress_symbols
             out["current_symbol"] = progress_symbols[0] if progress_symbols else out["current_symbol"]
-            out["current_timesteps"] = _as_int(pm.group(2), 0) or None
+            out["current_timesteps"] = _as_int(pm.group(2), 0)
             out["target_timesteps"] = _as_int(pm.group(3), 0) or out["target_timesteps"]
             out["progress_pct"] = _as_float(pm.group(4))
-            out["elapsed_seconds"] = _as_int(pm.group(5), 0) or None
+            out["elapsed_seconds"] = _as_int(pm.group(5), 0)
             out["eta_seconds"] = None if str(pm.group(6)).lower() == "unknown" else (_as_int(pm.group(6), 0) or None)
             latest_ts = _line_ts_utc(line) or latest_ts
             continue
@@ -1527,6 +1527,38 @@ def _spawn(args, stdout_name, stderr_name, env=None):
         err.close()
 
 
+def _clear_stale_lock(lock_name):
+    path = os.path.join(ROOT, ".tmp", lock_name)
+    if not os.path.exists(path):
+        return False
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            pid = int((handle.read() or "0").strip())
+    except Exception:
+        pid = 0
+    if pid > 0:
+        try:
+            os.kill(pid, 0)
+            return False
+        except OSError:
+            pass
+    try:
+        os.remove(path)
+        return True
+    except Exception:
+        return False
+
+
+def _tail_text(path, lines=6):
+    if not os.path.exists(path):
+        return ""
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            return "".join(handle.readlines()[-lines:]).strip()
+    except Exception:
+        return ""
+
+
 def _kill_by_token(token):
     token = token.lower()
     killed = []
@@ -1545,8 +1577,13 @@ def control_action(action, payload):
         if action == "start_drl":
             if _is_running("training/train_drl.py"):
                 return {"ok": True, "message": "PPO training already running"}
+            _clear_stale_lock("train_drl.lock")
             timesteps = str(int(payload.get("timesteps", 100000)))
             pid = _spawn([_venv_python(), "training/train_drl.py"], "train_drl_ui_stdout.log", "train_drl_ui_stderr.log", env={"AGI_DRL_TIMESTEPS": timesteps})
+            time.sleep(1.2)
+            if not _is_running("training/train_drl.py"):
+                tail = _tail_text(os.path.join(LOG_DIR, "train_drl_ui_stderr.log"))
+                return {"ok": False, "message": f"PPO training failed to start. {tail}".strip()}
             return {"ok": True, "message": f"PPO training started pid={pid}, timesteps={timesteps}"}
 
         if action == "stop_drl":
@@ -1571,7 +1608,12 @@ def control_action(action, payload):
                     "ok": False,
                     "message": "Cannot start champion cycle while standalone LSTM/PPO trainers are running. Stop them first.",
                 }
+            _clear_stale_lock("champion_cycle.lock")
             pid = _spawn([_venv_python(), "tools/champion_cycle.py"], "champion_cycle_stdout.log", "champion_cycle_stderr.log")
+            time.sleep(1.2)
+            if not _is_running("tools/champion_cycle.py"):
+                tail = _tail_text(os.path.join(LOG_DIR, "champion_cycle_stderr.log"))
+                return {"ok": False, "message": f"Champion cycle failed to start. {tail}".strip()}
             return {"ok": True, "message": f"Champion cycle started pid={pid}"}
 
         if action == "rebuild_trade_memory":
