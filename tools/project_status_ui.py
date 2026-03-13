@@ -260,6 +260,16 @@ def _filter_cmd(procs, token):
     return out
 
 
+def _root_processes(rows):
+    pid_set = {int(r.get("pid") or 0) for r in rows}
+    roots = [r for r in rows if int(r.get("ppid") or 0) not in pid_set]
+    return roots or rows
+
+
+def _root_pids(rows):
+    return [int(r.get("pid") or 0) for r in _root_processes(rows) if int(r.get("pid") or 0) > 0]
+
+
 def _runtime_owner_health(procs):
     roles = [
         ("server", "python.server_agi"),
@@ -748,15 +758,18 @@ def _latest_training_progress() -> dict:
         "lstm_epoch": None,
         "lstm_epochs_total": None,
         "train_error": None,
+        "cycle_ppo_symbol": None,
     }
     ppo_lines = _tail(os.path.join(LOG_DIR, "ppo_training.log"), 200)
     lstm_lines = _tail(os.path.join(LOG_DIR, "lstm_training.log"), 200)
+    cycle_lines = _tail(os.path.join(LOG_DIR, "champion_cycle_stderr.log"), 200)
 
     drl_re = re.compile(
         r"symbols=\['([^']+)'\]\s*\|\s*timesteps=([0-9,]+)(?:.*?\|\s*candles=([0-9,]+))?",
         re.IGNORECASE,
     )
     lstm_re = re.compile(r"([A-Za-z0-9_]+)\s*\|\s*epoch\s+(\d+)\s*/\s*(\d+)")
+    cycle_ppo_re = re.compile(r"Cycle step:\s*train PPO candidate for\s+([A-Za-z0-9_]+)", re.IGNORECASE)
     err_re = re.compile(r"(Authorization failed|insufficient MT5 data|MT5 initialize failed)", re.IGNORECASE)
 
     for line in reversed(ppo_lines):
@@ -775,7 +788,13 @@ def _latest_training_progress() -> dict:
             out["lstm_epochs_total"] = m.group(3)
             break
 
-    for line in reversed(ppo_lines + lstm_lines):
+    for line in reversed(cycle_lines):
+        m = cycle_ppo_re.search(line)
+        if m:
+            out["cycle_ppo_symbol"] = m.group(1)
+            break
+
+    for line in reversed(ppo_lines + lstm_lines + cycle_lines):
         if err_re.search(line) and _is_recent_log_line(line, minutes=25):
             out["train_error"] = line
             break
@@ -806,17 +825,18 @@ def _training_state(procs):
         drl_running=drl_running,
         dreamer_running=dreamer_running,
     )
+    drl_symbol = progress.get("drl_symbol") or progress.get("cycle_ppo_symbol")
     return {
         "drl_running": drl_running,
         "lstm_running": lstm_running,
         "dreamer_running": dreamer_running,
         "cycle_running": len(cycle) > 0,
         "configured_symbols": configured_symbols,
-        "drl_pids": [p["pid"] for p in drl],
-        "lstm_pids": [p["pid"] for p in lstm],
-        "dreamer_pids": [p["pid"] for p in dreamer],
-        "cycle_pids": [p["pid"] for p in cycle],
-        "drl_symbol": progress.get("drl_symbol") if drl_running else None,
+        "drl_pids": _root_pids(drl),
+        "lstm_pids": _root_pids(lstm),
+        "dreamer_pids": _root_pids(dreamer),
+        "cycle_pids": _root_pids(cycle),
+        "drl_symbol": drl_symbol if drl_running else None,
         "drl_timesteps": progress.get("drl_timesteps") if drl_running else None,
         "drl_candles": progress.get("drl_candles") if drl_running else None,
         "lstm_symbol": progress.get("lstm_symbol") if lstm_running else None,
@@ -1356,6 +1376,67 @@ def _registry_summary(active: dict):
     }
 
 
+def _fallback_account_snapshot():
+    cached = STATUS_CACHE.get("account") if isinstance(STATUS_CACHE, dict) else None
+    if isinstance(cached, dict) and cached:
+        return cached
+    return {
+        "connected": False,
+        "balance": None,
+        "equity": None,
+        "profit": None,
+        "free_margin": None,
+        "open_positions": 0,
+        "positions": [],
+    }
+
+
+def _fallback_charts():
+    cached = STATUS_CACHE.get("charts") if isinstance(STATUS_CACHE, dict) else None
+    if isinstance(cached, dict) and cached:
+        return cached
+    return {
+        "equity_curve": {"source": "unavailable", "labels": [], "values": []},
+        "drawdown_curve": {"source": "unavailable", "labels": [], "values": []},
+        "symbol_pnl": {"source": "unavailable", "labels": [], "values": []},
+    }
+
+
+def _collect_status_fast(state: str = "degraded", error: str | None = None):
+    procs = _processes()
+    active = _active_models()
+    account = _fallback_account_snapshot()
+    symbol_perf = STATUS_CACHE.get("symbol_perf", []) if isinstance(STATUS_CACHE, dict) else []
+    return {
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "repo_root": ROOT,
+        "state": state,
+        "error": error,
+        "active_models": active,
+        "registry": _registry_summary(active),
+        "canary_gate": {"ready": False, "reason": "status refresh degraded"},
+        "server": _server_state(procs),
+        "runtime_owner": _runtime_owner_health(procs),
+        "n8n": _n8n_state(),
+        "training": _training_state(procs),
+        "account": account,
+        "symbol_perf": symbol_perf,
+        "charts": _fallback_charts(),
+        "trade_learning": _trade_learning_status(),
+        "event_intel": _event_intel_status(),
+        "incidents": _incident_feed(40),
+        "source_health": _source_health(),
+        "telegram": _telegram_status(),
+        "logs": {
+            "server": _tail(os.path.join(LOG_DIR, "server.log"), 50),
+            "lstm": _tail(os.path.join(LOG_DIR, "lstm_training.log"), 50),
+            "ppo": _tail(os.path.join(LOG_DIR, "ppo_training.log"), 50),
+            "dreamer": _tail(os.path.join(LOG_DIR, "dreamer_training.log"), 50),
+            "audit": _tail(os.path.join(LOG_DIR, "audit_events.jsonl"), 30),
+        },
+    }
+
+
 def _collect_status():
     procs = _processes()
     reg = ModelRegistry()
@@ -1787,14 +1868,11 @@ async def status_refresh_loop():
     global STATUS_CACHE
     while True:
         try:
-            STATUS_CACHE = await asyncio.to_thread(_collect_status)
+            STATUS_CACHE = await asyncio.wait_for(asyncio.to_thread(_collect_status), timeout=20)
+        except asyncio.TimeoutError:
+            STATUS_CACHE = _collect_status_fast(state="degraded", error="status refresh timed out after 20s")
         except Exception as exc:
-            STATUS_CACHE = {
-                "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-                "repo_root": ROOT,
-                "state": "degraded",
-                "error": str(exc),
-            }
+            STATUS_CACHE = _collect_status_fast(state="degraded", error=str(exc))
         await asyncio.sleep(4)
 
 

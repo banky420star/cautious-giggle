@@ -172,3 +172,31 @@ def test_ppo_visual_parses_progress_line():
     assert out["progress_pct"] == 5.0
     assert out["elapsed_seconds"] == 420
     assert out["eta_seconds"] == 7980
+
+
+def test_root_pids_collapse_windows_launcher_pair():
+    rows = [
+        {"pid": 2332, "ppid": 100, "cmd": '".venv312\\Scripts\\python.exe" tools/champion_cycle.py'},
+        {"pid": 16212, "ppid": 2332, "cmd": '"C:\\Users\\Administrator\\Desktop\\python.exe" tools/champion_cycle.py'},
+    ]
+
+    assert ui._root_pids(rows) == [2332]
+
+
+def test_latest_training_progress_uses_cycle_log_when_ppo_has_not_logged_start(monkeypatch):
+    def fake_tail(path, _n=60):
+        path = str(path)
+        if path.endswith("ppo_training.log"):
+            return []
+        if path.endswith("lstm_training.log"):
+            return []
+        if path.endswith("champion_cycle_stderr.log"):
+            return ["2026-03-13 14:39:02.495 | INFO | __main__:main:236 - Cycle step: train PPO candidate for EURUSDm"]
+        return []
+
+    monkeypatch.setattr(ui, "_tail", fake_tail)
+
+    out = ui._latest_training_progress()
+
+    assert out["drl_symbol"] is None
+    assert out["cycle_ppo_symbol"] == "EURUSDm"
