@@ -17,6 +17,22 @@ LOCK_PATH = os.path.join(LOCK_DIR, "champion_cycle.lock")
 from Python.model_evaluator import evaluate_candidate_vs_champion
 from Python.model_registry import ModelRegistry
 from Python.config_utils import load_project_config
+from alerts.telegram_alerts import TelegramAlerter
+
+
+def _resolve_cfg_value(v):
+    if isinstance(v, str) and v.startswith("ENV:"):
+        return os.environ.get(v.split(":", 1)[1])
+    return v
+
+
+def _build_alerter(cfg: dict):
+    tel = cfg.get("telegram", {}) if isinstance(cfg, dict) else {}
+    token = os.environ.get("TELEGRAM_TOKEN") or _resolve_cfg_value(tel.get("token"))
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or _resolve_cfg_value(tel.get("chat_id"))
+    if not token or not chat_id:
+        return TelegramAlerter(None, None)
+    return TelegramAlerter(token, str(chat_id))
 
 
 def _pid_exists(pid: int) -> bool:
@@ -164,6 +180,7 @@ def _run_train_dreamer(cfg: dict, symbols: list[str]):
 def main():
     _acquire_single_instance_lock()
     cfg = load_project_config(PROJECT_ROOT, live_mode=False)
+    alerter = _build_alerter(cfg)
 
     trading_cfg = cfg.get("trading", {})
     drl_cfg = cfg.get("drl", {})
@@ -213,21 +230,67 @@ def main():
         "dreamer_trained": bool(dreamer_trained),
     }
 
-    if per_symbol:
-        for symbol in symbols:
-            logger.info(f"Cycle step: train PPO candidate for {symbol}")
-            _run_train_drl(symbol=symbol)
+    try:
+        if per_symbol:
+            for symbol in symbols:
+                logger.info(f"Cycle step: train PPO candidate for {symbol}")
+                _run_train_drl(symbol=symbol)
 
-            candidate = _latest_candidate(reg, symbol=symbol)
+                candidate = _latest_candidate(reg, symbol=symbol)
+                if not candidate:
+                    raise RuntimeError(f"No PPO candidate found after training for {symbol}")
+
+                champion = reg.load_active_model(prefer_canary=False, symbol=symbol)
+                logger.info(f"Evaluate {symbol} candidate={os.path.basename(candidate)} vs champion={champion}")
+                report = evaluate_candidate_vs_champion(
+                    candidate,
+                    champion,
+                    symbols=[symbol],
+                    period=eval_period,
+                    interval=eval_interval,
+                    reward_weights=reward_weights,
+                    gates=gates,
+                )
+
+                if report.get("error"):
+                    raise RuntimeError(f"Evaluator error on {symbol}: {report['error']}")
+
+                wins = bool(report.get("wins"))
+                passes = bool(report.get("passes_thresholds"))
+                logger.info(f"{symbol} | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
+
+                if wins and passes:
+                    reg.set_canary(candidate, symbol=symbol)
+                    logger.success(f"Canary set for {symbol}: {candidate}")
+                else:
+                    logger.warning(f"Candidate blocked for {symbol}; champion unchanged")
+
+                cycle_report["symbols"].append(
+                    {
+                        "symbol": symbol,
+                        "candidate": candidate,
+                        "champion": champion,
+                        "wins": wins,
+                        "passes_thresholds": passes,
+                        "pass_rate": report.get("pass_rate"),
+                        "per_symbol_gates": report.get("per_symbol_gates", []),
+                        "forward_windows": report.get("forward_windows", []),
+                    }
+                )
+        else:
+            logger.info("Cycle step: train PPO candidate")
+            _run_train_drl(symbol=None)
+
+            candidate = _latest_candidate(reg)
             if not candidate:
-                raise RuntimeError(f"No PPO candidate found after training for {symbol}")
+                raise RuntimeError("No PPO candidate found after training")
 
-            champion = reg.load_active_model(prefer_canary=False, symbol=symbol)
-            logger.info(f"Evaluate {symbol} candidate={os.path.basename(candidate)} vs champion={champion}")
+            champion = reg.load_active_model(prefer_canary=False)
+            logger.info(f"Cycle step: evaluate candidate={os.path.basename(candidate)} vs champion={champion}")
             report = evaluate_candidate_vs_champion(
                 candidate,
                 champion,
-                symbols=[symbol],
+                symbols=symbols,
                 period=eval_period,
                 interval=eval_interval,
                 reward_weights=reward_weights,
@@ -235,21 +298,21 @@ def main():
             )
 
             if report.get("error"):
-                raise RuntimeError(f"Evaluator error on {symbol}: {report['error']}")
+                raise RuntimeError(f"Evaluator error: {report['error']}")
 
             wins = bool(report.get("wins"))
             passes = bool(report.get("passes_thresholds"))
-            logger.info(f"{symbol} | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
+            logger.info(f"Evaluation result | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
 
             if wins and passes:
-                reg.set_canary(candidate, symbol=symbol)
-                logger.success(f"Canary set for {symbol}: {candidate}")
+                reg.set_canary(candidate)
+                logger.success(f"Canary set to {candidate}")
             else:
-                logger.warning(f"Candidate blocked for {symbol}; champion unchanged")
+                logger.warning("Candidate blocked by gates; champion unchanged")
 
             cycle_report["symbols"].append(
                 {
-                    "symbol": symbol,
+                    "symbol": "GLOBAL",
                     "candidate": candidate,
                     "champion": champion,
                     "wins": wins,
@@ -259,53 +322,16 @@ def main():
                     "forward_windows": report.get("forward_windows", []),
                 }
             )
-    else:
-        logger.info("Cycle step: train PPO candidate")
-        _run_train_drl(symbol=None)
-
-        candidate = _latest_candidate(reg)
-        if not candidate:
-            raise RuntimeError("No PPO candidate found after training")
-
-        champion = reg.load_active_model(prefer_canary=False)
-        logger.info(f"Cycle step: evaluate candidate={os.path.basename(candidate)} vs champion={champion}")
-        report = evaluate_candidate_vs_champion(
-            candidate,
-            champion,
-            symbols=symbols,
-            period=eval_period,
-            interval=eval_interval,
-            reward_weights=reward_weights,
-            gates=gates,
-        )
-
-        if report.get("error"):
-            raise RuntimeError(f"Evaluator error: {report['error']}")
-
-        wins = bool(report.get("wins"))
-        passes = bool(report.get("passes_thresholds"))
-        logger.info(f"Evaluation result | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
-
-        if wins and passes:
-            reg.set_canary(candidate)
-            logger.success(f"Canary set to {candidate}")
-        else:
-            logger.warning("Candidate blocked by gates; champion unchanged")
-
-        cycle_report["symbols"].append(
-            {
-                "symbol": "GLOBAL",
-                "candidate": candidate,
-                "champion": champion,
-                "wins": wins,
-                "passes_thresholds": passes,
-                "pass_rate": report.get("pass_rate"),
-                "per_symbol_gates": report.get("per_symbol_gates", []),
-                "forward_windows": report.get("forward_windows", []),
-            }
-        )
+    except Exception as exc:
+        cycle_report["error"] = str(exc)
+        _write_cycle_report(cycle_report)
+        alerter.training_cycle("failed", symbols, cycle_report, detail=str(exc))
+        raise
 
     _write_cycle_report(cycle_report)
+    promoted = [row.get("symbol") for row in cycle_report["symbols"] if row.get("wins") and row.get("passes_thresholds")]
+    detail = f"promoted={','.join(str(x) for x in promoted) if promoted else 'none'}"
+    alerter.training_cycle("complete", symbols, cycle_report, detail=detail)
 
 
 if __name__ == "__main__":

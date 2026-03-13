@@ -1770,6 +1770,7 @@ async def telegram_card_sync_loop(app):
             status = read_status(refresh_if_booting=False)
             if status.get("state") != "booting":
                 await asyncio.to_thread(_sync_dashboard_cards, alerter, status)
+                await asyncio.to_thread(alerter.retry_pending_cards)
         except Exception:
             pass
         await asyncio.sleep(TELEGRAM_CARD_SYNC_SECONDS)

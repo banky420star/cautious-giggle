@@ -44,6 +44,7 @@ class TelegramAlerter:
         self.chat_id = chat_id
         self.cards_state_path = cards_state_path or self._default_cards_path()
         self.cards = self._load_cards()
+        self._last_api_error = None
 
     def _default_cards_path(self):
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -59,16 +60,20 @@ class TelegramAlerter:
             "category": "ops",
             "delivery_status": "dashboard_only",
             "updated_utc": None,
+            "next_retry_utc": None,
             "title": str(key),
             "preview": "",
+            "last_text": "",
         }
         if isinstance(value, dict):
             base["message_id"] = value.get("message_id") or value.get("msg_id")
             base["category"] = str(value.get("category") or "ops")
             base["delivery_status"] = str(value.get("delivery_status") or "dashboard_only")
             base["updated_utc"] = value.get("updated_utc")
+            base["next_retry_utc"] = value.get("next_retry_utc")
             base["title"] = str(value.get("title") or str(key))
             base["preview"] = str(value.get("preview") or "")
+            base["last_text"] = str(value.get("last_text") or "")
         else:
             try:
                 base["message_id"] = int(value)
@@ -100,6 +105,7 @@ class TelegramAlerter:
     def _api(self, method, payload):
         if not self._configured():
             return None
+        self._last_api_error = None
         url = f"https://api.telegram.org/bot{self.token}/{method}"
         body = dict(payload or {})
         body.setdefault("disable_web_page_preview", True)
@@ -107,12 +113,22 @@ class TelegramAlerter:
         try:
             resp = requests.post(url, json=body, timeout=8)
             if not resp.ok:
+                retry_after = None
+                try:
+                    parsed = resp.json() or {}
+                    retry_after = ((parsed.get("parameters") or {}).get("retry_after"))
+                except Exception:
+                    parsed = {}
+                self._last_api_error = {"status_code": resp.status_code, "retry_after": retry_after, "body": parsed}
                 return None
             parsed = resp.json()
             if not parsed.get("ok"):
+                retry_after = ((parsed.get("parameters") or {}).get("retry_after")) if isinstance(parsed, dict) else None
+                self._last_api_error = {"status_code": resp.status_code, "retry_after": retry_after, "body": parsed}
                 return None
             return parsed.get("result")
         except Exception:
+            self._last_api_error = {"status_code": None, "retry_after": None, "body": None}
             return None
 
     def _build_card(self, header, rows=None, detail=None):
@@ -135,6 +151,13 @@ class TelegramAlerter:
         msg_id = record.get("message_id")
         sent = False
         result = None
+        next_retry_utc = record.get("next_retry_utc")
+        if next_retry_utc:
+            try:
+                if datetime.datetime.fromisoformat(str(next_retry_utc)) > _utc_now():
+                    return False
+            except Exception:
+                pass
 
         if msg_id and self._configured():
             result = self._api(
@@ -162,6 +185,20 @@ class TelegramAlerter:
                 record["message_id"] = int(result.get("message_id"))
             except Exception:
                 pass
+            record["next_retry_utc"] = None
+        else:
+            retry_after = None
+            if isinstance(self._last_api_error, dict):
+                retry_after = self._last_api_error.get("retry_after")
+            try:
+                retry_after = int(retry_after) if retry_after is not None else None
+            except Exception:
+                retry_after = None
+            record["next_retry_utc"] = (
+                (_utc_now() + datetime.timedelta(seconds=max(1, retry_after))).isoformat(timespec="seconds")
+                if retry_after
+                else record.get("next_retry_utc")
+            )
 
         plain = _strip_markup(text)
         record.update(
@@ -172,11 +209,31 @@ class TelegramAlerter:
                 "updated_utc": _utc_iso(),
                 "title": str(title or plain.splitlines()[0] or card_key),
                 "preview": plain[:240],
+                "last_text": str(text or ""),
             }
         )
         self.cards[card_key] = record
         self._save_cards()
         return sent
+
+    def retry_pending_cards(self):
+        resent = []
+        for key, record in list(self.cards.items()):
+            if not isinstance(record, dict):
+                continue
+            if str(record.get("delivery_status") or "dashboard_only") == "both":
+                continue
+            text = str(record.get("last_text") or "").strip()
+            if not text:
+                continue
+            if self._upsert_card(
+                key,
+                text,
+                category=str(record.get("category") or "ops"),
+                title=str(record.get("title") or key),
+            ):
+                resent.append(str(key))
+        return resent
 
     def cards_snapshot(self, limit=None):
         rows = [dict(value) for value in self.cards.values() if isinstance(value, dict)]
@@ -358,6 +415,26 @@ class TelegramAlerter:
             category="training",
             title=f"Training {stage}",
         )
+
+    def training_cycle(self, status, symbols, report=None, detail=None):
+        payload = report or {}
+        rows = payload.get("symbols") or []
+        promoted = [str(row.get("symbol") or "n/a") for row in rows if row.get("wins") and row.get("passes_thresholds")]
+        blocked = [str(row.get("symbol") or "n/a") for row in rows if not (row.get("wins") and row.get("passes_thresholds"))]
+        body = self._build_card(
+            f"Training | CYCLE {str(status).upper()}",
+            rows=[
+                ("Status", str(status).upper()),
+                ("Universe", ", ".join(str(x) for x in (symbols or [])) or "n/a"),
+                ("Mode", payload.get("mode") or "n/a"),
+                ("Promoted", ", ".join(promoted) or "none"),
+                ("Blocked", ", ".join(blocked) or "none"),
+                ("Skip LSTM", "YES" if payload.get("skip_lstm") else "NO"),
+                ("Skip Dreamer", "YES" if payload.get("skip_dreamer") else "NO"),
+                ("Detail", detail or payload.get("error") or "n/a"),
+            ],
+        )
+        self._upsert_card("training_cycle", body, category="training", title=f"Training cycle {status}")
 
     def model(self, message):
         body = self._build_card("Registry | MODEL UPDATE", rows=[("Message", message)])
