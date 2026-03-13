@@ -154,3 +154,21 @@ def test_dreamer_visual_parses_active_run():
     assert out["current_symbol"] == "BTCUSDm"
     assert out["last_saved_symbol"] == "XAUUSDm"
     assert out["steps"] == 5000
+
+
+def test_ppo_visual_parses_progress_line():
+    lines = [
+        "2026-03-13 00:42:46.371 | INFO | __main__:_train_once:400 - DRL Training | symbols=['BTCUSDm'] | timesteps=500,000 | period=90d | tf=5m | candles=100,000 | per_symbol=True | initial_balance=813.26 | features=ultimate_150 | source=mt5",
+        "2026-03-13 00:43:00.968 | INFO | __main__:_train_once:455 - Starting PPO training",
+        "2026-03-13 00:50:00.000 | INFO | __main__:_on_step:99 - PPO progress | symbols=['BTCUSDm'] | step=25,000/500,000 | pct=5.00 | elapsed_s=420 | eta_s=7980",
+    ]
+
+    out = ui._build_ppo_visual(lines, running=True)
+
+    assert out["phase"] == "optimizing"
+    assert out["current_symbol"] == "BTCUSDm"
+    assert out["current_timesteps"] == 25000
+    assert out["target_timesteps"] == 500000
+    assert out["progress_pct"] == 5.0
+    assert out["elapsed_seconds"] == 420
+    assert out["eta_seconds"] == 7980

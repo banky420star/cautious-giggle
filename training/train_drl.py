@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import sys
+import time
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -14,7 +15,7 @@ import torch
 import yaml
 from loguru import logger
 from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
@@ -72,6 +73,41 @@ class EvalCallbackSaveVec(EvalCallback):
                 self.vec_env.save(self.vec_save_path)
                 logger.success(f"Saved VecNormalize with new best model -> {self.vec_save_path}")
         return cont
+
+
+class PPOProgressCallback(BaseCallback):
+    def __init__(self, total_timesteps: int, symbols: list[str], log_interval: int = 10_000):
+        super().__init__()
+        self.total_timesteps = max(1, int(total_timesteps))
+        self.symbols = list(symbols)
+        self.log_interval = max(1_000, int(log_interval))
+        self._start_step = 0
+        self._last_log_step = 0
+        self._start_time = None
+
+    def _on_training_start(self) -> None:
+        self._start_step = int(getattr(self.model, "num_timesteps", 0) or 0)
+        self._last_log_step = 0
+        self._start_time = time.time()
+
+    def _on_step(self) -> bool:
+        current_total = int(getattr(self.model, "num_timesteps", 0) or 0)
+        current = max(0, current_total - self._start_step)
+        if current <= 0:
+            return True
+        if current - self._last_log_step < self.log_interval and current < self.total_timesteps:
+            return True
+
+        elapsed = max(0.001, time.time() - (self._start_time or time.time()))
+        pct = min(100.0, (current / self.total_timesteps) * 100.0)
+        rate = current / elapsed if elapsed > 0 else 0.0
+        remaining = max(0, self.total_timesteps - current)
+        eta = int(remaining / rate) if rate > 0 else None
+        logger.info(
+            f"PPO progress | symbols={self.symbols} | step={current:,}/{self.total_timesteps:,} | pct={pct:.2f} | elapsed_s={int(elapsed)} | eta_s={eta if eta is not None else 'unknown'}"
+        )
+        self._last_log_step = current
+        return True
 
 
 def _normalize_interval(interval: str | None) -> str:
@@ -451,9 +487,10 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     )
 
     grad_callback = LSTMGradientDiagnostics()
+    progress_callback = PPOProgressCallback(total_timesteps=total_timesteps, symbols=symbols, log_interval=max(5_000, total_timesteps // 20))
 
     logger.info("Starting PPO training")
-    model.learn(total_timesteps=total_timesteps, callback=[eval_callback, grad_callback], progress_bar=True)
+    model.learn(total_timesteps=total_timesteps, callback=[eval_callback, grad_callback, progress_callback], progress_bar=True)
     best_score = float(eval_callback.best_mean_reward) if eval_callback.best_mean_reward is not None else None
 
     latest_dir = os.path.join("models", "latest_run")

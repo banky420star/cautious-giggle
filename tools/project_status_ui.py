@@ -584,6 +584,10 @@ def _build_ppo_visual(lines, running: bool) -> dict:
         "target_timesteps": None,
         "candles": None,
         "phase": "idle",
+        "current_timesteps": None,
+        "progress_pct": None,
+        "elapsed_seconds": None,
+        "eta_seconds": None,
         "candidate_ready": False,
         "candidate_path": None,
         "updated_utc": None,
@@ -593,6 +597,10 @@ def _build_ppo_visual(lines, running: bool) -> dict:
 
     start_re = re.compile(
         r"DRL Training\s*\|\s*symbols=(\[[^\]]*\])\s*\|\s*timesteps=([0-9,]+)(?:.*?\|\s*candles=([0-9,]+))?",
+        re.IGNORECASE,
+    )
+    progress_re = re.compile(
+        r"PPO progress\s*\|\s*symbols=(\[[^\]]*\])\s*\|\s*step=([0-9,]+)\/([0-9,]+)\s*\|\s*pct=([0-9.]+)\s*\|\s*elapsed_s=(\d+)\s*\|\s*eta_s=([0-9]+|unknown)",
         re.IGNORECASE,
     )
     staged_re = re.compile(r"Candidate staged to:\s*(.+)$", re.IGNORECASE)
@@ -621,6 +629,18 @@ def _build_ppo_visual(lines, running: bool) -> dict:
     for line in lines[start_idx + 1 :]:
         if "Starting PPO training" in line:
             started = True
+            latest_ts = _line_ts_utc(line) or latest_ts
+            continue
+        pm = progress_re.search(line)
+        if pm:
+            progress_symbols = _parse_symbol_list(pm.group(1)) or out["symbols"]
+            out["symbols"] = progress_symbols
+            out["current_symbol"] = progress_symbols[0] if progress_symbols else out["current_symbol"]
+            out["current_timesteps"] = _as_int(pm.group(2), 0) or None
+            out["target_timesteps"] = _as_int(pm.group(3), 0) or out["target_timesteps"]
+            out["progress_pct"] = _as_float(pm.group(4))
+            out["elapsed_seconds"] = _as_int(pm.group(5), 0) or None
+            out["eta_seconds"] = None if str(pm.group(6)).lower() == "unknown" else (_as_int(pm.group(6), 0) or None)
             latest_ts = _line_ts_utc(line) or latest_ts
             continue
         sm = staged_re.search(line)
