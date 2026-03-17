@@ -381,3 +381,122 @@ def test_symbol_pipeline_summary_counts_training_and_trading():
     assert out["champion_live_symbols"] == 2
     assert out["trading_ready_symbols"] == 2
     assert out["trading_active_symbols"] == 1
+
+
+def test_symbol_lane_rows_include_decision_and_execution_trace():
+    training = {
+        "configured_symbols": ["BTCUSDm", "XAUUSDm"],
+        "symbol_stage_rows": [
+            {
+                "symbol": "BTCUSDm",
+                "lstm": {"state": "done", "detail": "epoch 20/20"},
+                "dreamer": {"state": "done", "detail": "artifact saved"},
+                "ppo": {"state": "active", "detail": "12,000/120,000"},
+                "canary": {"state": "waiting", "detail": "none staged"},
+                "champion": {"state": "waiting", "detail": "not set"},
+                "trading": {"state": "waiting", "detail": "no champion"},
+            },
+            {
+                "symbol": "XAUUSDm",
+                "lstm": {"state": "done", "detail": "epoch 20/20"},
+                "dreamer": {"state": "done", "detail": "artifact saved"},
+                "ppo": {"state": "done", "detail": "20260308_073222"},
+                "canary": {"state": "testing", "detail": "20260308_073222"},
+                "champion": {"state": "live", "detail": "20260308_073222"},
+                "trading": {"state": "active", "detail": "1 open | pnl +12.50"},
+            },
+        ],
+    }
+    active = {
+        "symbols": {
+            "BTCUSDm": {},
+            "XAUUSDm": {
+                "champion": "C:\\repo\\models\\registry\\candidates\\20260308_073222",
+                "canary": "C:\\repo\\models\\registry\\candidates\\20260308_073222",
+                "canary_state": {"passed": False},
+            },
+        }
+    }
+    incidents = [
+        {
+            "ts": "2026-03-17T17:40:46.196856+00:00",
+            "event": "trade_action",
+            "symbol": "XAUUSDm",
+            "payload": {
+                "symbol": "XAUUSDm",
+                "request_action": "open",
+                "executed": True,
+                "side": "SELL",
+                "lane": "canary",
+                "model_source": "registry:XAUUSDm:canary",
+                "model_version": "20260308_073222",
+                "magic": 52100,
+                "comment": "AGI|XAU|CA|O|P073222|P-31",
+                "retcode": 10009,
+                "ticket": 2515768622,
+            },
+        },
+        {
+            "ts": "2026-03-17T17:40:45.834461+00:00",
+            "event": "signal",
+            "symbol": "XAUUSDm",
+            "payload": {
+                "symbol": "XAUUSDm",
+                "regime": "LOW_VOLATILITY",
+                "confidence": 1.0,
+                "risk_scalar": 0.95,
+                "agi_bias": -0.05,
+                "ppo_exposure": -0.3138,
+                "dreamer_exposure": 1.0,
+                "raw_target": 0.2209,
+                "exposure": 0.2099,
+                "decision_profile": {"ppo_weight": 0.58, "dreamer_weight": 0.42, "agi_weight": 0.34},
+            },
+        },
+        {
+            "ts": "2026-03-17T17:40:45.193761+00:00",
+            "event": "signal",
+            "symbol": "BTCUSDm",
+            "payload": {
+                "symbol": "BTCUSDm",
+                "regime": "LOW_VOLATILITY",
+                "confidence": 1.0,
+                "risk_scalar": 0.95,
+                "agi_bias": -0.05,
+                "ppo_exposure": 0.0173,
+                "dreamer_exposure": 0.0,
+                "raw_target": 0.0034,
+                "exposure": 0.0173,
+                "decision_profile": {"ppo_weight": 0.72, "dreamer_weight": 0.28, "agi_weight": 0.18},
+            },
+        },
+    ]
+
+    rows = ui._symbol_lane_rows(training, active, incidents, account={"positions": [{"symbol": "XAUUSDm", "profit": 12.5}]})
+    by_symbol = {row["symbol"]: row for row in rows}
+
+    assert by_symbol["BTCUSDm"]["decision"]["final_target"] == 0.0173
+    assert by_symbol["BTCUSDm"]["execution"]["state"] == "armed"
+    assert by_symbol["XAUUSDm"]["execution"]["state"] == "executed"
+    assert by_symbol["XAUUSDm"]["execution"]["magic"] == 52100
+    assert by_symbol["XAUUSDm"]["execution"]["comment"] == "AGI|XAU|CA|O|P073222|P-31"
+    assert by_symbol["XAUUSDm"]["registry"]["champion_label"] == "20260308_073222"
+    assert by_symbol["XAUUSDm"]["position"]["open_positions"] == 1
+
+
+def test_symbol_lane_summary_counts_execution_states():
+    rows = [
+        {"decision": {"state": "armed"}, "execution": {"state": "armed"}, "position": {"open_positions": 0}},
+        {"decision": {"state": "executed"}, "execution": {"state": "executed"}, "position": {"open_positions": 1}},
+        {"decision": {"state": "blocked"}, "execution": {"state": "blocked"}, "position": {"open_positions": 0}},
+        {"decision": {"state": "neutral"}, "execution": {"state": "neutral"}, "position": {"open_positions": 0}},
+    ]
+
+    out = ui._symbol_lane_summary(rows)
+
+    assert out["symbols_total"] == 4
+    assert out["actionable_symbols"] == 2
+    assert out["executed_symbols"] == 1
+    assert out["blocked_symbols"] == 1
+    assert out["neutral_symbols"] == 1
+    assert out["open_positions"] == 1

@@ -1182,6 +1182,174 @@ def _symbol_pipeline_summary(rows: list[dict]) -> dict:
     return summary
 
 
+def _latest_incidents_by_symbol(incidents: list[dict], event_name: str) -> dict[str, dict]:
+    rows = {}
+    for item in incidents or []:
+        if str(item.get("event") or "") != event_name:
+            continue
+        payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+        symbol = str(payload.get("symbol") or item.get("symbol") or "").strip()
+        if symbol and symbol not in rows:
+            rows[symbol] = item
+    return rows
+
+
+def _symbol_lane_rows(
+    training: dict,
+    active: dict,
+    incidents: list[dict],
+    account: dict | None = None,
+    server: dict | None = None,
+) -> list[dict]:
+    stage_rows = training.get("symbol_stage_rows") if isinstance(training.get("symbol_stage_rows"), list) else None
+    if stage_rows is None:
+        stage_rows = _symbol_stage_rows(training, active, account=account, server=server)
+
+    signals = _latest_incidents_by_symbol(incidents, "signal")
+    actions = _latest_incidents_by_symbol(incidents, "trade_action")
+    blocks = _latest_incidents_by_symbol(incidents, "risk_supervisor_block")
+    registry_symbols = active.get("symbols", {}) if isinstance(active.get("symbols"), dict) else {}
+
+    positions_by_symbol = defaultdict(list)
+    for position in (account or {}).get("positions", []) or []:
+        if not isinstance(position, dict):
+            continue
+        symbol = str(position.get("symbol") or "").strip()
+        if symbol:
+            positions_by_symbol[symbol].append(position)
+
+    rows = []
+    for stage_row in stage_rows:
+        if not isinstance(stage_row, dict):
+            continue
+        symbol = str(stage_row.get("symbol") or "").strip()
+        if not symbol:
+            continue
+
+        signal_item = signals.get(symbol, {})
+        signal_payload = signal_item.get("payload") if isinstance(signal_item.get("payload"), dict) else {}
+        action_item = actions.get(symbol, {})
+        action_payload = action_item.get("payload") if isinstance(action_item.get("payload"), dict) else {}
+        block_item = blocks.get(symbol, {})
+        block_payload = block_item.get("payload") if isinstance(block_item.get("payload"), dict) else {}
+        registry_row = registry_symbols.get(symbol, {}) if isinstance(registry_symbols.get(symbol), dict) else {}
+        positions = positions_by_symbol.get(symbol, [])
+
+        final_target = float(signal_payload.get("exposure") or 0.0)
+        ppo_target = float(signal_payload.get("ppo_exposure") or 0.0)
+        dreamer_target = float(signal_payload.get("dreamer_exposure") or 0.0)
+        agi_bias = float(signal_payload.get("agi_bias") or 0.0)
+        risk_scalar = float(signal_payload.get("risk_scalar") or 1.0)
+        profile = signal_payload.get("decision_profile") if isinstance(signal_payload.get("decision_profile"), dict) else {}
+
+        execution_state = "watching"
+        if action_payload:
+            request_action = str(action_payload.get("request_action") or action_payload.get("action") or "watching")
+            execution_state = "executed" if bool(action_payload.get("executed")) else request_action
+        elif block_payload:
+            execution_state = "blocked"
+        elif signal_payload:
+            execution_state = "armed" if abs(final_target) > 1e-9 else "neutral"
+
+        trading_state = str((stage_row.get("trading") or {}).get("state") or "waiting")
+        trading_pnl = round(sum(float(position.get("profit") or 0.0) for position in positions), 2) if positions else 0.0
+        last_update = action_item.get("ts") or signal_item.get("ts") or block_item.get("ts")
+
+        rows.append(
+            {
+                "symbol": symbol,
+                "pipeline": {
+                    "lstm": dict(stage_row.get("lstm") or {}),
+                    "dreamer": dict(stage_row.get("dreamer") or {}),
+                    "ppo": dict(stage_row.get("ppo") or {}),
+                    "canary": dict(stage_row.get("canary") or {}),
+                    "champion": dict(stage_row.get("champion") or {}),
+                    "trading": dict(stage_row.get("trading") or {}),
+                },
+                "registry": {
+                    "champion": registry_row.get("champion"),
+                    "champion_label": _candidate_label(registry_row.get("champion")),
+                    "canary": registry_row.get("canary"),
+                    "canary_label": _candidate_label(registry_row.get("canary")),
+                    "canary_ready": bool(((registry_row.get("canary_state") or {}).get("passed"))),
+                },
+                "decision": {
+                    "state": execution_state,
+                    "regime": signal_payload.get("regime") or signal_payload.get("signal") or "UNKNOWN",
+                    "confidence": signal_payload.get("confidence"),
+                    "risk_scalar": risk_scalar,
+                    "agi_bias": agi_bias,
+                    "ppo_target": ppo_target,
+                    "dreamer_target": dreamer_target,
+                    "raw_target": signal_payload.get("raw_target"),
+                    "final_target": final_target,
+                    "updated_utc": signal_item.get("ts"),
+                    "trade_memory": signal_payload.get("trade_memory") if isinstance(signal_payload.get("trade_memory"), dict) else {},
+                },
+                "execution": {
+                    "state": execution_state,
+                    "updated_utc": last_update,
+                    "request_action": action_payload.get("request_action") or action_payload.get("action") or "watching",
+                    "executed": bool(action_payload.get("executed")),
+                    "side": action_payload.get("side"),
+                    "entry_mode": action_payload.get("entry_mode"),
+                    "lots": action_payload.get("lots"),
+                    "target_lots": action_payload.get("target_lots"),
+                    "lane": action_payload.get("lane"),
+                    "model_source": action_payload.get("model_source"),
+                    "model_version": action_payload.get("model_version"),
+                    "magic": action_payload.get("magic"),
+                    "comment": action_payload.get("comment"),
+                    "retcode": action_payload.get("retcode"),
+                    "ticket": action_payload.get("ticket"),
+                    "block_reason": block_payload.get("reason"),
+                },
+                "profile": {
+                    "ppo_weight": profile.get("ppo_weight"),
+                    "dreamer_weight": profile.get("dreamer_weight"),
+                    "agi_weight": profile.get("agi_weight"),
+                    "min_trade_threshold": profile.get("min_trade_threshold"),
+                    "max_abs_target": profile.get("max_abs_target"),
+                    "cooldown_sec": profile.get("cooldown_sec"),
+                },
+                "position": {
+                    "state": trading_state,
+                    "open_positions": len(positions),
+                    "floating_pnl": trading_pnl,
+                },
+            }
+        )
+    return rows
+
+
+def _symbol_lane_summary(rows: list[dict]) -> dict:
+    summary = {
+        "symbols_total": len(rows),
+        "actionable_symbols": 0,
+        "executed_symbols": 0,
+        "blocked_symbols": 0,
+        "neutral_symbols": 0,
+        "open_positions": 0,
+    }
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        decision = row.get("decision") if isinstance(row.get("decision"), dict) else {}
+        execution = row.get("execution") if isinstance(row.get("execution"), dict) else {}
+        position = row.get("position") if isinstance(row.get("position"), dict) else {}
+        state = str(execution.get("state") or decision.get("state") or "")
+        if state in {"armed", "executed"}:
+            summary["actionable_symbols"] += 1
+        if state == "executed":
+            summary["executed_symbols"] += 1
+        if state == "blocked":
+            summary["blocked_symbols"] += 1
+        if state in {"neutral", "watching"}:
+            summary["neutral_symbols"] += 1
+        summary["open_positions"] += _as_int(position.get("open_positions"), 0)
+    return summary
+
+
 def _latest_training_progress() -> dict:
     out = {
         "drl_symbol": None,
@@ -1756,7 +1924,7 @@ def _incident_feed(limit: int = 40):
             severity = "critical"
         elif any(token in merged for token in ("warning", "halt", "risk_supervisor_block", "multiple_root_owners", "mixed_executables")):
             severity = "warning"
-        elif event in {"trade_open", "trade_closed", "signal"}:
+        elif event in {"trade_open", "trade_closed", "trade_action", "signal"}:
             severity = "activity"
 
         symbol = payload.get("symbol")
@@ -1768,7 +1936,13 @@ def _incident_feed(limit: int = 40):
         elif event == "runtime_owner_health" and payload.get("issues"):
             summary = "runtime ownership warning"
         elif event == "signal":
-            summary = f"{symbol or 'symbol'} · {payload.get('signal', 'signal')} @ {payload.get('confidence', '-')}"
+            summary = f"{symbol or 'symbol'} · {payload.get('regime') or payload.get('signal', 'signal')} @ {payload.get('confidence', '-')}"
+        elif event == "trade_action":
+            summary = (
+                f"{symbol or 'symbol'} · "
+                f"{payload.get('request_action') or payload.get('action') or 'action'} "
+                f"| magic {payload.get('magic') or '-'}"
+            )
 
         rows.append(
             {
@@ -1848,6 +2022,9 @@ def _collect_status_fast(state: str = "degraded", error: str | None = None):
     training = _training_state(procs)
     training["symbol_stage_rows"] = _symbol_stage_rows(training, active, account=account, server=server)
     training["pipeline_summary"] = _symbol_pipeline_summary(training["symbol_stage_rows"])
+    incidents = _incident_feed(40)
+    training["symbol_lane_rows"] = _symbol_lane_rows(training, active, incidents, account=account, server=server)
+    training["lane_summary"] = _symbol_lane_summary(training["symbol_lane_rows"])
     return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "repo_root": ROOT,
@@ -1865,7 +2042,7 @@ def _collect_status_fast(state: str = "degraded", error: str | None = None):
         "charts": _fallback_charts(),
         "trade_learning": _trade_learning_status(),
         "event_intel": _event_intel_status(),
-        "incidents": _incident_feed(40),
+        "incidents": incidents,
         "source_health": _source_health(),
         "telegram": _telegram_status(),
         "logs": {
@@ -1890,6 +2067,9 @@ def _collect_status():
     training = _training_state(procs)
     training["symbol_stage_rows"] = _symbol_stage_rows(training, active, account=account, server=server)
     training["pipeline_summary"] = _symbol_pipeline_summary(training["symbol_stage_rows"])
+    incidents = _incident_feed(40)
+    training["symbol_lane_rows"] = _symbol_lane_rows(training, active, incidents, account=account, server=server)
+    training["lane_summary"] = _symbol_lane_summary(training["symbol_lane_rows"])
     return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "repo_root": ROOT,
@@ -1905,7 +2085,7 @@ def _collect_status():
         "charts": _dashboard_charts(account, symbol_perf),
         "trade_learning": _trade_learning_status(),
         "event_intel": _event_intel_status(),
-        "incidents": _incident_feed(40),
+        "incidents": incidents,
         "source_health": _source_health(),
         "telegram": _telegram_status(),
         "logs": {
