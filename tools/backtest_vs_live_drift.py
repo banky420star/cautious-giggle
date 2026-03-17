@@ -8,13 +8,14 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS
 from Python.backtester import run_multi
 
 
 def _parse_args():
     parser = argparse.ArgumentParser(description="Compare backtest metrics to recent live trade drift.")
     parser.add_argument("--model-dir", default=os.path.join("models", "registry", "champion"))
-    parser.add_argument("--symbols", nargs="+", default=["EURUSDm", "GBPUSDm", "XAUUSDm", "BTCUSDm"])
+    parser.add_argument("--symbols", nargs="+", default=list(DEFAULT_TRADING_SYMBOLS))
     parser.add_argument("--period", default="7d")
     parser.add_argument("--interval", default="5m")
     parser.add_argument("--trade-log", default=os.path.join("logs", "trade_events.jsonl"))

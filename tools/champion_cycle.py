@@ -16,7 +16,7 @@ LOCK_PATH = os.path.join(LOCK_DIR, "champion_cycle.lock")
 
 from Python.model_evaluator import evaluate_candidate_vs_champion
 from Python.model_registry import ModelRegistry
-from Python.config_utils import load_project_config
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, parse_symbol_list, resolve_trading_symbols
 from alerts.telegram_alerts import TelegramAlerter
 
 
@@ -24,6 +24,30 @@ def _resolve_cfg_value(v):
     if isinstance(v, str) and v.startswith("ENV:"):
         return os.environ.get(v.split(":", 1)[1])
     return v
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return bool(default)
+    value = str(raw).strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    return bool(default)
+
+
+def _resolve_cycle_symbols(cfg: dict) -> list[str]:
+    env_symbols = os.environ.get("AGI_CYCLE_SYMBOLS")
+    if env_symbols:
+        return parse_symbol_list(env_symbols)
+
+    env_symbol = os.environ.get("AGI_CYCLE_SYMBOL")
+    if env_symbol:
+        return parse_symbol_list([env_symbol])
+
+    return resolve_trading_symbols(cfg, fallback=DEFAULT_TRADING_SYMBOLS)
 
 
 def _build_alerter(cfg: dict):
@@ -186,7 +210,7 @@ def main():
     drl_cfg = cfg.get("drl", {})
     cycle_cfg = cfg.get("cycle", {}) if isinstance(cfg.get("cycle", {}), dict) else {}
 
-    symbols = trading_cfg.get("symbols", ["EURUSDm", "GBPUSDm"])
+    symbols = _resolve_cycle_symbols(cfg)
     eval_period = str(drl_cfg.get("eval_period", "120d"))
     eval_interval = str(drl_cfg.get("interval", trading_cfg.get("timeframe", "M5")))
     reward_cfg = drl_cfg.get("reward", {}) if isinstance(drl_cfg.get("reward", {}), dict) else {}
@@ -194,9 +218,9 @@ def main():
 
     per_symbol = bool(drl_cfg.get("per_symbol", True))
     gates = _gates_from_cfg(cfg)
-    skip_completed = bool(cycle_cfg.get("skip_completed_training", True))
-    force_skip_lstm = bool(cycle_cfg.get("skip_lstm", False))
-    force_skip_dreamer = bool(cycle_cfg.get("skip_dreamer", False))
+    skip_completed = _env_bool("AGI_CYCLE_SKIP_COMPLETED", bool(cycle_cfg.get("skip_completed_training", True)))
+    force_skip_lstm = _env_bool("AGI_CYCLE_SKIP_LSTM", bool(cycle_cfg.get("skip_lstm", False)))
+    force_skip_dreamer = _env_bool("AGI_CYCLE_SKIP_DREAMER", bool(cycle_cfg.get("skip_dreamer", False)))
     lstm_pending = _pending_symbols(symbols, _has_lstm_artifact) if skip_completed else list(symbols)
     dreamer_pending = _pending_symbols(symbols, _has_dreamer_artifact) if skip_completed else list(symbols)
     skip_lstm = force_skip_lstm or (skip_completed and not lstm_pending)

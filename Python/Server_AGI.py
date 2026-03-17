@@ -14,7 +14,7 @@ from Python.hybrid_brain import HybridBrain
 from Python.mt5_executor import MT5Executor
 from Python.risk_engine import RiskEngine
 from Python.risk_supervisor import RiskSupervisor
-from Python.config_utils import load_project_config
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 from Python.event_intel import EventIntel
 from Python.trade_learning import build_trade_learning
 from alerts.telegram_alerts import TelegramAlerter
@@ -30,6 +30,25 @@ ACTIVE_MODELS_PATH = os.path.join(BASE_DIR, "models", "registry", "active.json")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(SERVER_LOG, rotation="10 MB", level="INFO")
+
+SYMBOL_EXECUTION_PROFILES = {
+    "BTCUSDm": {
+        "ppo_weight": 0.65,
+        "dreamer_weight": 0.25,
+        "agi_weight": 0.10,
+        "min_trade_threshold": 0.18,
+        "max_abs_target": 1.00,
+        "cooldown_sec": 30,
+    },
+    "XAUUSDm": {
+        "ppo_weight": 0.50,
+        "dreamer_weight": 0.20,
+        "agi_weight": 0.30,
+        "min_trade_threshold": 0.12,
+        "max_abs_target": 0.75,
+        "cooldown_sec": 45,
+    },
+}
 
 
 def _utc_now() -> datetime.datetime:
@@ -306,56 +325,69 @@ def _to_mt5_timeframe(tf: str):
     return mapping.get((tf or "M5").upper(), mt5.TIMEFRAME_M5)
 
 
-def _low_volatility_memory_base(trade_memory: dict | None) -> float:
-    memory = trade_memory if isinstance(trade_memory, dict) else {}
-    trades = int(memory.get("trades", 0) or 0)
-    expectancy = float(memory.get("expectancy", 0.0) or 0.0)
-    profit_factor = float(memory.get("profit_factor", 0.0) or 0.0)
-    recent_loss_streak = int(memory.get("recent_loss_streak", 0) or 0)
-
-    min_trades = int(os.environ.get("AGI_LOW_VOL_MIN_TRADES", "20"))
-    min_profit_factor = float(os.environ.get("AGI_LOW_VOL_MIN_PROFIT_FACTOR", "1.15"))
-    min_expectancy = float(os.environ.get("AGI_LOW_VOL_MIN_EXPECTANCY", "0.0"))
-    max_recent_loss_streak = int(os.environ.get("AGI_LOW_VOL_MAX_RECENT_LOSS_STREAK", "3"))
-    base_floor = float(os.environ.get("AGI_LOW_VOL_BASE_EXPOSURE", "0.08"))
-    base_cap = float(os.environ.get("AGI_LOW_VOL_MAX_EXPOSURE", "0.16"))
-
-    if trades < min_trades:
-        return 0.0
-    if expectancy <= min_expectancy:
-        return 0.0
-    if profit_factor < min_profit_factor:
-        return 0.0
-    if recent_loss_streak > max_recent_loss_streak:
-        return 0.0
-
-    expectancy_bonus = min(0.04, expectancy / 250.0)
-    profit_factor_bonus = min(0.04, max(0.0, profit_factor - min_profit_factor) / 5.0)
-    return float(min(base_cap, base_floor + expectancy_bonus + profit_factor_bonus))
+def _clip(v: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, float(v)))
 
 
-def _signal_to_exposure(
-    signal: str,
-    confidence: float,
-    closes,
-    trade_memory: dict | None = None,
-    low_vol_base: float | None = None,
-):
-    if len(closes) < 8:
-        return 0.0
+def _symbol_profile(symbol: str, cfg: dict | None = None) -> dict:
+    base = dict(SYMBOL_EXECUTION_PROFILES.get(str(symbol), SYMBOL_EXECUTION_PROFILES["BTCUSDm"]))
+    trading_cfg = (cfg or {}).get("trading", {}) if isinstance(cfg, dict) else {}
+    symbol_profiles = trading_cfg.get("symbol_profiles", {}) or {}
+    raw = symbol_profiles.get(str(symbol), {}) if isinstance(symbol_profiles, dict) else {}
+    if isinstance(raw, dict):
+        if "ppo_weight" in raw:
+            base["ppo_weight"] = float(raw["ppo_weight"])
+        if "dreamer_weight" in raw:
+            base["dreamer_weight"] = float(raw["dreamer_weight"])
+        if "agi_context_weight" in raw:
+            base["agi_weight"] = float(raw["agi_context_weight"])
+        if "min_actionable_exposure" in raw:
+            base["min_trade_threshold"] = float(raw["min_actionable_exposure"])
+        if "max_policy_exposure" in raw:
+            base["max_abs_target"] = float(raw["max_policy_exposure"])
+        if "min_trade_interval_sec" in raw:
+            base["cooldown_sec"] = int(raw["min_trade_interval_sec"])
+    return base
 
-    momentum = (closes[-1] - closes[-8]) / (abs(closes[-8]) + 1e-12)
-    direction = 1.0 if momentum >= 0 else -1.0
 
-    if signal == "LOW_VOLATILITY":
-        base = _low_volatility_memory_base(trade_memory) if low_vol_base is None else float(low_vol_base)
-    elif signal == "MED_VOLATILITY":
-        base = 0.35
-    else:
-        base = 0.65
+def _blend_symbol_decision(
+    symbol: str,
+    agi_meta: dict | None,
+    ppo_meta: dict | None,
+    dreamer_meta: dict | None,
+    cfg: dict | None = None,
+) -> dict:
+    profile = _symbol_profile(symbol, cfg=cfg)
 
-    conf_scale = min(1.0, max(0.0, float(confidence)))
-    return direction * base * conf_scale
+    ppo_target = float((ppo_meta or {}).get("target", 0.0) or 0.0)
+    dreamer_target = float((dreamer_meta or {}).get("target", 0.0) or 0.0)
+
+    agi_conf = float((agi_meta or {}).get("confidence", 0.0) or 0.0)
+    agi_risk = float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0)
+    agi_bias = float((agi_meta or {}).get("trend_bias", 0.0) or 0.0)
+
+    raw = (
+        float(profile["ppo_weight"]) * ppo_target
+        + float(profile["dreamer_weight"]) * dreamer_target
+        + float(profile["agi_weight"]) * agi_bias
+    )
+
+    adjusted = raw * agi_risk
+    adjusted = _clip(adjusted, -float(profile["max_abs_target"]), float(profile["max_abs_target"]))
+
+    if abs(adjusted) < float(profile["min_trade_threshold"]):
+        adjusted = 0.0
+
+    return {
+        "target": adjusted,
+        "raw_target": raw,
+        "agi_confidence": agi_conf,
+        "agi_risk_scalar": agi_risk,
+        "ppo_target": ppo_target,
+        "dreamer_target": dreamer_target,
+        "agi_bias": agi_bias,
+        "profile": profile,
+    }
 
 
 def _fetch_symbol_df(symbol: str, timeframe, bars=220):
@@ -559,9 +591,8 @@ def main(live=False):
     agi = SmartAGI()
 
     trading_cfg = cfg.get("trading", {})
-    symbols = trading_cfg.get("symbols", ["EURUSDm", "GBPUSDm"])
+    symbols = resolve_trading_symbols(cfg, env_keys=("AGI_RUNTIME_SYMBOLS",), fallback=DEFAULT_TRADING_SYMBOLS)
     timeframe = _to_mt5_timeframe(trading_cfg.get("timeframe", "M5"))
-    confidence_threshold = float(trading_cfg.get("confidence_threshold", 0.85))
     max_lots = float(cfg.get("risk", {}).get("max_lots", 1.0))
 
     token, chat_id = _load_telegram_cfg(cfg)
@@ -709,66 +740,63 @@ def main(live=False):
                 if df is None or df.empty:
                     continue
 
-                pred = agi.predict(df, production=True)
-                conf = float(pred.get("confidence", 0.0))
-                sig = str(pred.get("signal", "LOW_VOLATILITY"))
+                agi_meta = agi.predict(df, production=True)
+                conf = float((agi_meta or {}).get("confidence", 0.0) or 0.0)
+                regime = str((agi_meta or {}).get("regime", (agi_meta or {}).get("signal", "UNKNOWN")))
                 trade_memory = trade_learning_by_symbol.get(str(symbol), {})
-                low_vol_base = _low_volatility_memory_base(trade_memory) if sig == "LOW_VOLATILITY" else 0.0
 
-                agi_exposure = 0.0
-                if conf >= confidence_threshold:
-                    agi_exposure = _signal_to_exposure(
-                        sig,
-                        conf,
-                        df["close"].values,
-                        trade_memory=trade_memory,
-                        low_vol_base=low_vol_base,
-                    )
-
-                ppo_exposure = brain.predict_ppo_exposure(symbol, df)
-                dreamer_exposure = brain.predict_dreamer_exposure(symbol, df)
-                exposure = brain.blend_exposure(agi_exposure, ppo_exposure, conf, dreamer_exposure=dreamer_exposure)
-                if sig == "LOW_VOLATILITY":
-                    if low_vol_base <= 0.0:
-                        exposure = 0.0
-                    else:
-                        exposure = max(-low_vol_base, min(low_vol_base, float(exposure)))
+                ppo_meta = brain.predict_ppo_action(symbol, df)
+                dreamer_meta = brain.predict_dreamer_action(symbol, df)
+                decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, cfg=cfg)
+                exposure = float(decision["target"])
 
                 logger.info(
-                    f"DECISION {symbol} | signal={sig} conf={conf:.4f} agi={agi_exposure:.4f} "
-                    f"ppo={(0.0 if ppo_exposure is None else float(ppo_exposure)):.4f} "
-                    f"dreamer={(0.0 if dreamer_exposure is None else float(dreamer_exposure)):.4f} "
-                    f"blend={exposure:.4f}"
+                    "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f"
+                    % (
+                        symbol,
+                        regime,
+                        float((agi_meta or {}).get("confidence", 0.0) or 0.0),
+                        float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
+                        float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
+                        float((ppo_meta or {}).get("target", 0.0) or 0.0),
+                        float((dreamer_meta or {}).get("target", 0.0) or 0.0),
+                        float(decision["raw_target"]),
+                        float(decision["target"]),
+                    )
                 )
                 _append_audit(
                     "signal",
                     {
                         "symbol": symbol,
-                        "signal": sig,
+                        "regime": regime,
                         "confidence": conf,
-                        "agi_exposure": float(agi_exposure),
-                        "ppo_exposure": None if ppo_exposure is None else float(ppo_exposure),
-                        "dreamer_exposure": None if dreamer_exposure is None else float(dreamer_exposure),
+                        "risk_scalar": float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
+                        "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
+                        "ppo_exposure": float((ppo_meta or {}).get("target", 0.0) or 0.0),
+                        "dreamer_exposure": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
+                        "raw_target": float(decision["raw_target"]),
                         "exposure": float(exposure),
-                        "threshold": float(confidence_threshold),
+                        "decision_profile": dict(decision["profile"]),
                         "trade_memory": {
                             "trades": int(trade_memory.get("trades", 0) or 0),
                             "expectancy": float(trade_memory.get("expectancy", 0.0) or 0.0),
                             "profit_factor": float(trade_memory.get("profit_factor", 0.0) or 0.0),
                             "recent_loss_streak": int(trade_memory.get("recent_loss_streak", 0) or 0),
-                            "low_vol_base": float(low_vol_base),
                         },
                     },
                 )
                 sym_state = last_symbol_state.setdefault(str(symbol), {})
-                sym_state["signal"] = sig
+                sym_state["signal"] = regime
+                sym_state["regime"] = regime
                 sym_state["confidence"] = conf
-                sym_state["agi_exposure"] = float(agi_exposure)
-                sym_state["ppo_exposure"] = None if ppo_exposure is None else float(ppo_exposure)
-                sym_state["dreamer_exposure"] = None if dreamer_exposure is None else float(dreamer_exposure)
+                sym_state["risk_scalar"] = float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0)
+                sym_state["trend_bias"] = float((agi_meta or {}).get("trend_bias", 0.0) or 0.0)
+                sym_state["ppo_exposure"] = float((ppo_meta or {}).get("target", 0.0) or 0.0)
+                sym_state["dreamer_exposure"] = float((dreamer_meta or {}).get("target", 0.0) or 0.0)
+                sym_state["raw_target"] = float(decision["raw_target"])
                 sym_state["blend_exposure"] = float(exposure)
 
-                action_meta = brain.get_last_action_meta()
+                action_meta = ppo_meta or brain.get_last_action_meta(symbol=symbol)
                 current_symbol_exposure, total_exposure, symbol_positions, total_positions = _position_exposure_state(
                     symbol, max_lots
                 )
@@ -791,7 +819,22 @@ def main(live=False):
                     "total_exposure": float(total_exposure),
                 }
                 if supervisor_decision.allowed:
-                    order_meta = brain.live_trade(symbol, exposure, max_lots, action_meta=action_meta)
+                    order_meta = brain.live_trade(
+                        symbol,
+                        exposure,
+                        max_lots,
+                        action_meta=action_meta,
+                        execution_context={
+                            "regime": regime,
+                            "confidence": conf,
+                            "target_exposure": float(exposure),
+                            "raw_target": float(decision["raw_target"]),
+                            "ppo_target": float((ppo_meta or {}).get("target", 0.0) or 0.0),
+                            "dreamer_target": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
+                            "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
+                            "agi_risk_scalar": float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
+                        },
+                    )
                     if order_meta:
                         supervisor.mark_trade(symbol)
                 else:
@@ -803,7 +846,7 @@ def main(live=False):
                             "target_exposure": float(exposure),
                             "reason": supervisor_decision.reason,
                             "confidence": conf,
-                            "signal": sig,
+                            "signal": regime,
                         },
                     )
                 executor.manage_open_positions(symbol)
@@ -822,10 +865,25 @@ def main(live=False):
                     if sl_outcome_usd is not None:
                         order_meta["sl_outcome_usd"] = float(sl_outcome_usd)
                         order_meta["expected_loss_usd"] = float(sl_outcome_usd)
+                    _append_audit("trade_action", dict(order_meta))
                     logger.info(
-                        f"ACTION {symbol} | mode={order_meta.get('entry_mode')} "
-                        f"volume={order_meta.get('volume_lots')} "
-                        f"TP={order_meta.get('tp_price')} SL={order_meta.get('sl_price')}"
+                        "ACTION %s | req=%s side=%s volume=%s target=%.4f ppo=%.4f dreamer=%.4f agi=%.4f magic=%s comment=%s ticket=%s retcode=%s TP=%s SL=%s"
+                        % (
+                            symbol,
+                            order_meta.get("request_action"),
+                            order_meta.get("order_type"),
+                            order_meta.get("executed_lots", order_meta.get("volume_lots")),
+                            float(order_meta.get("target_exposure", order_meta.get("exposure", 0.0)) or 0.0),
+                            float(order_meta.get("ppo_target", 0.0) or 0.0),
+                            float(order_meta.get("dreamer_target", 0.0) or 0.0),
+                            float(order_meta.get("agi_bias", 0.0) or 0.0),
+                            order_meta.get("magic"),
+                            order_meta.get("comment"),
+                            order_meta.get("ticket"),
+                            order_meta.get("retcode"),
+                            order_meta.get("tp_price"),
+                            order_meta.get("sl_price"),
+                        )
                     )
                     alerter.trade_action(symbol, order_meta)
 

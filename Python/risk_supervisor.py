@@ -21,6 +21,7 @@ class RiskSupervisor:
         risk_cfg = cfg.get("risk", {}) if isinstance(cfg, dict) else {}
         trading_cfg = cfg.get("trading", {}) if isinstance(cfg, dict) else {}
         supervisor_cfg = risk_cfg.get("supervisor", {}) if isinstance(risk_cfg.get("supervisor", {}), dict) else {}
+        self.symbol_profiles = trading_cfg.get("symbol_profiles", {}) or {}
 
         self.enabled = bool(supervisor_cfg.get("enabled", True))
         self.max_daily_loss = float(supervisor_cfg.get("max_daily_loss", risk_cfg.get("max_daily_loss", 100.0)))
@@ -39,6 +40,10 @@ class RiskSupervisor:
 
         self.last_trade_at_by_symbol: dict[str, dt.datetime] = {}
         self.halt_until: dt.datetime | None = None
+
+    def _symbol_profile(self, symbol: str) -> dict:
+        profile = self.symbol_profiles.get(str(symbol), {})
+        return profile if isinstance(profile, dict) else {}
 
     def _now(self) -> dt.datetime:
         return dt.datetime.now(dt.timezone.utc)
@@ -70,6 +75,12 @@ class RiskSupervisor:
         if abs(float(target_exposure)) <= abs(float(current_symbol_exposure)):
             return RiskDecision(True, "risk_reduction")
 
+        symbol_profile = self._symbol_profile(symbol)
+        max_positions_per_symbol = int(symbol_profile.get("max_positions_per_symbol", self.max_positions_per_symbol))
+        max_symbol_exposure = float(symbol_profile.get("max_symbol_exposure", self.max_symbol_exposure))
+        max_spread_bps = float(symbol_profile.get("max_spread_bps", self.max_spread_bps))
+        min_trade_interval_sec = int(symbol_profile.get("min_trade_interval_sec", self.min_trade_interval_sec))
+
         now = self._now()
         if self.halt_until and now < self.halt_until:
             return RiskDecision(False, f"halt_until {self.halt_until.isoformat()}")
@@ -84,19 +95,19 @@ class RiskSupervisor:
         if total_positions >= self.max_open_positions and abs(target_exposure) > 0.0:
             return RiskDecision(False, f"max_open_positions {total_positions} >= {self.max_open_positions}")
 
-        if symbol_positions >= self.max_positions_per_symbol and abs(target_exposure) > abs(current_symbol_exposure):
-            return RiskDecision(False, f"max_positions_per_symbol {symbol_positions} >= {self.max_positions_per_symbol}")
+        if symbol_positions >= max_positions_per_symbol and abs(target_exposure) > abs(current_symbol_exposure):
+            return RiskDecision(False, f"max_positions_per_symbol {symbol_positions} >= {max_positions_per_symbol}")
 
         projected_symbol_exposure = max(abs(current_symbol_exposure), abs(target_exposure))
-        if projected_symbol_exposure > self.max_symbol_exposure:
-            return RiskDecision(False, f"symbol_exposure {projected_symbol_exposure:.3f} > {self.max_symbol_exposure:.3f}")
+        if projected_symbol_exposure > max_symbol_exposure:
+            return RiskDecision(False, f"symbol_exposure {projected_symbol_exposure:.3f} > {max_symbol_exposure:.3f}")
 
         projected_total_exposure = max(abs(total_exposure), abs(total_exposure - current_symbol_exposure + target_exposure))
         if projected_total_exposure > self.max_total_exposure:
             return RiskDecision(False, f"total_exposure {projected_total_exposure:.3f} > {self.max_total_exposure:.3f}")
 
-        if spread_bps is not None and float(spread_bps) > self.max_spread_bps:
-            return RiskDecision(False, f"spread_bps {float(spread_bps):.2f} > {self.max_spread_bps:.2f}")
+        if spread_bps is not None and float(spread_bps) > max_spread_bps:
+            return RiskDecision(False, f"spread_bps {float(spread_bps):.2f} > {max_spread_bps:.2f}")
 
         conf = float(confidence)
         if conf < 0.0 or conf > self.max_confidence_gap:
@@ -105,7 +116,7 @@ class RiskSupervisor:
         last_trade_at = self.last_trade_at_by_symbol.get(str(symbol))
         if last_trade_at is not None:
             elapsed = (now - last_trade_at).total_seconds()
-            if elapsed < self.min_trade_interval_sec:
-                return RiskDecision(False, f"cooldown {elapsed:.0f}s < {self.min_trade_interval_sec}s")
+            if elapsed < min_trade_interval_sec:
+                return RiskDecision(False, f"cooldown {elapsed:.0f}s < {min_trade_interval_sec}s")
 
         return RiskDecision(True, "ok")

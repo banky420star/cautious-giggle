@@ -8,7 +8,7 @@ import time
 
 from loguru import logger
 
-from Python.config_utils import load_project_config
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 from Python.model_evaluator import evaluate_candidate_vs_champion
 from Python.model_registry import ModelRegistry
 from alerts.telegram_alerts import TelegramAlerter
@@ -41,6 +41,9 @@ class AutonomyLoop:
         self._canary_set_time_by_symbol = {}
         self._last_evaluated_candidate_by_symbol = {}
         self._last_train_ts = 0.0
+        self._last_train_ts_by_symbol = {}
+        self._train_lock = asyncio.Lock()
+        self._symbol_tasks = []
 
         self.alerter = self._init_alerter()
         self.eval_config = self._load_evaluation_config()
@@ -61,8 +64,13 @@ class AutonomyLoop:
             cur.setdefault("canary", None)
             cur.setdefault("canary_policy", {})
             cur.setdefault("canary_state", {})
-            # Bootstrap with current global champion so per-symbol evaluation has a baseline.
-            if not cur.get("champion") and global_champion:
+            if cur.get("champion") and not self.registry.candidate_targets_symbol(cur.get("champion"), symbol):
+                cur["champion"] = None
+            if cur.get("canary") and not self.registry.candidate_targets_symbol(cur.get("canary"), symbol):
+                cur["canary"] = None
+                cur["canary_state"] = {}
+            # Bootstrap with current global champion only when ownership matches the symbol lane.
+            if not cur.get("champion") and global_champion and self.registry.candidate_targets_symbol(global_champion, symbol):
                 cur["champion"] = global_champion
             sym_map[symbol] = cur
             touched = True
@@ -120,10 +128,21 @@ class AutonomyLoop:
     def _load_symbols_cfg(self):
         try:
             cfg = load_project_config(PROJECT_ROOT, live_mode=True)
-            symbols = cfg.get("trading", {}).get("symbols", ["EURUSDm", "GBPUSDm"])
-            return [str(s) for s in (symbols or [])]
+            return resolve_trading_symbols(
+                cfg,
+                env_keys=("AGI_AUTONOMY_SYMBOLS", "AGI_RUNTIME_SYMBOLS"),
+                fallback=DEFAULT_TRADING_SYMBOLS,
+            )
         except Exception:
-            return ["EURUSDm", "GBPUSDm"]
+            return list(DEFAULT_TRADING_SYMBOLS)
+
+    def _dreamer_train_enabled(self) -> bool:
+        try:
+            cfg = load_project_config(PROJECT_ROOT, live_mode=False)
+        except Exception:
+            cfg = {}
+        dreamer_cfg = ((cfg.get("drl", {}) or {}).get("dreamer", {}) or {}) if isinstance(cfg, dict) else {}
+        return bool(dreamer_cfg.get("enabled", False) and dreamer_cfg.get("train_in_cycle", False))
 
     def _latest_candidate_dir(self, symbol: str | None = None):
         root = self.registry.candidates_dir
@@ -241,27 +260,39 @@ class AutonomyLoop:
 
         return len(reasons) == 0, reasons
 
-    async def _train_candidate(self):
-        started = time.time()
-        symbols = self._load_symbols_cfg()
-        self._notify(f"Autonomy training started: per-symbol LSTM + PPO | symbols={symbols}")
+    async def _train_symbol_candidate(self, symbol: str):
+        async with self._train_lock:
+            started = time.time()
+            self._notify(f"Autonomy training started {symbol}: isolated LSTM + Dreamer + PPO")
 
-        subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT)
-        self._notify("LSTM training finished")
+            lstm_env = os.environ.copy()
+            lstm_env["AGI_LSTM_SYMBOLS"] = str(symbol)
+            subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT, env=lstm_env)
+            self._notify(f"LSTM training finished {symbol}")
 
-        for symbol in symbols:
-            env = os.environ.copy()
-            env["AGI_DRL_SYMBOL"] = str(symbol)
-            subprocess.check_call([sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT, env=env)
+            if self._dreamer_train_enabled():
+                dreamer_env = os.environ.copy()
+                dreamer_env["AGI_DREAMER_SYMBOL"] = str(symbol)
+                subprocess.check_call([sys.executable, "training/train_dreamer.py"], cwd=PROJECT_ROOT, env=dreamer_env)
+                self._notify(f"Dreamer training finished {symbol}")
+
+            drl_env = os.environ.copy()
+            drl_env["AGI_DRL_SYMBOL"] = str(symbol)
+            subprocess.check_call([sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT, env=drl_env)
+
             cand = self._latest_candidate_dir(symbol=symbol)
             if cand:
                 self._last_evaluated_candidate_by_symbol[symbol] = cand
                 self._maybe_set_canary(cand, symbol)
 
-        elapsed = int(time.time() - started)
-        self._notify(
-            f"Per-symbol PPO training finished. elapsed={elapsed}s"
-        )
+            elapsed = int(time.time() - started)
+            self._last_train_ts = time.time()
+            self._last_train_ts_by_symbol[str(symbol)] = self._last_train_ts
+            self._notify(f"Autonomy training finished {symbol}. elapsed={elapsed}s")
+
+    async def _train_candidate(self):
+        for symbol in self._load_symbols_cfg():
+            await self._train_symbol_candidate(symbol)
 
     def _maybe_reload_brain(self):
         if hasattr(self.brain, "_load_ppo_from_registry"):
@@ -413,54 +444,47 @@ class AutonomyLoop:
             except Exception as exc:
                 logger.warning(f"Canary promotion blocked for {symbol}: {exc}")
 
-    async def nightly_training_loop(self):
-        while True:
-            now = datetime.datetime.now()
-            next_midnight = datetime.datetime(now.year, now.month, now.day, 23, 59, 59)
-            seconds_to_midnight = (next_midnight - now).total_seconds()
-            await asyncio.sleep(max(60, seconds_to_midnight + 60))
-            if self.enable_train:
-                await self._train_candidate()
-                self._last_train_ts = time.time()
+    def _evaluate_and_maybe_promote(self, symbol: str, candidate: str):
+        if not self._get_canary_dir(symbol=symbol):
+            self._maybe_set_canary(candidate, symbol)
 
+    def _symbol_due_for_training(self, symbol: str) -> bool:
+        cadence = float(self.train_every_sec if self.train_every_sec > 0 else 24 * 60 * 60)
+        last_ts = float(self._last_train_ts_by_symbol.get(str(symbol), 0.0) or 0.0)
+        return (time.time() - last_ts) >= cadence
 
-    async def interval_training_loop(self):
+    async def _run_symbol_lane(self, symbol: str):
+        if self.enable_train and self.train_on_start and str(symbol) not in self._last_train_ts_by_symbol:
+            await self._train_symbol_candidate(symbol)
+
         while True:
-            await asyncio.sleep(max(60, self.train_every_sec))
-            if self.enable_train:
-                await self._train_candidate()
-                self._last_train_ts = time.time()
-                self._last_train_ts = time.time()
+            try:
+                self._canary_monitor(symbol)
+
+                candidate = self._latest_candidate_dir(symbol=symbol)
+                if candidate:
+                    last_eval = self._last_evaluated_candidate_by_symbol.get(symbol)
+                    if last_eval != candidate:
+                        self._evaluate_and_maybe_promote(symbol, candidate)
+                        self._last_evaluated_candidate_by_symbol[symbol] = candidate
+
+                if self.enable_train and self._symbol_due_for_training(symbol):
+                    await self._train_symbol_candidate(symbol)
+
+            except Exception as exc:
+                logger.warning(f"Symbol lane error {symbol}: {exc}")
+                self._notify(f"Symbol lane error {symbol}: {exc}")
+
+            await asyncio.sleep(self.interval_sec)
 
     async def start(self):
         logger.warning("AutonomyLoop started")
         self._notify("AutonomyLoop started")
 
-        if self.enable_train and self.train_on_start:
-            await self._train_candidate()
-            self._last_train_ts = time.time()
+        symbols = self._load_symbols_cfg()
+        self._symbol_tasks = [asyncio.create_task(self._run_symbol_lane(symbol)) for symbol in symbols]
 
-        if self.train_every_sec > 0:
-            asyncio.create_task(self.interval_training_loop())
-        else:
-            asyncio.create_task(self.nightly_training_loop())
-
-        while True:
-            try:
-                for symbol in self._load_symbols_cfg():
-                    self._canary_monitor(symbol)
-                    candidate = self._latest_candidate_dir(symbol=symbol)
-                    if not candidate:
-                        continue
-                    last_eval = self._last_evaluated_candidate_by_symbol.get(symbol)
-                    if candidate != last_eval:
-                        self._last_evaluated_candidate_by_symbol[symbol] = candidate
-                        if not self._get_canary_dir(symbol=symbol):
-                            self._maybe_set_canary(candidate, symbol)
-            except Exception as exc:
-                logger.warning(f"Autonomy loop error: {exc}")
-                self._notify(f"Autonomy loop error: {exc}")
-
-            await asyncio.sleep(self.interval_sec)
+        if self._symbol_tasks:
+            await asyncio.gather(*self._symbol_tasks)
 
 

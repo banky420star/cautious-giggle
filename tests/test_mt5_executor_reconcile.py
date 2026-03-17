@@ -33,11 +33,13 @@ class _Exec(MT5Executor):
     def get_positions(self, symbol):
         return self._longs, self._shorts
 
-    def close_positions(self, positions):
+    def close_positions(self, positions, order_meta=None, execution_context=None):
         self.closed.append([(p.symbol, p.volume, p.type) for p in positions])
+        return {"request_action": "close", "executed": True}
 
-    def open_position(self, symbol, order_type, volume):
+    def open_position(self, symbol, order_type, volume, order_meta=None, execution_context=None):
         self.opened.append((symbol, order_type, volume))
+        return {"request_action": "open", "executed": True}
 
 
 def test_reconcile_exposure_flattens_without_reopening():
@@ -74,3 +76,35 @@ def test_translate_trade_action_skips_zero_exposure():
     out = translate_trade_action("EURUSDm", action, 0.0, 1.0, tick=tick)
 
     assert out is None
+
+
+def test_magic_number_is_stable_by_symbol_and_lane():
+    exec_ = MT5Executor(_Risk())
+
+    btc_canary = exec_._magic_for_order("BTCUSDm", {"lane": "canary"}, request_kind="open")
+    btc_champion = exec_._magic_for_order("BTCUSDm", {"lane": "champion"}, request_kind="open")
+    xau_canary = exec_._magic_for_order("XAUUSDm", {"lane": "canary"}, request_kind="open")
+
+    assert btc_canary != btc_champion
+    assert btc_canary != xau_canary
+    assert btc_canary == exec_._magic_for_order("BTCUSDm", {"lane": "canary"}, request_kind="open")
+
+
+def test_order_comment_includes_symbol_lane_and_version():
+    exec_ = MT5Executor(_Risk())
+
+    comment = exec_._order_comment(
+        "BTCUSDm",
+        {
+            "lane": "canary",
+            "model_family": "ppo",
+            "model_version": "20260315_072910",
+            "ppo_target": -0.3316,
+        },
+        request_kind="open",
+    )
+
+    assert "BTC" in comment
+    assert "CA" in comment
+    assert "072910" in comment
+    assert len(comment) <= 31

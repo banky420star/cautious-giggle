@@ -14,6 +14,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from Python.agi_brain import AGIModel
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS, parse_symbol_list
 from Python.data_feed import fetch_training_data
 from Python.feature_pipeline import ENGINEERED_V2, ULTIMATE_150, build_lstm_feature_frame, normalize_feature_version
 from alerts.telegram_alerts import TelegramAlerter
@@ -21,6 +22,23 @@ from alerts.telegram_alerts import TelegramAlerter
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "lstm_training.log"), rotation="10 MB", level="INFO")
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return int(default)
+    try:
+        return int(str(raw).strip())
+    except Exception:
+        return int(default)
+
+
+def _env_str(name: str, default: str) -> str:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return str(default)
+    return str(raw).strip()
 
 
 def _resolve_cfg_value(v):
@@ -242,7 +260,7 @@ def train_lstm(
     data_source: str | None = None,
 ):
     if symbols is None:
-        symbols = ["EURUSDm", "GBPUSDm", "XAUUSDm"]
+        symbols = list(DEFAULT_TRADING_SYMBOLS)
 
     if torch.cuda.is_available():
         device = "cuda"
@@ -321,12 +339,12 @@ if __name__ == "__main__":
         symbols = cfg.get("trading", {}).get("symbols")
         env_symbols = os.environ.get("AGI_LSTM_SYMBOLS")
         if env_symbols:
-            symbols = [s.strip() for s in env_symbols.split(",") if s.strip()]
+            symbols = parse_symbol_list(env_symbols)
         tcfg = cfg.get("training", {}) or {}
-        epochs = int(tcfg.get("lstm_epochs", 20))
-        period = str(tcfg.get("lstm_period", "90d"))
-        interval = str(tcfg.get("lstm_interval", cfg.get("trading", {}).get("timeframe", "M5")))
-        candles = int(tcfg.get("lstm_candles", 100000))
+        epochs = _env_int("AGI_LSTM_EPOCHS", int(tcfg.get("lstm_epochs", 20)))
+        period = _env_str("AGI_LSTM_PERIOD", str(tcfg.get("lstm_period", "90d")))
+        interval = _env_str("AGI_LSTM_INTERVAL", str(tcfg.get("lstm_interval", cfg.get("trading", {}).get("timeframe", "M5"))))
+        candles = _env_int("AGI_LSTM_CANDLES", int(tcfg.get("lstm_candles", 100000)))
         feature_version = normalize_feature_version(
             os.environ.get("AGI_FEATURE_VERSION") or tcfg.get("feature_version", ULTIMATE_150),
             default=ULTIMATE_150,
@@ -334,6 +352,7 @@ if __name__ == "__main__":
         data_source = tcfg.get("data_source")
     else:
         feature_version = normalize_feature_version(os.environ.get("AGI_FEATURE_VERSION"), default=ULTIMATE_150)
+        symbols = list(DEFAULT_TRADING_SYMBOLS)
 
     train_lstm(
         symbols=symbols,

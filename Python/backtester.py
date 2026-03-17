@@ -13,6 +13,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS
 from Python.data_feed import fetch_training_data
 from Python.feature_pipeline import ENGINEERED_V2, feature_count_for_version
 from drl.trading_env import TradingEnv
@@ -254,7 +255,7 @@ def run_multi(
 
 
 if __name__ == "__main__":
-    symbols = ["EURUSDm", "GBPUSDm", "XAUUSDm"]
+    symbols = list(DEFAULT_TRADING_SYMBOLS)
     md = sys.argv[1] if len(sys.argv) > 1 else os.path.join("models", "registry", "champion")
     report = run_multi(symbols, md, period="120d", interval="5m")
     print(json.dumps(report, indent=2))

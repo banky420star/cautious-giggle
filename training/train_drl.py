@@ -25,7 +25,7 @@ from analysis.gradient_flow_analyzer import LSTMGradientDiagnostics
 from drl.adaptive_feature_extractor import AdaptiveLSTMFeatureExtractor
 from drl.lstm_feature_extractor import LSTMFeatureExtractor
 from drl.trading_env import TradingEnv
-from Python.config_utils import load_project_config
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 from Python.data_feed import fetch_training_data, get_combined_training_df
 from Python.feature_pipeline import ENGINEERED_V2, ULTIMATE_150, normalize_feature_version
 from Python.trade_learning import load_trade_memory
@@ -160,6 +160,72 @@ class PPOProgressCallback(BaseCallback):
         return True
 
 
+def _resolve_inline_eval_freq(total_timesteps: int) -> int | None:
+    if str(os.environ.get("AGI_DRL_DISABLE_INLINE_EVAL", "")).lower() == "true":
+        return None
+
+    raw = os.environ.get("AGI_DRL_EVAL_FREQ")
+    if raw is None or str(raw).strip() == "":
+        return 10_000
+
+    try:
+        value = int(str(raw).strip())
+    except Exception:
+        return 10_000
+    return value if value > 0 else None
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return int(default)
+    try:
+        return int(str(raw).strip())
+    except Exception:
+        return int(default)
+
+
+def _env_str(name: str, default: str) -> str:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return str(default)
+    return str(raw).strip()
+
+
+def _merge_dict(base: dict, override: dict) -> dict:
+    out = dict(base or {})
+    for key, value in (override or {}).items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _merge_dict(out.get(key, {}), value)
+        else:
+            out[key] = value
+    return out
+
+
+def _resolve_symbol_training_options(cfg: dict, symbols: list[str], default_feature_version: str) -> tuple[dict, dict, dict, str]:
+    drl_cfg = cfg.get("drl", {}) if isinstance(cfg.get("drl", {}), dict) else {}
+    reward_cfg = dict(drl_cfg.get("reward", {}) or {}) if isinstance(drl_cfg.get("reward", {}), dict) else {}
+    action_cfg = {}
+    feature_version = normalize_feature_version(
+        os.environ.get("AGI_FEATURE_VERSION") or drl_cfg.get("feature_version", default_feature_version),
+        default=default_feature_version,
+    )
+
+    if len(symbols) == 1:
+        symbol = str(symbols[0])
+        symbol_overrides = drl_cfg.get("symbol_overrides", {}) if isinstance(drl_cfg.get("symbol_overrides", {}), dict) else {}
+        symbol_cfg = symbol_overrides.get(symbol, {}) if isinstance(symbol_overrides.get(symbol, {}), dict) else {}
+        if isinstance(symbol_cfg.get("reward", {}), dict):
+            reward_cfg = _merge_dict(reward_cfg, symbol_cfg.get("reward", {}))
+        if isinstance(symbol_cfg.get("action", {}), dict):
+            action_cfg = dict(symbol_cfg.get("action", {}) or {})
+        if symbol_cfg.get("feature_version"):
+            feature_version = normalize_feature_version(str(symbol_cfg.get("feature_version")), default=feature_version)
+
+    reward_weights = dict(reward_cfg.get("weights", {}) or {}) if isinstance(reward_cfg.get("weights", {}), dict) else {}
+    return reward_cfg, reward_weights, action_cfg, feature_version
+
+
 def _normalize_interval(interval: str | None) -> str:
     if not interval:
         return "5m"
@@ -211,6 +277,8 @@ def make_env(
     reward_weights: dict,
     trade_memory: dict | None = None,
     feature_version: str = ULTIMATE_150,
+    action_config: dict | None = None,
+    symbol: str | None = None,
 ):
     def _init():
         set_random_seed(seed)
@@ -227,6 +295,8 @@ def make_env(
             reward_weights=reward_weights,
             trade_memory=trade_memory,
             feature_version=feature_version,
+            action_config=action_config,
+            symbol=symbol,
         )
         return Monitor(env)
 
@@ -347,7 +417,16 @@ def _build_model(env, feature_version: str, ppo_params: dict):
     )
 
 
-def _maybe_optimize_ppo_params(df_pd: pd.DataFrame, cfg: dict, initial_balance: float, reward_weights: dict, trade_memory: dict | None, feature_version: str) -> dict:
+def _maybe_optimize_ppo_params(
+    df_pd: pd.DataFrame,
+    cfg: dict,
+    initial_balance: float,
+    reward_weights: dict,
+    trade_memory: dict | None,
+    feature_version: str,
+    action_config: dict | None = None,
+    symbol: str | None = None,
+) -> dict:
     drl_cfg = cfg.get("drl", {}) or {}
     trials = int(drl_cfg.get("optuna_trials", 0) or 0)
     if trials <= 0:
@@ -371,10 +450,36 @@ def _maybe_optimize_ppo_params(df_pd: pd.DataFrame, cfg: dict, initial_balance: 
         params["ent_coef"] = trial.suggest_float("ent_coef", 1e-4, 2e-2, log=True)
         params["gae_lambda"] = trial.suggest_float("gae_lambda", 0.9, 0.99)
 
-        env = DummyVecEnv([make_env(df, 11, initial_balance, reward_weights, trade_memory=trade_memory, feature_version=feature_version)])
+        env = DummyVecEnv(
+            [
+                make_env(
+                    df,
+                    11,
+                    initial_balance,
+                    reward_weights,
+                    trade_memory=trade_memory,
+                    feature_version=feature_version,
+                    action_config=action_config,
+                    symbol=symbol,
+                )
+            ]
+        )
         env = VecMonitor(env)
         env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
-        eval_env = DummyVecEnv([make_env(df, 99, initial_balance, reward_weights, trade_memory=trade_memory, feature_version=feature_version)])
+        eval_env = DummyVecEnv(
+            [
+                make_env(
+                    df,
+                    99,
+                    initial_balance,
+                    reward_weights,
+                    trade_memory=trade_memory,
+                    feature_version=feature_version,
+                    action_config=action_config,
+                    symbol=symbol,
+                )
+            ]
+        )
         eval_env = VecMonitor(eval_env)
         eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
         eval_env.obs_rms = env.obs_rms
@@ -404,6 +509,7 @@ def _stage_candidate(
     period,
     interval,
     reward_cfg,
+    action_cfg,
     df_rows,
     ppo_params,
     eval_windows,
@@ -442,6 +548,7 @@ def _stage_candidate(
         "normalization_version": "vecnorm_v1",
         "reward": reward_cfg,
         "reward_version": str(reward_cfg.get("version", "v2_risk_adjusted")),
+        "action_config": action_cfg,
         "ppo_params": ppo_params,
         "policy_extractor": "adaptive_lstm" if feature_version == ULTIMATE_150 else "agi_lstm",
         "window_size": 100,
@@ -468,17 +575,16 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     drl_cfg = cfg.get("drl", {})
     trading_cfg = cfg.get("trading", {})
 
-    period = str(drl_cfg.get("period", "90d"))
-    interval = _normalize_interval(drl_cfg.get("interval", trading_cfg.get("timeframe", "M5")))
-    candles = int(drl_cfg.get("candles_per_symbol", 100000))
-    reward_cfg = drl_cfg.get("reward", {}) if isinstance(drl_cfg.get("reward", {}), dict) else {}
-    reward_weights = reward_cfg.get("weights", {}) if isinstance(reward_cfg.get("weights", {}), dict) else {}
+    period = _env_str("AGI_DRL_PERIOD", str(drl_cfg.get("period", "90d")))
+    interval = _normalize_interval(_env_str("AGI_DRL_INTERVAL", drl_cfg.get("interval", trading_cfg.get("timeframe", "M5"))))
+    candles = _env_int("AGI_DRL_CANDLES", int(drl_cfg.get("candles_per_symbol", 100000)))
     logs_root = os.path.join(os.getcwd(), "logs", "learning")
     symbol_hint = symbols[0] if len(symbols) == 1 else None
     trade_memory = load_trade_memory(logs_root, symbol=symbol_hint)
-    feature_version = normalize_feature_version(
-        os.environ.get("AGI_FEATURE_VERSION") or drl_cfg.get("feature_version", ULTIMATE_150),
-        default=ULTIMATE_150,
+    reward_cfg, reward_weights, action_cfg, feature_version = _resolve_symbol_training_options(
+        cfg,
+        symbols,
+        default_feature_version=ULTIMATE_150,
     )
     data_source = drl_cfg.get("data_source")
 
@@ -503,45 +609,84 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     n_envs = 4
 
     env = DummyVecEnv(
-        [make_env(df, i, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory, feature_version=feature_version) for i in range(n_envs)]
+        [
+            make_env(
+                df,
+                i,
+                initial_balance=initial_balance,
+                reward_weights=reward_weights,
+                trade_memory=trade_memory,
+                feature_version=feature_version,
+                action_config=action_cfg,
+                symbol=symbol_hint,
+            )
+            for i in range(n_envs)
+        ]
     )
     env = VecMonitor(env)
     env = VecNormalize(env, norm_obs=True, norm_reward=True, clip_obs=10.0)
 
-    eval_env = DummyVecEnv(
-        [make_env(df, 99, initial_balance=initial_balance, reward_weights=reward_weights, trade_memory=trade_memory, feature_version=feature_version)]
+    ppo_params = _maybe_optimize_ppo_params(
+        df_pd,
+        cfg,
+        initial_balance,
+        reward_weights,
+        trade_memory,
+        feature_version,
+        action_config=action_cfg,
+        symbol=symbol_hint,
     )
-    eval_env = VecMonitor(eval_env)
-    eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
-
-    eval_env.obs_rms = env.obs_rms
-    eval_env.training = False
-    eval_env.norm_reward = False
-
-    ppo_params = _maybe_optimize_ppo_params(df_pd, cfg, initial_balance, reward_weights, trade_memory, feature_version)
     model = _build_model(env, feature_version, ppo_params)
 
     best_dir = os.path.join("models", "best_eval_models")
     os.makedirs(best_dir, exist_ok=True)
     best_vec_path = os.path.join(best_dir, "vec_normalize.pkl")
+    inline_eval_freq = _resolve_inline_eval_freq(total_timesteps)
+    eval_callback = None
+    if inline_eval_freq is not None:
+        eval_env = DummyVecEnv(
+            [
+                make_env(
+                    df,
+                    99,
+                    initial_balance=initial_balance,
+                    reward_weights=reward_weights,
+                    trade_memory=trade_memory,
+                    feature_version=feature_version,
+                    action_config=action_cfg,
+                    symbol=symbol_hint,
+                )
+            ]
+        )
+        eval_env = VecMonitor(eval_env)
+        eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
 
-    eval_callback = EvalCallbackSaveVec(
-        eval_env=eval_env,
-        best_model_save_path=best_dir,
-        log_path=LOG_DIR,
-        eval_freq=10_000,
-        deterministic=True,
-        render=False,
-        vec_env=env,
-        vec_save_path=best_vec_path,
-    )
+        eval_env.obs_rms = env.obs_rms
+        eval_env.training = False
+        eval_env.norm_reward = False
+
+        eval_callback = EvalCallbackSaveVec(
+            eval_env=eval_env,
+            best_model_save_path=best_dir,
+            log_path=LOG_DIR,
+            eval_freq=inline_eval_freq,
+            deterministic=True,
+            render=False,
+            vec_env=env,
+            vec_save_path=best_vec_path,
+        )
+    else:
+        logger.warning("Inline PPO eval callback disabled; staging will use latest model artifacts.")
 
     grad_callback = LSTMGradientDiagnostics()
     progress_callback = PPOProgressCallback(total_timesteps=total_timesteps, symbols=symbols, log_interval=max(5_000, total_timesteps // 20))
+    callbacks = [grad_callback, progress_callback]
+    if eval_callback is not None:
+        callbacks.insert(0, eval_callback)
 
     logger.info("Starting PPO training")
-    model.learn(total_timesteps=total_timesteps, callback=[eval_callback, grad_callback, progress_callback], progress_bar=True)
-    best_score = float(eval_callback.best_mean_reward) if eval_callback.best_mean_reward is not None else None
+    model.learn(total_timesteps=total_timesteps, callback=callbacks, progress_bar=True)
+    best_score = float(eval_callback.best_mean_reward) if eval_callback is not None and eval_callback.best_mean_reward is not None else None
 
     latest_dir = os.path.join("models", "latest_run")
     os.makedirs(latest_dir, exist_ok=True)
@@ -571,6 +716,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         period,
         interval,
         reward_cfg,
+        action_cfg,
         df_rows=len(df_pd),
         ppo_params=ppo_params,
         eval_windows=eval_windows,
@@ -593,9 +739,7 @@ def train_drl():
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     cfg = load_project_config(project_root, live_mode=False)
 
-    symbols = cfg.get("trading", {}).get("symbols", ["EURUSDm"])
-    if not symbols:
-        symbols = ["EURUSDm"]
+    symbols = resolve_trading_symbols(cfg, fallback=DEFAULT_TRADING_SYMBOLS)
 
     one_symbol = os.environ.get("AGI_DRL_SYMBOL")
     if one_symbol:

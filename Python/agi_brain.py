@@ -12,6 +12,28 @@ from Python.feature_pipeline import ENGINEERED_V2, ENGINEERED_LSTM_COLUMNS, buil
 FEATURE_COLUMNS = list(ENGINEERED_LSTM_COLUMNS)
 
 
+def _regime_to_risk_scalar(regime: str) -> float:
+    regime = str(regime or "").upper()
+    if regime == "HIGH_VOLATILITY":
+        return 0.55
+    if regime == "MED_VOLATILITY":
+        return 0.80
+    if regime == "LOW_VOLATILITY":
+        return 0.95
+    return 0.75
+
+
+def _regime_to_trend_bias(regime: str) -> float:
+    regime = str(regime or "").upper()
+    if regime == "HIGH_VOLATILITY":
+        return 0.10
+    if regime == "MED_VOLATILITY":
+        return 0.00
+    if regime == "LOW_VOLATILITY":
+        return -0.05
+    return 0.0
+
+
 def _as_series(df: pd.DataFrame, col: str) -> pd.Series:
     obj = df[col]
     if isinstance(obj, pd.DataFrame):
@@ -222,7 +244,16 @@ class SmartAGI:
         feature_version = str(bundle.get("feature_version", ENGINEERED_V2) or ENGINEERED_V2)
         feat_df, available_columns = build_lstm_feature_frame(df, feature_version=feature_version)
         if len(feat_df) < 60:
-            return {"signal": "LOW_VOLATILITY", "confidence": 0.0, "symbol": symbol}
+            regime = "LOW_VOLATILITY"
+            return {
+                "signal": regime,
+                "regime": regime,
+                "confidence": 0.0,
+                "risk_scalar": _regime_to_risk_scalar(regime),
+                "trend_bias": _regime_to_trend_bias(regime),
+                "trade_blocked": False,
+                "symbol": symbol,
+            }
 
         bundle_columns = [str(col) for col in bundle.get("feature_columns", FEATURE_COLUMNS)]
         use_columns = bundle_columns if set(bundle_columns).issubset(set(available_columns)) else available_columns
@@ -241,10 +272,17 @@ class SmartAGI:
             probs = F.softmax(logits, dim=-1).cpu().numpy().flatten()
             pred = int(np.argmax(probs)) if production else int(np.random.choice(3, p=probs))
 
-        signal = ["LOW_VOLATILITY", "MED_VOLATILITY", "HIGH_VOLATILITY"][pred]
+        regime = ["LOW_VOLATILITY", "MED_VOLATILITY", "HIGH_VOLATILITY"][pred]
         confidence = round(float(probs[pred]), 4)
-
-        return {"signal": signal, "confidence": confidence, "symbol": symbol}
+        return {
+            "signal": regime,
+            "regime": regime,
+            "confidence": confidence,
+            "risk_scalar": _regime_to_risk_scalar(regime),
+            "trend_bias": _regime_to_trend_bias(regime),
+            "trade_blocked": False,
+            "symbol": symbol,
+        }
 
     def extract_features(self, seq: torch.Tensor) -> torch.Tensor:
         seq = seq.to(self.device).float()

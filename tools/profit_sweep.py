@@ -12,6 +12,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from Python.Server_AGI import _signal_to_exposure
 from Python.agi_brain import SmartAGI
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS
 from Python.data_feed import fetch_training_data
 from Python.hybrid_brain import HybridBrain
 
@@ -93,7 +94,7 @@ def score_combo(steps, hb, threshold, blend, cost_bps=1.5):
 def main():
     os.environ["AGI_AUTONOMY_ENABLED"] = "false"
 
-    symbol = os.environ.get("SWEEP_SYMBOL", "EURUSDm")
+    symbol = os.environ.get("SWEEP_SYMBOL", DEFAULT_TRADING_SYMBOLS[0])
     period = os.environ.get("SWEEP_PERIOD", "7d")
     interval = os.environ.get("SWEEP_INTERVAL", "5m")
 

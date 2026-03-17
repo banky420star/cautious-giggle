@@ -13,6 +13,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from drl.dreamer_agent import DreamerV3Agent
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS
 from Python.data_feed import fetch_training_data
 from Python.feature_pipeline import ULTIMATE_150, build_env_feature_matrix, normalize_feature_version
 from alerts.telegram_alerts import TelegramAlerter
@@ -20,6 +21,23 @@ from alerts.telegram_alerts import TelegramAlerter
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "dreamer_training.log"), rotation="10 MB", level="INFO")
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return int(default)
+    try:
+        return int(str(raw).strip())
+    except Exception:
+        return int(default)
+
+
+def _env_str(name: str, default: str) -> str:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return str(default)
+    return str(raw).strip()
 
 
 class DreamerTradingEnvironment:
@@ -92,7 +110,7 @@ def _parse_symbol_list(raw) -> list[str]:
 def _configured_symbols(cfg: dict) -> list[str]:
     trading_cfg = cfg.get("trading", {}) if isinstance(cfg, dict) else {}
     symbols = _parse_symbol_list(trading_cfg.get("symbols", []))
-    return symbols or ["BTCUSDm"]
+    return symbols or list(DEFAULT_TRADING_SYMBOLS)
 
 
 def _dreamer_cfg(cfg: dict) -> dict:
@@ -203,12 +221,12 @@ def main():
     cfg = _load_cfg()
     drl_cfg = cfg.get("drl", {}) if isinstance(cfg, dict) else {}
     dreamer_cfg = _dreamer_cfg(cfg)
-    period = str(drl_cfg.get("period", "90d"))
-    interval = str(drl_cfg.get("interval", "M5"))
-    candles = int(drl_cfg.get("candles_per_symbol", 100000))
-    args.steps = int(args.steps or os.environ.get("AGI_DREAMER_STEPS") or dreamer_cfg.get("steps", 5000))
-    args.batch_size = int(args.batch_size or os.environ.get("AGI_DREAMER_BATCH_SIZE") or dreamer_cfg.get("batch_size", 16))
-    args.window = int(args.window or os.environ.get("AGI_DREAMER_WINDOW") or dreamer_cfg.get("window", 64))
+    period = _env_str("AGI_DREAMER_PERIOD", str(drl_cfg.get("period", "90d")))
+    interval = _env_str("AGI_DREAMER_INTERVAL", str(drl_cfg.get("interval", "M5")))
+    candles = _env_int("AGI_DREAMER_CANDLES", int(drl_cfg.get("candles_per_symbol", 100000)))
+    args.steps = int(args.steps or _env_int("AGI_DREAMER_STEPS", int(dreamer_cfg.get("steps", 5000))))
+    args.batch_size = int(args.batch_size or _env_int("AGI_DREAMER_BATCH_SIZE", int(dreamer_cfg.get("batch_size", 16))))
+    args.window = int(args.window or _env_int("AGI_DREAMER_WINDOW", int(dreamer_cfg.get("window", 64))))
     feature_seed = args.feature_version or os.environ.get("AGI_FEATURE_VERSION") or os.environ.get("AGI_DREAMER_FEATURE_VERSION") or dreamer_cfg.get("feature_version", ULTIMATE_150)
     feature_version = normalize_feature_version(feature_seed, default=ULTIMATE_150)
     symbols = _resolve_symbols(args, cfg)

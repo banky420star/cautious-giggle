@@ -1,4 +1,20 @@
+import os
+
 import MetaTrader5 as mt5
+from loguru import logger
+
+
+MAGIC_BY_SYMBOL = {
+    "BTCUSDm": 51000,
+    "XAUUSDm": 52000,
+}
+
+LANE_MAGIC_OFFSET = {
+    "champion": 0,
+    "canary": 100,
+    "history": 200,
+    "unknown": 900,
+}
 
 
 class MT5Executor:
@@ -19,6 +35,101 @@ class MT5Executor:
         if tick is None:
             return None
         return float((tick.bid + tick.ask) / 2.0)
+
+    def _symbol_magic_base(self, symbol: str) -> int:
+        profile = {}
+        try:
+            profile = self.risk.get_symbol_profile(symbol) or {}
+        except Exception:
+            profile = {}
+        if "magic_base" in profile:
+            try:
+                return int(profile.get("magic_base"))
+            except Exception:
+                pass
+        if "magic" in profile:
+            try:
+                return int(profile.get("magic"))
+            except Exception:
+                pass
+        return int(MAGIC_BY_SYMBOL.get(str(symbol), 59000))
+
+    def _lane_for_order(self, order_meta: dict | None) -> str:
+        lane = str((order_meta or {}).get("lane", "unknown") or "unknown").strip().lower()
+        if lane in LANE_MAGIC_OFFSET:
+            return lane
+        return "unknown"
+
+    def _symbol_tag(self, symbol: str) -> str:
+        symbol_str = str(symbol or "").upper()
+        if symbol_str.startswith("BTC"):
+            return "BTC"
+        if symbol_str.startswith("XAU"):
+            return "XAU"
+        return symbol_str[:4] or "UNK"
+
+    def _magic_for_order(self, symbol: str, order_meta: dict | None, request_kind: str = "open") -> int:
+        base = self._symbol_magic_base(symbol)
+        lane = self._lane_for_order(order_meta)
+        kind_offset = {"open": 0, "close": 10, "manage": 20}.get(str(request_kind), 90)
+        return int(base + int(LANE_MAGIC_OFFSET.get(lane, 900)) + int(kind_offset))
+
+    def _order_comment(self, symbol: str, order_meta: dict | None, request_kind: str = "open") -> str:
+        meta = order_meta or {}
+        sym = self._symbol_tag(symbol)
+        lane = self._lane_for_order(meta)
+        lane_tag = {"champion": "CH", "canary": "CA", "history": "HI", "unknown": "UN"}.get(lane, "UN")
+        family = str(meta.get("model_family", "P") or "P").upper()[:1]
+        version = str(meta.get("model_version", "") or "")
+        version_tag = version[-6:] if version else "000000"
+        ppo_target = float(meta.get("ppo_target", meta.get("exposure", 0.0)) or 0.0)
+        ppo_tag = int(round(ppo_target * 100.0))
+        req_tag = {"open": "O", "close": "C", "manage": "M"}.get(str(request_kind), "U")
+        comment = f"AGI|{sym}|{lane_tag}|{req_tag}|{family}{version_tag}|P{ppo_tag:+03d}"
+        return comment[:31]
+
+    def _result_ticket(self, result):
+        if result is None:
+            return None
+        for attr in ("order", "deal"):
+            value = getattr(result, attr, None)
+            if value not in (None, 0):
+                return int(value)
+        return None
+
+    def _log_order_send(self, symbol: str, request_action: str, request: dict, result, order_meta: dict | None):
+        meta = order_meta or {}
+        payload = {
+            "action": str(request_action),
+            "request_action": str(request_action),
+            "side": str(meta.get("order_type") or request.get("type") or ""),
+            "lots": float(request.get("volume", 0.0) or 0.0),
+            "executed_lots": float(request.get("volume", 0.0) or 0.0),
+            "target": float(meta.get("exposure", 0.0) or 0.0),
+            "ppo": float(meta.get("ppo_target", 0.0) or 0.0),
+            "dreamer": float(meta.get("dreamer_target", 0.0) or 0.0),
+            "agi": float(meta.get("agi_bias", 0.0) or 0.0),
+            "magic": request.get("magic"),
+            "comment": request.get("comment"),
+            "retcode": getattr(result, "retcode", None) if result is not None else None,
+            "ticket": self._result_ticket(result),
+        }
+        logger.info(
+            "ORDER_SEND {} | action={} side={} lots={:.2f} target={:.4f} ppo={:.4f} dreamer={:.4f} agi={:.4f} magic={} comment={} retcode={} ticket={}",
+            symbol,
+            payload["action"],
+            payload["side"],
+            payload["lots"],
+            payload["target"],
+            payload["ppo"],
+            payload["dreamer"],
+            payload["agi"],
+            payload["magic"],
+            payload["comment"],
+            payload["retcode"],
+            payload["ticket"],
+        )
+        return payload
 
     def _select_filling_mode(self, symbol):
         info = self._symbol_info(symbol)
@@ -109,49 +220,67 @@ class MT5Executor:
                     shorts.append(p)
         return longs, shorts
 
-    def reconcile_exposure(self, symbol, target_exposure, max_lots):
+    def reconcile_exposure(self, symbol, target_exposure, max_lots, order_meta=None, execution_context=None):
         if not self.risk.can_trade(symbol):
-            return
+            return {"request_action": "blocked", "executed": False}
 
         longs, shorts = self.get_positions(symbol)
 
         long_lots = sum(p.volume for p in longs)
         short_lots = sum(p.volume for p in shorts)
 
-        net_lots = long_lots - short_lots
         target_lots = round(float(target_exposure) * float(max_lots), 2)
+        result_meta = {
+            "request_action": "noop",
+            "executed": False,
+            "target_lots": float(target_lots),
+        }
         if abs(target_lots) < 0.01:
             if long_lots > 0:
-                self.close_positions(longs)
+                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
             if short_lots > 0:
-                self.close_positions(shorts)
-            return
+                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
+            return result_meta
 
         if target_lots > 0:
             if short_lots > 0:
-                self.close_positions(shorts)
+                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
                 short_lots = 0.0
             if long_lots > target_lots + 0.01:
-                self.close_positions(longs)
+                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
                 long_lots = 0.0
             add_lots = round(target_lots - long_lots, 2)
             if add_lots >= 0.01:
-                self.open_position(symbol, mt5.ORDER_TYPE_BUY, add_lots)
+                result_meta = self.open_position(
+                    symbol,
+                    mt5.ORDER_TYPE_BUY,
+                    add_lots,
+                    order_meta=order_meta,
+                    execution_context=execution_context,
+                )
         else:
             desired_short_lots = abs(target_lots)
             if long_lots > 0:
-                self.close_positions(longs)
+                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
                 long_lots = 0.0
             if short_lots > desired_short_lots + 0.01:
-                self.close_positions(shorts)
+                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
                 short_lots = 0.0
             add_lots = round(desired_short_lots - short_lots, 2)
             if add_lots >= 0.01:
-                self.open_position(symbol, mt5.ORDER_TYPE_SELL, add_lots)
+                result_meta = self.open_position(
+                    symbol,
+                    mt5.ORDER_TYPE_SELL,
+                    add_lots,
+                    order_meta=order_meta,
+                    execution_context=execution_context,
+                )
 
         self.risk.record_trade(symbol)
+        return result_meta
 
-    def close_positions(self, positions):
+    def close_positions(self, positions, order_meta=None, execution_context=None):
+        last_meta = {"request_action": "close", "executed": False}
         for p in positions:
             tick = self._symbol_tick(p.symbol)
             if tick is None:
@@ -172,9 +301,14 @@ class MT5Executor:
                 "type_time": mt5.ORDER_TIME_GTC,
                 "type_filling": self._select_filling_mode(p.symbol),
             }
+            request["magic"] = self._magic_for_order(p.symbol, order_meta, request_kind="close")
+            request["comment"] = self._order_comment(p.symbol, order_meta, request_kind="close")
             result = mt5.order_send(request)
+            last_meta = self._log_order_send(p.symbol, "close", request, result, order_meta)
+            last_meta["executed"] = bool(result is not None and result.retcode == mt5.TRADE_RETCODE_DONE)
             if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
                 self.risk.record_error()
+        return last_meta
 
     def _atr_points(self, symbol, bars=120, period=14):
         rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 0, bars)
@@ -244,11 +378,11 @@ class MT5Executor:
         sl, tp = self._sanitize_sl_tp(symbol, order_type, sl, tp, tick)
         return sl, tp, deviation
 
-    def open_position(self, symbol, order_type, volume):
+    def open_position(self, symbol, order_type, volume, order_meta=None, execution_context=None):
         tick = self._symbol_tick(symbol)
         if tick is None:
             self.risk.record_error()
-            return
+            return {"request_action": "open", "executed": False}
 
         price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
         sl, tp, deviation = self._get_sl_tp(symbol, order_type, price)
@@ -263,6 +397,8 @@ class MT5Executor:
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": self._select_filling_mode(symbol),
         }
+        request["magic"] = self._magic_for_order(symbol, order_meta, request_kind="open")
+        request["comment"] = self._order_comment(symbol, order_meta, request_kind="open")
 
         if sl is not None:
             request["sl"] = sl
@@ -270,8 +406,11 @@ class MT5Executor:
             request["tp"] = tp
 
         result = mt5.order_send(request)
+        meta = self._log_order_send(symbol, "open", request, result, order_meta)
+        meta["executed"] = bool(result is not None and result.retcode == mt5.TRADE_RETCODE_DONE)
         if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
             self.risk.record_error()
+        return meta
 
     def manage_open_positions(self, symbol):
         positions = mt5.positions_get(symbol=symbol)
@@ -357,8 +496,11 @@ class MT5Executor:
                 req["sl"] = new_sl
             if new_tp is not None:
                 req["tp"] = new_tp
+            req["magic"] = self._magic_for_order(symbol, None, request_kind="manage")
+            req["comment"] = self._order_comment(symbol, None, request_kind="manage")
 
             result = mt5.order_send(req)
+            self._log_order_send(symbol, "manage", req, result, {"symbol": symbol})
             if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
                 self.risk.record_error()
 

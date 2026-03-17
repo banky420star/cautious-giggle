@@ -30,6 +30,8 @@ class TradingEnv(gym.Env):
         trade_memory: dict | None = None,
         portfolio_feature_count: int | None = None,
         feature_version: str = ENGINEERED_V2,
+        action_config: dict | None = None,
+        symbol: str | None = None,
     ):
         super().__init__()
         self.initial_balance = float(initial_balance)
@@ -39,6 +41,7 @@ class TradingEnv(gym.Env):
         self.window_size = int(window_size)
         self.max_leverage = float(max_leverage)
         self.feature_version = str(feature_version or ENGINEERED_V2)
+        self.symbol = str(symbol or "")
         self.action_version = "multi_trade_v1"
         self.trade_memory = trade_memory or {}
 
@@ -52,6 +55,17 @@ class TradingEnv(gym.Env):
             "churn_penalty": float(w.get("churn_penalty", 0.5)),
             "memory_expectancy_bonus": float(w.get("memory_expectancy_bonus", 0.5)),
             "loss_streak_penalty": float(w.get("loss_streak_penalty", 0.4)),
+            "directional_followthrough": float(w.get("directional_followthrough", 0.0)),
+            "actionable_target_bonus": float(w.get("actionable_target_bonus", 0.0)),
+            "neutral_collapse_penalty": float(w.get("neutral_collapse_penalty", 0.0)),
+        }
+        ac = action_config or {}
+        self.action_config = {
+            "min_direction_abs": float(ac.get("min_direction_abs", 0.03)),
+            "min_size_abs": float(ac.get("min_size_abs", 0.03)),
+            "min_target_abs": float(ac.get("min_target_abs", 0.03)),
+            "neutral_target_epsilon": float(ac.get("neutral_target_epsilon", ac.get("min_target_abs", 0.03))),
+            "neutral_return_floor": float(ac.get("neutral_return_floor", 0.0006)),
         }
 
         os.makedirs(os.path.join(os.getcwd(), "logs"), exist_ok=True)
@@ -141,10 +155,18 @@ class TradingEnv(gym.Env):
         return default
 
     @staticmethod
-    def decode_action(action, max_leverage: float = 1.0) -> dict:
+    def decode_action(
+        action,
+        max_leverage: float = 1.0,
+        min_direction_abs: float = 0.03,
+        min_size_abs: float = 0.03,
+        min_target_abs: float = 0.03,
+    ) -> dict:
         raw = np.asarray(action, dtype=np.float32).reshape(-1)
         if raw.size <= 1:
             target = float(np.clip(raw[0] if raw.size else 0.0, -1.0, 1.0)) * float(max_leverage)
+            if abs(target) < float(min_target_abs):
+                target = 0.0
             return {
                 "direction": float(np.clip(target / max(float(max_leverage), 1e-12), -1.0, 1.0)),
                 "size": float(min(1.0, abs(target) / max(float(max_leverage), 1e-12))),
@@ -163,7 +185,7 @@ class TradingEnv(gym.Env):
             target = float(np.clip(direction_raw * size, -1.0, 1.0) * float(max_leverage))
             tp_sl_offset_pct = float(0.005 + risk * 0.015)
 
-            if abs(direction_raw) < 0.03 or size < 0.03:
+            if abs(direction_raw) < float(min_direction_abs) or size < float(min_size_abs) or abs(target) < float(min_target_abs):
                 target = 0.0
 
             return {
@@ -192,7 +214,7 @@ class TradingEnv(gym.Env):
         tp_offset_pct = float(0.005 + max(0.0, tp_raw) * 0.015)
         sl_offset_pct = float(0.005 + max(0.0, -sl_raw) * 0.015)
 
-        if abs(direction_raw) < 0.03 or size < 0.03:
+        if abs(direction_raw) < float(min_direction_abs) or size < float(min_size_abs) or abs(target) < float(min_target_abs):
             target = 0.0
 
         return {
@@ -389,7 +411,13 @@ class TradingEnv(gym.Env):
         return self._get_obs(), {}
 
     def step(self, action: np.ndarray):
-        action_meta = self.decode_action(action, max_leverage=self.max_leverage)
+        action_meta = self.decode_action(
+            action,
+            max_leverage=self.max_leverage,
+            min_direction_abs=float(self.action_config.get("min_direction_abs", 0.03)),
+            min_size_abs=float(self.action_config.get("min_size_abs", 0.03)),
+            min_target_abs=float(self.action_config.get("min_target_abs", 0.03)),
+        )
         prev_equity = self.equity
         prev_position = float(self.position)
 
@@ -428,6 +456,15 @@ class TradingEnv(gym.Env):
         cost_penalty = total_cost / (prev_equity + 1e-12)
         churn_penalty = abs(delta)
         sharpe_bonus = max(0.0, sharpe)
+        target_val = float(action_meta.get("target", 0.0) or 0.0)
+        target_mag = abs(target_val)
+        directional_followthrough = target_val * float(price_ret)
+        neutral_epsilon = float(self.action_config.get("neutral_target_epsilon", self.action_config.get("min_target_abs", 0.03)))
+        neutral_return_floor = float(self.action_config.get("neutral_return_floor", 0.0006))
+        actionable_target_bonus = target_mag if directional_followthrough > 0.0 and target_mag >= neutral_epsilon else 0.0
+        neutral_collapse_penalty = 0.0
+        if target_mag < neutral_epsilon and abs(float(price_ret)) >= neutral_return_floor:
+            neutral_collapse_penalty = float(min(1.0, abs(float(price_ret)) / max(neutral_return_floor, 1e-12)))
         rw = self.reward_weights
         mem_expectancy = float(self.memory_features.get("expectancy_norm", 0.0))
         mem_loss_streak = float(self.memory_features.get("loss_streak_norm", 0.0))
@@ -439,10 +476,13 @@ class TradingEnv(gym.Env):
             rw["growth"] * growth_term
             + rw["payoff"] * payoff
             + rw["sharpe_bonus"] * sharpe_bonus
+            + rw["directional_followthrough"] * directional_followthrough
+            + rw["actionable_target_bonus"] * actionable_target_bonus
             - rw["drawdown_penalty"] * dd_penalty
             - rw["cost_penalty"] * cost_penalty
             - rw["churn_penalty"] * churn_penalty
             - loss_streak_penalty
+            - rw["neutral_collapse_penalty"] * neutral_collapse_penalty
         )
         reward = float(np.clip(reward, -5.0, 5.0))
 
@@ -472,10 +512,13 @@ class TradingEnv(gym.Env):
                 "growth": float(growth_term),
                 "payoff": float(payoff),
                 "sharpe_bonus": float(sharpe_bonus),
+                "directional_followthrough": float(directional_followthrough),
+                "actionable_target_bonus": float(actionable_target_bonus),
                 "drawdown_penalty": float(dd_penalty),
                 "cost_penalty": float(cost_penalty),
                 "churn_penalty": float(churn_penalty),
                 "loss_streak_penalty": float(loss_streak_penalty),
+                "neutral_collapse_penalty": float(neutral_collapse_penalty),
                 "memory_expectancy_norm": float(mem_expectancy),
                 "weights": rw,
             },

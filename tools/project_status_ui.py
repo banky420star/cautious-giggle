@@ -45,6 +45,9 @@ STATUS_CACHE = {
     "repo_root": ROOT,
     "state": "booting",
 }
+_STATUS_REFRESH_TASK = None
+_STATUS_REFRESH_STARTED_AT = None
+_STATUS_REFRESH_DEGRADED = False
 
 
 def _venv_python():
@@ -406,6 +409,67 @@ def _configured_symbols():
     return _parse_symbol_list(trading.get("symbols", []))
 
 
+def _has_lstm_artifact(symbol: str) -> bool:
+    safe = str(symbol or "").replace("/", "_")
+    return os.path.exists(os.path.join(ROOT, "models", "per_symbol", f"lstm_{safe}.pt"))
+
+
+def _has_dreamer_artifact(symbol: str) -> bool:
+    safe = str(symbol or "").replace("/", "_")
+    return os.path.exists(os.path.join(ROOT, "models", "dreamer", f"dreamer_{safe}.pt"))
+
+
+def _candidate_label(path: str | None) -> str | None:
+    if not path:
+        return None
+    return os.path.basename(str(path).rstrip("\\/")) or None
+
+
+def _latest_candidates_by_symbol(symbols: list[str]) -> dict:
+    root = os.path.join(ROOT, "models", "registry", "candidates")
+    out = {}
+    wanted = {str(symbol) for symbol in symbols if str(symbol)}
+    if not wanted or not os.path.isdir(root):
+        return out
+
+    dirs = [os.path.join(root, name) for name in os.listdir(root) if os.path.isdir(os.path.join(root, name))]
+    dirs.sort(key=lambda path: os.path.getmtime(path), reverse=True)
+
+    for candidate_dir in dirs:
+        meta = None
+        for name in ("metadata.json", "scorecard.json"):
+            path = os.path.join(candidate_dir, name)
+            if not os.path.exists(path):
+                continue
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    meta = json.load(handle) or {}
+                break
+            except Exception:
+                meta = None
+        if not isinstance(meta, dict):
+            continue
+
+        symbol = str(meta.get("symbol") or "").strip()
+        if not symbol or symbol not in wanted or symbol in out:
+            continue
+
+        evaluation = meta.get("evaluation", {}) if isinstance(meta.get("evaluation"), dict) else {}
+        updated_utc = meta.get("registered_at") or meta.get("date")
+        if not updated_utc:
+            updated_utc = datetime.fromtimestamp(os.path.getmtime(candidate_dir), tz=timezone.utc).isoformat()
+
+        out[symbol] = {
+            "path": candidate_dir,
+            "label": os.path.basename(candidate_dir),
+            "updated_utc": updated_utc,
+            "gates_passed": bool(evaluation.get("gates_passed", False)),
+            "winner": bool(evaluation.get("winner", False)),
+            "candidate_score": evaluation.get("candidate_score"),
+        }
+    return out
+
+
 def _build_lstm_visual(lines, running: bool) -> dict:
     out = {
         "symbols": _configured_symbols(),
@@ -674,6 +738,7 @@ def _build_ppo_visual(lines, running: bool) -> dict:
 
 def _build_dreamer_visual(lines, running: bool) -> dict:
     out = {
+        "symbols": _configured_symbols(),
         "current_symbol": None,
         "steps": None,
         "window": None,
@@ -681,6 +746,15 @@ def _build_dreamer_visual(lines, running: bool) -> dict:
         "phase": "queued",
         "last_saved_symbol": None,
         "updated_utc": None,
+        "estimated_run_seconds": None,
+        "queue": [],
+        "summary": {
+            "total_symbols": 0,
+            "completed_symbols": 0,
+            "active_symbols": 0,
+            "queued_symbols": 0,
+            "completion_pct": 0.0,
+        },
     }
     if not lines:
         return out
@@ -691,26 +765,227 @@ def _build_dreamer_visual(lines, running: bool) -> dict:
     )
     saved_re = re.compile(r"dreamer_([A-Za-z0-9_]+)\.pt", re.IGNORECASE)
     latest_ts = None
+    now_utc = datetime.now(timezone.utc)
+    symbols = list(out["symbols"])
+    progress_by = {
+        sym: {
+            "symbol": sym,
+            "status": "queued",
+            "steps": None,
+            "window": None,
+            "obs_dim": None,
+            "started_utc": None,
+            "saved_utc": None,
+            "updated_utc": None,
+            "progress_pct": 0.0,
+            "detail": "waiting",
+        }
+        for sym in symbols
+    }
+    run_profiles = []
 
     for line in lines:
         sm = start_re.search(line)
         if sm:
-            out["current_symbol"] = sm.group(1)
-            out["steps"] = _as_int(sm.group(2), 0) or None
-            out["window"] = _as_int(sm.group(3), 0) or None
-            out["obs_dim"] = _as_int(sm.group(4), 0) or None
-            latest_ts = _line_ts_utc(line) or latest_ts
+            sym = sm.group(1)
+            ts = _line_ts_utc(line)
+            item = progress_by.setdefault(
+                sym,
+                {
+                    "symbol": sym,
+                    "status": "queued",
+                    "steps": None,
+                    "window": None,
+                    "obs_dim": None,
+                    "started_utc": None,
+                    "saved_utc": None,
+                    "updated_utc": None,
+                    "progress_pct": 0.0,
+                    "detail": "waiting",
+                },
+            )
+            item["steps"] = _as_int(sm.group(2), 0) or None
+            item["window"] = _as_int(sm.group(3), 0) or None
+            item["obs_dim"] = _as_int(sm.group(4), 0) or None
+            item["started_utc"] = ts.isoformat() if ts else None
+            item["updated_utc"] = ts.isoformat() if ts else item.get("updated_utc")
+            item["saved_utc"] = None
+            item["status"] = "active" if running else "partial"
+            item["detail"] = "training started"
+            out["current_symbol"] = sym
+            out["steps"] = item["steps"]
+            out["window"] = item["window"]
+            out["obs_dim"] = item["obs_dim"]
+            latest_ts = ts or latest_ts
             continue
         mm = saved_re.search(line)
         if mm:
-            out["last_saved_symbol"] = mm.group(1)
-            latest_ts = _line_ts_utc(line) or latest_ts
+            sym = mm.group(1)
+            ts = _line_ts_utc(line)
+            item = progress_by.setdefault(
+                sym,
+                {
+                    "symbol": sym,
+                    "status": "queued",
+                    "steps": None,
+                    "window": None,
+                    "obs_dim": None,
+                    "started_utc": None,
+                    "saved_utc": None,
+                    "updated_utc": None,
+                    "progress_pct": 0.0,
+                    "detail": "waiting",
+                },
+            )
+            started_utc = item.get("started_utc")
+            started_dt = None
+            if started_utc:
+                try:
+                    started_dt = datetime.fromisoformat(str(started_utc).replace("Z", "+00:00"))
+                except Exception:
+                    started_dt = None
+            item["saved_utc"] = ts.isoformat() if ts else None
+            item["updated_utc"] = ts.isoformat() if ts else item.get("updated_utc")
+            item["status"] = "done"
+            item["progress_pct"] = 100.0
+            item["detail"] = "artifact saved"
+            out["last_saved_symbol"] = sym
+            latest_ts = ts or latest_ts
+            duration_seconds = (ts - started_dt).total_seconds() if started_dt is not None and ts is not None and ts >= started_dt else None
+            steps = _as_int(item.get("steps"), 0)
+            window = _as_int(item.get("window"), 0)
+            if duration_seconds and steps > 0 and window > 0:
+                run_profiles.append(
+                    {
+                        "symbol": sym,
+                        "duration_seconds": duration_seconds,
+                        "steps": steps,
+                        "window": window,
+                        "seconds_per_unit": duration_seconds / float(steps * window),
+                    }
+                )
 
+    def _estimate_run_seconds(symbol: str, steps: int | None, window: int | None) -> float | None:
+        if not steps or not window:
+            return None
+        matching = [row["seconds_per_unit"] for row in run_profiles if row.get("symbol") == symbol]
+        pool = matching or [row["seconds_per_unit"] for row in run_profiles]
+        if not pool:
+            return None
+        return round((sum(pool) / len(pool)) * float(steps * window), 2)
+
+    estimated_run_seconds = None
+    estimated_by_symbol = {}
+
+    active_candidates = []
+    for sym, item in progress_by.items():
+        started_utc = item.get("started_utc")
+        saved_utc = item.get("saved_utc")
+        started_dt = None
+        saved_dt = None
+        if started_utc:
+            try:
+                started_dt = datetime.fromisoformat(str(started_utc).replace("Z", "+00:00"))
+            except Exception:
+                started_dt = None
+        if saved_utc:
+            try:
+                saved_dt = datetime.fromisoformat(str(saved_utc).replace("Z", "+00:00"))
+            except Exception:
+                saved_dt = None
+
+        is_done = saved_dt is not None and (started_dt is None or saved_dt >= started_dt)
+        is_active = started_dt is not None and (saved_dt is None or started_dt > saved_dt)
+        if is_done:
+            item["status"] = "done"
+            item["progress_pct"] = 100.0
+            item["detail"] = "artifact saved"
+        elif is_active and running:
+            elapsed_seconds = max(0, int((now_utc - started_dt).total_seconds())) if started_dt else 0
+            estimate_for_item = _estimate_run_seconds(sym, _as_int(item.get("steps"), 0), _as_int(item.get("window"), 0))
+            estimated_by_symbol[sym] = estimate_for_item
+            if estimate_for_item and estimate_for_item > 0:
+                item["progress_pct"] = round(min(96.0, max(6.0, (elapsed_seconds / estimate_for_item) * 100.0)), 2)
+            else:
+                item["progress_pct"] = 12.0
+            item["status"] = "active"
+            item["detail"] = (
+                f"est. {item['progress_pct']:.0f}% of run"
+                if estimate_for_item and elapsed_seconds > 0
+                else "training active"
+            )
+            active_candidates.append((started_dt, sym))
+        elif is_active:
+            item["status"] = "partial"
+            item["progress_pct"] = round(float(item.get("progress_pct") or 0.0), 2)
+            item["detail"] = "awaiting resume"
+            active_candidates.append((started_dt, sym))
+        else:
+            item["status"] = "queued"
+            item["progress_pct"] = 0.0
+            item["detail"] = "waiting"
+
+    if active_candidates:
+        active_candidates.sort(key=lambda pair: pair[0] or datetime.min.replace(tzinfo=timezone.utc))
+        out["current_symbol"] = active_candidates[-1][1]
+        estimated_run_seconds = estimated_by_symbol.get(out["current_symbol"])
+
+    queue = []
+    counts = {"done": 0, "active": 0, "queued": 0}
+    for sym in symbols:
+        item = progress_by.get(sym) or {
+            "symbol": sym,
+            "status": "queued",
+            "steps": None,
+            "window": None,
+            "obs_dim": None,
+            "started_utc": None,
+            "saved_utc": None,
+            "updated_utc": None,
+            "progress_pct": 0.0,
+            "detail": "waiting",
+        }
+        status = str(item.get("status") or "queued")
+        if status == "done":
+            counts["done"] += 1
+        elif status == "active":
+            counts["active"] += 1
+        else:
+            counts["queued"] += 1
+        queue.append(
+            {
+                "symbol": sym,
+                "status": status,
+                "steps": item.get("steps"),
+                "window": item.get("window"),
+                "obs_dim": item.get("obs_dim"),
+                "started_utc": item.get("started_utc"),
+                "saved_utc": item.get("saved_utc"),
+                "updated_utc": item.get("updated_utc"),
+                "progress_pct": round(float(item.get("progress_pct") or 0.0), 2),
+                "detail": item.get("detail"),
+            }
+        )
+
+    total_symbols = len(queue)
+    completed_symbols = counts["done"]
+    completion_pct = round((completed_symbols / total_symbols) * 100.0, 2) if total_symbols else 0.0
     out["updated_utc"] = latest_ts.isoformat() if latest_ts else None
     if running:
         out["phase"] = "optimizing"
+    elif active_candidates:
+        out["phase"] = "stalled"
     elif out["last_saved_symbol"]:
         out["phase"] = "completed"
+    out["estimated_run_seconds"] = estimated_run_seconds
+    out["queue"] = queue
+    out["summary"] = {
+        "total_symbols": total_symbols,
+        "completed_symbols": completed_symbols,
+        "active_symbols": counts["active"],
+        "queued_symbols": counts["queued"],
+        "completion_pct": completion_pct,
+    }
     return out
 
 
@@ -747,6 +1022,164 @@ def _build_training_visuals(lstm_lines, ppo_lines, dreamer_lines, lstm_running: 
         "ppo": ppo,
         "dreamer": dreamer,
     }
+
+
+def _symbol_stage_rows(training: dict, active: dict, account: dict | None = None, server: dict | None = None) -> list[dict]:
+    symbols = list(training.get("configured_symbols") or _configured_symbols())
+    visual = training.get("visual", {}) if isinstance(training.get("visual"), dict) else {}
+    lstm_visual = visual.get("lstm", {}) if isinstance(visual.get("lstm"), dict) else {}
+    ppo_visual = visual.get("ppo", {}) if isinstance(visual.get("ppo"), dict) else {}
+    dreamer_visual = visual.get("dreamer", {}) if isinstance(visual.get("dreamer"), dict) else {}
+    queue = {str(item.get("symbol")): item for item in lstm_visual.get("queue", []) if str(item.get("symbol") or "")}
+    dreamer_queue = {str(item.get("symbol")): item for item in dreamer_visual.get("queue", []) if str(item.get("symbol") or "")}
+    registry_symbols = active.get("symbols", {}) if isinstance(active.get("symbols"), dict) else {}
+    latest_candidates = _latest_candidates_by_symbol(symbols)
+    account = account if isinstance(account, dict) else {}
+    server = server if isinstance(server, dict) else {}
+    positions_by_symbol = defaultdict(list)
+    for position in account.get("positions", []) or []:
+        if not isinstance(position, dict):
+            continue
+        symbol = str(position.get("symbol") or "").strip()
+        if symbol:
+            positions_by_symbol[symbol].append(position)
+    server_running = bool(server.get("running", False))
+
+    current_ppo_symbol = str(training.get("drl_symbol") or ppo_visual.get("current_symbol") or "").strip()
+    current_dreamer_symbol = str(dreamer_visual.get("current_symbol") or "").strip()
+    last_saved_dreamer = str(dreamer_visual.get("last_saved_symbol") or "").strip()
+
+    rows = []
+    for symbol in symbols:
+        lstm_item = queue.get(symbol, {})
+        lstm_state = str(lstm_item.get("status") or "").strip() or ("done" if _has_lstm_artifact(symbol) else "queued")
+        lstm_progress = float(lstm_item.get("progress_pct") or (100.0 if lstm_state == "done" else 0.0))
+        lstm_detail = "waiting"
+        if lstm_state in {"active", "partial", "done"}:
+            epoch = _as_int(lstm_item.get("epoch"), 0)
+            total = _as_int(lstm_item.get("epochs_total"), 0)
+            if total > 0:
+                lstm_detail = f"epoch {epoch}/{total}"
+        if lstm_state == "failed":
+            lstm_detail = "training failed"
+
+        dreamer_item = dreamer_queue.get(symbol, {})
+        dreamer_state = str(dreamer_item.get("status") or "").strip()
+        if not dreamer_state:
+            if training.get("dreamer_running") and current_dreamer_symbol == symbol:
+                dreamer_state = "active"
+            elif _has_dreamer_artifact(symbol) or last_saved_dreamer == symbol:
+                dreamer_state = "done"
+            else:
+                dreamer_state = "queued"
+        dreamer_progress = float(
+            dreamer_item.get("progress_pct")
+            or (100.0 if dreamer_state == "done" else 0.0)
+        )
+        dreamer_detail = str(dreamer_item.get("detail") or "").strip()
+        if not dreamer_detail:
+            dreamer_steps = _as_int(dreamer_item.get("steps") or dreamer_visual.get("steps"), 0)
+            if dreamer_state == "active":
+                dreamer_detail = f"steps {dreamer_steps:,}" if dreamer_steps > 0 else "optimizing"
+            elif dreamer_state == "partial":
+                dreamer_detail = "awaiting resume"
+            elif dreamer_state == "done":
+                dreamer_detail = "artifact saved"
+            else:
+                dreamer_detail = "waiting"
+
+        candidate = latest_candidates.get(symbol)
+        if training.get("drl_running") and current_ppo_symbol == symbol:
+            ppo_state = "active"
+            ppo_progress = float(ppo_visual.get("progress_pct") or 0.0)
+            current_steps = _as_int(ppo_visual.get("current_timesteps"), 0)
+            target_steps = _as_int(ppo_visual.get("target_timesteps"), 0)
+            ppo_detail = f"{current_steps:,}/{target_steps:,}" if target_steps > 0 else "optimizing"
+        elif training.get("cycle_running") and current_ppo_symbol == symbol:
+            ppo_state = "queued"
+            ppo_progress = 0.0
+            ppo_detail = "queued in cycle"
+        elif candidate:
+            ppo_state = "done"
+            ppo_progress = 100.0
+            ppo_detail = candidate.get("label") or "candidate staged"
+        else:
+            ppo_state = "queued"
+            ppo_progress = 0.0
+            ppo_detail = "waiting"
+
+        registry_row = registry_symbols.get(symbol, {}) if isinstance(registry_symbols.get(symbol), dict) else {}
+        canary_path = registry_row.get("canary")
+        canary_state = registry_row.get("canary_state", {}) if isinstance(registry_row.get("canary_state"), dict) else {}
+        if canary_path:
+            canary_stage = "ready" if bool(canary_state.get("passed", False)) else "testing"
+            canary_detail = _candidate_label(canary_path) or "candidate attached"
+        else:
+            canary_stage = "waiting"
+            canary_detail = canary_state.get("reason") or "none staged"
+
+        champion_path = registry_row.get("champion")
+        champion_stage = "live" if champion_path else "waiting"
+        champion_detail = _candidate_label(champion_path) or "not set"
+        positions = positions_by_symbol.get(symbol, [])
+        if positions:
+            total_profit = round(sum(float(pos.get("profit") or 0.0) for pos in positions), 2)
+            trading_stage = "active"
+            trading_progress = 100.0
+            trading_detail = f"{len(positions)} open | pnl {total_profit:+.2f}"
+        elif champion_path and server_running:
+            trading_stage = "armed"
+            trading_progress = 100.0
+            trading_detail = "runtime live"
+        elif champion_path:
+            trading_stage = "paused"
+            trading_progress = 0.0
+            trading_detail = "runtime stopped"
+        else:
+            trading_stage = "waiting"
+            trading_progress = 0.0
+            trading_detail = "no champion"
+
+        rows.append(
+            {
+                "symbol": symbol,
+                "lstm": {"state": lstm_state, "progress_pct": round(lstm_progress, 2), "detail": lstm_detail},
+                "dreamer": {"state": dreamer_state, "progress_pct": round(dreamer_progress, 2), "detail": dreamer_detail},
+                "ppo": {"state": ppo_state, "progress_pct": round(ppo_progress, 2), "detail": ppo_detail},
+                "canary": {"state": canary_stage, "detail": canary_detail},
+                "champion": {"state": champion_stage, "detail": champion_detail},
+                "trading": {"state": trading_stage, "progress_pct": round(trading_progress, 2), "detail": trading_detail},
+            }
+        )
+    return rows
+
+
+def _symbol_pipeline_summary(rows: list[dict]) -> dict:
+    summary = {
+        "symbols_total": len(rows),
+        "training_active_symbols": 0,
+        "canary_review_symbols": 0,
+        "champion_live_symbols": 0,
+        "trading_ready_symbols": 0,
+        "trading_active_symbols": 0,
+    }
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if any(str((row.get(stage) or {}).get("state") or "") == "active" for stage in ("lstm", "dreamer", "ppo")):
+            summary["training_active_symbols"] += 1
+        canary_state = str((row.get("canary") or {}).get("state") or "")
+        if canary_state in {"testing", "ready"}:
+            summary["canary_review_symbols"] += 1
+        champion_state = str((row.get("champion") or {}).get("state") or "")
+        if champion_state == "live":
+            summary["champion_live_symbols"] += 1
+        trading_state = str((row.get("trading") or {}).get("state") or "")
+        if trading_state in {"armed", "active"}:
+            summary["trading_ready_symbols"] += 1
+        if trading_state == "active":
+            summary["trading_active_symbols"] += 1
+    return summary
 
 
 def _latest_training_progress() -> dict:
@@ -825,18 +1258,22 @@ def _training_state(procs):
         drl_running=drl_running,
         dreamer_running=dreamer_running,
     )
+    cycle_running = len(cycle) > 0
     drl_symbol = progress.get("drl_symbol") or progress.get("cycle_ppo_symbol")
+    if cycle_running and not drl_running and not lstm_running and not dreamer_running and drl_symbol:
+        visual["active_stage"] = "ppo"
+        visual["active_label"] = f"PPO queued for {drl_symbol}"
     return {
         "drl_running": drl_running,
         "lstm_running": lstm_running,
         "dreamer_running": dreamer_running,
-        "cycle_running": len(cycle) > 0,
+        "cycle_running": cycle_running,
         "configured_symbols": configured_symbols,
         "drl_pids": _root_pids(drl),
         "lstm_pids": _root_pids(lstm),
         "dreamer_pids": _root_pids(dreamer),
         "cycle_pids": _root_pids(cycle),
-        "drl_symbol": drl_symbol if drl_running else None,
+        "drl_symbol": drl_symbol if (drl_running or cycle_running) else None,
         "drl_timesteps": progress.get("drl_timesteps") if drl_running else None,
         "drl_candles": progress.get("drl_candles") if drl_running else None,
         "lstm_symbol": progress.get("lstm_symbol") if lstm_running else None,
@@ -1405,8 +1842,12 @@ def _fallback_charts():
 def _collect_status_fast(state: str = "degraded", error: str | None = None):
     procs = _processes()
     active = _active_models()
+    server = _server_state(procs)
     account = _fallback_account_snapshot()
     symbol_perf = STATUS_CACHE.get("symbol_perf", []) if isinstance(STATUS_CACHE, dict) else []
+    training = _training_state(procs)
+    training["symbol_stage_rows"] = _symbol_stage_rows(training, active, account=account, server=server)
+    training["pipeline_summary"] = _symbol_pipeline_summary(training["symbol_stage_rows"])
     return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "repo_root": ROOT,
@@ -1415,10 +1856,10 @@ def _collect_status_fast(state: str = "degraded", error: str | None = None):
         "active_models": active,
         "registry": _registry_summary(active),
         "canary_gate": {"ready": False, "reason": "status refresh degraded"},
-        "server": _server_state(procs),
+        "server": server,
         "runtime_owner": _runtime_owner_health(procs),
         "n8n": _n8n_state(),
-        "training": _training_state(procs),
+        "training": training,
         "account": account,
         "symbol_perf": symbol_perf,
         "charts": _fallback_charts(),
@@ -1442,19 +1883,23 @@ def _collect_status():
     reg = ModelRegistry()
     canary_ok, canary_reason = reg.can_promote_canary()
     active = _active_models()
+    server = _server_state(procs)
     account = _mt5_snapshot()
     _record_account_history(account)
     symbol_perf = _mt5_symbol_perf(7)
+    training = _training_state(procs)
+    training["symbol_stage_rows"] = _symbol_stage_rows(training, active, account=account, server=server)
+    training["pipeline_summary"] = _symbol_pipeline_summary(training["symbol_stage_rows"])
     return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "repo_root": ROOT,
         "active_models": active,
         "registry": _registry_summary(active),
         "canary_gate": {"ready": bool(canary_ok), "reason": canary_reason},
-        "server": _server_state(procs),
+        "server": server,
         "runtime_owner": _runtime_owner_health(procs),
         "n8n": _n8n_state(),
-        "training": _training_state(procs),
+        "training": training,
         "account": account,
         "symbol_perf": symbol_perf,
         "charts": _dashboard_charts(account, symbol_perf),
@@ -1865,14 +2310,27 @@ async def on_startup(app):
 
 
 async def status_refresh_loop():
-    global STATUS_CACHE
+    global STATUS_CACHE, _STATUS_REFRESH_TASK, _STATUS_REFRESH_STARTED_AT, _STATUS_REFRESH_DEGRADED
+    loop = asyncio.get_running_loop()
     while True:
-        try:
-            STATUS_CACHE = await asyncio.wait_for(asyncio.to_thread(_collect_status), timeout=20)
-        except asyncio.TimeoutError:
-            STATUS_CACHE = _collect_status_fast(state="degraded", error="status refresh timed out after 20s")
-        except Exception as exc:
-            STATUS_CACHE = _collect_status_fast(state="degraded", error=str(exc))
+        if _STATUS_REFRESH_TASK is None:
+            _STATUS_REFRESH_STARTED_AT = loop.time()
+            _STATUS_REFRESH_DEGRADED = False
+            _STATUS_REFRESH_TASK = asyncio.create_task(asyncio.to_thread(_collect_status))
+        elif _STATUS_REFRESH_TASK.done():
+            try:
+                STATUS_CACHE = _STATUS_REFRESH_TASK.result()
+            except Exception as exc:
+                STATUS_CACHE = _collect_status_fast(state="degraded", error=str(exc))
+            finally:
+                _STATUS_REFRESH_TASK = None
+                _STATUS_REFRESH_STARTED_AT = None
+                _STATUS_REFRESH_DEGRADED = False
+        elif _STATUS_REFRESH_STARTED_AT is not None:
+            elapsed = loop.time() - _STATUS_REFRESH_STARTED_AT
+            if elapsed > 20 and not _STATUS_REFRESH_DEGRADED:
+                STATUS_CACHE = _collect_status_fast(state="degraded", error="status refresh timed out after 20s")
+                _STATUS_REFRESH_DEGRADED = True
         await asyncio.sleep(4)
 
 

@@ -230,6 +230,31 @@ class ModelRegistry:
     def _timestamp_version(self):
         return datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
+    @staticmethod
+    def _metadata_targets_symbol(payload: dict | None, symbol: str | None) -> bool:
+        if not symbol:
+            return True
+        meta = payload if isinstance(payload, dict) else {}
+        symbol_str = str(symbol)
+        single = str(meta.get("symbol", "") or "").strip()
+        scoped = {str(item).strip() for item in (meta.get("symbols", []) or []) if str(item).strip()}
+        if single:
+            return single == symbol_str
+        if scoped:
+            return symbol_str in scoped
+        return True
+
+    def candidate_targets_symbol(self, candidate_dir: str | None, symbol: str | None) -> bool:
+        if not symbol or not candidate_dir:
+            return True
+        meta = self.read_metadata(candidate_dir)
+        if self._metadata_targets_symbol(meta, symbol):
+            return True
+        scorecard = self._read_scorecard(candidate_dir)
+        if scorecard:
+            return self._metadata_targets_symbol(scorecard, symbol)
+        return False
+
     def new_candidate_dir(self, tag: str = "candidate") -> str:
         ver = f"{tag}_{self._timestamp_version()}"
         path = os.path.join(self.candidates_dir, ver)
@@ -313,6 +338,11 @@ class ModelRegistry:
             nonlocal updated
             if not path:
                 return None
+            if sym and not self.candidate_targets_symbol(path, sym):
+                logger.error("Candidate symbol mismatch for {} ({} -> {}). Clearing entry.", role, sym, path)
+                self._clear_active_entry(active, role, sym)
+                updated = True
+                return None
             if self._validate_candidate_integrity(path):
                 return path
             logger.error("Candidate integrity mismatch for %s (%s). Clearing entry.", role, path)
@@ -341,13 +371,13 @@ class ModelRegistry:
                 return resolved
 
         if prefer_canary:
-            resolved = resolve_path(active.get("canary"), "canary")
+            resolved = resolve_path(active.get("canary"), "canary", symbol)
             if resolved:
                 if updated:
                     self._write_active(active)
                     updated = False
                 return resolved
-        resolved = resolve_path(active.get("champion"), "champion")
+        resolved = resolve_path(active.get("champion"), "champion", symbol)
         if resolved:
             if updated:
                 self._write_active(active)
@@ -362,6 +392,8 @@ class ModelRegistry:
         active = self._read_active()
         merged = self._merge_canary_policy(policy, symbol)
         if symbol:
+            if not self.candidate_targets_symbol(version_dir, symbol):
+                raise RuntimeError(f"Cannot set canary for {symbol}: artifact is not tagged for that symbol.")
             symbols = active.setdefault("symbols", {})
             cur = dict(symbols.get(symbol, {"champion": None, "canary": None, "canary_policy": {}, "canary_state": {}}))
             cur["canary"] = version_dir

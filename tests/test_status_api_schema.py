@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from tools import project_status_ui as ui
 
 
@@ -154,6 +156,47 @@ def test_dreamer_visual_parses_active_run():
     assert out["current_symbol"] == "BTCUSDm"
     assert out["last_saved_symbol"] == "XAUUSDm"
     assert out["steps"] == 5000
+    assert out["summary"]["completed_symbols"] == 1
+    assert out["summary"]["active_symbols"] == 1
+    by_symbol = {row["symbol"]: row for row in out["queue"]}
+    assert by_symbol["XAUUSDm"]["status"] == "done"
+    assert by_symbol["BTCUSDm"]["status"] == "active"
+
+
+def test_dreamer_visual_scales_eta_by_steps_and_window(monkeypatch):
+    class _FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            base = cls(2026, 3, 12, 2, 40, 0)
+            return base.replace(tzinfo=tz or timezone.utc)
+
+    monkeypatch.setattr(ui, "datetime", _FixedDateTime)
+    monkeypatch.setattr(ui, "_configured_symbols", lambda: ["XAUUSDm", "BTCUSDm"])
+    lines = [
+        "2026-03-12 00:00:00.000 | INFO | __main__:_train_symbol:138 - Dreamer training start | symbol=XAUUSDm | steps=5000 | window=64 | obs_dim=10497 | device=cpu | features=ultimate_150",
+        "2026-03-12 01:00:00.000 | SUCCESS | __main__:_train_symbol:179 - Dreamer artifact saved: C:\\repo\\models\\dreamer\\dreamer_XAUUSDm.pt",
+        "2026-03-12 01:10:00.000 | INFO | __main__:_train_symbol:138 - Dreamer training start | symbol=BTCUSDm | steps=15000 | window=96 | obs_dim=15745 | device=cpu | features=ultimate_150",
+    ]
+
+    out = ui._build_dreamer_visual(lines, running=True)
+
+    assert out["estimated_run_seconds"] == 16200.0
+    by_symbol = {row["symbol"]: row for row in out["queue"]}
+    assert by_symbol["BTCUSDm"]["status"] == "active"
+    assert by_symbol["BTCUSDm"]["progress_pct"] == 55.56
+
+
+def test_dreamer_visual_stalled_run_is_not_counted_active(monkeypatch):
+    monkeypatch.setattr(ui, "_configured_symbols", lambda: ["BTCUSDm"])
+    lines = [
+        "2026-03-12 20:29:22.646 | INFO | __main__:_train_symbol:138 - Dreamer training start | symbol=BTCUSDm | steps=5000 | window=64 | obs_dim=10497 | device=cpu | features=ultimate_150",
+    ]
+
+    out = ui._build_dreamer_visual(lines, running=False)
+
+    assert out["phase"] == "stalled"
+    assert out["summary"]["active_symbols"] == 0
+    assert out["queue"][0]["status"] == "partial"
 
 
 def test_ppo_visual_parses_progress_line():
@@ -200,3 +243,141 @@ def test_latest_training_progress_uses_cycle_log_when_ppo_has_not_logged_start(m
 
     assert out["drl_symbol"] is None
     assert out["cycle_ppo_symbol"] == "EURUSDm"
+
+
+def test_training_state_keeps_cycle_symbol_visible_before_drl_process_starts(monkeypatch):
+    monkeypatch.setattr(ui, "_configured_symbols", lambda: ["BTCUSDm", "XAUUSDm", "EURUSDm", "GBPUSDm"])
+    monkeypatch.setattr(
+        ui,
+        "_latest_training_progress",
+        lambda: {
+            "drl_symbol": None,
+            "drl_timesteps": None,
+            "drl_candles": None,
+            "lstm_symbol": None,
+            "lstm_epoch": None,
+            "lstm_epochs_total": None,
+            "train_error": None,
+            "cycle_ppo_symbol": "EURUSDm",
+        },
+    )
+    monkeypatch.setattr(
+        ui,
+        "_build_training_visuals",
+        lambda *_args, **_kwargs: {
+            "active_stage": "idle",
+            "active_label": "Training idle",
+            "lstm": {"queue": [], "summary": {}},
+            "ppo": {"current_symbol": None, "progress_pct": None, "current_timesteps": None, "target_timesteps": None},
+            "dreamer": {"current_symbol": None, "last_saved_symbol": None},
+        },
+    )
+    monkeypatch.setattr(ui, "_tail", lambda *_args, **_kwargs: [])
+
+    procs = [{"pid": 2332, "ppid": 100, "cmd": '".venv312\\Scripts\\python.exe" tools/champion_cycle.py'}]
+    out = ui._training_state(procs)
+
+    assert out["cycle_running"] is True
+    assert out["drl_running"] is False
+    assert out["drl_symbol"] == "EURUSDm"
+    assert out["visual"]["active_stage"] == "ppo"
+
+
+def test_symbol_stage_rows_include_pipeline_states(monkeypatch):
+    training = {
+        "configured_symbols": ["BTCUSDm", "XAUUSDm", "EURUSDm", "GBPUSDm"],
+        "drl_running": True,
+        "dreamer_running": False,
+        "cycle_running": True,
+        "drl_symbol": "EURUSDm",
+        "visual": {
+            "lstm": {
+                "queue": [
+                    {"symbol": "BTCUSDm", "status": "done", "progress_pct": 100.0, "epoch": 20, "epochs_total": 20},
+                    {"symbol": "XAUUSDm", "status": "done", "progress_pct": 100.0, "epoch": 20, "epochs_total": 20},
+                    {"symbol": "EURUSDm", "status": "active", "progress_pct": 55.0, "epoch": 11, "epochs_total": 20},
+                ]
+            },
+            "ppo": {"current_symbol": "EURUSDm", "progress_pct": 5.0, "current_timesteps": 25000, "target_timesteps": 500000},
+            "dreamer": {"current_symbol": None, "last_saved_symbol": "XAUUSDm", "steps": 5000},
+        },
+    }
+    active = {
+        "champion": "C:\\repo\\models\\registry\\candidates\\20260308_073222",
+        "symbols": {
+            "EURUSDm": {
+                "champion": "C:\\repo\\models\\registry\\candidates\\20260308_073222",
+                "canary": "C:\\repo\\models\\registry\\candidates\\20260313_142633",
+                "canary_state": {"passed": True},
+            }
+        },
+    }
+    monkeypatch.setattr(ui, "_has_lstm_artifact", lambda symbol: symbol in {"BTCUSDm", "XAUUSDm", "EURUSDm"})
+    monkeypatch.setattr(ui, "_has_dreamer_artifact", lambda symbol: symbol in {"BTCUSDm", "XAUUSDm"})
+    monkeypatch.setattr(
+        ui,
+        "_latest_candidates_by_symbol",
+        lambda symbols: {
+            "BTCUSDm": {"label": "20260313_062330", "gates_passed": False},
+            "XAUUSDm": {"label": "20260313_142633", "gates_passed": False},
+        },
+    )
+
+    rows = ui._symbol_stage_rows(
+        training,
+        active,
+        account={"positions": [{"symbol": "EURUSDm", "profit": 12.5}]},
+        server={"running": True},
+    )
+    by_symbol = {row["symbol"]: row for row in rows}
+
+    assert by_symbol["EURUSDm"]["lstm"]["state"] == "active"
+    assert by_symbol["EURUSDm"]["ppo"]["state"] == "active"
+    assert by_symbol["EURUSDm"]["canary"]["state"] == "ready"
+    assert by_symbol["EURUSDm"]["champion"]["state"] == "live"
+    assert by_symbol["EURUSDm"]["trading"]["state"] == "active"
+    assert by_symbol["BTCUSDm"]["dreamer"]["state"] == "done"
+    assert by_symbol["BTCUSDm"]["champion"]["state"] == "waiting"
+    assert by_symbol["BTCUSDm"]["trading"]["state"] == "waiting"
+    assert by_symbol["GBPUSDm"]["ppo"]["state"] == "queued"
+
+
+def test_symbol_pipeline_summary_counts_training_and_trading():
+    rows = [
+        {
+            "symbol": "BTCUSDm",
+            "lstm": {"state": "done"},
+            "dreamer": {"state": "done"},
+            "ppo": {"state": "done"},
+            "canary": {"state": "waiting"},
+            "champion": {"state": "live"},
+            "trading": {"state": "armed"},
+        },
+        {
+            "symbol": "EURUSDm",
+            "lstm": {"state": "active"},
+            "dreamer": {"state": "queued"},
+            "ppo": {"state": "queued"},
+            "canary": {"state": "testing"},
+            "champion": {"state": "live"},
+            "trading": {"state": "active"},
+        },
+        {
+            "symbol": "XAUUSDm",
+            "lstm": {"state": "done"},
+            "dreamer": {"state": "partial"},
+            "ppo": {"state": "queued"},
+            "canary": {"state": "waiting"},
+            "champion": {"state": "waiting"},
+            "trading": {"state": "waiting"},
+        },
+    ]
+
+    out = ui._symbol_pipeline_summary(rows)
+
+    assert out["symbols_total"] == 3
+    assert out["training_active_symbols"] == 1
+    assert out["canary_review_symbols"] == 1
+    assert out["champion_live_symbols"] == 2
+    assert out["trading_ready_symbols"] == 2
+    assert out["trading_active_symbols"] == 1

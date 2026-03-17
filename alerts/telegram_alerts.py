@@ -376,10 +376,16 @@ class TelegramAlerter:
             "Trading | ACTION",
             rows=[
                 ("Symbol", symbol),
+                ("Lane", order_meta.get("lane")),
                 ("Mode", order_meta.get("entry_mode")),
+                ("Request action", order_meta.get("request_action")),
                 ("Side", side),
                 ("Volume lots", _as_float(order_meta.get("volume_lots"), 2)),
                 ("Exposure", _as_float(order_meta.get("exposure"), 3)),
+                ("Target exposure", _as_float(order_meta.get("target_exposure"), 3)),
+                ("PPO", _as_float(order_meta.get("ppo_target"), 3)),
+                ("Dreamer", _as_float(order_meta.get("dreamer_target"), 3)),
+                ("AGI bias", _as_float(order_meta.get("agi_bias"), 3)),
                 ("Entry", _as_float(order_meta.get("entry_price"), 6)),
                 ("TP", _as_float(order_meta.get("tp_price"), 6)),
                 ("SL", _as_float(order_meta.get("sl_price"), 6)),
@@ -387,6 +393,11 @@ class TelegramAlerter:
                 ("SL value USD", _as_float(exp_loss_usd, 2)),
                 ("RR", _as_float(rr, 3)),
                 ("Lots", _as_float(lots, 2)),
+                ("Magic", order_meta.get("magic")),
+                ("Comment", order_meta.get("comment")),
+                ("Ticket", order_meta.get("ticket")),
+                ("Retcode", order_meta.get("retcode")),
+                ("Model version", order_meta.get("model_version")),
             ],
         )
         self._upsert_card("trade_action", body, category="trading", title=f"Trade action {symbol}")
