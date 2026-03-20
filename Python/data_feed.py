@@ -3,10 +3,10 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
-import MetaTrader5 as mt5
 import numpy as np
 import pandas as pd
 from loguru import logger
+from Python.mt5_compat import mt5
 
 try:
     import yaml

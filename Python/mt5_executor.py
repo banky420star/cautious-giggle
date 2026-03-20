@@ -1,7 +1,7 @@
 import os
 
-import MetaTrader5 as mt5
 from loguru import logger
+from Python.mt5_compat import mt5
 
 
 MAGIC_BY_SYMBOL = {

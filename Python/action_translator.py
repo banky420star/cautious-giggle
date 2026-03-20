@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-import MetaTrader5 as mt5
+from Python.mt5_compat import mt5
 
 
 def translate_trade_action(
