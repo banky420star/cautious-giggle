@@ -34,6 +34,7 @@ from Python.model_registry import ModelRegistry
 LOG_DIR = os.path.join(ROOT, "logs")
 UI_ASSET_DIR = os.path.join(ROOT, "tools", "ui_assets")
 UI_HTML_PATH = os.path.join(UI_ASSET_DIR, "project_status_ui.html")
+MINI_UI_HTML_PATH = os.path.join(UI_ASSET_DIR, "telegram_mini_app.html")
 ACTIVE_PATH = os.path.join(ROOT, "models", "registry", "active.json")
 EVENT_INTEL_PATH = os.path.join(LOG_DIR, "event_intel_state.json")
 ACCOUNT_HISTORY_PATH = os.path.join(LOG_DIR, "account_history.jsonl")
@@ -2425,16 +2426,20 @@ def control_action(action, payload):
     return {"ok": False, "message": f"Unknown action: {action}"}
 
 
-def _load_ui_html():
+def _load_html(path):
     try:
-        with open(UI_HTML_PATH, "r", encoding="utf-8") as f:
+        with open(path, "r", encoding="utf-8") as f:
             return f.read()
     except Exception as exc:
         return f"<html><body><h1>UI asset missing</h1><pre>{exc}</pre></body></html>"
 
 
 async def index(_request):
-    return web.Response(text=_load_ui_html(), content_type="text/html")
+    return web.Response(text=_load_html(UI_HTML_PATH), content_type="text/html")
+
+
+async def mini_app(_request):
+    return web.Response(text=_load_html(MINI_UI_HTML_PATH), content_type="text/html")
 
 
 async def api_status(_request):
@@ -2539,6 +2544,7 @@ async def status_refresh_loop():
 def run(host="127.0.0.1", port=8088):
     app = web.Application()
     app.router.add_get("/", index)
+    app.router.add_get("/mini", mini_app)
     app.router.add_get("/api/status", api_status)
     app.router.add_post("/api/control", api_control)
     app.router.add_get("/ws", ws_status)
@@ -2548,7 +2554,6 @@ def run(host="127.0.0.1", port=8088):
 
 if __name__ == "__main__":
     run(host=os.environ.get("AGI_UI_HOST", "127.0.0.1"), port=int(os.environ.get("AGI_UI_PORT", "8088")))
-
 
 
 

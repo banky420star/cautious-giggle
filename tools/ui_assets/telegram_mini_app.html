@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Cautious Giggle Mini App</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #07111d;
+  --panel: rgba(13, 23, 38, 0.92);
+  --panel-2: rgba(10, 18, 31, 0.88);
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #eef5ff;
+  --muted: #97a9c6;
+  --cyan: #5ad7ff;
+  --green: #39d98a;
+  --amber: #f3bb4a;
+  --red: #ff7b8f;
+  --blue: #62a4ff;
+  --shadow: 0 20px 42px rgba(0, 0, 0, 0.28);
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(90, 215, 255, 0.18), transparent 45%),
+    radial-gradient(90% 70% at 0% 0%, rgba(98, 164, 255, 0.16), transparent 44%),
+    linear-gradient(180deg, #06101b, var(--bg));
+  color: var(--text);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+body {
+  padding: max(18px, env(safe-area-inset-top)) 14px max(20px, env(safe-area-inset-bottom));
+}
+.shell {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+.hero, .card, .symbol {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  border-radius: 24px;
+}
+.hero {
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -15% -45% auto;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(90, 215, 255, 0.28), transparent 70%);
+}
+.eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--cyan);
+}
+.headline {
+  margin-top: 10px;
+  font-size: 28px;
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+.sub {
+  margin-top: 10px;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 14px;
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.metric, .mini {
+  padding: 13px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.metric .k, .mini .k {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+.metric .v, .mini .v {
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 700;
+}
+.mini .v {
+  font-size: 15px;
+}
+.mini .m, .metric .m {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.section-title h2 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: -0.03em;
+}
+.tag {
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+.card {
+  padding: 16px;
+}
+.row {
+  display: grid;
+  gap: 10px;
+}
+.symbol {
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+}
+.symbol-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.symbol-name {
+  margin: 2px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+  font-size: 11px;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.good { color: var(--green); }
+.warn { color: var(--amber); }
+.bad { color: var(--red); }
+.dot.good { background: var(--green); }
+.dot.warn { background: var(--amber); }
+.dot.bad { background: var(--red); }
+.statline {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.bar {
+  margin-top: 12px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+.fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--cyan), var(--blue));
+}
+.fill.good {
+  background: linear-gradient(90deg, #1fcfb2, var(--green));
+}
+.fill.warn {
+  background: linear-gradient(90deg, #f0ab35, var(--amber));
+}
+.fill.bad {
+  background: linear-gradient(90deg, #ff7b8f, var(--red));
+}
+.list {
+  display: grid;
+  gap: 10px;
+}
+.list-item {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel-2);
+}
+.list-item .t {
+  font-size: 13px;
+  line-height: 1.45;
+}
+.list-item .m {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+button, .link-btn {
+  border: 0;
+  border-radius: 16px;
+  padding: 13px 14px;
+  font: inherit;
+  color: var(--text);
+  background: linear-gradient(180deg, rgba(90, 215, 255, 0.18), rgba(90, 215, 255, 0.08));
+  box-shadow: var(--shadow);
+}
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+button.secondary {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04));
+}
+.footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  padding-bottom: 6px;
+}
+@media (max-width: 480px) {
+  .metrics, .actions, .statline {
+    grid-template-columns: 1fr;
+  }
+  .headline {
+    font-size: 25px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <section class="hero">
+    <div class="eyebrow">Telegram Mini App</div>
+    <div class="headline" id="headline">Connecting to runtime</div>
+    <div class="sub" id="subline">Waiting for live status from the operator surface.</div>
+  </section>
+
+  <section class="metrics" id="metrics"></section>
+
+  <section class="card">
+    <div class="section-title">
+      <h2>Per Pair Pipeline</h2>
+      <div class="tag" id="pipelineTag">waiting</div>
+    </div>
+    <div class="row" id="symbols"></div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">
+      <h2>Recent Activity</h2>
+      <div class="tag" id="activityTag">logs</div>
+    </div>
+    <div class="list" id="incidents"></div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">
+      <h2>Actions</h2>
+      <div class="tag" id="appState">booting</div>
+    </div>
+    <div class="actions">
+      <button type="button" id="refreshBtn">Refresh now</button>
+      <a class="link-btn secondary" id="openDashboard" href="/" target="_blank" rel="noopener">Open full dashboard</a>
+    </div>
+  </section>
+
+  <div class="footer" id="footer">Awaiting first status payload.</div>
+</div>
+<script>
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  document.documentElement.style.setProperty("--bg", tg.themeParams.bg_color || "#07111d");
+  document.documentElement.style.setProperty("--text", tg.themeParams.text_color || "#eef5ff");
+}
+
+const byId = (id) => document.getElementById(id);
+const fmtNum = (value, digits = 2) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toFixed(digits) : "-";
+};
+const fmtInt = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? String(Math.trunc(n)) : "-";
+};
+const pct = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? `${n.toFixed(1)}%` : "-";
+};
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const esc = (value) => String(value == null ? "" : value)
+  .replaceAll("&", "&amp;")
+  .replaceAll("<", "&lt;")
+  .replaceAll(">", "&gt;");
+const toneForState = (state) => {
+  const s = String(state || "").toLowerCase();
+  if (["done", "ready", "live", "executed", "running", "healthy"].includes(s)) return "good";
+  if (["failed", "blocked", "paused", "warning", "stopped"].includes(s)) return "bad";
+  return "warn";
+};
+const nowLabel = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+function metricCard(label, value, meta) {
+  return `<div class="metric"><div class="k">${esc(label)}</div><div class="v">${esc(value)}</div><div class="m">${esc(meta)}</div></div>`;
+}
+
+function miniStat(label, value, meta) {
+  return `<div class="mini"><div class="k">${esc(label)}</div><div class="v">${esc(value)}</div><div class="m">${esc(meta)}</div></div>`;
+}
+
+function renderSummary(status) {
+  const training = status.training || {};
+  const account = status.account || {};
+  const gate = status.canary_gate || {};
+  const server = status.server || {};
+  const runtime = status.runtime_owner || {};
+  const current = ((training.visual || {}).lstm || {}).current_symbol || (training.configured_symbols || [])[0] || "-";
+
+  byId("headline").textContent = server.running ? `Live trading on ${current}` : "Runtime waiting for server";
+  byId("subline").textContent =
+    `Server ${server.running ? "running" : "stopped"} | ` +
+    `cycle ${training.cycle_running ? "active" : "idle"} | ` +
+    `owner health ${runtime.ok === false ? "warning" : "ok"} | ` +
+    `balance ${fmtNum(account.balance)}`;
+
+  byId("metrics").innerHTML = [
+    metricCard("Server", server.running ? "RUNNING" : "STOPPED", `PID ${((server.pids || [])[0]) || "-"}`),
+    metricCard("Training", training.cycle_running ? "ACTIVE" : "IDLE", `${fmtInt(training.pipeline_summary && training.pipeline_summary.training_active_symbols || 0)} active pairs`),
+    metricCard("Canary Gate", gate.ready ? "READY" : "HOLD", gate.reason || "waiting for evidence"),
+    metricCard("Account", fmtNum(account.equity), `${fmtInt(account.open_positions)} open positions`),
+  ].join("");
+
+  byId("pipelineTag").textContent = `${fmtInt((training.configured_symbols || []).length)} pairs`;
+  byId("appState").textContent = status.state || "live";
+  byId("footer").textContent = `Updated ${nowLabel()} from ${status.repo_root || "runtime"}`;
+}
+
+function renderSymbols(status) {
+  const rows = (((status.training || {}).symbol_lane_rows) || []).slice(0, 4);
+  byId("symbols").innerHTML = rows.map((row) => {
+    const symbol = row.symbol || "-";
+    const lstm = row.pipeline && row.pipeline.lstm || {};
+    const canary = row.pipeline && row.pipeline.canary || {};
+    const champion = row.pipeline && row.pipeline.champion || {};
+    const trading = row.pipeline && row.pipeline.trading || {};
+    const decision = row.decision || {};
+    const stateTone = toneForState(trading.state || champion.state || canary.state || lstm.state);
+    const progress = Number(lstm.progress_pct || 0);
+    return `
+      <div class="symbol">
+        <div class="symbol-top">
+          <div>
+            <div class="eyebrow">Pair</div>
+            <div class="symbol-name">${esc(symbol)}</div>
+          </div>
+          <div class="pill"><span class="dot ${stateTone}"></span>${esc((trading.state || lstm.state || "waiting").toUpperCase())}</div>
+        </div>
+        <div class="statline">
+          ${miniStat("LSTM", pct(progress), lstm.detail || "waiting")}
+          ${miniStat("Target", fmtNum(decision.final_target || 0, 3), `raw ${fmtNum(decision.raw_target || 0, 3)}`)}
+          ${miniStat("Canary", canary.state || "waiting", canary.detail || "none staged")}
+          ${miniStat("Champion", champion.state || "waiting", champion.detail || "not set")}
+        </div>
+        <div class="bar"><div class="fill ${toneForState(lstm.state)}" style="width:${clamp(progress, 0, 100)}%"></div></div>
+      </div>
+    `;
+  }).join("") || `<div class="list-item"><div class="t">No pair lanes published yet.</div><div class="m">Start the pipeline and refresh.</div></div>`;
+}
+
+function renderIncidents(status) {
+  const incidents = (status.incidents || []).slice(0, 6);
+  byId("activityTag").textContent = `${incidents.length} events`;
+  byId("incidents").innerHTML = incidents.map((item) => {
+    const tone = item.severity === "warning" ? "warn" : item.severity === "critical" ? "bad" : "good";
+    return `
+      <div class="list-item">
+        <div class="t"><span class="${tone}">${esc(item.event || "event")}</span> · ${esc(item.summary || "activity")}</div>
+        <div class="m">${esc(item.ts || "")}</div>
+      </div>
+    `;
+  }).join("") || `<div class="list-item"><div class="t">No recent incidents yet.</div></div>`;
+}
+
+async function refreshStatus() {
+  byId("refreshBtn").disabled = true;
+  try {
+    const response = await fetch("/api/status", { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const status = await response.json();
+    renderSummary(status);
+    renderSymbols(status);
+    renderIncidents(status);
+    if (tg) {
+      tg.MainButton.setText("Open full dashboard");
+      tg.MainButton.show();
+      tg.MainButton.onClick(() => tg.openLink(location.origin + "/"));
+    }
+  } catch (error) {
+    byId("headline").textContent = "Mini App could not reach runtime";
+    byId("subline").textContent = String(error);
+  } finally {
+    byId("refreshBtn").disabled = false;
+  }
+}
+
+byId("refreshBtn").addEventListener("click", refreshStatus);
+refreshStatus();
+setInterval(refreshStatus, 5000);
+</script>
+</body>
+</html>
