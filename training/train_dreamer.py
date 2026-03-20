@@ -4,7 +4,6 @@ import os
 import sys
 
 import numpy as np
-import torch
 import yaml
 from loguru import logger
 
@@ -12,15 +11,31 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from drl.dreamer_agent import DreamerV3Agent
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS
 from Python.data_feed import fetch_training_data
 from Python.feature_pipeline import ULTIMATE_150, build_env_feature_matrix, normalize_feature_version
 from alerts.telegram_alerts import TelegramAlerter
 
+torch = None
+_TORCH_IMPORT_ERROR = None
+
 LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "dreamer_training.log"), rotation="10 MB", level="INFO")
+
+
+def _require_dreamer_stack() -> None:
+    global torch, _TORCH_IMPORT_ERROR
+    if torch is not None:
+        return
+    try:
+        import torch as _torch
+    except Exception as exc:
+        _TORCH_IMPORT_ERROR = exc
+        raise RuntimeError(
+            "Dreamer training requires torch to be importable in the current environment."
+        ) from exc
+    torch = _torch
 
 
 def _env_int(name: str, default: int) -> int:
@@ -148,6 +163,9 @@ def _prepare_training_arrays(symbol: str, period: str, interval: str, candles: i
 
 
 def _train_symbol(symbol: str, args, period: str, interval: str, candles: int, feature_version: str, device: str):
+    _require_dreamer_stack()
+    from drl.dreamer_agent import DreamerV3Agent
+
     features, returns = _prepare_training_arrays(symbol, period, interval, candles, feature_version)
     env = DreamerTradingEnvironment(features, returns, window=args.window)
     obs_dim = env.reset().shape[0]
@@ -231,6 +249,7 @@ def main():
     feature_version = normalize_feature_version(feature_seed, default=ULTIMATE_150)
     symbols = _resolve_symbols(args, cfg)
 
+    _require_dreamer_stack()
     device = "cuda" if torch.cuda.is_available() else ("mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available() else "cpu")
     alerter = _build_alerter(cfg)
     alerter.training(

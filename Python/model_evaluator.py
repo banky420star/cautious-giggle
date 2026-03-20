@@ -1,7 +1,10 @@
 ﻿import os
 import time
 
-from Python.backtester import run_multi
+def run_multi(*args, **kwargs):
+    from Python.backtester import run_multi as _run_multi
+
+    return _run_multi(*args, **kwargs)
 
 
 def _default_gates():

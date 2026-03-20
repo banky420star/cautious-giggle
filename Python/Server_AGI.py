@@ -5,19 +5,23 @@ import os
 import subprocess
 import time
 
-import MetaTrader5 as mt5
+try:
+    import MetaTrader5 as mt5
+except Exception as exc:
+    _MT5_IMPORT_ERROR = exc
+
+    class _MissingMetaTrader5:
+        def __getattr__(self, name):
+            raise RuntimeError(
+                "MetaTrader5 is required for live runtime operations and is unavailable in this environment."
+            ) from _MT5_IMPORT_ERROR
+
+    mt5 = _MissingMetaTrader5()
+
 import pandas as pd
 from loguru import logger
 
-from Python.agi_brain import SmartAGI
-from Python.hybrid_brain import HybridBrain
-from Python.mt5_executor import MT5Executor
-from Python.risk_engine import RiskEngine
-from Python.risk_supervisor import RiskSupervisor
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
-from Python.event_intel import EventIntel
-from Python.trade_learning import build_trade_learning
-from alerts.telegram_alerts import TelegramAlerter
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCK_DIR = os.path.join(BASE_DIR, ".tmp")
@@ -85,6 +89,28 @@ def _append_trade_event(event: str, payload: dict):
     }
     _append_jsonl(TRADE_EVENTS_LOG, row)
     _append_audit(event, payload)
+
+
+def _load_runtime_components():
+    from Python.agi_brain import SmartAGI
+    from Python.event_intel import EventIntel
+    from Python.hybrid_brain import HybridBrain
+    from Python.mt5_executor import MT5Executor
+    from Python.risk_engine import RiskEngine
+    from Python.risk_supervisor import RiskSupervisor
+    from Python.trade_learning import build_trade_learning
+    from alerts.telegram_alerts import TelegramAlerter
+
+    return {
+        "SmartAGI": SmartAGI,
+        "EventIntel": EventIntel,
+        "HybridBrain": HybridBrain,
+        "MT5Executor": MT5Executor,
+        "RiskEngine": RiskEngine,
+        "RiskSupervisor": RiskSupervisor,
+        "build_trade_learning": build_trade_learning,
+        "TelegramAlerter": TelegramAlerter,
+    }
 
 
 
@@ -390,6 +416,29 @@ def _blend_symbol_decision(
     }
 
 
+def _low_volatility_memory_base(trade_memory: dict | None) -> float:
+    memory = trade_memory or {}
+    min_trades = int(os.environ.get("AGI_LOW_VOL_MIN_TRADES", "20") or 20)
+    min_profit_factor = float(os.environ.get("AGI_LOW_VOL_MIN_PROFIT_FACTOR", "1.15") or 1.15)
+    min_expectancy = float(os.environ.get("AGI_LOW_VOL_MIN_EXPECTANCY", "0.0") or 0.0)
+    max_recent_loss_streak = int(os.environ.get("AGI_LOW_VOL_MAX_RECENT_LOSS_STREAK", "3") or 3)
+
+    trades = int(memory.get("trades", 0) or 0)
+    profit_factor = float(memory.get("profit_factor", 0.0) or 0.0)
+    expectancy = float(memory.get("expectancy", 0.0) or 0.0)
+    recent_loss_streak = int(memory.get("recent_loss_streak", 0) or 0)
+
+    if trades < min_trades:
+        return 0.0
+    if profit_factor < min_profit_factor:
+        return 0.0
+    if expectancy < min_expectancy:
+        return 0.0
+    if recent_loss_streak > max_recent_loss_streak:
+        return 0.0
+    return 1.0
+
+
 def _fetch_symbol_df(symbol: str, timeframe, bars=220):
     rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, bars)
     if rates is None or len(rates) < 80:
@@ -584,11 +633,12 @@ def main(live=False):
     if not ok:
         raise RuntimeError(f"MT5 init failed: {mt5.last_error()}")
 
-    risk = RiskEngine()
-    supervisor = RiskSupervisor(cfg)
-    executor = MT5Executor(risk)
-    brain = HybridBrain(risk, executor)
-    agi = SmartAGI()
+    runtime = _load_runtime_components()
+    risk = runtime["RiskEngine"]()
+    supervisor = runtime["RiskSupervisor"](cfg)
+    executor = runtime["MT5Executor"](risk)
+    brain = runtime["HybridBrain"](risk, executor)
+    agi = runtime["SmartAGI"]()
 
     trading_cfg = cfg.get("trading", {})
     symbols = resolve_trading_symbols(cfg, env_keys=("AGI_RUNTIME_SYMBOLS",), fallback=DEFAULT_TRADING_SYMBOLS)
@@ -596,8 +646,8 @@ def main(live=False):
     max_lots = float(cfg.get("risk", {}).get("max_lots", 1.0))
 
     token, chat_id = _load_telegram_cfg(cfg)
-    alerter = TelegramAlerter(token, chat_id)
-    event_intel = EventIntel(cfg, LOG_DIR)
+    alerter = runtime["TelegramAlerter"](token, chat_id)
+    event_intel = runtime["EventIntel"](cfg, LOG_DIR)
 
     alerter.online("Trading engine initialized")
 
@@ -702,7 +752,7 @@ def main(live=False):
 
         if now - last_learning >= max(120, learning_sec):
             try:
-                learn = build_trade_learning(
+                learn = runtime["build_trade_learning"](
                     log_dir=LOG_DIR,
                     out_dir=os.path.join(LOG_DIR, "learning"),
                     lookback_days=int(os.environ.get("AGI_TRADE_LEARN_DAYS", "30")),
@@ -950,4 +1000,3 @@ if __name__ == "__main__":
 
     live_flag = "--live" in sys.argv
     main(live=live_flag)
-

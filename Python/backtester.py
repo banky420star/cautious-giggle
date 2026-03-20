@@ -8,8 +8,27 @@ import sys
 import numpy as np
 import pandas as pd
 from loguru import logger
-from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+
+class _PPOProxy:
+    @staticmethod
+    def load(*args, **kwargs):
+        _require_rl_stack()
+        return globals()["PPO"].load(*args, **kwargs)
+
+
+PPO = _PPOProxy
+DummyVecEnv = None
+
+
+class _VecNormalizeProxy:
+    @staticmethod
+    def load(*args, **kwargs):
+        _require_rl_stack()
+        return globals()["VecNormalize"].load(*args, **kwargs)
+
+
+VecNormalize = _VecNormalizeProxy
+_RL_IMPORT_ERROR = None
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -34,6 +53,23 @@ except Exception:
     pass
 
 
+def _require_rl_stack() -> None:
+    global PPO, DummyVecEnv, VecNormalize, _RL_IMPORT_ERROR
+    if PPO is not _PPOProxy and DummyVecEnv is not None and VecNormalize is not _VecNormalizeProxy:
+        return
+    try:
+        from stable_baselines3 import PPO as _PPO
+        from stable_baselines3.common.vec_env import DummyVecEnv as _DummyVecEnv, VecNormalize as _VecNormalize
+    except Exception as exc:
+        _RL_IMPORT_ERROR = exc
+        raise RuntimeError(
+            "stable-baselines3 with a working torch runtime is required for PPO backtests."
+        ) from exc
+    PPO = _PPO
+    DummyVecEnv = _DummyVecEnv
+    VecNormalize = _VecNormalize
+
+
 def _normalize_interval(interval: str | None) -> str:
     if not interval:
         return "5m"
@@ -52,6 +88,8 @@ def _make_env(
     portfolio_feature_count: int | None = None,
     feature_version: str = ENGINEERED_V2,
 ):
+    _require_rl_stack()
+
     def _init():
         return TradingEnv(
             df_pd,

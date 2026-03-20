@@ -1,11 +1,17 @@
-﻿name: build
+name: pair-pipeline
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.12'
+  AGI_FEATURE_VERSION: ultimate_150
 
 jobs:
-  build:
+  repo-tests:
+    name: repo-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,7 +19,8 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
 
       - name: Install dependencies
         run: |
@@ -26,3 +33,51 @@ jobs:
 
       - name: Run tests
         run: pytest -q
+
+  pair-pipeline:
+    name: pair-${{ matrix.symbol }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        symbol:
+          - BTCUSDm
+          - XAUUSDm
+          - EURUSDm
+          - GBPUSDm
+    env:
+      AGI_LSTM_SYMBOLS: ${{ matrix.symbol }}
+      AGI_DRL_SYMBOL: ${{ matrix.symbol }}
+      AGI_DREAMER_SYMBOL: ${{ matrix.symbol }}
+      AGI_CYCLE_SYMBOL: ${{ matrix.symbol }}
+      AGI_CYCLE_SKIP_COMPLETED: 'true'
+      AGI_DREAMER_FEATURE_VERSION: ${{ env.AGI_FEATURE_VERSION }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Verify Pair Pipeline
+        run: |
+          python -m pytest -q \
+            tests/test_backtester_smoke.py \
+            tests/test_drl_symbol_overrides.py \
+            tests/test_train_dreamer.py \
+            tests/test_autonomy_symbol_lane.py \
+            tests/test_symbol_scope_defaults.py \
+            tests/test_model_evaluator.py \
+            tests/test_model_evaluator_wins.py \
+            tests/test_model_registry_canary.py \
+            tests/test_model_registry_symbol_canary.py \
+            tests/test_registry_history.py \
+            tests/test_hybrid_brain_config.py

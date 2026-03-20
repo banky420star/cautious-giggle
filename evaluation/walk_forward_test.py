@@ -5,8 +5,6 @@ import polars as pl
 import pandas as pd
 from loguru import logger
 from datetime import datetime
-from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 # Ensure parent directory is in path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -20,6 +18,9 @@ def run_walk_forward_evaluation(symbol: str = "EURUSD", period: str = "300d"):
     Runs an Out-Of-Sample evaluation on the specified symbol using the active Champion/Canary model.
     """
     logger.info(f"🚀 Evaluation: Walking forward on {symbol} (period={period})")
+
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
     # 1. Load active model from registry
     registry = ModelRegistry()

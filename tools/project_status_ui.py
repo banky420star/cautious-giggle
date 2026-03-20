@@ -27,6 +27,7 @@ except Exception:
     mt5 = None
 
 from alerts.telegram_alerts import TelegramAlerter
+from Python.config_utils import DEFAULT_TRADING_SYMBOLS
 from Python.model_registry import ModelRegistry
 
 LOG_DIR = os.path.join(ROOT, "logs")
@@ -406,7 +407,8 @@ def _as_float(raw, default=None):
 def _configured_symbols():
     cfg = _load_cfg()
     trading = cfg.get("trading", {}) if isinstance(cfg, dict) else {}
-    return _parse_symbol_list(trading.get("symbols", []))
+    configured = _parse_symbol_list(trading.get("symbols", []))
+    return configured or list(DEFAULT_TRADING_SYMBOLS)
 
 
 def _has_lstm_artifact(symbol: str) -> bool:
@@ -2526,7 +2528,6 @@ def run(host="127.0.0.1", port=8088):
 
 if __name__ == "__main__":
     run(host=os.environ.get("AGI_UI_HOST", "127.0.0.1"), port=int(os.environ.get("AGI_UI_PORT", "8088")))
-
 
 
 

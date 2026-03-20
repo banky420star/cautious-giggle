@@ -12,18 +12,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import pandas as pd
 import polars as pl
-import torch
 import yaml
 from loguru import logger
-from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import BaseCallback, EvalCallback
-from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.utils import set_random_seed
-from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
-
-from analysis.gradient_flow_analyzer import LSTMGradientDiagnostics
-from drl.adaptive_feature_extractor import AdaptiveLSTMFeatureExtractor
-from drl.lstm_feature_extractor import LSTMFeatureExtractor
 from drl.trading_env import TradingEnv
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 from Python.data_feed import fetch_training_data, get_combined_training_df
@@ -31,11 +21,57 @@ from Python.feature_pipeline import ENGINEERED_V2, ULTIMATE_150, normalize_featu
 from Python.trade_learning import load_trade_memory
 from alerts.telegram_alerts import TelegramAlerter
 
+torch = None
+PPO = None
+DummyVecEnv = None
+VecMonitor = None
+VecNormalize = None
+Monitor = None
+set_random_seed = None
+BaseCallback = object
+EvalCallback = object
+_TORCH_IMPORT_ERROR = None
+_SB3_IMPORT_ERROR = None
+
 LOG_DIR = os.path.join(os.getcwd(), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "ppo_training.log"), rotation="10 MB", level="INFO")
 LOCK_DIR = os.path.join(os.getcwd(), ".tmp")
 LOCK_PATH = os.path.join(LOCK_DIR, "train_drl.lock")
+
+
+def _require_training_stack() -> None:
+    global torch, PPO, DummyVecEnv, VecMonitor, VecNormalize, Monitor, set_random_seed
+    global BaseCallback, EvalCallback, _TORCH_IMPORT_ERROR, _SB3_IMPORT_ERROR
+    if torch is not None and PPO is not None and DummyVecEnv is not None and VecMonitor is not None and VecNormalize is not None:
+        return
+    try:
+        import torch as _torch
+    except Exception as exc:
+        _TORCH_IMPORT_ERROR = exc
+        raise RuntimeError(
+            "PPO training requires torch and stable-baselines3 to be importable in the current environment."
+        ) from exc
+    try:
+        from stable_baselines3 import PPO as _PPO
+        from stable_baselines3.common.callbacks import BaseCallback as _BaseCallback, EvalCallback as _EvalCallback
+        from stable_baselines3.common.monitor import Monitor as _Monitor
+        from stable_baselines3.common.utils import set_random_seed as _set_random_seed
+        from stable_baselines3.common.vec_env import DummyVecEnv as _DummyVecEnv, VecMonitor as _VecMonitor, VecNormalize as _VecNormalize
+    except Exception as exc:
+        _SB3_IMPORT_ERROR = exc
+        raise RuntimeError(
+            "PPO training requires torch and stable-baselines3 to be importable in the current environment."
+        ) from exc
+    torch = _torch
+    PPO = _PPO
+    BaseCallback = _BaseCallback
+    EvalCallback = _EvalCallback
+    Monitor = _Monitor
+    set_random_seed = _set_random_seed
+    DummyVecEnv = _DummyVecEnv
+    VecMonitor = _VecMonitor
+    VecNormalize = _VecNormalize
 
 
 def _pid_exists(pid: int) -> bool:
@@ -280,6 +316,8 @@ def make_env(
     action_config: dict | None = None,
     symbol: str | None = None,
 ):
+    _require_training_stack()
+
     def _init():
         set_random_seed(seed)
         if isinstance(df, pl.DataFrame):
@@ -349,6 +387,8 @@ def _prepare_df(symbols: list[str], period: str, interval: str, per_symbol_mode:
 
 
 def _is_vecnorm_compatible(vec_path: str, feature_version: str) -> bool:
+    _require_training_stack()
+
     try:
         dummy = DummyVecEnv([lambda: TradingEnv(feature_version=feature_version)])
         _ = VecNormalize.load(vec_path, dummy)
@@ -376,6 +416,10 @@ def _default_ppo_params() -> dict:
 
 
 def _policy_kwargs_for(feature_version: str) -> dict:
+    _require_training_stack()
+    from drl.adaptive_feature_extractor import AdaptiveLSTMFeatureExtractor
+    from drl.lstm_feature_extractor import LSTMFeatureExtractor
+
     if feature_version == ULTIMATE_150:
         return dict(
             features_extractor_class=AdaptiveLSTMFeatureExtractor,
@@ -392,6 +436,8 @@ def _policy_kwargs_for(feature_version: str) -> dict:
 
 
 def _build_model(env, feature_version: str, ppo_params: dict):
+    _require_training_stack()
+
     return PPO(
         "MlpPolicy",
         env,
@@ -427,6 +473,8 @@ def _maybe_optimize_ppo_params(
     action_config: dict | None = None,
     symbol: str | None = None,
 ) -> dict:
+    _require_training_stack()
+
     drl_cfg = cfg.get("drl", {}) or {}
     trials = int(drl_cfg.get("optuna_trials", 0) or 0)
     if trials <= 0:
@@ -572,6 +620,62 @@ def _stage_candidate(
 
 
 def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_balance: float, alerter=None):
+    _require_training_stack()
+    from analysis.gradient_flow_analyzer import LSTMGradientDiagnostics
+
+    class _EvalCallbackSaveVec(EvalCallback):
+        def __init__(self, *args, vec_env=None, vec_save_path=None, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.vec_env = vec_env
+            self.vec_save_path = vec_save_path
+
+        def _on_step(self) -> bool:
+            old_best = self.best_mean_reward if self.best_mean_reward is not None else -np.inf
+            cont = super()._on_step()
+            if self.best_mean_reward is not None and self.best_mean_reward > old_best:
+                if self.vec_env is not None and self.vec_save_path:
+                    os.makedirs(os.path.dirname(self.vec_save_path), exist_ok=True)
+                    self.vec_env.save(self.vec_save_path)
+                    logger.success(f"Saved VecNormalize with new best model -> {self.vec_save_path}")
+            return cont
+
+    class _PPOProgressCallback(BaseCallback):
+        def __init__(self, total_timesteps: int, symbols: list[str], log_interval: int = 1_000):
+            super().__init__()
+            self.total_timesteps = max(1, int(total_timesteps))
+            self.symbols = list(symbols)
+            self.log_interval = max(1_000, int(log_interval))
+            self._start_step = 0
+            self._last_log_step = 0
+            self._start_time = None
+
+        def _on_training_start(self) -> None:
+            self._start_step = int(getattr(self.model, "num_timesteps", 0) or 0)
+            self._last_log_step = 0
+            self._start_time = time.time()
+            logger.info(
+                f"PPO progress | symbols={self.symbols} | step=0/{self.total_timesteps:,} | pct=0.00 | elapsed_s=0 | eta_s=unknown"
+            )
+
+        def _on_step(self) -> bool:
+            current_total = int(getattr(self.model, "num_timesteps", 0) or 0)
+            current = max(0, current_total - self._start_step)
+            if current <= 0:
+                return True
+            if current - self._last_log_step < self.log_interval and current < self.total_timesteps:
+                return True
+
+            elapsed = max(0.001, time.time() - (self._start_time or time.time()))
+            pct = min(100.0, (current / self.total_timesteps) * 100.0)
+            rate = current / elapsed if elapsed > 0 else 0.0
+            remaining = max(0, self.total_timesteps - current)
+            eta = int(remaining / rate) if rate > 0 else None
+            logger.info(
+                f"PPO progress | symbols={self.symbols} | step={current:,}/{self.total_timesteps:,} | pct={pct:.2f} | elapsed_s={int(elapsed)} | eta_s={eta if eta is not None else 'unknown'}"
+            )
+            self._last_log_step = current
+            return True
+
     drl_cfg = cfg.get("drl", {})
     trading_cfg = cfg.get("trading", {})
 
@@ -665,7 +769,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         eval_env.training = False
         eval_env.norm_reward = False
 
-        eval_callback = EvalCallbackSaveVec(
+        eval_callback = _EvalCallbackSaveVec(
             eval_env=eval_env,
             best_model_save_path=best_dir,
             log_path=LOG_DIR,
@@ -679,7 +783,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         logger.warning("Inline PPO eval callback disabled; staging will use latest model artifacts.")
 
     grad_callback = LSTMGradientDiagnostics()
-    progress_callback = PPOProgressCallback(total_timesteps=total_timesteps, symbols=symbols, log_interval=max(5_000, total_timesteps // 20))
+    progress_callback = _PPOProgressCallback(total_timesteps=total_timesteps, symbols=symbols, log_interval=max(5_000, total_timesteps // 20))
     callbacks = [grad_callback, progress_callback]
     if eval_callback is not None:
         callbacks.insert(0, eval_callback)
