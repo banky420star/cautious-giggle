@@ -9,6 +9,7 @@ import sys
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from aiohttp import web
 
@@ -70,10 +71,28 @@ def _line_ts_utc(line: str):
     try:
         raw = str(line)[:19]
         dt = datetime.strptime(raw, LOG_TS_FMT)
-        local_tz = datetime.now().astimezone().tzinfo
-        return dt.replace(tzinfo=local_tz).astimezone(timezone.utc)
+        return dt.replace(tzinfo=_log_timezone()).astimezone(timezone.utc)
     except Exception:
         return None
+
+
+def _log_timezone():
+    cfg = _load_cfg()
+    runtime_cfg = cfg.get("runtime", {}) if isinstance(cfg, dict) else {}
+    candidates = [
+        os.environ.get("AGI_LOG_TIMEZONE"),
+        os.environ.get("TZ"),
+        runtime_cfg.get("timezone"),
+        "Europe/Berlin",
+    ]
+    for name in candidates:
+        if not name:
+            continue
+        try:
+            return ZoneInfo(str(name))
+        except Exception:
+            continue
+    return timezone.utc
 
 
 def _is_recent_log_line(line: str, minutes: int = 20) -> bool:
@@ -424,7 +443,8 @@ def _has_dreamer_artifact(symbol: str) -> bool:
 def _candidate_label(path: str | None) -> str | None:
     if not path:
         return None
-    return os.path.basename(str(path).rstrip("\\/")) or None
+    normalized = str(path).replace("\\", "/").rstrip("/")
+    return os.path.basename(normalized) or None
 
 
 def _latest_candidates_by_symbol(symbols: list[str]) -> dict:
@@ -2528,7 +2548,6 @@ def run(host="127.0.0.1", port=8088):
 
 if __name__ == "__main__":
     run(host=os.environ.get("AGI_UI_HOST", "127.0.0.1"), port=int(os.environ.get("AGI_UI_PORT", "8088")))
-
 
 
 

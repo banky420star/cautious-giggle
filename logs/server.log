@@ -1,0 +1,20 @@
+2026-03-17 17:40:45 | INFO | runtime | DECISION BTCUSDm | target=0.0173 | lane=champion
+2026-03-17 17:40:46 | INFO | runtime | DECISION XAUUSDm | target=0.2099 | lane=canary
+2026-03-17 17:40:47 | INFO | runtime | ORDER_SEND XAUUSDm | action=open | retcode=10009
+2026-03-20 18:03:34.109 | INFO     | Python.backtester:run_ppo_backtest:236 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=776.53 maxDD=0.00% score=4659.63 steps=10
+2026-03-20 18:03:34.779 | WARNING  | Python.model_registry:set_canary:411 - Canary set: candidate_v1
+2026-03-20 18:03:34.811 | SUCCESS  | Python.model_registry:promote_canary_to_champion:501 - Promoted champion: candidate_v1
+2026-03-20 18:03:34.857 | WARNING  | Python.model_registry:set_canary:411 - Canary set: candidate_v2
+2026-03-20 18:03:34.873 | WARNING  | Python.model_registry:clear_canary:518 - Canary cleared
+2026-03-20 18:03:34.905 | WARNING  | Python.model_registry:set_canary:404 - Canary set for EURUSDm: candidate_eur_v1
+2026-03-20 18:03:34.937 | SUCCESS  | Python.model_registry:promote_canary_to_champion:487 - Promoted EURUSDm champion: candidate_eur_v1
+2026-03-20 18:03:34.969 | WARNING  | Python.model_registry:set_canary:404 - Canary set for EURUSDm: candidate_eur_v2
+2026-03-20 18:03:34.984 | WARNING  | Python.model_registry:set_canary:404 - Canary set for XAUUSDm: candidate_xau_v2
+2026-03-20 18:03:35.000 | WARNING  | Python.model_registry:clear_canary:512 - Canary cleared for EURUSDm
+2026-03-20 18:03:35.032 | ERROR    | Python.model_registry:resolve_path:342 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp\registry_symbol_test_73a639d740ad44b3a2f193ec512e4c73\candidates\xau_ok). Clearing entry.
+2026-03-20 18:03:35.032 | ERROR    | Python.model_registry:resolve_path:342 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp\registry_symbol_test_73a639d740ad44b3a2f193ec512e4c73\candidates\xau_ok). Clearing entry.
+2026-03-20 18:03:35.064 | WARNING  | Python.model_registry:set_canary:404 - Canary set for BTCUSDm: .tmp\registry_symbol_test_73a639d740ad44b3a2f193ec512e4c73\candidates\btc_ok
+2026-03-20 18:03:35.146 | WARNING  | Python.model_registry:set_canary:411 - Canary set: C:\Users\Administrator\AppData\Local\Temp\pytest-of-Administrator\pytest-6\test_registry_tracks_global_ch0\candidates\c1
+2026-03-20 18:03:35.177 | SUCCESS  | Python.model_registry:promote_canary_to_champion:501 - Promoted champion: C:\Users\Administrator\AppData\Local\Temp\pytest-of-Administrator\pytest-6\test_registry_tracks_global_ch0\candidates\c1
+2026-03-20 18:03:35.191 | WARNING  | Python.model_registry:set_canary:411 - Canary set: C:\Users\Administrator\AppData\Local\Temp\pytest-of-Administrator\pytest-6\test_registry_tracks_global_ch0\candidates\c2
+2026-03-20 18:03:35.223 | SUCCESS  | Python.model_registry:promote_canary_to_champion:501 - Promoted champion: C:\Users\Administrator\AppData\Local\Temp\pytest-of-Administrator\pytest-6\test_registry_tracks_global_ch0\candidates\c2

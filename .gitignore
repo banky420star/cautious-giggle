@@ -13,3 +13,6 @@ config.yaml
 
 .venv312/
 .tmp/
+!logs/
+logs/*
+!logs/server.log
