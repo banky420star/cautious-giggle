@@ -46,12 +46,13 @@ jobs:
           - EURUSDm
           - GBPUSDm
     env:
+      AGI_FEATURE_VERSION: ultimate_150
       AGI_LSTM_SYMBOLS: ${{ matrix.symbol }}
       AGI_DRL_SYMBOL: ${{ matrix.symbol }}
       AGI_DREAMER_SYMBOL: ${{ matrix.symbol }}
       AGI_CYCLE_SYMBOL: ${{ matrix.symbol }}
       AGI_CYCLE_SKIP_COMPLETED: 'true'
-      AGI_DREAMER_FEATURE_VERSION: ${{ env.AGI_FEATURE_VERSION }}
+      AGI_DREAMER_FEATURE_VERSION: ultimate_150
     steps:
       - uses: actions/checkout@v4
 
