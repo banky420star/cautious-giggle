@@ -1,4 +1,5 @@
 import atexit
+import concurrent.futures
 import json
 import os
 import subprocess
@@ -175,6 +176,12 @@ def _run_train_lstm(symbols: list[str]):
     subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT, env=env)
 
 
+def _run_train_lstm_symbol(symbol: str):
+    env = os.environ.copy()
+    env["AGI_LSTM_SYMBOLS"] = str(symbol)
+    subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT, env=env)
+
+
 def _dreamer_cfg(cfg: dict) -> dict:
     drl_cfg = cfg.get("drl", {}) if isinstance(cfg, dict) else {}
     raw = drl_cfg.get("dreamer", {})
@@ -199,6 +206,69 @@ def _run_train_dreamer(cfg: dict, symbols: list[str]):
     logger.info(f"Cycle step: train Dreamer for symbols={symbols}")
     subprocess.check_call([sys.executable, "training/train_dreamer.py"], cwd=PROJECT_ROOT, env=env)
     return True
+
+
+def _run_train_dreamer_symbol(cfg: dict, symbol: str):
+    dreamer_cfg = _dreamer_cfg(cfg)
+    if not str(dreamer_cfg.get("enabled", False)).lower() == "true":
+        return False
+    if not str(dreamer_cfg.get("train_in_cycle", False)).lower() == "true":
+        return False
+
+    env = os.environ.copy()
+    env["AGI_DREAMER_SYMBOL"] = str(symbol)
+    if dreamer_cfg.get("steps") is not None:
+        env["AGI_DREAMER_STEPS"] = str(int(dreamer_cfg.get("steps")))
+    if dreamer_cfg.get("window") is not None:
+        env["AGI_DREAMER_WINDOW"] = str(int(dreamer_cfg.get("window")))
+    if dreamer_cfg.get("feature_version"):
+        env["AGI_DREAMER_FEATURE_VERSION"] = str(dreamer_cfg.get("feature_version"))
+    logger.info(f"Cycle step: train Dreamer for symbol={symbol}")
+    subprocess.check_call([sys.executable, "training/train_dreamer.py"], cwd=PROJECT_ROOT, env=env)
+    return True
+
+
+def _parallel_enabled(cfg: dict) -> bool:
+    cycle_cfg = cfg.get("cycle", {}) if isinstance(cfg.get("cycle", {}), dict) else {}
+    return _env_bool("AGI_CYCLE_PARALLEL_SYMBOLS", bool(cycle_cfg.get("parallel_symbols", True)))
+
+
+def _max_parallel_workers(cfg: dict, total: int) -> int:
+    cycle_cfg = cfg.get("cycle", {}) if isinstance(cfg.get("cycle", {}), dict) else {}
+    raw = os.environ.get("AGI_CYCLE_MAX_PARALLEL") or cycle_cfg.get("max_parallel_symbols")
+    try:
+        limit = int(raw)
+    except Exception:
+        limit = int(total)
+    return max(1, min(int(total), limit))
+
+
+def _run_symbol_jobs(label: str, symbols: list[str], cfg: dict, fn):
+    if not symbols:
+        return
+    if not _parallel_enabled(cfg) or len(symbols) <= 1:
+        for symbol in symbols:
+            logger.info(f"{label} start | symbol={symbol}")
+            fn(symbol)
+            logger.info(f"{label} complete | symbol={symbol}")
+        return
+
+    max_workers = _max_parallel_workers(cfg, len(symbols))
+    logger.info(f"{label} parallel start | symbols={symbols} | workers={max_workers}")
+    failures = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_map = {pool.submit(fn, symbol): symbol for symbol in symbols}
+        for future in concurrent.futures.as_completed(future_map):
+            symbol = future_map[future]
+            try:
+                future.result()
+                logger.info(f"{label} complete | symbol={symbol}")
+            except Exception as exc:
+                logger.exception(f"{label} failed | symbol={symbol} | error={exc}")
+                failures.append((symbol, exc))
+    if failures:
+        failed_symbols = ", ".join(symbol for symbol, _ in failures)
+        raise RuntimeError(f"{label} failed for symbols: {failed_symbols}")
 
 
 def main():
@@ -230,14 +300,15 @@ def main():
         logger.warning(f"Skipping LSTM; completed artifacts already exist for symbols={symbols}")
     else:
         logger.info(f"Cycle start: train LSTM per symbol | pending={lstm_pending}")
-        _run_train_lstm(lstm_pending)
+        _run_symbol_jobs("LSTM", lstm_pending, cfg, _run_train_lstm_symbol)
 
     if skip_dreamer:
         logger.warning(f"Skipping Dreamer; completed artifacts already exist for symbols={symbols}")
         dreamer_trained = False
     else:
         logger.info(f"Cycle step: train Dreamer for pending symbols={dreamer_pending}")
-        dreamer_trained = _run_train_dreamer(cfg, dreamer_pending)
+        _run_symbol_jobs("Dreamer", dreamer_pending, cfg, lambda symbol: _run_train_dreamer_symbol(cfg, symbol))
+        dreamer_trained = True
 
     reg = ModelRegistry()
     cycle_report = {
@@ -256,51 +327,96 @@ def main():
 
     try:
         if per_symbol:
+            # Train PPO per symbol; failures are caught inside _run_symbol_jobs (parallel path)
+            # but in serial mode an exception would propagate. Wrap individually so one bad
+            # symbol does not abort the rest of the cycle.
+            ppo_failures = []
             for symbol in symbols:
-                logger.info(f"Cycle step: train PPO candidate for {symbol}")
-                _run_train_drl(symbol=symbol)
+                try:
+                    logger.info(f"PPO start | symbol={symbol}")
+                    _run_train_drl(symbol=symbol)
+                    logger.info(f"PPO complete | symbol={symbol}")
+                except Exception as exc:
+                    logger.exception(f"PPO training failed | symbol={symbol} | error={exc}")
+                    ppo_failures.append((symbol, exc))
 
-                candidate = _latest_candidate(reg, symbol=symbol)
-                if not candidate:
-                    raise RuntimeError(f"No PPO candidate found after training for {symbol}")
+            for symbol in symbols:
+                # Skip evaluation for symbols whose training already failed.
+                if any(s == symbol for s, _ in ppo_failures):
+                    logger.warning(f"Skipping evaluation for {symbol} due to PPO training failure")
+                    cycle_report["symbols"].append(
+                        {
+                            "symbol": symbol,
+                            "candidate": None,
+                            "champion": None,
+                            "wins": False,
+                            "passes_thresholds": False,
+                            "pass_rate": 0.0,
+                            "per_symbol_gates": [],
+                            "forward_windows": [],
+                            "error": f"PPO training failed: {dict(ppo_failures).get(symbol)}",
+                        }
+                    )
+                    continue
 
-                champion = reg.load_active_model(prefer_canary=False, symbol=symbol)
-                logger.info(f"Evaluate {symbol} candidate={os.path.basename(candidate)} vs champion={champion}")
-                report = evaluate_candidate_vs_champion(
-                    candidate,
-                    champion,
-                    symbols=[symbol],
-                    period=eval_period,
-                    interval=eval_interval,
-                    reward_weights=reward_weights,
-                    gates=gates,
-                )
+                try:
+                    candidate = _latest_candidate(reg, symbol=symbol)
+                    if not candidate:
+                        raise RuntimeError(f"No PPO candidate found after training for {symbol}")
 
-                if report.get("error"):
-                    raise RuntimeError(f"Evaluator error on {symbol}: {report['error']}")
+                    champion = reg.load_active_model(prefer_canary=False, symbol=symbol)
+                    logger.info(f"Evaluate {symbol} candidate={os.path.basename(candidate)} vs champion={champion}")
+                    report = evaluate_candidate_vs_champion(
+                        candidate,
+                        champion,
+                        symbols=[symbol],
+                        period=eval_period,
+                        interval=eval_interval,
+                        reward_weights=reward_weights,
+                        gates=gates,
+                    )
 
-                wins = bool(report.get("wins"))
-                passes = bool(report.get("passes_thresholds"))
-                logger.info(f"{symbol} | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
+                    if report.get("error"):
+                        raise RuntimeError(f"Evaluator error on {symbol}: {report['error']}")
 
-                if wins and passes:
-                    reg.set_canary(candidate, symbol=symbol)
-                    logger.success(f"Canary set for {symbol}: {candidate}")
-                else:
-                    logger.warning(f"Candidate blocked for {symbol}; champion unchanged")
+                    wins = bool(report.get("wins"))
+                    passes = bool(report.get("passes_thresholds"))
+                    logger.info(f"{symbol} | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
 
-                cycle_report["symbols"].append(
-                    {
-                        "symbol": symbol,
-                        "candidate": candidate,
-                        "champion": champion,
-                        "wins": wins,
-                        "passes_thresholds": passes,
-                        "pass_rate": report.get("pass_rate"),
-                        "per_symbol_gates": report.get("per_symbol_gates", []),
-                        "forward_windows": report.get("forward_windows", []),
-                    }
-                )
+                    if wins and passes:
+                        reg.set_canary(candidate, symbol=symbol)
+                        logger.success(f"Canary set for {symbol}: {candidate}")
+                    else:
+                        logger.warning(f"Candidate blocked for {symbol}; champion unchanged")
+
+                    cycle_report["symbols"].append(
+                        {
+                            "symbol": symbol,
+                            "candidate": candidate,
+                            "champion": champion,
+                            "wins": wins,
+                            "passes_thresholds": passes,
+                            "pass_rate": report.get("pass_rate"),
+                            "per_symbol_gates": report.get("per_symbol_gates", []),
+                            "forward_windows": report.get("forward_windows", []),
+                        }
+                    )
+                except Exception as exc:
+                    # Log and continue; one symbol must not abort the remaining cycle.
+                    logger.exception(f"Cycle evaluation failed | symbol={symbol} | error={exc}")
+                    cycle_report["symbols"].append(
+                        {
+                            "symbol": symbol,
+                            "candidate": None,
+                            "champion": None,
+                            "wins": False,
+                            "passes_thresholds": False,
+                            "pass_rate": 0.0,
+                            "per_symbol_gates": [],
+                            "forward_windows": [],
+                            "error": str(exc),
+                        }
+                    )
         else:
             logger.info("Cycle step: train PPO candidate")
             _run_train_drl(symbol=None)

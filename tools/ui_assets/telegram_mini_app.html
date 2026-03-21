@@ -154,6 +154,12 @@ body {
   font-weight: 700;
   letter-spacing: -0.04em;
 }
+.symbol-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
 .pill {
   display: inline-flex;
   align-items: center;
@@ -261,6 +267,18 @@ button.secondary {
     font-size: 25px;
   }
 }
+/* ── Focus states ─ keyboard / assistive navigation ── */
+button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -336,6 +354,15 @@ const toneForState = (state) => {
   return "warn";
 };
 const nowLabel = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const blendedPosture = (row) => {
+  const execution = row.execution || {};
+  const decision = row.decision || {};
+  const finalTarget = Number(decision.final_target || 0);
+  if (execution.executed) return `Executed ${execution.request_action || "trade"}`;
+  if (execution.block_reason) return "Blocked";
+  if (Math.abs(finalTarget) < 1e-9) return "Flat";
+  return finalTarget > 0 ? "Long bias" : "Short bias";
+};
 
 function metricCard(label, value, meta) {
   return `<div class="metric"><div class="k">${esc(label)}</div><div class="v">${esc(value)}</div><div class="m">${esc(meta)}</div></div>`;
@@ -351,20 +378,27 @@ function renderSummary(status) {
   const gate = status.canary_gate || {};
   const server = status.server || {};
   const runtime = status.runtime_owner || {};
-  const current = ((training.visual || {}).lstm || {}).current_symbol || (training.configured_symbols || [])[0] || "-";
+  const rows = (training.symbol_lane_rows || []);
+  const focus = rows[0] || {};
+  const decision = focus.decision || {};
+  const posture = blendedPosture(focus);
+  const current = focus.symbol || ((training.visual || {}).lstm || {}).current_symbol || (training.configured_symbols || [])[0] || "-";
 
-  byId("headline").textContent = server.running ? `Live trading on ${current}` : "Runtime waiting for server";
+  byId("headline").textContent = server.running ? `${current} · ${posture}` : "Runtime waiting for server";
   byId("subline").textContent =
-    `Server ${server.running ? "running" : "stopped"} | ` +
-    `cycle ${training.cycle_running ? "active" : "idle"} | ` +
-    `owner health ${runtime.ok === false ? "warning" : "ok"} | ` +
-    `balance ${fmtNum(account.balance)}`;
+    `AGI regime ${decision.regime || "-"} | ` +
+    `blended target ${fmtNum(decision.final_target || 0, 3)} | ` +
+    `PPO ${fmtNum(decision.ppo_target || 0, 3)} | ` +
+    `Dreamer ${fmtNum(decision.dreamer_target || 0, 3)} | ` +
+    `owner health ${runtime.ok === false ? "warning" : "ok"}`;
 
   byId("metrics").innerHTML = [
-    metricCard("Server", server.running ? "RUNNING" : "STOPPED", `PID ${((server.pids || [])[0]) || "-"}`),
+    metricCard("Runtime", server.running ? "RUNNING" : "STOPPED", `PID ${((server.pids || [])[0]) || "-"} | cycle ${training.cycle_running ? "active" : "idle"}`),
     metricCard("Training", training.cycle_running ? "ACTIVE" : "IDLE", `${fmtInt(training.pipeline_summary && training.pipeline_summary.training_active_symbols || 0)} active pairs`),
+    metricCard("AGI regime", decision.regime || "-", `confidence ${fmtNum(decision.confidence || 0, 3)} | risk ${fmtNum(decision.risk_scalar || 0, 2)}`),
+    metricCard("Blended posture", posture, `final ${fmtNum(decision.final_target || 0, 3)} | raw ${fmtNum(decision.raw_target || 0, 3)}`),
     metricCard("Canary Gate", gate.ready ? "READY" : "HOLD", gate.reason || "waiting for evidence"),
-    metricCard("Account", fmtNum(account.equity), `${fmtInt(account.open_positions)} open positions`),
+    metricCard("Account", fmtNum(account.equity), `${fmtInt(account.open_positions)} open positions | balance ${fmtNum(account.balance)}`),
   ].join("");
 
   byId("pipelineTag").textContent = `${fmtInt((training.configured_symbols || []).length)} pairs`;
@@ -381,6 +415,7 @@ function renderSymbols(status) {
     const champion = row.pipeline && row.pipeline.champion || {};
     const trading = row.pipeline && row.pipeline.trading || {};
     const decision = row.decision || {};
+    const posture = blendedPosture(row);
     const stateTone = toneForState(trading.state || champion.state || canary.state || lstm.state);
     const progress = Number(lstm.progress_pct || 0);
     return `
@@ -389,14 +424,15 @@ function renderSymbols(status) {
           <div>
             <div class="eyebrow">Pair</div>
             <div class="symbol-name">${esc(symbol)}</div>
+            <div class="symbol-sub">AGI regime ${esc(decision.regime || "-")} | blended posture ${esc(posture)}</div>
           </div>
           <div class="pill"><span class="dot ${stateTone}"></span>${esc((trading.state || lstm.state || "waiting").toUpperCase())}</div>
         </div>
         <div class="statline">
-          ${miniStat("LSTM", pct(progress), lstm.detail || "waiting")}
-          ${miniStat("Target", fmtNum(decision.final_target || 0, 3), `raw ${fmtNum(decision.raw_target || 0, 3)}`)}
-          ${miniStat("Canary", canary.state || "waiting", canary.detail || "none staged")}
-          ${miniStat("Champion", champion.state || "waiting", champion.detail || "not set")}
+          ${miniStat("AGI regime", decision.regime || "-", `conf ${fmtNum(decision.confidence || 0, 3)}`)}
+          ${miniStat("Blended", posture, `final ${fmtNum(decision.final_target || 0, 3)}`)}
+          ${miniStat("Model mix", `P ${fmtNum(decision.ppo_target || 0, 3)} / D ${fmtNum(decision.dreamer_target || 0, 3)}`, `AGI ${fmtNum(decision.agi_bias || 0, 3)}`)}
+          ${miniStat("Registry", champion.state || "waiting", `canary ${canary.state || "waiting"}`)}
         </div>
         <div class="bar"><div class="fill ${toneForState(lstm.state)}" style="width:${clamp(progress, 0, 100)}%"></div></div>
       </div>

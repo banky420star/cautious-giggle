@@ -106,6 +106,7 @@ class TelegramAlerter:
         if not self._configured():
             return None
         self._last_api_error = None
+        # NOTE: url intentionally not logged anywhere to avoid exposing the bot token in log files.
         url = f"https://api.telegram.org/bot{self.token}/{method}"
         body = dict(payload or {})
         body.setdefault("disable_web_page_preview", True)

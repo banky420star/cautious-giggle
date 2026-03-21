@@ -260,7 +260,31 @@ class AutonomyLoop:
 
         return len(reasons) == 0, reasons
 
+    def _champion_cycle_running(self) -> bool:
+        """Return True if champion_cycle.py holds its lock file, indicating an active cycle."""
+        lock_path = os.path.join(PROJECT_ROOT, ".tmp", "champion_cycle.lock")
+        if not os.path.exists(lock_path):
+            return False
+        try:
+            with open(lock_path, "r", encoding="utf-8") as fh:
+                pid = int((fh.read() or "0").strip())
+            if pid > 0:
+                try:
+                    os.kill(pid, 0)
+                    return True  # process is still alive — cycle is running
+                except OSError:
+                    pass  # stale lock
+        except Exception:
+            pass
+        return False
+
     async def _train_symbol_candidate(self, symbol: str):
+        # Do not start autonomous training while champion_cycle.py is actively running.
+        # Both paths write to the model registry and must not race each other.
+        if self._champion_cycle_running():
+            logger.warning(f"Autonomy training skipped for {symbol}: champion_cycle lock is active")
+            return
+
         async with self._train_lock:
             started = time.time()
             self._notify(f"Autonomy training started {symbol}: isolated LSTM + Dreamer + PPO")
@@ -457,6 +481,9 @@ class AutonomyLoop:
         if self.enable_train and self.train_on_start and str(symbol) not in self._last_train_ts_by_symbol:
             await self._train_symbol_candidate(symbol)
 
+        _consecutive_errors = 0
+        _MAX_BACKOFF_SEC = 300  # cap exponential backoff at 5 minutes
+
         while True:
             try:
                 self._canary_monitor(symbol)
@@ -471,11 +498,20 @@ class AutonomyLoop:
                 if self.enable_train and self._symbol_due_for_training(symbol):
                     await self._train_symbol_candidate(symbol)
 
+                # Successful iteration — reset error counter.
+                _consecutive_errors = 0
+                await asyncio.sleep(self.interval_sec)
+
             except Exception as exc:
-                logger.warning(f"Symbol lane error {symbol}: {exc}")
+                # Log before sleeping so failures are always visible in the log.
+                _consecutive_errors += 1
+                logger.warning(f"Symbol lane error {symbol} (attempt {_consecutive_errors}): {exc}")
                 self._notify(f"Symbol lane error {symbol}: {exc}")
 
-            await asyncio.sleep(self.interval_sec)
+                # Exponential backoff: 2^(n-1) seconds, capped at _MAX_BACKOFF_SEC.
+                backoff = min(_MAX_BACKOFF_SEC, 2 ** (_consecutive_errors - 1))
+                logger.info(f"Symbol lane {symbol}: backing off {backoff}s before retry")
+                await asyncio.sleep(backoff)
 
     async def start(self):
         logger.warning("AutonomyLoop started")

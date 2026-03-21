@@ -99,9 +99,16 @@ class ModelRegistry:
         return out
 
     def _read_active(self):
-        with open(self.active_path, "r", encoding="utf-8") as f:
-            payload = json.load(f)
-        return self._normalize_active(payload)
+        try:
+            with open(self.active_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            return self._normalize_active(payload)
+        except json.JSONDecodeError as exc:
+            logger.warning(f"active.json is corrupt ({exc}); resetting to empty registry state")
+            return self._normalize_active({})
+        except Exception as exc:
+            logger.warning(f"Failed to read active.json ({exc}); using empty registry state")
+            return self._normalize_active({})
 
     def _load_registry_config(self) -> dict:
         try:
@@ -228,7 +235,7 @@ class ModelRegistry:
             return None
 
     def _timestamp_version(self):
-        return datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
     @staticmethod
     def _metadata_targets_symbol(payload: dict | None, symbol: str | None) -> bool:

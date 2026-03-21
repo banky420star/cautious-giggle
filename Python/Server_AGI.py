@@ -65,7 +65,23 @@ def _json_default(v):
     return str(v)
 
 
+_JSONL_MAX_BYTES = 10 * 1024 * 1024  # 10 MB per JSONL file before rotation
+
+
+def _rotate_jsonl_if_needed(path: str) -> None:
+    """Rename path -> path.1 (keeping one backup) when the file exceeds _JSONL_MAX_BYTES."""
+    try:
+        if os.path.exists(path) and os.path.getsize(path) >= _JSONL_MAX_BYTES:
+            backup = path + ".1"
+            if os.path.exists(backup):
+                os.remove(backup)
+            os.rename(path, backup)
+    except Exception:
+        pass  # Never let rotation failure block a write
+
+
 def _append_jsonl(path: str, row: dict):
+    _rotate_jsonl_if_needed(path)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(row, ensure_ascii=True, default=_json_default) + "\n")
 
@@ -226,6 +242,12 @@ def _runtime_owner_health():
         ("train_lstm", "training/train_lstm.py"),
         ("train_drl", "training/train_drl.py"),
     ]
+    try:
+        cfg = _load_cfg(live=True)
+        max_parallel_roots = max(1, len(resolve_trading_symbols(cfg, env_keys=("AGI_RUNTIME_SYMBOLS",), fallback=DEFAULT_TRADING_SYMBOLS)))
+    except Exception:
+        max_parallel_roots = max(1, len(DEFAULT_TRADING_SYMBOLS))
+    parallel_roles = {"train_lstm", "train_drl"}
 
     for role, token in tokens:
         matches = []
@@ -261,6 +283,9 @@ def _runtime_owner_health():
                     break
             if non_root_children_ok:
                 continue
+
+        if len(roots) > 1 and role in parallel_roles and len(roots) <= max_parallel_roots:
+            continue
 
         if len(roots) > 1:
             out["ok"] = False

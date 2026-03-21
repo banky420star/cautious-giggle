@@ -433,7 +433,9 @@ class HybridBrain:
             return None
         return obs
 
-    def _normalize_obs_safe(self, bundle: dict, obs: np.ndarray) -> np.ndarray:
+    def _normalize_obs_safe(self, bundle: dict, obs: np.ndarray) -> Optional[np.ndarray]:
+        if bundle.get("_vecnorm_failed"):
+            return None
         vec_norm = bundle.get("vec_norm")
         if vec_norm is None:
             return obs
@@ -441,17 +443,19 @@ class HybridBrain:
         try:
             return vec_norm.normalize_obs(obs.reshape(1, -1)).reshape(-1)
         except Exception as exc:
-            bundle["vec_norm"] = None
+            bundle["_vecnorm_failed"] = True
             if not self._vecnorm_disabled:
-                logger.warning(f"VecNormalize disabled due to shape mismatch/incompatibility: {exc}")
+                logger.warning(f"VecNormalize failed (bundle will be skipped): {exc}")
                 self._vecnorm_disabled = True
-            return obs
+            return None
 
     def _predict_bundle_action(self, symbol: str, df, bundle: dict) -> Optional[dict]:
         obs = self._build_ppo_observation(df, bundle)
         if obs is None:
             return None
         obs = self._normalize_obs_safe(bundle, obs)
+        if obs is None:
+            return None
         action, _ = bundle["model"].predict(obs, deterministic=True)
         from drl.trading_env import TradingEnv
 

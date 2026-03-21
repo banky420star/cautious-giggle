@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
+import os
+import tempfile
 from dataclasses import dataclass
 
 
@@ -40,6 +43,42 @@ class RiskSupervisor:
 
         self.last_trade_at_by_symbol: dict[str, dt.datetime] = {}
         self.halt_until: dt.datetime | None = None
+        self._load_state()
+
+    def _state_path(self) -> str:
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(project_root, "logs", "risk_supervisor_state.json")
+
+    def _save_state(self) -> None:
+        try:
+            state_path = self._state_path()
+            os.makedirs(os.path.dirname(state_path), exist_ok=True)
+            state = {
+                "halt_until": self.halt_until.isoformat() if self.halt_until else None,
+                "last_trade_at": {k: v.isoformat() for k, v in self.last_trade_at_by_symbol.items()},
+            }
+            dir_name = os.path.dirname(state_path)
+            with tempfile.NamedTemporaryFile("w", dir=dir_name, delete=False, suffix=".tmp") as tmp:
+                json.dump(state, tmp)
+                tmp_path = tmp.name
+            os.replace(tmp_path, state_path)
+        except Exception:
+            pass
+
+    def _load_state(self) -> None:
+        try:
+            state_path = self._state_path()
+            if not os.path.exists(state_path):
+                return
+            with open(state_path, "r", encoding="utf-8") as f:
+                state = json.load(f)
+            halt_until_str = state.get("halt_until")
+            if halt_until_str:
+                self.halt_until = dt.datetime.fromisoformat(halt_until_str)
+            for k, v in (state.get("last_trade_at") or {}).items():
+                self.last_trade_at_by_symbol[str(k)] = dt.datetime.fromisoformat(v)
+        except Exception:
+            pass
 
     def _symbol_profile(self, symbol: str) -> dict:
         profile = self.symbol_profiles.get(str(symbol), {})
@@ -50,9 +89,11 @@ class RiskSupervisor:
 
     def mark_trade(self, symbol: str):
         self.last_trade_at_by_symbol[str(symbol)] = self._now()
+        self._save_state()
 
     def enforce_halt(self, minutes: int, reason: str) -> RiskDecision:
         self.halt_until = self._now() + dt.timedelta(minutes=max(1, int(minutes)))
+        self._save_state()
         return RiskDecision(False, reason)
 
     def allow_trade(
@@ -102,7 +143,7 @@ class RiskSupervisor:
         if projected_symbol_exposure > max_symbol_exposure:
             return RiskDecision(False, f"symbol_exposure {projected_symbol_exposure:.3f} > {max_symbol_exposure:.3f}")
 
-        projected_total_exposure = max(abs(total_exposure), abs(total_exposure - current_symbol_exposure + target_exposure))
+        projected_total_exposure = total_exposure - abs(current_symbol_exposure) + abs(target_exposure)
         if projected_total_exposure > self.max_total_exposure:
             return RiskDecision(False, f"total_exposure {projected_total_exposure:.3f} > {self.max_total_exposure:.3f}")
 

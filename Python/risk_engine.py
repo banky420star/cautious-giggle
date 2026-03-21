@@ -1,12 +1,14 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import yaml
+
+_CFG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
 
 
 class RiskEngine:
     def __init__(self):
-        with open("config.yaml", "r", encoding="utf-8") as f:
+        with open(_CFG_PATH, "r", encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
 
         risk_cfg = cfg.get("risk", {})
@@ -32,10 +34,11 @@ class RiskEngine:
         self.daily_trades_by_symbol = {}
         self.daily_losing_trades_by_symbol = {}
         self.halt = False
+        self.error_halt = False  # True when halt was triggered by consecutive order errors (requires restart)
         self.error_count = 0
         self.current_dd = 0.0
         self.peak_equity = None
-        self.last_reset_day = datetime.utcnow().date()
+        self.last_reset_day = datetime.now(timezone.utc).date()
 
     def reset_daily(self):
         self.realized_pnl_today = 0.0
@@ -43,10 +46,13 @@ class RiskEngine:
         self.daily_trades_by_symbol = {}
         self.daily_losing_trades_by_symbol = {}
         self.error_count = 0
-        self.last_reset_day = datetime.utcnow().date()
+        # Only auto-clear P&L-triggered halts on day roll; error halts require restart.
+        if not self.error_halt:
+            self.halt = False
+        self.last_reset_day = datetime.now(timezone.utc).date()
 
     def maybe_roll_day(self):
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         if today != self.last_reset_day:
             self.reset_daily()
 
@@ -86,6 +92,7 @@ class RiskEngine:
         self.error_count += 1
         if self.error_count >= 3:
             self.halt = True
+            self.error_halt = True  # Requires manual restart to clear
 
     def can_trade(self, symbol=None):
         self.maybe_roll_day()

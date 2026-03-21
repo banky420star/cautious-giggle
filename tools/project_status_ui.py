@@ -40,6 +40,19 @@ EVENT_INTEL_PATH = os.path.join(LOG_DIR, "event_intel_state.json")
 ACCOUNT_HISTORY_PATH = os.path.join(LOG_DIR, "account_history.jsonl")
 LOG_TS_FMT = "%Y-%m-%d %H:%M:%S"
 ACCOUNT_HISTORY_INTERVAL_SECONDS = 5
+_JSONL_MAX_BYTES = 10 * 1024 * 1024  # 10 MB per JSONL file before rotation
+
+
+def _rotate_jsonl_if_needed(path: str) -> None:
+    """Rename path -> path.1 (keeping one backup) when the file exceeds _JSONL_MAX_BYTES."""
+    try:
+        if os.path.exists(path) and os.path.getsize(path) >= _JSONL_MAX_BYTES:
+            backup = path + ".1"
+            if os.path.exists(backup):
+                os.remove(backup)
+            os.rename(path, backup)
+    except Exception:
+        pass
 TELEGRAM_CARD_SYNC_SECONDS = 45
 _ACCOUNT_HISTORY_LAST_TS = None
 _ACCOUNT_HISTORY_LAST_SIG = None
@@ -303,6 +316,8 @@ def _runtime_owner_health(procs):
         ("train_drl", "training/train_drl.py"),
     ]
     issues = []
+    max_parallel_roots = max(1, len(_configured_symbols()))
+    parallel_roles = {"train_lstm", "train_drl"}
     for role, token in roles:
         rows = _filter_cmd(procs, token)
         if not rows:
@@ -336,6 +351,8 @@ def _runtime_owner_health(procs):
             if non_root_children_ok:
                 continue
 
+        if len(roots) > 1 and role in parallel_roles and len(roots) <= max_parallel_roots:
+            continue
         if len(roots) > 1:
             issues.append({"role": role, "type": "multiple_root_owners", "root_pids": [int(r.get("pid") or 0) for r in roots], "exe_paths": exe_paths})
         elif len(exes) > 1 and len(exe_paths) > 1:
@@ -353,6 +370,8 @@ def _normalize_single_owner():
         "training/train_drl.py",
     ]
     venv_hint = os.path.join(ROOT, ".venv312", "scripts", "python.exe").lower().replace("\\", "/")
+    max_parallel_roots = max(1, len(_configured_symbols()))
+    parallel_tokens = {"training/train_lstm.py", "training/train_drl.py"}
     killed = []
     for token in roles:
         rows = _filter_cmd(procs, token)
@@ -360,6 +379,8 @@ def _normalize_single_owner():
             continue
         pid_set = {int(r.get("pid") or 0) for r in rows}
         roots = [r for r in rows if int(r.get("ppid") or 0) not in pid_set]
+        if token in parallel_tokens and len(roots) <= max_parallel_roots:
+            continue
         if len(roots) <= 1:
             continue
         keep = None
@@ -526,29 +547,12 @@ def _build_lstm_visual(lines, running: bool) -> dict:
         re.IGNORECASE,
     )
 
-    start_idx = None
-    start_match = None
-    for idx in range(len(lines) - 1, -1, -1):
-        m = start_re.search(lines[idx])
-        if m:
-            start_idx = idx
-            start_match = m
-            break
-
-    if start_idx is None or start_match is None:
-        return out
-
-    symbols = _parse_symbol_list(start_match.group(1)) or out["symbols"]
-    epochs_total = _as_int(start_match.group(2), 0)
-    candles = _as_int(start_match.group(3), 0) or None
-    out["symbols"] = symbols
-    out["epochs_total"] = epochs_total or None
-    out["candles"] = candles
-
+    configured_symbols = list(out["symbols"])
+    symbols = list(configured_symbols)
     progress_by = {
         sym: {
             "epoch": 0,
-            "epochs_total": epochs_total,
+            "epochs_total": 0,
             "loss": None,
             "acc": None,
             "status": "queued",
@@ -558,16 +562,42 @@ def _build_lstm_visual(lines, running: bool) -> dict:
     }
     latest_symbol = None
     latest_ts = None
+    max_epochs_total = 0
+    candles = None
 
-    for line in lines[start_idx + 1 :]:
+    for line in lines:
+        sm = start_re.search(line)
+        if sm:
+            line_symbols = _parse_symbol_list(sm.group(1)) or configured_symbols
+            for sym in line_symbols:
+                if sym not in symbols:
+                    symbols.append(sym)
+                progress_by.setdefault(
+                    sym,
+                    {
+                        "epoch": 0,
+                        "epochs_total": 0,
+                        "loss": None,
+                        "acc": None,
+                        "status": "queued",
+                        "updated_utc": None,
+                    },
+                )
+            max_epochs_total = max(max_epochs_total, _as_int(sm.group(2), 0))
+            parsed_candles = _as_int(sm.group(3), 0) or None
+            candles = parsed_candles or candles
+            continue
+
         pm = progress_re.search(line)
         if pm:
             sym = str(pm.group(1))
+            if sym not in symbols:
+                symbols.append(sym)
             item = progress_by.setdefault(
                 sym,
                 {
                     "epoch": 0,
-                    "epochs_total": _as_int(pm.group(3), epochs_total),
+                    "epochs_total": 0,
                     "loss": None,
                     "acc": None,
                     "status": "queued",
@@ -575,23 +605,26 @@ def _build_lstm_visual(lines, running: bool) -> dict:
                 },
             )
             item["epoch"] = max(item["epoch"], _as_int(pm.group(2), 0))
-            item["epochs_total"] = max(item["epochs_total"], _as_int(pm.group(3), epochs_total))
+            item["epochs_total"] = max(item["epochs_total"], _as_int(pm.group(3), 0))
             item["loss"] = _as_float(pm.group(4))
             item["acc"] = _as_float(pm.group(5))
             ts = _line_ts_utc(line)
             item["updated_utc"] = ts.isoformat() if ts else None
             latest_symbol = sym
             latest_ts = ts or latest_ts
+            max_epochs_total = max(max_epochs_total, item["epochs_total"])
             continue
 
-        sm = skip_re.search(line)
-        if sm:
-            sym = str(sm.group(1))
+        fm = skip_re.search(line)
+        if fm:
+            sym = str(fm.group(1))
+            if sym not in symbols:
+                symbols.append(sym)
             item = progress_by.setdefault(
                 sym,
                 {
                     "epoch": 0,
-                    "epochs_total": epochs_total,
+                    "epochs_total": max_epochs_total,
                     "loss": None,
                     "acc": None,
                     "status": "failed",
@@ -603,23 +636,36 @@ def _build_lstm_visual(lines, running: bool) -> dict:
             item["updated_utc"] = ts.isoformat() if ts else None
             latest_ts = ts or latest_ts
 
+    if not symbols:
+        return out
+
+    out["symbols"] = symbols
+    out["epochs_total"] = max_epochs_total or None
+    out["candles"] = candles
+
     if latest_symbol is None and running and symbols:
         latest_symbol = symbols[0]
 
-    active_idx = symbols.index(latest_symbol) if latest_symbol in symbols else None
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=20)
     queue = []
     counts = {"done": 0, "active": 0, "failed": 0, "queued": 0}
-    for idx, sym in enumerate(symbols):
+    for sym in symbols:
         item = progress_by.get(sym, {})
         status = item.get("status", "queued")
         epoch = _as_int(item.get("epoch"), 0)
-        total = _as_int(item.get("epochs_total"), epochs_total)
+        total = _as_int(item.get("epochs_total"), max_epochs_total)
+        updated_utc = None
+        try:
+            updated_raw = item.get("updated_utc")
+            if updated_raw:
+                updated_utc = datetime.fromisoformat(str(updated_raw).replace("Z", "+00:00"))
+        except Exception:
+            updated_utc = None
+        is_recent = updated_utc is not None and updated_utc >= recent_cutoff
         if status != "failed":
             if total > 0 and epoch >= total:
                 status = "done"
-            elif active_idx is not None and idx < active_idx:
-                status = "done"
-            elif running and active_idx is not None and idx == active_idx:
+            elif running and epoch > 0 and is_recent:
                 status = "active"
             elif epoch > 0:
                 status = "partial"
@@ -688,6 +734,14 @@ def _build_ppo_visual(lines, running: bool) -> dict:
         "candidate_ready": False,
         "candidate_path": None,
         "updated_utc": None,
+        "queue": [],
+        "summary": {
+            "total_symbols": 0,
+            "completed_symbols": 0,
+            "active_symbols": 0,
+            "queued_symbols": 0,
+            "completion_pct": 0.0,
+        },
     }
     if not lines:
         return out
@@ -702,53 +756,170 @@ def _build_ppo_visual(lines, running: bool) -> dict:
     )
     staged_re = re.compile(r"Candidate staged to:\s*(.+)$", re.IGNORECASE)
 
-    start_idx = None
-    start_match = None
-    for idx in range(len(lines) - 1, -1, -1):
-        m = start_re.search(lines[idx])
-        if m:
-            start_idx = idx
-            start_match = m
-            break
-
-    if start_idx is None or start_match is None:
-        return out
-
-    symbols = _parse_symbol_list(start_match.group(1)) or out["symbols"]
-    out["symbols"] = symbols
-    out["current_symbol"] = symbols[0] if symbols else None
-    out["target_timesteps"] = _as_int(start_match.group(2), 0) or None
-    out["candles"] = _as_int(start_match.group(3), 0) or None
-
+    configured_symbols = list(out["symbols"])
+    symbols = list(configured_symbols)
+    progress_by = {
+        sym: {
+            "current_timesteps": 0,
+            "target_timesteps": 0,
+            "progress_pct": 0.0,
+            "elapsed_seconds": None,
+            "eta_seconds": None,
+            "status": "queued",
+            "updated_utc": None,
+        }
+        for sym in symbols
+    }
     started = False
     staged = None
-    latest_ts = _line_ts_utc(lines[start_idx])
-    for line in lines[start_idx + 1 :]:
+    latest_symbol = None
+    latest_ts = None
+    max_target = 0
+    candles = None
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+
+    for line in lines:
+        sm = start_re.search(line)
+        if sm:
+            line_symbols = _parse_symbol_list(sm.group(1)) or configured_symbols
+            for sym in line_symbols:
+                if sym not in symbols:
+                    symbols.append(sym)
+                progress_by.setdefault(
+                    sym,
+                    {
+                        "current_timesteps": 0,
+                        "target_timesteps": 0,
+                        "progress_pct": 0.0,
+                        "elapsed_seconds": None,
+                        "eta_seconds": None,
+                        "status": "queued",
+                        "updated_utc": None,
+                    },
+                )
+            max_target = max(max_target, _as_int(sm.group(2), 0))
+            parsed_candles = _as_int(sm.group(3), 0) or None
+            candles = parsed_candles or candles
+            latest_ts = _line_ts_utc(line) or latest_ts
+            continue
         if "Starting PPO training" in line:
             started = True
             latest_ts = _line_ts_utc(line) or latest_ts
             continue
         pm = progress_re.search(line)
         if pm:
-            progress_symbols = _parse_symbol_list(pm.group(1)) or out["symbols"]
-            out["symbols"] = progress_symbols
-            out["current_symbol"] = progress_symbols[0] if progress_symbols else out["current_symbol"]
-            out["current_timesteps"] = _as_int(pm.group(2), 0)
-            out["target_timesteps"] = _as_int(pm.group(3), 0) or out["target_timesteps"]
-            out["progress_pct"] = _as_float(pm.group(4))
-            out["elapsed_seconds"] = _as_int(pm.group(5), 0)
-            out["eta_seconds"] = None if str(pm.group(6)).lower() == "unknown" else (_as_int(pm.group(6), 0) or None)
-            latest_ts = _line_ts_utc(line) or latest_ts
+            progress_symbols = _parse_symbol_list(pm.group(1)) or configured_symbols
+            current_steps = _as_int(pm.group(2), 0)
+            target_steps = _as_int(pm.group(3), 0)
+            progress_pct = _as_float(pm.group(4)) or 0.0
+            elapsed_seconds = _as_int(pm.group(5), 0)
+            eta_seconds = None if str(pm.group(6)).lower() == "unknown" else (_as_int(pm.group(6), 0) or None)
+            ts = _line_ts_utc(line)
+            for sym in progress_symbols:
+                if sym not in symbols:
+                    symbols.append(sym)
+                item = progress_by.setdefault(
+                    sym,
+                    {
+                        "current_timesteps": 0,
+                        "target_timesteps": 0,
+                        "progress_pct": 0.0,
+                        "elapsed_seconds": None,
+                        "eta_seconds": None,
+                        "status": "queued",
+                        "updated_utc": None,
+                    },
+                )
+                item["current_timesteps"] = max(item["current_timesteps"], current_steps)
+                item["target_timesteps"] = max(item["target_timesteps"], target_steps)
+                item["progress_pct"] = max(float(item["progress_pct"] or 0.0), float(progress_pct))
+                item["elapsed_seconds"] = elapsed_seconds
+                item["eta_seconds"] = eta_seconds
+                item["updated_utc"] = ts.isoformat() if ts else item.get("updated_utc")
+                latest_symbol = sym
+            latest_ts = ts or latest_ts
+            max_target = max(max_target, target_steps)
             continue
-        sm = staged_re.search(line)
-        if sm:
-            staged = sm.group(1).strip()
+        staged_match = staged_re.search(line)
+        if staged_match:
+            staged = staged_match.group(1).strip()
             latest_ts = _line_ts_utc(line) or latest_ts
 
+    if not symbols:
+        return out
+
+    queue = []
+    counts = {"done": 0, "active": 0, "queued": 0}
+    for sym in symbols:
+        item = progress_by.get(sym, {})
+        current_steps = _as_int(item.get("current_timesteps"), 0)
+        target_steps = _as_int(item.get("target_timesteps"), max_target)
+        updated_utc = None
+        try:
+            updated_raw = item.get("updated_utc")
+            if updated_raw:
+                updated_utc = datetime.fromisoformat(str(updated_raw).replace("Z", "+00:00"))
+        except Exception:
+            updated_utc = None
+        is_recent = updated_utc is not None and updated_utc >= recent_cutoff
+        if target_steps > 0 and current_steps >= target_steps:
+            status = "done"
+            progress_pct = 100.0
+            counts["done"] += 1
+        elif running and current_steps > 0 and is_recent:
+            status = "active"
+            progress_pct = float(item.get("progress_pct") or 0.0)
+            counts["active"] += 1
+        elif current_steps > 0:
+            status = "partial"
+            progress_pct = float(item.get("progress_pct") or 0.0)
+            counts["active"] += 1
+        else:
+            status = "queued"
+            progress_pct = 0.0
+            counts["queued"] += 1
+        queue.append(
+            {
+                "symbol": sym,
+                "status": status,
+                "current_timesteps": current_steps,
+                "target_timesteps": target_steps,
+                "progress_pct": round(progress_pct, 2),
+                "elapsed_seconds": item.get("elapsed_seconds"),
+                "eta_seconds": item.get("eta_seconds"),
+                "updated_utc": item.get("updated_utc"),
+            }
+        )
+
+    total_symbols = len(queue)
+    completed = counts["done"]
+    completion_pct = round((completed / total_symbols) * 100.0, 2) if total_symbols else 0.0
+    out["symbols"] = symbols
+    out["current_symbol"] = latest_symbol or (symbols[0] if symbols else None)
+    if out["current_symbol"]:
+        current_item = next((item for item in queue if item["symbol"] == out["current_symbol"]), None)
+        if current_item:
+            out["current_timesteps"] = current_item.get("current_timesteps")
+            out["target_timesteps"] = current_item.get("target_timesteps")
+            out["progress_pct"] = current_item.get("progress_pct")
+            out["elapsed_seconds"] = current_item.get("elapsed_seconds")
+            out["eta_seconds"] = current_item.get("eta_seconds")
+    out["target_timesteps"] = out["target_timesteps"] or (max_target or None)
+    out["candles"] = candles
     out["candidate_ready"] = staged is not None
     out["candidate_path"] = staged
     out["updated_utc"] = latest_ts.isoformat() if latest_ts else None
-    if running:
+    out["queue"] = queue
+    out["summary"] = {
+        "total_symbols": total_symbols,
+        "completed_symbols": completed,
+        "active_symbols": counts["active"],
+        "queued_symbols": counts["queued"],
+        "completion_pct": completion_pct,
+    }
+    if running and counts["active"] > 1:
+        out["phase"] = "parallel_optimizing"
+    elif running:
         out["phase"] = "optimizing" if started else "loading"
     elif staged is not None:
         out["phase"] = "candidate_ready"
@@ -784,6 +955,10 @@ def _build_dreamer_visual(lines, running: bool) -> dict:
 
     start_re = re.compile(
         r"Dreamer training start\s*\|\s*symbol=([A-Za-z0-9_]+)\s*\|\s*steps=(\d+)\s*\|\s*window=(\d+)\s*\|\s*obs_dim=(\d+)",
+        re.IGNORECASE,
+    )
+    progress_re = re.compile(
+        r"Dreamer progress\s*\|\s*symbol=([A-Za-z0-9_]+)\s*\|\s*step=(\d+)\/(\d+)\s*\|\s*pct=([0-9.]+)\s*\|\s*elapsed_s=(\d+)",
         re.IGNORECASE,
     )
     saved_re = re.compile(r"dreamer_([A-Za-z0-9_]+)\.pt", re.IGNORECASE)
@@ -839,6 +1014,34 @@ def _build_dreamer_visual(lines, running: bool) -> dict:
             out["steps"] = item["steps"]
             out["window"] = item["window"]
             out["obs_dim"] = item["obs_dim"]
+            latest_ts = ts or latest_ts
+            continue
+        pm = progress_re.search(line)
+        if pm:
+            sym = pm.group(1)
+            ts = _line_ts_utc(line)
+            item = progress_by.setdefault(
+                sym,
+                {
+                    "symbol": sym,
+                    "status": "queued",
+                    "steps": _as_int(pm.group(3), 0) or None,
+                    "window": None,
+                    "obs_dim": None,
+                    "started_utc": None,
+                    "saved_utc": None,
+                    "updated_utc": None,
+                    "progress_pct": 0.0,
+                    "detail": "waiting",
+                },
+            )
+            item["steps"] = _as_int(pm.group(3), 0) or item.get("steps")
+            item["progress_pct"] = max(float(item.get("progress_pct") or 0.0), _as_float(pm.group(4), 0.0) or 0.0)
+            item["updated_utc"] = ts.isoformat() if ts else item.get("updated_utc")
+            item["status"] = "active" if running else "partial"
+            item["detail"] = f"{_as_int(pm.group(2), 0):,}/{_as_int(pm.group(3), 0):,} steps"
+            out["current_symbol"] = sym
+            out["steps"] = item.get("steps")
             latest_ts = ts or latest_ts
             continue
         mm = saved_re.search(line)
@@ -927,10 +1130,12 @@ def _build_dreamer_visual(lines, running: bool) -> dict:
             elapsed_seconds = max(0, int((now_utc - started_dt).total_seconds())) if started_dt else 0
             estimate_for_item = _estimate_run_seconds(sym, _as_int(item.get("steps"), 0), _as_int(item.get("window"), 0))
             estimated_by_symbol[sym] = estimate_for_item
+            existing_progress = float(item.get("progress_pct") or 0.0)
             if estimate_for_item and estimate_for_item > 0:
-                item["progress_pct"] = round(min(96.0, max(6.0, (elapsed_seconds / estimate_for_item) * 100.0)), 2)
+                estimated_progress = round(min(96.0, max(6.0, (elapsed_seconds / estimate_for_item) * 100.0)), 2)
+                item["progress_pct"] = max(existing_progress, estimated_progress)
             else:
-                item["progress_pct"] = 12.0
+                item["progress_pct"] = max(existing_progress, 12.0)
             item["status"] = "active"
             item["detail"] = (
                 f"est. {item['progress_pct']:.0f}% of run"
@@ -1016,9 +1221,15 @@ def _build_training_visuals(lstm_lines, ppo_lines, dreamer_lines, lstm_running: 
     lstm = _build_lstm_visual(lstm_lines, lstm_running)
     ppo = _build_ppo_visual(ppo_lines, drl_running)
     dreamer = _build_dreamer_visual(dreamer_lines, dreamer_running)
+    lstm_active = _as_int((lstm.get("summary") or {}).get("active_symbols"), 0)
+    ppo_active = _as_int((ppo.get("summary") or {}).get("active_symbols"), 0)
+    dreamer_active = _as_int((dreamer.get("summary") or {}).get("active_symbols"), 0)
     if lstm_running and drl_running:
         active_stage = "parallel"
         active_label = "LSTM and PPO running"
+    elif lstm_active > 1 or ppo_active > 1 or dreamer_active > 1:
+        active_stage = "parallel"
+        active_label = "Parallel pair-lane training running"
     elif lstm_running:
         active_stage = "lstm"
         active_label = "LSTM feature training in progress"
@@ -1054,6 +1265,7 @@ def _symbol_stage_rows(training: dict, active: dict, account: dict | None = None
     ppo_visual = visual.get("ppo", {}) if isinstance(visual.get("ppo"), dict) else {}
     dreamer_visual = visual.get("dreamer", {}) if isinstance(visual.get("dreamer"), dict) else {}
     queue = {str(item.get("symbol")): item for item in lstm_visual.get("queue", []) if str(item.get("symbol") or "")}
+    ppo_queue = {str(item.get("symbol")): item for item in ppo_visual.get("queue", []) if str(item.get("symbol") or "")}
     dreamer_queue = {str(item.get("symbol")): item for item in dreamer_visual.get("queue", []) if str(item.get("symbol") or "")}
     registry_symbols = active.get("symbols", {}) if isinstance(active.get("symbols"), dict) else {}
     latest_candidates = _latest_candidates_by_symbol(symbols)
@@ -1112,7 +1324,22 @@ def _symbol_stage_rows(training: dict, active: dict, account: dict | None = None
                 dreamer_detail = "waiting"
 
         candidate = latest_candidates.get(symbol)
-        if training.get("drl_running") and current_ppo_symbol == symbol:
+        ppo_item = ppo_queue.get(symbol, {})
+        ppo_state = str(ppo_item.get("status") or "").strip()
+        if ppo_state:
+            ppo_progress = float(
+                ppo_item.get("progress_pct")
+                or (100.0 if ppo_state == "done" else 0.0)
+            )
+            current_steps = _as_int(ppo_item.get("current_timesteps"), 0)
+            target_steps = _as_int(ppo_item.get("target_timesteps"), 0)
+            if ppo_state in {"active", "partial", "done"} and target_steps > 0:
+                ppo_detail = f"{current_steps:,}/{target_steps:,}"
+            elif ppo_state == "done":
+                ppo_detail = "candidate staged"
+            else:
+                ppo_detail = "queued in cycle"
+        elif training.get("drl_running") and current_ppo_symbol == symbol:
             ppo_state = "active"
             ppo_progress = float(ppo_visual.get("progress_pct") or 0.0)
             current_steps = _as_int(ppo_visual.get("current_timesteps"), 0)
@@ -1708,6 +1935,7 @@ def _record_account_history(account: dict):
     }
     try:
         os.makedirs(os.path.dirname(ACCOUNT_HISTORY_PATH), exist_ok=True)
+        _rotate_jsonl_if_needed(ACCOUNT_HISTORY_PATH)
         with open(ACCOUNT_HISTORY_PATH, "a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=True) + "\n")
         _ACCOUNT_HISTORY_LAST_TS = now
@@ -2306,7 +2534,7 @@ def control_action(action, payload):
         if action == "start_drl":
             if _is_running("training/train_drl.py"):
                 return {"ok": True, "message": "PPO training already running"}
-            _clear_stale_lock("train_drl.lock")
+            _clear_stale_lock("train_drl_global.lock")
             timesteps = str(int(payload.get("timesteps", 100000)))
             pid = _spawn([_venv_python(), "training/train_drl.py"], "train_drl_ui_stdout.log", "train_drl_ui_stderr.log", env={"AGI_DRL_TIMESTEPS": timesteps})
             time.sleep(1.2)
@@ -2554,7 +2782,3 @@ def run(host="127.0.0.1", port=8088):
 
 if __name__ == "__main__":
     run(host=os.environ.get("AGI_UI_HOST", "127.0.0.1"), port=int(os.environ.get("AGI_UI_PORT", "8088")))
-
-
-
-

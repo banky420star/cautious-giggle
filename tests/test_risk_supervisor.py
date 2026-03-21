@@ -16,6 +16,7 @@ def test_risk_supervisor_blocks_spread_and_drawdown():
             }
         }
     )
+    supervisor.halt_until = None  # clear any halt loaded from persisted state
 
     decision = supervisor.allow_trade(
         symbol="EURUSDm",
