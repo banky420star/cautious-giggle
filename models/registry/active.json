@@ -1,0 +1,49 @@
+{
+  "champion": null,
+  "canary": null,
+  "symbols": {
+    "EURUSDm": {
+      "champion": null,
+      "canary": null,
+      "canary_policy": {},
+      "canary_state": {},
+      "champion_history": []
+    },
+    "XAUUSDm": {
+      "champion": null,
+      "canary": "C:\\Users\\Administrator\\work\\cautious-giggle-clone-20260320161357\\models\\registry\\candidates\\20260321_133855_042650_XAUUSDm",
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "passed": false,
+        "reason": "no_metrics"
+      },
+      "champion_history": []
+    },
+    "BTCUSDm": {
+      "champion": null,
+      "canary": null,
+      "canary_policy": {
+        "min_trades": 60,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.08,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {},
+      "champion_history": []
+    }
+  },
+  "canary_policy": {},
+  "canary_state": {},
+  "champion_history": [],
+  "registry_metadata": {
+    "updated_at": "2026-03-21T20:17:06.547458+00:00",
+    "git_commit": "69bbe906fcd8c6ca0c2d4bb695899c032a9d47c7",
+    "champion_metadata": {},
+    "canary_metadata": {}
+  }
+}
