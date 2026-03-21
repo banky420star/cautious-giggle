@@ -20,6 +20,17 @@
   --red: #ff7b8f;
   --blue: #62a4ff;
   --shadow: 0 20px 42px rgba(0, 0, 0, 0.28);
+  --white-a04: rgba(255, 255, 255, 0.04);
+  --white-a03: rgba(255, 255, 255, 0.03);
+  --white-a02: rgba(255, 255, 255, 0.02);
+  --white-a07: rgba(255, 255, 255, 0.07);
+  --cyan-a28: rgba(90, 215, 255, 0.28);
+  --cyan-a18: rgba(90, 215, 255, 0.18);
+  --cyan-a08: rgba(90, 215, 255, 0.08);
+  --green-ramp: #1fcfb2;
+  --amber-ramp: #f0ab35;
+  --focus-outline: 2px solid var(--cyan);
+  --focus-offset: 2px;
 }
 * { box-sizing: border-box; }
 html, body {
@@ -59,7 +70,7 @@ body {
   width: 180px;
   height: 180px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(90, 215, 255, 0.28), transparent 70%);
+  background: radial-gradient(circle, var(--cyan-a28), transparent 70%);
 }
 .eyebrow {
   font-size: 11px;
@@ -129,7 +140,7 @@ body {
   border: 1px solid var(--line);
   font-size: 11px;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--white-a03);
 }
 .card {
   padding: 16px;
@@ -140,7 +151,7 @@ body {
 }
 .symbol {
   padding: 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(180deg, var(--white-a04), var(--white-a02));
 }
 .symbol-top {
   display: flex;
@@ -167,7 +178,7 @@ body {
   padding: 7px 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--white-a04);
   color: var(--muted);
   font-size: 11px;
 }
@@ -183,6 +194,7 @@ body {
 .dot.good { background: var(--green); }
 .dot.warn { background: var(--amber); }
 .dot.bad { background: var(--red); }
+.dot.reconnecting { background: var(--amber); animation: reconnectPulse 1.2s ease-in-out infinite; }
 .statline {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -193,7 +205,7 @@ body {
   margin-top: 12px;
   height: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--white-a07);
   overflow: hidden;
 }
 .fill {
@@ -203,13 +215,13 @@ body {
   background: linear-gradient(90deg, var(--cyan), var(--blue));
 }
 .fill.good {
-  background: linear-gradient(90deg, #1fcfb2, var(--green));
+  background: linear-gradient(90deg, var(--green-ramp), var(--green));
 }
 .fill.warn {
-  background: linear-gradient(90deg, #f0ab35, var(--amber));
+  background: linear-gradient(90deg, var(--amber-ramp), var(--amber));
 }
 .fill.bad {
-  background: linear-gradient(90deg, #ff7b8f, var(--red));
+  background: linear-gradient(90deg, var(--red), var(--red));
 }
 .list {
   display: grid;
@@ -241,7 +253,7 @@ button, .link-btn {
   padding: 13px 14px;
   font: inherit;
   color: var(--text);
-  background: linear-gradient(180deg, rgba(90, 215, 255, 0.18), rgba(90, 215, 255, 0.08));
+  background: linear-gradient(180deg, var(--cyan-a18), var(--cyan-a08));
   box-shadow: var(--shadow);
 }
 .link-btn {
@@ -251,7 +263,7 @@ button, .link-btn {
   text-decoration: none;
 }
 button.secondary {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), var(--white-a04));
 }
 .footer {
   text-align: center;
@@ -259,6 +271,7 @@ button.secondary {
   font-size: 12px;
   padding-bottom: 6px;
 }
+@keyframes reconnectPulse { 0%,100% { opacity: .6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.35); } }
 @media (max-width: 480px) {
   .metrics, .actions, .statline {
     grid-template-columns: 1fr;
@@ -267,10 +280,21 @@ button.secondary {
     font-size: 25px;
   }
 }
+@media (max-width: 360px) {
+  .statline {
+    grid-template-columns: 1fr;
+  }
+  .headline {
+    font-size: 22px;
+  }
+  .metric .v, .mini .v {
+    font-size: 17px;
+  }
+}
 /* ── Focus states ─ keyboard / assistive navigation ── */
 button:focus-visible, a:focus-visible {
-  outline: 2px solid var(--cyan);
-  outline-offset: 2px;
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-offset);
 }
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {

@@ -74,9 +74,26 @@ def _tail(path, lines=60):
     if not os.path.exists(path):
         return []
     try:
-        with open(path, "r", encoding="utf-8", errors="replace") as f:
-            data = f.readlines()
-        return [x.rstrip("\n") for x in data[-lines:]]
+        # Seek-based tail: read from the end so large files aren't loaded in full.
+        chunk = 8192
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            buf = b""
+            pos = size
+            found = 0
+            while pos > 0 and found <= lines:
+                read_size = min(chunk, pos)
+                pos -= read_size
+                f.seek(pos)
+                block = f.read(read_size)
+                buf = block + buf
+                found = buf.count(b"\n")
+            raw_lines = buf.decode("utf-8", errors="replace").splitlines()
+            if raw_lines and not buf.endswith(b"\n"):
+                # last line may be partial – keep it
+                pass
+            return raw_lines[-lines:]
     except Exception:
         return []
 
@@ -90,7 +107,19 @@ def _line_ts_utc(line: str):
         return None
 
 
+_LOG_TZ_CACHE = None
+_LOG_TZ_CFG_MTIME: float = -1.0
+
+
 def _log_timezone():
+    global _LOG_TZ_CACHE, _LOG_TZ_CFG_MTIME
+    cfg_path = os.path.join(ROOT, "config.yaml")
+    try:
+        mtime = os.path.getmtime(cfg_path) if os.path.exists(cfg_path) else 0.0
+    except Exception:
+        mtime = 0.0
+    if _LOG_TZ_CACHE is not None and mtime == _LOG_TZ_CFG_MTIME:
+        return _LOG_TZ_CACHE
     cfg = _load_cfg()
     runtime_cfg = cfg.get("runtime", {}) if isinstance(cfg, dict) else {}
     candidates = [
@@ -103,9 +132,14 @@ def _log_timezone():
         if not name:
             continue
         try:
-            return ZoneInfo(str(name))
+            tz = ZoneInfo(str(name))
+            _LOG_TZ_CACHE = tz
+            _LOG_TZ_CFG_MTIME = mtime
+            return tz
         except Exception:
             continue
+    _LOG_TZ_CACHE = timezone.utc
+    _LOG_TZ_CFG_MTIME = mtime
     return timezone.utc
 
 
@@ -143,13 +177,23 @@ def _powershell_json(command):
     return []
 
 
+_CFG_CACHE: dict | None = None
+_CFG_MTIME: float = 0.0
+
+
 def _load_cfg():
+    global _CFG_CACHE, _CFG_MTIME
     cfg_path = os.path.join(ROOT, "config.yaml")
     if not os.path.exists(cfg_path) or yaml is None:
         return {}
     try:
+        mtime = os.path.getmtime(cfg_path)
+        if _CFG_CACHE is not None and mtime == _CFG_MTIME:
+            return _CFG_CACHE
         with open(cfg_path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
+            _CFG_CACHE = yaml.safe_load(f) or {}
+        _CFG_MTIME = mtime
+        return _CFG_CACHE
     except Exception:
         return {}
 
@@ -2763,8 +2807,8 @@ async def status_refresh_loop():
                 _STATUS_REFRESH_DEGRADED = False
         elif _STATUS_REFRESH_STARTED_AT is not None:
             elapsed = loop.time() - _STATUS_REFRESH_STARTED_AT
-            if elapsed > 20 and not _STATUS_REFRESH_DEGRADED:
-                STATUS_CACHE = _collect_status_fast(state="degraded", error="status refresh timed out after 20s")
+            if elapsed > 45 and not _STATUS_REFRESH_DEGRADED:
+                STATUS_CACHE = _collect_status_fast(state="degraded", error="status refresh timed out after 45s")
                 _STATUS_REFRESH_DEGRADED = True
         await asyncio.sleep(4)
 

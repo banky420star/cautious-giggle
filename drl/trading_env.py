@@ -583,6 +583,12 @@ class TradingEnv(gym.Env):
             "profitability": info.get("profitability"),
         }
         try:
+            _PROFIT_LOG_MAX = 50 * 1024 * 1024  # 50 MB cap
+            if os.path.exists(self.profit_log_path) and os.path.getsize(self.profit_log_path) >= _PROFIT_LOG_MAX:
+                backup = self.profit_log_path + ".1"
+                if os.path.exists(backup):
+                    os.remove(backup)
+                os.rename(self.profit_log_path, backup)
             with open(self.profit_log_path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(payload) + "\n")
         except Exception:
