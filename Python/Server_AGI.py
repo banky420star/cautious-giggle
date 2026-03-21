@@ -417,11 +417,14 @@ def _blend_symbol_decision(
     agi_risk = float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0)
     agi_bias = float((agi_meta or {}).get("trend_bias", 0.0) or 0.0)
 
-    raw = (
-        float(profile["ppo_weight"]) * ppo_target
-        + float(profile["dreamer_weight"]) * dreamer_target
-        + float(profile["agi_weight"]) * agi_bias
-    )
+    # Redistribute weights from absent models to AGI so the 150-feature
+    # LSTM signal can drive real decisions before a PPO champion is promoted.
+    # When both PPO and Dreamer are present, weights are used as configured.
+    ppo_w = float(profile["ppo_weight"]) if ppo_meta is not None else 0.0
+    dreamer_w = float(profile["dreamer_weight"]) if dreamer_meta is not None else 0.0
+    agi_w = max(float(profile["agi_weight"]), 1.0 - ppo_w - dreamer_w)
+
+    raw = ppo_w * ppo_target + dreamer_w * dreamer_target + agi_w * agi_bias
 
     adjusted = raw * agi_risk
     adjusted = _clip(adjusted, -float(profile["max_abs_target"]), float(profile["max_abs_target"]))
@@ -437,6 +440,11 @@ def _blend_symbol_decision(
         "ppo_target": ppo_target,
         "dreamer_target": dreamer_target,
         "agi_bias": agi_bias,
+        "agi_direction": str((agi_meta or {}).get("direction", (agi_meta or {}).get("signal", "HOLD")) or "HOLD"),
+        "agi_feature_version": str((agi_meta or {}).get("feature_version", "unknown") or "unknown"),
+        "ppo_weight_used": round(ppo_w, 3),
+        "dreamer_weight_used": round(dreamer_w, 3),
+        "agi_weight_used": round(agi_w, 3),
         "profile": profile,
     }
 
