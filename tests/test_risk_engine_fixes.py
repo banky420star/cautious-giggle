@@ -90,3 +90,28 @@ def test_config_path_is_absolute():
     """The module-level _CFG_PATH constant must be an absolute path ending with config.yaml."""
     assert os.path.isabs(_CFG_PATH), f"_CFG_PATH is not absolute: {_CFG_PATH}"
     assert _CFG_PATH.endswith("config.yaml"), f"_CFG_PATH does not end with 'config.yaml': {_CFG_PATH}"
+
+
+def test_explicit_config_skips_default_file_load(monkeypatch):
+    """RiskEngine should honor an explicit config object without opening repo config.yaml."""
+    monkeypatch.setattr(
+        builtins,
+        "open",
+        lambda *_a, **_kw: (_ for _ in ()).throw(AssertionError("RiskEngine should not open config.yaml")),
+    )
+
+    engine = RiskEngine(
+        cfg={
+            "risk": {
+                "max_daily_loss": 321,
+                "max_daily_trades": 654,
+                "max_daily_trades_per_symbol": 987,
+            },
+            "trading": {"entry_deviation": 11},
+        }
+    )
+
+    assert engine.max_daily_loss == 321.0
+    assert engine.max_daily_trades == 654
+    assert engine.max_daily_trades_per_symbol == 987
+    assert engine.default_symbol_profile["entry_deviation"] == 11

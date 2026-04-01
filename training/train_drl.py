@@ -33,10 +33,11 @@ EvalCallback = object
 _TORCH_IMPORT_ERROR = None
 _SB3_IMPORT_ERROR = None
 
-LOG_DIR = os.path.join(os.getcwd(), "logs")
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "ppo_training.log"), rotation="10 MB", level="INFO")
-LOCK_DIR = os.path.join(os.getcwd(), ".tmp")
+LOCK_DIR = os.path.join(PROJECT_ROOT, ".tmp")
 LOCK_PATH = os.path.join(LOCK_DIR, "train_drl.lock")
 
 

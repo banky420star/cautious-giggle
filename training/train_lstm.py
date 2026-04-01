@@ -14,6 +14,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from Python.agi_brain import AGIModel
+from Python.perpetual_improvement import get_perpetual_improvement_system
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, parse_symbol_list
 from Python.data_feed import fetch_training_data
 from Python.feature_pipeline import ENGINEERED_V2, ULTIMATE_150, build_lstm_feature_frame, normalize_feature_version
@@ -158,7 +159,10 @@ def _train_one_symbol(
         return None
 
     model = AGIModel(input_dim=len(feature_columns)).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    pis = get_perpetual_improvement_system()
+    adjusted_rates = pis.adjust_learning_rate("lstm", symbol)
+    adjusted_lr = adjusted_rates.get("base_lr", 1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=adjusted_lr)
     criterion = nn.CrossEntropyLoss()
 
     X_tensor = torch.tensor(X, dtype=torch.float32).to(device)

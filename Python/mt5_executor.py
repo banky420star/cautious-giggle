@@ -17,9 +17,30 @@ LANE_MAGIC_OFFSET = {
 }
 
 
+_BROKER_REJECTION_RETCODES = {
+    10004,  # Requote
+    10006,  # Request rejected
+    10010,  # Only part executed
+    10011,  # Trade error (e.g. wrong mode)
+    10015,  # Invalid price
+    10016,  # Invalid stops
+    10017,  # Trade disabled
+    10019,  # No changes
+    10021,  # Not enough quotes
+}
+
+
 class MT5Executor:
     def __init__(self, risk):
         self.risk = risk
+
+    def _is_system_error(self, result) -> bool:
+        """Return True for real system errors (null result, connection loss).
+        Broker rejections (wrong trade mode, no changes, etc.) are NOT system errors."""
+        if result is None:
+            return True
+        return getattr(result, "retcode", None) not in _BROKER_REJECTION_RETCODES and \
+            result.retcode != mt5.TRADE_RETCODE_DONE
 
     def _symbol_info(self, symbol):
         return mt5.symbol_info(symbol)
@@ -221,13 +242,11 @@ class MT5Executor:
         return longs, shorts
 
     def reconcile_exposure(self, symbol, target_exposure, max_lots, order_meta=None, execution_context=None):
-        if not self.risk.can_trade(symbol):
-            return {"request_action": "blocked", "executed": False}
-
         longs, shorts = self.get_positions(symbol)
 
         long_lots = sum(p.volume for p in longs)
         short_lots = sum(p.volume for p in shorts)
+        can_increase_exposure = self.risk.can_trade(symbol)
 
         target_lots = round(float(target_exposure) * float(max_lots), 2)
         result_meta = {
@@ -235,48 +254,63 @@ class MT5Executor:
             "executed": False,
             "target_lots": float(target_lots),
         }
+        executed_any = False
+
+        def _capture(meta):
+            nonlocal result_meta, executed_any
+            if meta:
+                result_meta = meta
+                executed_any = executed_any or bool(meta.get("executed"))
+
         if abs(target_lots) < 0.01:
             if long_lots > 0:
-                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
+                _capture(self.close_positions(longs, order_meta=order_meta, execution_context=execution_context))
             if short_lots > 0:
-                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
+                _capture(self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context))
+            if executed_any:
+                self.risk.record_trade(symbol)
+            elif not can_increase_exposure:
+                return {"request_action": "blocked", "executed": False, "target_lots": float(target_lots)}
             return result_meta
 
         if target_lots > 0:
             if short_lots > 0:
-                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
+                _capture(self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context))
                 short_lots = 0.0
             if long_lots > target_lots + 0.01:
-                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
+                _capture(self.close_positions(longs, order_meta=order_meta, execution_context=execution_context))
                 long_lots = 0.0
             add_lots = round(target_lots - long_lots, 2)
-            if add_lots >= 0.01:
-                result_meta = self.open_position(
+            if add_lots >= 0.01 and can_increase_exposure:
+                _capture(self.open_position(
                     symbol,
                     mt5.ORDER_TYPE_BUY,
                     add_lots,
                     order_meta=order_meta,
                     execution_context=execution_context,
-                )
+                ))
         else:
             desired_short_lots = abs(target_lots)
             if long_lots > 0:
-                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
+                _capture(self.close_positions(longs, order_meta=order_meta, execution_context=execution_context))
                 long_lots = 0.0
             if short_lots > desired_short_lots + 0.01:
-                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
+                _capture(self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context))
                 short_lots = 0.0
             add_lots = round(desired_short_lots - short_lots, 2)
-            if add_lots >= 0.01:
-                result_meta = self.open_position(
+            if add_lots >= 0.01 and can_increase_exposure:
+                _capture(self.open_position(
                     symbol,
                     mt5.ORDER_TYPE_SELL,
                     add_lots,
                     order_meta=order_meta,
                     execution_context=execution_context,
-                )
+                ))
 
-        self.risk.record_trade(symbol)
+        if executed_any:
+            self.risk.record_trade(symbol)
+        elif not can_increase_exposure:
+            return {"request_action": "blocked", "executed": False, "target_lots": float(target_lots)}
         return result_meta
 
     def close_positions(self, positions, order_meta=None, execution_context=None):
@@ -306,7 +340,7 @@ class MT5Executor:
             result = mt5.order_send(request)
             last_meta = self._log_order_send(p.symbol, "close", request, result, order_meta)
             last_meta["executed"] = bool(result is not None and result.retcode == mt5.TRADE_RETCODE_DONE)
-            if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+            if self._is_system_error(result):
                 self.risk.record_error()
         return last_meta
 
@@ -408,7 +442,7 @@ class MT5Executor:
         result = mt5.order_send(request)
         meta = self._log_order_send(symbol, "open", request, result, order_meta)
         meta["executed"] = bool(result is not None and result.retcode == mt5.TRADE_RETCODE_DONE)
-        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+        if self._is_system_error(result):
             self.risk.record_error()
         return meta
 
@@ -501,6 +535,6 @@ class MT5Executor:
 
             result = mt5.order_send(req)
             self._log_order_send(symbol, "manage", req, result, {"symbol": symbol})
-            if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+            if self._is_system_error(result):
                 self.risk.record_error()
 

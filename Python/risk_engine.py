@@ -2,14 +2,17 @@ import os
 from datetime import datetime, timezone
 
 import yaml
+from loguru import logger
 
 _CFG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
 
 
 class RiskEngine:
-    def __init__(self):
-        with open(_CFG_PATH, "r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
+    def __init__(self, cfg: dict | None = None, cfg_path: str | None = None):
+        if cfg is None:
+            path = cfg_path or _CFG_PATH
+            with open(path, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f) or {}
 
         risk_cfg = cfg.get("risk", {})
         trading_cfg = cfg.get("trading", {})
@@ -49,6 +52,7 @@ class RiskEngine:
         # Only auto-clear P&L-triggered halts on day roll; error halts require restart.
         if not self.error_halt:
             self.halt = False
+            logger.info("RISK_HALT_CLEARED reason=day_roll")
         self.last_reset_day = datetime.now(timezone.utc).date()
 
     def maybe_roll_day(self):
@@ -62,12 +66,14 @@ class RiskEngine:
         if symbol:
             key = str(symbol)
             self.daily_trades_by_symbol[key] = int(self.daily_trades_by_symbol.get(key, 0)) + 1
+        self.save_state()
 
     def record_pnl(self, pnl):
         self.maybe_roll_day()
         self.realized_pnl_today += float(pnl)
         if self.realized_pnl_today <= -abs(self.max_daily_loss):
             self.halt = True
+            logger.warning("RISK_HALT_SET reason=daily_loss pnl={:.2f} limit={:.2f}", self.realized_pnl_today, self.max_daily_loss)
 
     def record_trade_result(self, symbol, pnl):
         self.maybe_roll_day()
@@ -77,6 +83,7 @@ class RiskEngine:
         if float(pnl) < 0.0:
             key = str(symbol)
             self.daily_losing_trades_by_symbol[key] = int(self.daily_losing_trades_by_symbol.get(key, 0)) + 1
+        self.save_state()
 
     def update_equity(self, equity: float):
         eq = float(equity)
@@ -93,6 +100,8 @@ class RiskEngine:
         if self.error_count >= 3:
             self.halt = True
             self.error_halt = True  # Requires manual restart to clear
+            logger.warning("RISK_HALT_SET reason=consecutive_errors count={}", self.error_count)
+        self.save_state()
 
     def can_trade(self, symbol=None):
         self.maybe_roll_day()
@@ -114,3 +123,68 @@ class RiskEngine:
         if isinstance(sym_prof, dict):
             prof.update(sym_prof)
         return prof
+
+    def to_dict(self) -> dict:
+        return {
+            "realized_pnl_today": self.realized_pnl_today,
+            "daily_trades": self.daily_trades,
+            "daily_trades_by_symbol": dict(self.daily_trades_by_symbol),
+            "daily_losing_trades_by_symbol": dict(self.daily_losing_trades_by_symbol),
+            "halt": self.halt,
+            "error_halt": self.error_halt,
+            "error_count": self.error_count,
+            "current_dd": self.current_dd,
+            "peak_equity": self.peak_equity,
+            "last_reset_day": self.last_reset_day.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict, cfg: dict | None = None, cfg_path: str | None = None) -> "RiskEngine":
+        engine = cls(cfg=cfg, cfg_path=cfg_path)
+        engine.realized_pnl_today = float(data.get("realized_pnl_today", 0.0))
+        engine.daily_trades = int(data.get("daily_trades", 0))
+        engine.daily_trades_by_symbol = dict(data.get("daily_trades_by_symbol", {}))
+        engine.daily_losing_trades_by_symbol = dict(data.get("daily_losing_trades_by_symbol", {}))
+        engine.halt = bool(data.get("halt", False))
+        engine.error_halt = bool(data.get("error_halt", False))
+        engine.error_count = int(data.get("error_count", 0))
+        engine.current_dd = float(data.get("current_dd", 0.0))
+        engine.peak_equity = data.get("peak_equity")
+        if engine.peak_equity is not None:
+            engine.peak_equity = float(engine.peak_equity)
+        try:
+            engine.last_reset_day = datetime.strptime(data["last_reset_day"], "%Y-%m-%d").date()
+        except Exception:
+            engine.last_reset_day = datetime.now(timezone.utc).date()
+        engine.maybe_roll_day()
+        return engine
+
+    def save_state(self, path: str | None = None):
+        import json
+        state_path = path or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "risk_engine_state.json")
+        os.makedirs(os.path.dirname(state_path), exist_ok=True)
+        tmp_path = state_path + ".tmp"
+        try:
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(self.to_dict(), f, indent=2)
+            os.replace(tmp_path, state_path)
+        except Exception as exc:
+            logger.error("RISK_STATE_SAVE_FAILED path={} error={}", state_path, exc)
+
+    @classmethod
+    def load_state(
+        cls,
+        path: str | None = None,
+        cfg: dict | None = None,
+        cfg_path: str | None = None,
+    ) -> "RiskEngine | None":
+        import json
+        state_path = path or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "risk_engine_state.json")
+        if not os.path.exists(state_path):
+            return None
+        try:
+            with open(state_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return cls.from_dict(data, cfg=cfg, cfg_path=cfg_path)
+        except Exception:
+            return None

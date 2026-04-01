@@ -11,8 +11,8 @@ trading:
   magic_number: 505
 risk:
   max_daily_loss: 1000
-  max_daily_trades: 500
-  max_daily_trades_per_symbol: 50
+  max_daily_trades: 10000
+  max_daily_trades_per_symbol: 5000
   max_daily_losing_trades_per_symbol: 10
   max_lots: 1.0
   supervisor:
@@ -26,8 +26,12 @@ risk:
     min_trade_interval_sec: 45
     max_spread_bps: 25.0
 telegram:
-  token: YOUR_BOT_TOKEN_HERE
-  chat_id: YOUR_CHAT_ID_HERE
+  token: ENV:TELEGRAM_TOKEN
+  chat_id: ENV:TELEGRAM_CHAT_ID
+mt5:
+  login: ENV:MT5_LOGIN
+  password: ENV:MT5_PASSWORD
+  server: ENV:MT5_SERVER
 event_intel:
   enabled: true
   poll_sec: 60

@@ -1,0 +1,147 @@
+# ─────────────────────────────────────────────────────────────
+# Cautious Giggle — HFT Scalping Configuration
+# High-frequency M1 scalping mode. Inspired by the viral $50→$3M
+# strategy: many small trades, tight risk, fast decisions.
+# ─────────────────────────────────────────────────────────────
+trading:
+  symbols:
+  - BTCUSDm
+  - XAUUSDm
+  timeframe: M1
+  risk_percent: 0.5
+  max_drawdown: 15.0
+  confidence_threshold: 0.55
+  magic_number: 506
+  # Per-symbol aggressive profiles
+  symbol_profiles:
+    BTCUSDm:
+      ppo_weight: 0.75
+      dreamer_weight: 0.20
+      agi_context_weight: 0.05
+      min_actionable_exposure: 0.08
+      max_policy_exposure: 1.50
+      min_trade_interval_sec: 10
+    XAUUSDm:
+      ppo_weight: 0.70
+      dreamer_weight: 0.20
+      agi_context_weight: 0.10
+      min_actionable_exposure: 0.06
+      max_policy_exposure: 1.20
+      min_trade_interval_sec: 10
+
+risk:
+  max_daily_loss: 500
+  max_daily_trades: 10000
+  max_daily_trades_per_symbol: 5000
+  max_daily_losing_trades_per_symbol: 100
+  max_lots: 0.5
+  supervisor:
+    enabled: true
+    max_daily_loss: 500
+    max_drawdown_pct: 12.0
+    max_symbol_exposure: 0.50
+    max_total_exposure: 2.0
+    max_open_positions: 12
+    max_positions_per_symbol: 6
+    min_trade_interval_sec: 10
+    max_spread_bps: 15.0
+
+telegram:
+  token: ENV:TELEGRAM_TOKEN
+  chat_id: ENV:TELEGRAM_CHAT_ID
+
+event_intel:
+  enabled: true
+  poll_sec: 30
+  pre_event_min: 15
+  post_event_min: 10
+  news_hold_min: 5
+  max_events: 200
+
+drl:
+  total_timesteps: 200000
+  per_symbol: true
+  period: 30d
+  interval: M1
+  candles_per_symbol: 25000
+  eval_period: 30d
+  model_path: models/hft/ppo_trading.zip
+  feature_version: ultimate_150
+  data_source: mt5
+  optuna_trials: 0
+  optuna_timesteps: 10000
+  dreamer:
+    enabled: true
+    train_in_cycle: true
+    steps: 3000
+    window: 32
+    feature_version: ultimate_150
+    symbols:
+    - BTCUSDm
+    - XAUUSDm
+  ensemble:
+    enabled: false
+    min_votes: 2
+    agreement_threshold: 0.5
+  reward:
+    version: v2_risk_adjusted
+    weights:
+      growth: 12.0
+      payoff: 4.0
+      sharpe_bonus: 2.0
+      drawdown_penalty: 2.0
+      cost_penalty: 3.0
+      churn_penalty: 0.1
+      memory_expectancy_bonus: 1.0
+      loss_streak_penalty: 0.2
+
+training:
+  lstm_epochs: 15
+  per_symbol: true
+  lstm_period: 30d
+  lstm_interval: M1
+  lstm_candles: 25000
+  feature_version: ultimate_150
+  data_source: mt5
+
+evaluation:
+  max_drawdown: 0.30
+  min_sharpe: -0.8
+  min_return: -0.20
+  score_margin: 0.03
+  min_steps_per_symbol: 300
+  min_pass_rate: 0.4
+  return_margin: 0.0
+  sharpe_margin: 0.0
+  drawdown_margin: 0.0
+  forward_windows:
+  - 15d
+  - 30d
+  min_forward_win_rate: 0.34
+
+registry:
+  ensemble:
+    history_limit: 5
+  canary_policy:
+    default:
+      min_trades: 50
+      min_realized_pnl: -50.0
+      max_drawdown: 0.15
+      min_runtime_minutes: 30
+    per_symbol:
+      BTCUSDm:
+        max_drawdown: 0.12
+        min_trades: 80
+
+data:
+  source: mt5
+
+cycle:
+  skip_completed_training: false
+  parallel_symbols: true
+  max_parallel_symbols: 1
+
+mt5:
+  login: ENV:MT5_LOGIN
+  password: ENV:MT5_PASSWORD
+  server: ENV:MT5_SERVER

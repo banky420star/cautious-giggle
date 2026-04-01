@@ -8,6 +8,8 @@ models/
 *.zip
 logs/
 .env
+.env.*
+!.env.example
 *.pt
 config.yaml
 

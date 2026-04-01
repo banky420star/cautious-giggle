@@ -29,6 +29,8 @@ except Exception:
 
 from alerts.telegram_alerts import TelegramAlerter
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS
+from Python.pattern_recognition import get_pattern_library
+from Python.perpetual_improvement import export_perpetual_improvement_state
 from Python.model_registry import ModelRegistry
 
 LOG_DIR = os.path.join(ROOT, "logs")
@@ -54,6 +56,38 @@ def _rotate_jsonl_if_needed(path: str) -> None:
     except Exception:
         pass
 TELEGRAM_CARD_SYNC_SECONDS = 45
+_PATT_SERVICE_ADDED = False
+from aiohttp import web as _aioweb
+def _noop(*a, **k):
+    pass
+
+async def api_patterns(_request):
+    try:
+        lib = get_pattern_library() or {}
+        # Normalize to list for UI friendliness
+        if isinstance(lib, dict):
+            items = []
+            for k, v in lib.items():
+                if isinstance(v, dict):
+                    items.append({**v, 'pattern_name': k})
+                else:
+                    items.append({'pattern_name': k, 'details': v})
+            lib = items
+        return _aioweb.web.json_response(lib)
+    except Exception:
+        return _aioweb.web.json_response([])
+
+async def api_performance(_request):
+    try:
+        return _aioweb.web.json_response(export_perpetual_improvement_state())
+    except Exception:
+        return _aioweb.web.json_response({})
+
+async def api_frontend(_request):
+    path = os.path.join(ROOT, 'frontend', 'index.html')
+    if os.path.exists(path):
+        return _aioweb.web.FileResponse(path)
+    return _aioweb.web.Response(text='<html><body>Frontend not found</body></html>', content_type='text/html')
 _ACCOUNT_HISTORY_LAST_TS = None
 _ACCOUNT_HISTORY_LAST_SIG = None
 STATUS_CACHE = {
@@ -1334,13 +1368,23 @@ def _symbol_stage_rows(training: dict, active: dict, account: dict | None = None
         lstm_state = str(lstm_item.get("status") or "").strip() or ("done" if _has_lstm_artifact(symbol) else "queued")
         lstm_progress = float(lstm_item.get("progress_pct") or (100.0 if lstm_state == "done" else 0.0))
         lstm_detail = "waiting"
-        if lstm_state in {"active", "partial", "done"}:
-            epoch = _as_int(lstm_item.get("epoch"), 0)
-            total = _as_int(lstm_item.get("epochs_total"), 0)
+        epoch = _as_int(lstm_item.get("epoch"), 0)
+        total = _as_int(lstm_item.get("epochs_total"), 0)
+        # Override stale "failed" if artifact exists on disk (training succeeded)
+        if lstm_state == "failed" and _has_lstm_artifact(symbol):
+            lstm_state = "done"
+            lstm_progress = 100.0
+            lstm_detail = f"epoch {epoch}/{total}" if total > 0 else "complete"
+        # Override stale "failed" if LSTM is currently running for this symbol
+        elif lstm_state == "failed" and training.get("lstm_running"):
+            lstm_state = "active"
+            lstm_progress = 50.0
+            lstm_detail = "retraining"
+        elif lstm_state == "failed":
+            lstm_detail = "training failed"
+        if lstm_state in {"active", "partial", "done"} and lstm_detail == "waiting":
             if total > 0:
                 lstm_detail = f"epoch {epoch}/{total}"
-        if lstm_state == "failed":
-            lstm_detail = "training failed"
 
         dreamer_item = dreamer_queue.get(symbol, {})
         dreamer_state = str(dreamer_item.get("status") or "").strip()
@@ -2371,11 +2415,33 @@ def _collect_status():
     incidents = _incident_feed(40)
     training["symbol_lane_rows"] = _symbol_lane_rows(training, active, incidents, account=account, server=server)
     training["lane_summary"] = _symbol_lane_summary(training["symbol_lane_rows"])
+    # Pattern recognition & perpetual improvement hooks (best-effort)
+    try:
+        from Python.perpetual_improvement import get_perpetual_improvement_system
+        pis = get_perpetual_improvement_system()
+        last_action = pis.get_last_improvement_action() or {}
+        training["perpetual_improvement"] = last_action
+        # Snapshot of learning rates if available
+        lr_snapshot = getattr(pis, "learning_rates", {}) if hasattr(pis, "learning_rates") else {}
+        training["perpetual_improvement"]["rates_snapshot"] = dict(lr_snapshot)
+        # Pattern library exposure from disk (best-effort)
+        pattern_lib_path = os.path.join(LOG_DIR, "pattern_library.json")
+        if os.path.exists(pattern_lib_path):
+            try:
+                with open(pattern_lib_path, "r", encoding="utf-8") as pf:
+                    training["pattern_library"] = json.load(pf) or {}
+            except Exception:
+                training["pattern_library"] = {}
+        else:
+            training["pattern_library"] = {}
+    except Exception:
+        pass
     return {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "repo_root": ROOT,
         "active_models": active,
         "registry": _registry_summary(active),
+        "state": "live",
         "canary_gate": {"ready": bool(canary_ok), "reason": canary_reason},
         "server": server,
         "runtime_owner": _runtime_owner_health(procs),
@@ -2698,6 +2764,155 @@ def control_action(action, payload):
             symbol = str(payload.get("symbol") or "").strip()
             reg.rollback_to_champion(symbol=symbol or None)
             return {"ok": True, "message": f"Canary rolled back to champion{f' for {symbol}' if symbol else ''}"}
+
+        if action == "set_timeframe":
+            tf = str(payload.get("timeframe", "")).strip().upper()
+            valid_tf = {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}
+            if tf not in valid_tf:
+                return {"ok": False, "message": f"Invalid timeframe '{tf}'. Use: {', '.join(sorted(valid_tf))}"}
+            cfg_path = os.path.join(ROOT, "config.yaml")
+            try:
+                import yaml
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+                cfg.setdefault("trading", {})["timeframe"] = tf
+                cfg.setdefault("drl", {})["interval"] = tf
+                cfg.setdefault("training", {})["lstm_interval"] = tf
+                with open(cfg_path, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(cfg, f, default_flow_style=False, sort_keys=False)
+                return {"ok": True, "message": f"Timeframe set to {tf} in config.yaml (trading, drl, lstm). Restart training to use."}
+            except Exception as exc:
+                return {"ok": False, "message": f"Failed to update config: {exc}"}
+
+        if action == "set_period":
+            period = str(payload.get("period", "")).strip()
+            if not period:
+                return {"ok": False, "message": "Missing 'period' parameter (e.g. '30d', '90d', '180d')"}
+            cfg_path = os.path.join(ROOT, "config.yaml")
+            try:
+                import yaml
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+                cfg.setdefault("drl", {})["period"] = period
+                cfg.setdefault("drl", {})["eval_period"] = period
+                cfg.setdefault("training", {})["lstm_period"] = period
+                with open(cfg_path, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(cfg, f, default_flow_style=False, sort_keys=False)
+                return {"ok": True, "message": f"Training period set to {period}. Restart training to use."}
+            except Exception as exc:
+                return {"ok": False, "message": f"Failed to update config: {exc}"}
+
+        if action == "set_timesteps":
+            ts = int(payload.get("timesteps", 0))
+            if ts < 1000:
+                return {"ok": False, "message": "Timesteps must be >= 1000"}
+            cfg_path = os.path.join(ROOT, "config.yaml")
+            try:
+                import yaml
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+                cfg.setdefault("drl", {})["total_timesteps"] = ts
+                with open(cfg_path, "w", encoding="utf-8") as f:
+                    yaml.safe_dump(cfg, f, default_flow_style=False, sort_keys=False)
+                return {"ok": True, "message": f"PPO timesteps set to {ts:,}. Restart training to use."}
+            except Exception as exc:
+                return {"ok": False, "message": f"Failed to update config: {exc}"}
+
+        if action == "force_ingest":
+            # Delete cached data to force fresh ingestion on next training
+            cache_dir = os.path.join(ROOT, "data", "dukascopy")
+            deleted = 0
+            if os.path.isdir(cache_dir):
+                for fn in os.listdir(cache_dir):
+                    fp = os.path.join(cache_dir, fn)
+                    if os.path.isfile(fp):
+                        try:
+                            os.remove(fp)
+                            deleted += 1
+                        except Exception:
+                            pass
+            return {"ok": True, "message": f"Cleared {deleted} cached data files. Next training will fetch fresh MT5 data."}
+
+        if action == "start_cycle_with_tf":
+            tf = str(payload.get("timeframe", "")).strip().upper()
+            valid_tf = {"M1", "M5", "M15", "M30", "H1", "H4", "D1"}
+            if tf not in valid_tf:
+                return {"ok": False, "message": f"Invalid timeframe '{tf}'."}
+            if _is_running("tools/champion_cycle.py") or _is_running("training/train_drl.py") or _is_running("training/train_lstm.py"):
+                return {"ok": False, "message": "Training already running. Stop it first."}
+            env_overrides = {
+                "AGI_DRL_INTERVAL": tf,
+                "AGI_LSTM_INTERVAL": tf,
+                "AGI_DREAMER_INTERVAL": tf,
+            }
+            pid = _spawn([_venv_python(), "tools/champion_cycle.py"], "champion_cycle_stdout.log", "champion_cycle_stderr.log", env=env_overrides)
+            time.sleep(1.2)
+            if not _is_running("tools/champion_cycle.py"):
+                tail = _tail_text(os.path.join(LOG_DIR, "champion_cycle_stderr.log"))
+                return {"ok": False, "message": f"Cycle failed to start on {tf}. {tail}".strip()}
+            return {"ok": True, "message": f"Champion cycle started on {tf} timeframe, pid={pid}"}
+
+        if action == "start_hft":
+            if _is_running("AGI_MODE_TAG=hft") or _is_running("start_hft"):
+                return {"ok": True, "message": "HFT server already running"}
+            hft_config = os.path.join(ROOT, "config_hft.yaml")
+            env_overrides = {
+                "AGI_CONFIG": hft_config,
+                "AGI_MODE_TAG": "hft",
+                "AGI_LOOP_SEC": "5",
+                "AGI_HEARTBEAT_SEC": "300",
+                "AGI_SYMBOL_CARD_SEC": "60",
+                "AGI_TRADE_LEARN_SEC": "300",
+            }
+            pid = _spawn([_venv_python(), "-m", "Python.Server_AGI", "--live"], "server_hft_stdout.log", "server_hft_stderr.log", env=env_overrides)
+            time.sleep(1.2)
+            return {"ok": True, "message": f"HFT scalping server started pid={pid}"}
+
+        if action == "stop_hft":
+            # Kill HFT server by looking for the mode tag in environment
+            ids = []
+            try:
+                import subprocess as _sp
+                out = _sp.check_output(
+                    ["wmic", "process", "get", "ProcessId,CommandLine"],
+                    creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0),
+                    stderr=_sp.DEVNULL, text=True,
+                )
+                for line in out.strip().splitlines():
+                    if "Server_AGI" in line and "hft" in line.lower():
+                        parts = line.strip().split()
+                        for p in parts:
+                            if p.isdigit():
+                                try:
+                                    os.kill(int(p), 9)
+                                    ids.append(int(p))
+                                except Exception:
+                                    pass
+            except Exception:
+                pass
+            # Also kill by log file pattern
+            ids2 = _kill_by_token("server_hft")
+            ids.extend(ids2)
+            lock_path = os.path.join(ROOT, ".tmp", "server_agi_hft.lock")
+            if os.path.exists(lock_path):
+                try:
+                    os.remove(lock_path)
+                except Exception:
+                    pass
+            return {"ok": True, "message": f"HFT server stopped pids={ids}"}
+
+        if action == "run_hft_cycle":
+            if _is_running("start_hft_cycle"):
+                return {"ok": True, "message": "HFT training cycle already running"}
+            hft_config = os.path.join(ROOT, "config_hft.yaml")
+            env_overrides = {
+                "AGI_CONFIG": hft_config,
+                "AGI_MODE_TAG": "hft",
+            }
+            pid = _spawn([_venv_python(), "tools/champion_cycle.py"], "hft_cycle_stdout.log", "hft_cycle_stderr.log", env=env_overrides)
+            time.sleep(1.2)
+            return {"ok": True, "message": f"HFT training cycle started pid={pid}"}
+
     except Exception as exc:
         return {"ok": False, "message": str(exc)}
 
@@ -2713,7 +2928,29 @@ def _load_html(path):
 
 
 async def index(_request):
-    return web.Response(text=_load_html(UI_HTML_PATH), content_type="text/html")
+    html = _load_html(UI_HTML_PATH)
+    # Inject current status data directly into HTML so page renders
+    # even if fetch/WebSocket are blocked by proxy or network
+    try:
+        status_data = json.dumps(read_status(refresh_if_booting=False), ensure_ascii=False)
+        inject_script = (
+            '\n<script>'
+            'try{render(' + status_data + ');}catch(e){console.warn("SSR render",e);}'
+            'if(!window.__jsonpPoll){window.__jsonpPoll=true;'
+            'window.__renderJSONP=function(d){try{render(d);}catch(e){}};'
+            'setInterval(function(){'
+            'var s=document.createElement("script");'
+            's.src="/api/jsonp?cb=__renderJSONP&_="+Date.now();'
+            's.onerror=function(){try{this.remove();}catch(e){}};'
+            's.onload=function(){try{this.remove();}catch(e){}};'
+            'document.body.appendChild(s);'
+            '},4000);}'
+            '</script>\n'
+        )
+        html = html.replace('</body>', inject_script + '</body>', 1)
+    except Exception:
+        pass
+    return web.Response(text=html, content_type="text/html")
 
 
 async def mini_app(_request):
@@ -2724,6 +2961,1347 @@ async def api_status(_request):
     return web.json_response(read_status(refresh_if_booting=False))
 
 
+async def api_jsonp(request):
+    """JSONP fallback for browsers where fetch/WebSocket are blocked."""
+    import re as _re
+    cb = request.query.get("cb", "render")
+    if not _re.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*$', cb):
+        cb = "render"
+    data = json.dumps(read_status(refresh_if_booting=False), ensure_ascii=False)
+    return web.Response(text=f"{cb}({data});", content_type="application/javascript")
+
+
+async def static_status(_request):
+    """Multi-page server-rendered HTML dashboard organized by ticker."""
+    page = _request.query.get("p", "overview")
+    sel_sym = _request.query.get("s", "")
+    d = read_status(refresh_if_booting=False)
+    t = d.get("training", {})
+    rows = t.get("symbol_stage_rows", [])
+    server = d.get("server", {})
+    registry = d.get("registry", {})
+    gate = d.get("canary_gate", {})
+    acct = d.get("account", {})
+    vis = t.get("visual", {})
+    tl = d.get("trade_learning", {})
+    active = d.get("active_models", {})
+    sym_perf = d.get("symbol_perf", [])
+    all_symbols = [r.get("symbol", "") for r in rows] if rows else list(d.get("active_models", {}).get("symbols", {}).keys())
+    stages = [("data_ingest", "MT5 Ingest"), ("features", "Features"), ("lstm", "LSTM Train"),
+              ("dreamer", "Dreamer Train"), ("ppo", "PPO Train"), ("candidate", "Evaluate"),
+              ("backtest", "Gate Check"), ("champion", "Canary/Champion"), ("trading", "Live Trade")]
+    def _e(s):
+        return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    def _cls(ok, t_str="good", f_str="warn"):
+        return t_str if ok else f_str
+    def _pill(label, value, tone=""):
+        return f'<div class="status-chip {_e(tone)}"><span>{_e(label)}</span><strong>{_e(value)}</strong></div>'
+    page_labels = {
+        "overview": "Overview",
+        "training": "Training",
+        "performance": "Performance",
+        "activity": "Activity",
+        "control": "Control",
+        "ticker": "Ticker detail",
+    }
+    page_blurb = {
+        "overview": "Portfolio, pipeline, and registry at a glance.",
+        "training": "Live model training status and queue progress.",
+        "performance": "Realized trading performance and equity curves.",
+        "activity": "Event intelligence and operational incidents.",
+        "control": "Operator controls for runtime and training actions.",
+        "ticker": "Per-symbol status and autonomous evolution trace.",
+    }
+    current_page_label = page_labels.get(page, "Overview")
+    current_page_blurb = page_blurb.get(page, "Live production status.")
+    last_refresh = d.get("timestamp_utc", "")[:19] or "pending"
+    state_value = str(d.get("state", "booting") or "booting")
+    state_tone = "good" if state_value == "live" else "warn" if state_value == "booting" else "bad"
+    server_running = bool(server.get("running"))
+    gate_ready = bool(gate.get("ready"))
+    account_connected = bool(acct.get("connected"))
+    CSS = """*{box-sizing:border-box;margin:0;padding:0}
+body{background:#06101b;color:#edf4ff;font-family:Inter,Segoe UI,Arial,sans-serif;padding:28px 32px;max-width:1600px;margin:0 auto}
+h1{font-size:36px;margin-bottom:6px;animation:fadeSlideDown .6s ease}
+.sub{color:#8ea3c2;font-size:15px;margin-bottom:12px;animation:fadeSlideDown .6s ease .1s both}
+
+/* Navigation tabs */
+.nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px;animation:fadeSlideDown .5s ease .15s both}
+.nav a{padding:10px 22px;border-radius:12px;font-size:14px;font-weight:600;text-decoration:none;color:#8ea3c2;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);transition:all .25s ease}
+.nav a:hover{background:rgba(79,214,255,.1);color:#4fd6ff;border-color:rgba(79,214,255,.2);transform:translateY(-2px)}
+.nav a.active{background:rgba(79,214,255,.15);color:#4fd6ff;border-color:rgba(79,214,255,.3);box-shadow:0 0 16px rgba(79,214,255,.15)}
+.nav .ticker-link{background:rgba(167,139,250,.08);border-color:rgba(167,139,250,.15)}
+.nav .ticker-link:hover,.nav .ticker-link.active{background:rgba(167,139,250,.2);color:#a78bfa;border-color:rgba(167,139,250,.35);box-shadow:0 0 16px rgba(167,139,250,.15)}
+
+.row{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:1000px){.row{grid-template-columns:1fr}}
+
+/* Card appearance + hover lift */
+.card{background:rgba(10,18,30,.86);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:24px 26px;margin-bottom:18px;
+  backdrop-filter:blur(12px);transition:transform .25s ease,border-color .3s ease,box-shadow .3s ease;
+  animation:fadeSlideUp .5s ease both}
+.card:hover{transform:translateY(-3px);border-color:rgba(79,214,255,.22);box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 20px rgba(79,214,255,.06)}
+.card:nth-child(1){animation-delay:.05s}.card:nth-child(2){animation-delay:.1s}.card:nth-child(3){animation-delay:.15s}
+.card:nth-child(4){animation-delay:.2s}.card:nth-child(5){animation-delay:.25s}.card:nth-child(6){animation-delay:.3s}
+.card h2{font-size:20px;margin-bottom:14px;color:#4fd6ff}
+.card h3{font-size:15px;margin:14px 0 8px;color:#a78bfa}
+.card.ticker-hero{border-color:rgba(167,139,250,.25);background:rgba(15,10,35,.9)}
+.card.ticker-hero h2{color:#a78bfa;font-size:24px}
+
+/* KPI grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kv{padding:14px 16px;background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(255,255,255,.06);
+  transition:background .2s ease,transform .2s ease,border-color .2s ease}
+.kv:hover{background:rgba(255,255,255,.06);transform:scale(1.03);border-color:rgba(79,214,255,.18)}
+.kv .label{font-size:11px;color:#8ea3c2;text-transform:uppercase;letter-spacing:.1em;transition:color .2s}
+.kv:hover .label{color:#4fd6ff}
+.kv .val{font-size:20px;font-weight:700;margin-top:4px;transition:color .3s ease}
+.good{color:#34d399}.warn{color:#fbbf24}.bad{color:#fb7185}.cyan{color:#4fd6ff}
+
+/* Table rows */
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);font-size:14px;transition:background .15s}
+tr:hover td{background:rgba(79,214,255,.04)}
+th{color:#8ea3c2;font-size:11px;text-transform:uppercase;letter-spacing:.1em}
+
+/* Badges */
+.badge{display:inline-block;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:600;transition:transform .15s,box-shadow .15s}
+.badge:hover{transform:scale(1.12)}
+.badge.done,.badge.live,.badge.ready,.badge.armed{background:rgba(52,211,153,.15);color:#34d399;box-shadow:0 0 8px rgba(52,211,153,.15)}
+.badge.active{background:rgba(79,214,255,.15);color:#4fd6ff;box-shadow:0 0 12px rgba(79,214,255,.2);animation:glowPulse 2s ease-in-out infinite}
+.badge.failed,.badge.paused{background:rgba(251,113,133,.15);color:#fb7185;box-shadow:0 0 8px rgba(251,113,133,.12)}
+.badge.queued,.badge.waiting{background:rgba(255,255,255,.06);color:#8ea3c2}
+.badge.testing,.badge.partial{background:rgba(251,191,36,.15);color:#fbbf24;animation:glowAmber 2s ease-in-out infinite}
+
+/* Progress bars - animated fill with ticker label */
+.bar{height:18px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;margin-top:6px;position:relative}
+.bf{height:100%;border-radius:99px;background:linear-gradient(90deg,#4fd6ff,#a78bfa);animation:barGrow .8s ease both;position:relative;min-width:0}
+.bf::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.25),transparent);animation:shimmer 2s ease-in-out infinite}
+.bf.done,.bf.live{background:linear-gradient(90deg,#1fd79b,#34d399)}
+.bf.failed{background:#fb7185}
+.bf.active{background:linear-gradient(90deg,#4fd6ff,#a78bfa)}
+.bar-label{position:absolute;left:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:#fff;z-index:1;text-shadow:0 1px 3px rgba(0,0,0,.6);white-space:nowrap}
+.bar-pct{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:600;color:#edf4ff;z-index:1;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+
+/* Large progress bars */
+.pbar{height:10px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;margin-top:8px}
+.pfill{height:100%;border-radius:99px;animation:barGrow 1s ease both;position:relative}
+.pfill::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);animation:shimmer 2.5s ease-in-out infinite}
+
+/* Equity chart bars */
+.eq-bar{transition:height .4s ease;animation:barRise .6s ease both}
+
+/* Incident feed rows */
+.feed-row{transition:background .15s;border-radius:8px;padding:6px 10px !important;font-size:13px !important}
+.feed-row:hover{background:rgba(79,214,255,.06)}
+
+/* Live indicator */
+.live-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#34d399;animation:breathe 2s ease-in-out infinite;margin-right:8px;box-shadow:0 0 8px rgba(52,211,153,.5)}
+
+/* Stage pipeline vertical for ticker page */
+.stage-vert{display:flex;flex-direction:column;gap:8px}
+.stage-step{display:flex;align-items:center;gap:14px;padding:14px 18px;background:rgba(255,255,255,.02);border-radius:14px;border:1px solid rgba(255,255,255,.05);transition:all .25s}
+.stage-step:hover{background:rgba(255,255,255,.05);border-color:rgba(79,214,255,.15)}
+.stage-num{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.stage-num.done{background:rgba(52,211,153,.2);color:#34d399;border:2px solid #34d399}
+.stage-num.active{background:rgba(79,214,255,.2);color:#4fd6ff;border:2px solid #4fd6ff;animation:glowPulse 2s ease-in-out infinite}
+.stage-num.failed{background:rgba(251,113,133,.2);color:#fb7185;border:2px solid #fb7185}
+.stage-num.queued{background:rgba(255,255,255,.05);color:#8ea3c2;border:2px solid rgba(255,255,255,.15)}
+.stage-info{flex:1}
+.stage-name{font-size:15px;font-weight:600}
+.stage-detail{font-size:12px;color:#8ea3c2;margin-top:2px}
+
+/* Keyframes */
+@keyframes fadeSlideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeSlideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes barGrow{from{width:0 !important}to{}}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+@keyframes breathe{0%,100%{opacity:1;box-shadow:0 0 8px rgba(52,211,153,.5)}50%{opacity:.6;box-shadow:0 0 16px rgba(52,211,153,.8)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 8px rgba(79,214,255,.15)}50%{box-shadow:0 0 18px rgba(79,214,255,.35)}}
+@keyframes glowAmber{0%,100%{box-shadow:0 0 6px rgba(251,191,36,.1)}50%{box-shadow:0 0 14px rgba(251,191,36,.3)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes barRise{from{height:0}}
+
+/* ── Animated background grid ── */
+body::before{content:'';position:fixed;inset:0;z-index:-2;
+  background:linear-gradient(rgba(79,214,255,.025) 1px,transparent 1px),
+             linear-gradient(90deg,rgba(79,214,255,.025) 1px,transparent 1px);
+  background-size:44px 44px;animation:gridDrift 30s linear infinite;pointer-events:none}
+@keyframes gridDrift{to{background-position:44px 44px}}
+body::after{content:'';position:fixed;inset:0;z-index:-1;
+  background:radial-gradient(ellipse at 20% 40%,rgba(79,214,255,.04) 0%,transparent 55%),
+             radial-gradient(ellipse at 80% 20%,rgba(167,139,250,.04) 0%,transparent 55%),
+             radial-gradient(ellipse at 50% 90%,rgba(52,211,153,.03) 0%,transparent 50%);
+  pointer-events:none}
+
+/* ── Floating particles ── */
+.particle{position:fixed;width:3px;height:3px;border-radius:50%;opacity:0;pointer-events:none;
+  animation:particleFloat 8s ease-in-out infinite}
+@keyframes particleFloat{
+  0%{opacity:0;transform:translateY(100vh) scale(0)}
+  20%{opacity:.6}60%{opacity:.4}
+  100%{opacity:0;transform:translateY(-10vh) scale(1.2)}}
+
+/* ── Enhanced active bar effects ── */
+.bf.active{background:linear-gradient(90deg,#4fd6ff,#a78bfa,#4fd6ff);background-size:300% 100%;
+  animation:barFlow 2.5s ease-in-out infinite;box-shadow:0 0 8px rgba(79,214,255,.3)}
+@keyframes barFlow{0%{background-position:100% 0}100%{background-position:-100% 0}}
+.pfill{transition:width .8s cubic-bezier(.4,0,.2,1)}
+
+/* ── Glow pulse on active cards ── */
+.card:has(.badge.active){border-color:rgba(79,214,255,.2);
+  box-shadow:0 0 24px rgba(79,214,255,.06),0 4px 20px rgba(0,0,0,.2)}
+
+/* ── Spinning indicator for active badge ── */
+.badge.active::before{content:'';display:inline-block;width:8px;height:8px;border:2px solid transparent;
+  border-top-color:currentColor;border-radius:50%;margin-right:5px;vertical-align:middle;
+  animation:spin .8s linear infinite}
+
+/* ── Value change flash ── */
+.val-flash{animation:valFlash .6s ease}
+@keyframes valFlash{0%{text-shadow:0 0 12px currentColor}100%{text-shadow:none}}
+
+/* ── Smooth number counter feel ── */
+.kv .val{transition:color .4s ease,opacity .15s}
+
+/* ── Connection status bar ── */
+#wsStatus{transition:background .3s;border-radius:8px;padding:8px 14px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04)}
+.conn-live{color:#34d399}.conn-poll{color:#fbbf24}.conn-off{color:#fb7185}
+
+/* Production shell overrides */
+body{padding:22px 24px 36px;max-width:1720px;line-height:1.5;text-rendering:optimizeLegibility}
+.dashboard-shell{display:grid;gap:18px}
+.page-header{display:grid;grid-template-columns:minmax(0,1.18fr) minmax(320px,.82fr);gap:14px;padding:24px;border:1px solid rgba(255,255,255,.08);border-radius:26px;
+  background:linear-gradient(180deg,rgba(12,20,34,.95),rgba(7,12,20,.9));box-shadow:0 18px 38px rgba(0,0,0,.28);backdrop-filter:blur(14px)}
+.page-copy{display:grid;gap:8px}
+.eyebrow{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:#8ddfff}
+.page-header h1{font-size:clamp(30px,4vw,48px);line-height:1.02;margin:0;letter-spacing:-.05em}
+.hero-meta{display:flex;flex-wrap:wrap;gap:10px;color:#8ea3c2;font-size:12px}
+.status-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.status-chip{padding:12px 14px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);display:grid;gap:3px}
+.status-chip span{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:#8ea3c2}
+.status-chip strong{font-size:15px;font-weight:700}
+.status-chip.good strong{color:#34d399}
+.status-chip.warn strong{color:#fbbf24}
+.status-chip.bad strong{color:#fb7185}
+.status-chip.cyan strong{color:#4fd6ff}
+.nav{position:sticky;top:12px;z-index:30;backdrop-filter:blur(12px);background:rgba(5,10,18,.66);padding:10px;border-radius:18px;border:1px solid rgba(255,255,255,.06)}
+.nav a{border-radius:14px}
+.card{padding:22px 24px}
+.card h2,.card h3{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.table-shell{overflow-x:auto;border:1px solid rgba(255,255,255,.06);border-radius:18px;background:rgba(255,255,255,.02);box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+.table-shell table{min-width:760px;margin:0}
+.table-shell th{position:sticky;top:0;background:rgba(10,18,30,.95);backdrop-filter:blur(8px)}
+table{width:100%;border-collapse:separate;border-spacing:0}
+th,td{border-bottom:1px solid rgba(255,255,255,.06)}
+td:first-child,th:first-child{padding-left:14px}
+td:last-child,th:last-child{padding-right:14px}
+@media(max-width:1200px){.page-header{grid-template-columns:1fr}.status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){body{padding:16px}.nav{position:static}.row,.laneGrid,.traceMetaGrid,.stats,.status-strip{grid-template-columns:1fr}.card,.page-header{padding:18px}.table-shell table{min-width:640px}}
+@media(max-width:640px){h1,.page-header h1{font-size:30px}.sub{font-size:13px}.nav a{padding:8px 12px;font-size:13px}}"""
+
+    # === Build navigation ===
+    def _nav_link(p_name, label, is_ticker=False):
+        active = " active" if (page == p_name or (p_name == "ticker" and page == "ticker" and sel_sym == label)) else ""
+        cls = "ticker-link" if is_ticker else ""
+        if is_ticker:
+            return f'<a class="{cls}{active}" href="/static?p=ticker&s={_e(label)}">{_e(label)}</a>'
+        return f'<a class="{cls}{active}" href="/static?p={_e(p_name)}">{_e(label)}</a>'
+
+    h = [f'<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cautious Giggle</title>',
+         '<meta http-equiv="refresh" content="8" id="metaRefresh">',
+         f'<style>{CSS}</style></head><body>',
+         '<div id="bgParticles" style="position:fixed;inset:0;pointer-events:none;z-index:-1;overflow:hidden"></div>',
+         '<main class="dashboard-shell">',
+         '<section class="page-header">',
+         '<div class="page-copy">',
+         '<div class="eyebrow">Live status dashboard</div>',
+         '<h1>Cautious Giggle</h1>',
+         f'<div class="sub">{_e(current_page_blurb)}</div>',
+         f'<div class="hero-meta"><span><span class="live-dot"></span>Auto-refresh every 8s</span><span>Updated { _e(last_refresh) }</span><span>{_e(current_page_label)}</span></div>',
+         '</div>',
+         '<div class="status-strip">',
+         _pill("State", state_value, state_tone),
+         _pill("Server", "Running" if server_running else "Stopped", "good" if server_running else "warn"),
+         _pill("Gate", "Ready" if gate_ready else "Hold", "good" if gate_ready else "warn"),
+         _pill("Account", "Connected" if account_connected else "Offline", "good" if account_connected else "warn"),
+         _pill("Champion", registry.get("champion") or "none", "good" if registry.get("champion") else "warn"),
+         '</div></section>']
+
+    # Navigation bar
+    h.append('<div class="nav">')
+    h.append(_nav_link("overview", "Overview"))
+    h.append(_nav_link("training", "Training"))
+    h.append(_nav_link("performance", "Performance"))
+    h.append(_nav_link("activity", "Activity"))
+    h.append(_nav_link("control", "Control"))
+    h.append('<span style="width:2px;background:rgba(255,255,255,.1);margin:0 8px;border-radius:1px"></span>')
+    for sym in all_symbols:
+        h.append(_nav_link("ticker", sym, is_ticker=True))
+    h.append('</div>')
+
+    # Build corrected status from symbol_stage_rows (overrides stale queue)
+    _corrected = {}
+    for _row in rows:
+        _sym = _row.get("symbol", "")
+        for _mk in ("lstm", "dreamer", "ppo"):
+            _sg = _row.get(_mk, {})
+            _corrected.setdefault(_mk, {})[_sym] = _sg
+
+    # ============================================================
+    # PAGE: OVERVIEW
+    # ============================================================
+    if page == "overview":
+        # System Overview
+        h.append('<div class="card"><h2>System Overview</h2><div class="grid">')
+        srv = server.get("running", False)
+        h.append(f'<div class="kv"><div class="label">State</div><div class="val good" data-v="state">{_e(d.get("state","?"))}</div></div>')
+        h.append(f'<div class="kv"><div class="label">Server</div><div class="val {_cls(srv)}" data-v="server.running" data-fmt="bool">{"Running" if srv else "Stopped"}</div></div>')
+        h.append(f'<div class="kv"><div class="label">Champion</div><div class="val" data-v="registry.champion">{_e(registry.get("champion") or "none")}</div></div>')
+        h.append(f'<div class="kv"><div class="label">Canary Gate</div><div class="val {_cls(gate.get("ready"))}" data-v="canary_gate.ready" data-fmt="gate">{"Ready" if gate.get("ready") else "Hold"}</div></div>')
+        if acct.get("connected"):
+            h.append(f'<div class="kv"><div class="label">Balance</div><div class="val" data-v="account.balance" data-fmt="usd">${acct.get("balance",0):,.2f}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Equity</div><div class="val" data-v="account.equity" data-fmt="usd">${acct.get("equity",0):,.2f}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Profit</div><div class="val {_cls(acct.get("profit",0)>=0)}" data-v="account.profit" data-fmt="usd">${acct.get("profit",0):,.2f}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Open Positions</div><div class="val" data-v="account.open_positions" data-fmt="int">{acct.get("open_positions",0)}</div></div>')
+        h.append('</div></div>')
+
+        # 9-Stage Pipeline
+        if rows:
+            h.append('<div class="card"><h2>9-Stage Pipeline</h2>')
+            h.append('<div class="table-shell"><table><tr><th>Symbol</th>')
+            for _, lbl in stages:
+                h.append(f'<th>{_e(lbl)}</th>')
+            h.append('</tr>')
+            for row in rows:
+                sym_name = row.get("symbol", "?")
+                h.append(f'<tr><td style="font-weight:600"><a href="/static?p=ticker&s={_e(sym_name)}" style="color:#a78bfa;text-decoration:none">{_e(sym_name)}</a></td>')
+                for key, _ in stages:
+                    sg = row.get(key, {})
+                    st = sg.get("state", "queued")
+                    pct = int(sg.get("progress_pct", 0) or 0)
+                    det = str(sg.get("detail", "") or "")[:40]
+                    h.append(f'<td><span class="badge {_e(st)}" data-tb="{_e(key)}.{_e(sym_name)}">{_e(st)}</span>')
+                    h.append(f'<div style="font-size:9px;color:#8ea3c2;margin-top:2px" data-sd="{_e(key)}.{_e(sym_name)}">{_e(det) if det and det != chr(8212) else ""}</div>')
+                    h.append(f'<div class="bar"><span class="bar-label">{_e(sym_name)}</span><div class="bf {_e(st)}" style="width:{pct}%"></div><span class="bar-pct">{pct}%</span></div></td>')
+                h.append('</tr>')
+            h.append('</table></div></div>')
+
+        # Ticker quick cards
+        if all_symbols:
+            h.append('<div class="row">')
+            for sym in all_symbols:
+                sym_row = next((r for r in rows if r.get("symbol") == sym), {})
+                sym_active_info = active.get("symbols", {}).get(sym, {})
+                # Count done/total stages
+                n_done_s = sum(1 for k, _ in stages if sym_row.get(k, {}).get("state") == "done")
+                n_active_s = sum(1 for k, _ in stages if sym_row.get(k, {}).get("state") == "active")
+                # Sym perf
+                sp = next((s for s in sym_perf if s.get("symbol") == sym), {})
+                h.append(f'<a href="/static?p=ticker&s={_e(sym)}" style="text-decoration:none;color:inherit">')
+                h.append(f'<div class="card ticker-hero" style="cursor:pointer">')
+                h.append(f'<h2>{_e(sym)}</h2>')
+                h.append('<div class="grid">')
+                h.append(f'<div class="kv"><div class="label">Pipeline</div><div class="val">{n_done_s}/{len(stages)} done</div></div>')
+                if n_active_s:
+                    h.append(f'<div class="kv"><div class="label">Active Stages</div><div class="val cyan">{n_active_s}</div></div>')
+                champ = sym_active_info.get("champion") or "none"
+                h.append(f'<div class="kv"><div class="label">Champion</div><div class="val">{_e(champ[:20])}</div></div>')
+                if sp:
+                    spnl = sp.get("pnl", 0)
+                    h.append(f'<div class="kv"><div class="label">7d PnL</div><div class="val {_cls(spnl>=0)}">${spnl:,.2f}</div></div>')
+                h.append('</div></div></a>')
+            h.append('</div>')
+
+        # Model Registry summary
+        h.append('<div class="card"><h2>Model Registry</h2><div class="grid">')
+        h.append(f'<div class="kv"><div class="label">Global Champion</div><div class="val">{_e(active.get("champion") or "none")}</div></div>')
+        h.append(f'<div class="kv"><div class="label">Global Canary</div><div class="val">{_e(active.get("canary") or "none")}</div></div>')
+        h.append('</div>')
+        syms_reg = active.get("symbols", {})
+        if syms_reg:
+            h.append('<div class="table-shell"><table><tr><th>Symbol</th><th>Champion</th><th>Canary</th><th>Canary State</th></tr>')
+            for sym, info in syms_reg.items():
+                cs = info.get("canary_state", {})
+                canary_val = info.get("canary") or "none"
+                if canary_val != "none" and len(canary_val) > 30:
+                    canary_val = "..." + canary_val[-25:]
+                h.append(f'<tr><td style="font-weight:600"><a href="/static?p=ticker&s={_e(sym)}" style="color:#a78bfa;text-decoration:none">{_e(sym)}</a></td>')
+                h.append(f'<td>{_e(info.get("champion") or "none")}</td>')
+                h.append(f'<td style="font-size:10px">{_e(canary_val)}</td>')
+                h.append(f'<td><span class="badge {"done" if cs.get("passed") else "warn"}">{_e(cs.get("reason",""))}</span></td></tr>')
+            h.append('</table></div>')
+        h.append('</div>')
+
+    # ============================================================
+    # PAGE: TICKER DETAIL (per-symbol)
+    # ============================================================
+    elif page == "ticker" and sel_sym:
+        sym_row = next((r for r in rows if r.get("symbol") == sel_sym), {})
+        sym_active_info = active.get("symbols", {}).get(sel_sym, {})
+        sp = next((s for s in sym_perf if s.get("symbol") == sel_sym), {})
+        tl_sym = next((b for b in tl.get("best_symbols", []) if b.get("symbol") == sel_sym), {})
+
+        # Hero card
+        h.append(f'<div class="card ticker-hero"><h2>{_e(sel_sym)}</h2>')
+        h.append('<div class="grid">')
+        champ = sym_active_info.get("champion") or "none"
+        canary = sym_active_info.get("canary") or "none"
+        cs = sym_active_info.get("canary_state", {})
+        h.append(f'<div class="kv"><div class="label">Champion</div><div class="val">{_e(champ[:30])}</div></div>')
+        h.append(f'<div class="kv"><div class="label">Canary</div><div class="val">{_e(canary[:30])}</div></div>')
+        h.append(f'<div class="kv"><div class="label">Canary Gate</div><div class="val {_cls(cs.get("passed"))}">{_e(cs.get("reason","pending"))}</div></div>')
+        if sp:
+            h.append(f'<div class="kv"><div class="label">7d Trades</div><div class="val">{sp.get("trades",0)}</div></div>')
+            spnl = sp.get("pnl", 0)
+            h.append(f'<div class="kv"><div class="label">7d PnL</div><div class="val {_cls(spnl>=0)}">${spnl:,.2f}</div></div>')
+            h.append(f'<div class="kv"><div class="label">7d Win Rate</div><div class="val {_cls(sp.get("win_rate",0)>40)}">{sp.get("win_rate",0):.1f}%</div></div>')
+        if tl_sym:
+            h.append(f'<div class="kv"><div class="label">All-time Trades</div><div class="val">{tl_sym.get("trades",0)}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Expectancy</div><div class="val {_cls(tl_sym.get("expectancy",0)>0)}">${tl_sym.get("expectancy",0):,.2f}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Profit Factor</div><div class="val {_cls(tl_sym.get("profit_factor",0)>1)}">{tl_sym.get("profit_factor",0):.2f}</div></div>')
+        h.append('</div></div>')
+
+        # Pipeline stages - vertical layout with descriptions
+        stage_desc = {
+            "data_ingest": "Pull live M5 candles from MetaTrader 5",
+            "features": "Engineer 150 technical features from raw OHLCV",
+            "lstm": "Train sequence memory model on price patterns",
+            "dreamer": "Train world-model for future state prediction",
+            "ppo": "Train RL policy via Proximal Policy Optimization",
+            "candidate": "Evaluate candidate vs current champion via backtest",
+            "backtest": "Gate check: Sharpe, drawdown, return thresholds",
+            "champion": "Deploy as canary, monitor live PnL for promotion",
+            "trading": "Live autonomous trading with risk supervisor",
+        }
+        if sym_row:
+            h.append(f'<div class="card"><h2>Autonomous Evolution Pipeline <button class="ibtn cycle" onclick="ctrlBtn(\'run_cycle\')">Run Full Cycle</button> <button class="ibtn rerun" onclick="ctrlBtn(\'force_ingest\');setTimeout(function(){{ctrlBtn(\'run_cycle\')}},1000)">Fresh Data + Cycle</button></h2>')
+            h.append(f'<div style="color:#8ea3c2;font-size:12px;margin-bottom:14px">Full training-to-trade cycle for <span style="color:#a78bfa;font-weight:700">{_e(sel_sym)}</span></div>')
+            h.append('<div class="stage-vert">')
+            for idx, (key, lbl) in enumerate(stages, 1):
+                sg = sym_row.get(key, {})
+                st = sg.get("state", "queued")
+                pct = int(sg.get("progress_pct", 0) or 0)
+                det = str(sg.get("detail", "") or "")[:60]
+                desc = stage_desc.get(key, "")
+                h.append(f'<div class="stage-step" style="animation:fadeSlideUp .4s ease {round(idx*0.06,2)}s both">')
+                h.append(f'<div class="stage-num {_e(st)}">{idx}</div>')
+                h.append(f'<div class="stage-info"><div class="stage-name">{_e(lbl)} <span class="badge {_e(st)}">{_e(st)}</span></div>')
+                h.append(f'<div class="stage-detail">{_e(desc)}</div>')
+                if det and det != "\u2014":
+                    h.append(f'<div class="stage-detail" style="color:#4fd6ff;margin-top:2px" data-sd="{_e(key)}.{_e(sel_sym)}">{_e(det)}</div>')
+                else:
+                    h.append(f'<div class="stage-detail" style="color:#4fd6ff;margin-top:2px;display:none" data-sd="{_e(key)}.{_e(sel_sym)}"></div>')
+                h.append(f'<div class="bar" style="margin-top:4px"><span class="bar-label">{_e(sel_sym)}</span><div class="bf {_e(st)}" style="width:{pct}%"></div><span class="bar-pct">{pct}%</span></div>')
+                h.append('</div></div>')
+            h.append('</div></div>')
+
+        # Training detail per model for this symbol
+        h.append('<div class="row">')
+        for mk, ml, color in [("lstm", "LSTM", "#4fd6ff"), ("ppo", "PPO", "#a78bfa"), ("dreamer", "DreamerV3", "#34d399")]:
+            mv = vis.get(mk, {})
+            corr_item = _corrected.get(mk, {}).get(sel_sym, {})
+            qi = next((q for q in mv.get("queue", []) if q.get("symbol") == sel_sym), {})
+            if not corr_item and not qi:
+                continue
+            st = corr_item.get("state") or qi.get("status", "queued")
+            pct = corr_item.get("progress_pct") or qi.get("progress_pct", 0) or 0
+            _act = "start_lstm" if mk == "lstm" else "start_drl"
+            _stp = "stop_lstm" if mk == "lstm" else "stop_drl"
+            h.append(f'<div class="card"><h2 style="color:{color}">{ml}')
+            if mk in ("lstm", "ppo"):
+                h.append(f'<button class="ibtn start" onclick="ctrlBtn(\'{_act}\')">Start</button>')
+                h.append(f'<button class="ibtn rerun" onclick="ctrlBtn(\'{_stp}\');setTimeout(function(){{ctrlBtn(\'{_act}\')}},2000)">Re-run</button>')
+                h.append(f'<button class="ibtn stop" onclick="ctrlBtn(\'{_stp}\')">Stop</button>')
+            h.append('</h2>')
+            h.append('<div class="grid">')
+            h.append(f'<div class="kv"><div class="label">Status</div><div class="val"><span class="badge {_e(st)}" data-tb="{_e(mk)}.{_e(sel_sym)}">{_e(st)}</span></div></div>')
+            h.append(f'<div class="kv"><div class="label">Progress</div><div class="val" data-tg="{_e(mk)}.{_e(sel_sym)}.pct">{int(pct)}%</div></div>')
+            if mk == "lstm":
+                h.append(f'<div class="kv"><div class="label">Epoch</div><div class="val" data-tg="{_e(mk)}.{_e(sel_sym)}.epoch">{qi.get("epoch","?")}/{qi.get("epochs_total","?")}</div></div>')
+                h.append(f'<div class="kv"><div class="label">Loss</div><div class="val" data-tg="{_e(mk)}.{_e(sel_sym)}.loss">{qi.get("loss","?")}</div></div>')
+                h.append(f'<div class="kv"><div class="label">Accuracy</div><div class="val" data-tg="{_e(mk)}.{_e(sel_sym)}.acc">{qi.get("acc","?")}%</div></div>')
+            elif mk == "ppo":
+                h.append(f'<div class="kv"><div class="label">Timesteps</div><div class="val" data-tg="{_e(mk)}.{_e(sel_sym)}.timesteps">{qi.get("current_timesteps",0):,}/{qi.get("target_timesteps",0):,}</div></div>')
+            elif mk == "dreamer":
+                h.append(f'<div class="kv"><div class="label">Steps</div><div class="val" data-tg="{_e(mk)}.{_e(sel_sym)}.steps">{qi.get("steps",0):,}</div></div>')
+                h.append(f'<div class="kv"><div class="label">Detail</div><div class="val" data-tg="{_e(mk)}.{_e(sel_sym)}.detail">{_e(qi.get("detail",""))}</div></div>')
+            h.append('</div>')
+            h.append(f'<div class="pbar" style="position:relative"><span class="bar-label">{_e(sel_sym)}</span><div class="pfill" style="width:{int(pct)}%;background:{color}"></div><span class="bar-pct">{int(pct)}%</span></div>')
+            h.append('</div>')
+        h.append('</div>')
+
+        # Event intel for this symbol
+        ei = d.get("event_intel", {})
+        sym_ei = ei.get("by_symbol", {}).get(sel_sym, {})
+        if sym_ei:
+            regime = sym_ei.get("regime", "normal")
+            h.append(f'<div class="card"><h2>Event Intelligence</h2><div class="grid">')
+            h.append(f'<div class="kv"><div class="label">Regime</div><div class="val {_cls(regime=="normal")}">{_e(regime)}</div></div>')
+            h.append('</div></div>')
+
+        # Incidents for this symbol
+        incidents = d.get("incidents", [])
+        sym_incidents = [i for i in incidents if i.get("symbol") == sel_sym]
+        if sym_incidents:
+            h.append(f'<div class="card"><h2>Activity Feed</h2>')
+            h.append('<div style="max-height:300px;overflow-y:auto">')
+            sev_cls = {"critical": "bad", "warning": "warn", "info": "cyan", "activity": "good"}
+            for inc_idx, inc in enumerate(sym_incidents[:20]):
+                sev = inc.get("severity", "info")
+                ts_raw = inc.get("ts", "")
+                ts_short = ts_raw[11:19] if len(ts_raw) > 19 else ts_raw
+                summ = inc.get("summary", "")
+                h.append(f'<div class="feed-row" style="display:flex;gap:8px;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.04);animation:fadeSlideUp .4s ease {round(inc_idx*0.04,2)}s both">')
+                h.append(f'<span style="color:#8ea3c2;min-width:56px;font-size:10px">{_e(ts_short)}</span>')
+                h.append(f'<span class="badge {_e(sev)}" style="min-width:52px;text-align:center">{_e(sev)}</span>')
+                h.append(f'<span>{_e(summ[:120])}</span>')
+                h.append('</div>')
+            h.append('</div></div>')
+
+    # ============================================================
+    # PAGE: TRAINING
+    # ============================================================
+    elif page == "training":
+        for mk, ml, color in [("lstm", "LSTM (Memory Forge)", "#4fd6ff"),
+                               ("ppo", "PPO (Tension Chamber)", "#a78bfa"),
+                               ("dreamer", "DreamerV3 (Future Prism)", "#34d399")]:
+            mv = vis.get(mk, {})
+            if not mv:
+                continue
+            corr = _corrected.get(mk, {})
+            n_done = sum(1 for v in corr.values() if v.get("state") == "done")
+            n_active = sum(1 for v in corr.values() if v.get("state") == "active")
+            n_failed = sum(1 for v in corr.values() if v.get("state") == "failed")
+            n_total = len(corr) or mv.get("summary", {}).get("total_symbols", 0)
+            comp_pct = (n_done / n_total * 100) if n_total else 0
+            queue = mv.get("queue", [])
+            _act = "start_lstm" if mk == "lstm" else "start_drl"
+            _stp = "stop_lstm" if mk == "lstm" else "stop_drl"
+            h.append(f'<div class="card"><h2 style="color:{color}">{ml}')
+            if mk in ("lstm", "ppo"):
+                h.append(f'<button class="ibtn start" onclick="ctrlBtn(\'{_act}\')">Start</button>')
+                h.append(f'<button class="ibtn rerun" onclick="ctrlBtn(\'{_stp}\');setTimeout(function(){{ctrlBtn(\'{_act}\')}},2000)">Re-run</button>')
+                h.append(f'<button class="ibtn stop" onclick="ctrlBtn(\'{_stp}\')">Stop</button>')
+            h.append('</h2>')
+            h.append('<div class="grid">')
+            h.append(f'<div class="kv"><div class="label">Completion</div><div class="val" data-tg="{mk}.completion">{comp_pct:.0f}%</div></div>')
+            h.append(f'<div class="kv"><div class="label">Completed</div><div class="val" data-tg="{mk}.completed">{n_done}/{n_total}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Active</div><div class="val good" data-tg="{mk}.active">{n_active}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Failed</div><div class="val bad" data-tg="{mk}.failed">{n_failed}</div></div>')
+            if mk == "lstm":
+                h.append(f'<div class="kv"><div class="label">Epochs</div><div class="val" data-tg="{mk}.epochs">{mv.get("epochs_total","—")}</div></div>')
+            if mk == "ppo":
+                h.append(f'<div class="kv"><div class="label">Timesteps</div><div class="val" data-tg="{mk}.timesteps">{mv.get("target_timesteps",0):,}</div></div>')
+                h.append(f'<div class="kv"><div class="label">Current</div><div class="val" data-tg="{mk}.current_ts">{mv.get("current_timesteps",0):,}</div></div>')
+            if mk == "dreamer":
+                h.append(f'<div class="kv"><div class="label">Steps</div><div class="val" data-tg="{mk}.steps">{mv.get("steps",0):,}</div></div>')
+            h.append('</div>')
+            # Per-symbol progress bars with ticker labels (replaces old summary bar)
+            if queue:
+                for qi in queue:
+                    qsym = qi.get("symbol", "")
+                    corr_item = corr.get(qsym, {})
+                    qs = corr_item.get("state") or qi.get("status", "queued")
+                    qpct = corr_item.get("progress_pct") or qi.get("progress_pct", 0) or 0
+                    qdet = ""
+                    if mk == "lstm":
+                        qdet = f'epoch {qi.get("epoch","?")}/{qi.get("epochs_total","?")} loss={qi.get("loss","?")} acc={qi.get("acc","?")}%'
+                    elif mk == "ppo":
+                        qdet = f'{qi.get("current_timesteps",0):,}/{qi.get("target_timesteps",0):,}'
+                    elif mk == "dreamer":
+                        qdet = qi.get("detail", "") or f'steps={qi.get("steps",0)}'
+                    h.append(f'<div style="margin-top:10px">')
+                    h.append(f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">')
+                    h.append(f'<a href="/static?p=ticker&s={_e(qsym)}" style="color:#a78bfa;text-decoration:none;font-weight:700;font-size:14px">{_e(qsym)}</a>')
+                    h.append(f'<span><span class="badge {_e(qs)}" data-tb="{_e(mk)}.{_e(qsym)}">{_e(qs)}</span> <span style="color:#8ea3c2;font-size:11px;margin-left:6px" data-td="{_e(mk)}.{_e(qsym)}">{_e(qdet)}</span></span>')
+                    h.append(f'</div>')
+                    h.append(f'<div class="bar"><span class="bar-label">{_e(qsym)}</span><div class="bf {_e(qs)}" style="width:{int(qpct)}%"></div><span class="bar-pct">{int(qpct)}%</span></div>')
+                    h.append(f'</div>')
+                h.append(f'<div class="pbar" style="margin-top:14px;position:relative"><span class="bar-label">Overall</span><div class="pfill" style="width:{comp_pct}%;background:{color}"></div><span class="bar-pct">{comp_pct:.0f}%</span></div>')
+            else:
+                h.append(f'<div class="pbar" style="position:relative"><span class="bar-label">Overall</span><div class="pfill" style="width:{comp_pct}%;background:{color}"></div><span class="bar-pct">{comp_pct:.0f}%</span></div>')
+            h.append('</div>')
+
+    # ============================================================
+    # PAGE: PERFORMANCE
+    # ============================================================
+    elif page == "performance":
+        # Account overview
+        if acct.get("connected"):
+            h.append('<div class="card"><h2>Account</h2><div class="grid">')
+            h.append(f'<div class="kv"><div class="label">Balance</div><div class="val" data-v="account.balance" data-fmt="usd">${acct.get("balance",0):,.2f}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Equity</div><div class="val" data-v="account.equity" data-fmt="usd">${acct.get("equity",0):,.2f}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Profit</div><div class="val {_cls(acct.get("profit",0)>=0)}" data-v="account.profit" data-fmt="usd">${acct.get("profit",0):,.2f}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Open Positions</div><div class="val" data-v="account.open_positions" data-fmt="int">{acct.get("open_positions",0)}</div></div>')
+            h.append('</div></div>')
+
+        # Trade Learning
+        if tl.get("available"):
+            h.append('<div class="card"><h2>Trade Learning</h2><div class="grid">')
+            h.append(f'<div class="kv"><div class="label">Total Trades</div><div class="val">{tl.get("trades",0):,}</div></div>')
+            wr = tl.get("win_rate", 0)
+            h.append(f'<div class="kv"><div class="label">Win Rate</div><div class="val {_cls(wr>40)}">{wr:.1f}%</div></div>')
+            exp = tl.get("expectancy", 0)
+            h.append(f'<div class="kv"><div class="label">Expectancy</div><div class="val {_cls(exp>0)}">${exp:,.2f}</div></div>')
+            pf = tl.get("profit_factor", 0)
+            h.append(f'<div class="kv"><div class="label">Profit Factor</div><div class="val {_cls(pf>1)}">{pf:.2f}</div></div>')
+            pnl = tl.get("total_pnl", 0)
+            h.append(f'<div class="kv"><div class="label">Total PnL</div><div class="val {_cls(pnl>0)}">${pnl:,.2f}</div></div>')
+            h.append('</div>')
+            # Per-symbol performance table
+            best = tl.get("best_symbols", [])
+            if best:
+                h.append('<h3>Per-Symbol Performance</h3>')
+                h.append('<div class="table-shell"><table><tr><th>Symbol</th><th>Trades</th><th>Win Rate</th><th>PnL</th><th>Expectancy</th><th>P/F</th></tr>')
+                for bs in best[:10]:
+                    bpnl = bs.get("total_pnl", 0)
+                    h.append(f'<tr><td style="font-weight:600"><a href="/static?p=ticker&s={_e(bs.get("symbol",""))}" style="color:#a78bfa;text-decoration:none">{_e(bs.get("symbol","?"))}</a></td>')
+                    h.append(f'<td>{bs.get("trades",0)}</td>')
+                    h.append(f'<td class="{_cls(bs.get("win_rate",0)>40)}">{bs.get("win_rate",0):.1f}%</td>')
+                    h.append(f'<td class="{_cls(bpnl>0)}">${bpnl:,.2f}</td>')
+                    h.append(f'<td>${bs.get("expectancy",0):,.2f}</td>')
+                    h.append(f'<td>{bs.get("profit_factor",0):.2f}</td></tr>')
+                h.append('</table></div>')
+            h.append('</div>')
+
+        # 7-Day Symbol Performance
+        if sym_perf:
+            h.append('<div class="card"><h2>7-Day Symbol Performance</h2>')
+            h.append('<div class="table-shell"><table><tr><th>Symbol</th><th>Trades</th><th>Wins</th><th>Win Rate</th><th>PnL</th></tr>')
+            for sp in sym_perf[:10]:
+                spnl = sp.get("pnl", 0)
+                h.append(f'<tr><td style="font-weight:600"><a href="/static?p=ticker&s={_e(sp.get("symbol",""))}" style="color:#a78bfa;text-decoration:none">{_e(sp.get("symbol","?"))}</a></td>')
+                h.append(f'<td>{sp.get("trades",0)}</td><td>{sp.get("wins",0)}</td>')
+                h.append(f'<td class="{_cls(sp.get("win_rate",0)>40)}">{sp.get("win_rate",0):.1f}%</td>')
+                h.append(f'<td class="{_cls(spnl>0)}">${spnl:,.2f}</td></tr>')
+            h.append('</table></div></div>')
+
+        # Equity + PnL charts
+        eq_chart = d.get("charts", {}).get("equity_curve", {})
+        eq_vals = eq_chart.get("values", []) if isinstance(eq_chart, dict) else []
+        spnl_chart = d.get("charts", {}).get("symbol_pnl", {})
+        if eq_vals or spnl_chart:
+            h.append('<div class="row">')
+            if eq_vals:
+                h.append('<div class="card"><h2>Equity Curve</h2>')
+                mn, mx = min(eq_vals), max(eq_vals)
+                rng = mx - mn if mx != mn else 1
+                h.append('<div style="display:flex;align-items:flex-end;gap:1px;height:100px">')
+                step = max(1, len(eq_vals) // 60)
+                sampled = eq_vals[::step][-60:]
+                for idx, v in enumerate(sampled):
+                    pct = max(2, int(((v - mn) / rng) * 100))
+                    color = "#34d399" if v >= sampled[0] else "#fb7185"
+                    delay = round(idx * 0.015, 3)
+                    h.append(f'<div class="eq-bar" style="flex:1;min-width:2px;height:{pct}%;background:{color};border-radius:2px 2px 0 0;animation-delay:{delay}s"></div>')
+                h.append('</div>')
+                h.append(f'<div style="display:flex;justify-content:space-between;font-size:10px;color:#8ea3c2;margin-top:4px"><span>${mn:,.2f}</span><span>${mx:,.2f}</span></div>')
+                h.append('</div>')
+            if isinstance(spnl_chart, dict) and spnl_chart.get("values"):
+                labels = spnl_chart.get("labels", [])
+                values = spnl_chart.get("values", [])
+                h.append('<div class="card"><h2>Symbol PnL</h2>')
+                mx_abs = max(abs(v) for v in values) if values else 1
+                for i, (lbl, val) in enumerate(zip(labels, values)):
+                    pct = int(abs(val) / mx_abs * 100) if mx_abs else 0
+                    color = "#34d399" if val >= 0 else "#fb7185"
+                    delay = round(i * 0.12, 2)
+                    h.append(f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;animation:fadeSlideUp .5s ease {delay}s both">')
+                    h.append(f'<span style="min-width:70px;font-size:11px;font-weight:600"><a href="/static?p=ticker&s={_e(lbl)}" style="color:#a78bfa;text-decoration:none">{_e(lbl)}</a></span>')
+                    h.append(f'<div style="flex:1;height:14px;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden">')
+                    h.append(f'<div style="height:100%;width:{pct}%;background:{color};border-radius:4px;animation:barGrow .8s ease {delay}s both"></div></div>')
+                    h.append(f'<span style="min-width:80px;text-align:right;font-size:11px;color:{color}">${val:,.2f}</span>')
+                    h.append('</div>')
+                h.append('</div>')
+            h.append('</div>')
+
+    # ============================================================
+    # PAGE: ACTIVITY
+    # ============================================================
+    elif page == "activity":
+        # Event Intelligence
+        ei = d.get("event_intel", {})
+        if ei.get("enabled"):
+            es = ei.get("summary", {})
+            by_sym = ei.get("by_symbol", {})
+            h.append('<div class="card"><h2>Event Intelligence</h2><div class="grid">')
+            h.append(f'<div class="kv"><div class="label">Upcoming 24h</div><div class="val">{es.get("upcoming_24h",0)}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Active Window</div><div class="val">{es.get("active_window",0)}</div></div>')
+            h.append(f'<div class="kv"><div class="label">High Impact 24h</div><div class="val {_cls(es.get("high_upcoming_24h",0)==0)}">{es.get("high_upcoming_24h",0)}</div></div>')
+            for sym, info in by_sym.items():
+                regime = info.get("regime", "normal")
+                h.append(f'<div class="kv"><div class="label"><a href="/static?p=ticker&s={_e(sym)}" style="color:#8ea3c2;text-decoration:none">{_e(sym)}</a></div><div class="val {_cls(regime=="normal")}">{_e(regime)}</div></div>')
+            h.append('</div></div>')
+
+        # Live Incident Feed
+        incidents = d.get("incidents", [])
+        if incidents:
+            h.append('<div class="card"><h2>Live Activity Feed</h2>')
+            h.append('<div style="max-height:500px;overflow-y:auto">')
+            sev_cls = {"critical": "bad", "warning": "warn", "info": "cyan", "activity": "good"}
+            for inc_idx, inc in enumerate(incidents[:40]):
+                sev = inc.get("severity", "info")
+                ts_raw = inc.get("ts", "")
+                ts_short = ts_raw[11:19] if len(ts_raw) > 19 else ts_raw
+                sym = inc.get("symbol", "")
+                summ = inc.get("summary", "")
+                h.append(f'<div class="feed-row" style="display:flex;gap:8px;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.04);animation:fadeSlideUp .4s ease {round(inc_idx*0.04,2)}s both">')
+                h.append(f'<span style="color:#8ea3c2;min-width:56px;font-size:10px">{_e(ts_short)}</span>')
+                h.append(f'<span class="badge {_e(sev)}" style="min-width:52px;text-align:center">{_e(sev)}</span>')
+                if sym:
+                    h.append(f'<a href="/static?p=ticker&s={_e(sym)}" style="font-weight:600;min-width:70px;color:#a78bfa;text-decoration:none">{_e(sym)}</a>')
+                h.append(f'<span style="color:#edf4ff">{_e(summ[:120])}</span>')
+                h.append('</div>')
+            h.append('</div></div>')
+
+    # ============================================================
+    # PAGE: CONTROL PANEL
+    # ============================================================
+    if page == "control":
+        # Read current config
+        try:
+            import yaml as _yaml
+            with open(os.path.join(ROOT, "config.yaml"), "r", encoding="utf-8") as _cf:
+                _cfg = _yaml.safe_load(_cf) or {}
+        except Exception:
+            _cfg = {}
+        cur_tf = _cfg.get("trading", {}).get("timeframe", "M5")
+        cur_period = _cfg.get("drl", {}).get("period", "90d")
+        cur_ts = _cfg.get("drl", {}).get("total_timesteps", 500000)
+        cur_lstm_epochs = _cfg.get("training", {}).get("lstm_epochs", 20)
+
+        # JS for control actions
+        h.append("""<script>
+function ctrlAction(action, extra){
+  var payload = Object.assign({action:action}, extra||{});
+  var btn = event.target; btn.disabled=true; btn.style.opacity='0.5';
+  var status = document.getElementById('ctrl-status');
+  status.textContent = 'Sending: ' + action + '...';
+  status.style.color = '#fbbf24';
+  fetch('/api/control', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      status.textContent = (d.ok?'OK':'FAIL') + ': ' + d.message;
+      status.style.color = d.ok?'#34d399':'#fb7185';
+      btn.disabled=false; btn.style.opacity='1';
+    })
+    .catch(function(e){
+      status.textContent = 'Error: ' + e;
+      status.style.color = '#fb7185';
+      btn.disabled=false; btn.style.opacity='1';
+    });
+}
+function setTimeframe(){
+  var tf = document.getElementById('sel-tf').value;
+  ctrlAction('set_timeframe', {timeframe: tf});
+}
+function setPeriod(){
+  var p = document.getElementById('sel-period').value;
+  ctrlAction('set_period', {period: p});
+}
+function setTimesteps(){
+  var ts = parseInt(document.getElementById('inp-ts').value);
+  ctrlAction('set_timesteps', {timesteps: ts});
+}
+function startCycleWithTF(){
+  var tf = document.getElementById('sel-cycle-tf').value;
+  ctrlAction('start_cycle_with_tf', {timeframe: tf});
+}
+function startDRL(){
+  var ts = parseInt(document.getElementById('inp-ts').value || 150000);
+  ctrlAction('start_drl', {timesteps: ts});
+}
+</script>""")
+
+        # Status bar
+        h.append('<div id="ctrl-status" style="background:rgba(79,214,255,.08);border:1px solid rgba(79,214,255,.2);border-radius:12px;padding:12px 18px;margin-bottom:18px;font-size:14px;color:#8ea3c2;animation:fadeSlideDown .4s ease both">Ready for commands</div>')
+
+        # CSS for control buttons
+        h.append("""<style>
+.ctrl-btn{padding:12px 24px;border-radius:12px;font-size:14px;font-weight:700;border:none;cursor:pointer;
+  transition:all .2s ease;text-transform:uppercase;letter-spacing:.05em}
+.ctrl-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.ctrl-btn:active{transform:translateY(0)}
+.ctrl-btn.green{background:linear-gradient(135deg,#1a7a4c,#34d399);color:#fff}
+.ctrl-btn.green:hover{box-shadow:0 8px 24px rgba(52,211,153,.3)}
+.ctrl-btn.cyan{background:linear-gradient(135deg,#1a6a8a,#4fd6ff);color:#fff}
+.ctrl-btn.cyan:hover{box-shadow:0 8px 24px rgba(79,214,255,.3)}
+.ctrl-btn.purple{background:linear-gradient(135deg,#5b3d99,#a78bfa);color:#fff}
+.ctrl-btn.purple:hover{box-shadow:0 8px 24px rgba(167,139,250,.3)}
+.ctrl-btn.red{background:linear-gradient(135deg,#8a1a2e,#fb7185);color:#fff}
+.ctrl-btn.red:hover{box-shadow:0 8px 24px rgba(251,113,133,.3)}
+.ctrl-btn.amber{background:linear-gradient(135deg,#8a6a1a,#fbbf24);color:#000}
+.ctrl-btn.amber:hover{box-shadow:0 8px 24px rgba(251,191,36,.3)}
+.ctrl-select{background:rgba(255,255,255,.06);color:#edf4ff;border:1px solid rgba(255,255,255,.15);border-radius:10px;
+  padding:10px 16px;font-size:15px;font-weight:600;outline:none;cursor:pointer;min-width:120px}
+.ctrl-select:focus{border-color:#4fd6ff}
+.ctrl-select option{background:#0a121e;color:#edf4ff}
+.ctrl-input{background:rgba(255,255,255,.06);color:#edf4ff;border:1px solid rgba(255,255,255,.15);border-radius:10px;
+  padding:10px 16px;font-size:15px;font-weight:600;outline:none;width:140px}
+.ctrl-input:focus{border-color:#4fd6ff}
+.ctrl-group{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+</style>""")
+
+        # Current Config card
+        h.append('<div class="card"><h2>Current Configuration</h2><div class="grid">')
+        h.append(f'<div class="kv"><div class="label">Timeframe</div><div class="val cyan">{_e(cur_tf)}</div></div>')
+        h.append(f'<div class="kv"><div class="label">Training Period</div><div class="val">{_e(cur_period)}</div></div>')
+        h.append(f'<div class="kv"><div class="label">PPO Timesteps</div><div class="val">{cur_ts:,}</div></div>')
+        h.append(f'<div class="kv"><div class="label">LSTM Epochs</div><div class="val">{cur_lstm_epochs}</div></div>')
+        h.append(f'<div class="kv"><div class="label">Data Source</div><div class="val">{_e(_cfg.get("data",{}).get("source","mt5"))}</div></div>')
+        h.append(f'<div class="kv"><div class="label">Features</div><div class="val">{_e(_cfg.get("drl",{}).get("feature_version","?"))}</div></div>')
+        h.append('</div></div>')
+
+        # Timeframe + Period + Timesteps controls
+        tfs = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"]
+        periods = ["30d", "60d", "90d", "120d", "180d", "365d"]
+
+        h.append('<div class="row">')
+
+        h.append('<div class="card"><h2>Timeframe & Data</h2>')
+        h.append('<div style="display:flex;flex-direction:column;gap:16px">')
+        # Timeframe selector
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">Timeframe</label>')
+        h.append(f'<select id="sel-tf" class="ctrl-select">')
+        for tf in tfs:
+            sel = ' selected' if tf == cur_tf else ''
+            h.append(f'<option value="{tf}"{sel}>{tf}</option>')
+        h.append('</select>')
+        h.append('<button class="ctrl-btn cyan" onclick="setTimeframe()">Set Timeframe</button></div>')
+        # Period selector
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">Period</label>')
+        h.append(f'<select id="sel-period" class="ctrl-select">')
+        for p in periods:
+            sel = ' selected' if p == cur_period else ''
+            h.append(f'<option value="{p}"{sel}>{p}</option>')
+        h.append('</select>')
+        h.append('<button class="ctrl-btn cyan" onclick="setPeriod()">Set Period</button></div>')
+        # Timesteps
+        h.append(f'<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">PPO Steps</label>')
+        h.append(f'<input id="inp-ts" class="ctrl-input" type="number" value="{cur_ts}" step="10000" min="1000">')
+        h.append('<button class="ctrl-btn cyan" onclick="setTimesteps()">Set Timesteps</button></div>')
+        # Force fresh data
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">Data Cache</label>')
+        h.append('<button class="ctrl-btn amber" onclick="ctrlAction(\'force_ingest\')">Clear Cache &amp; Force Fresh Data</button></div>')
+        h.append('</div></div>')
+
+        # Training Controls
+        h.append('<div class="card"><h2>Training Controls</h2>')
+        h.append('<div style="display:flex;flex-direction:column;gap:16px">')
+        # Quick cycle with timeframe
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">Quick Cycle</label>')
+        h.append(f'<select id="sel-cycle-tf" class="ctrl-select">')
+        for tf in tfs:
+            sel = ' selected' if tf == cur_tf else ''
+            h.append(f'<option value="{tf}"{sel}>{tf}</option>')
+        h.append('</select>')
+        h.append('<button class="ctrl-btn green" onclick="startCycleWithTF()">Start Full Cycle</button></div>')
+        # Individual training
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">LSTM</label>')
+        h.append('<button class="ctrl-btn green" onclick="ctrlAction(\'start_lstm\')">Start LSTM</button>')
+        h.append('<button class="ctrl-btn red" onclick="ctrlAction(\'stop_lstm\')">Stop LSTM</button></div>')
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">PPO</label>')
+        h.append('<button class="ctrl-btn green" onclick="startDRL()">Start PPO</button>')
+        h.append('<button class="ctrl-btn red" onclick="ctrlAction(\'stop_drl\')">Stop PPO</button></div>')
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">Full Cycle</label>')
+        h.append('<button class="ctrl-btn green" onclick="ctrlAction(\'run_cycle\')">Run Champion Cycle</button></div>')
+        h.append('</div></div>')
+
+        # HFT Controls
+        h.append('<div class="card"><h2 style="color:#fbbf24">HFT Scalper (M1 High-Frequency)</h2>')
+        h.append('<div style="color:#8ea3c2;font-size:12px;margin-bottom:14px">High-frequency M1 scalping mode — 5-second decision loop, aggressive reward weights, tight risk management</div>')
+        h.append('<div style="display:flex;flex-direction:column;gap:12px">')
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">HFT Server</label>')
+        h.append('<button class="ctrl-btn green" onclick="ctrlAction(\'start_hft\')">Start HFT</button>')
+        h.append('<button class="ctrl-btn red" onclick="ctrlAction(\'stop_hft\')">Stop HFT</button></div>')
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">HFT Training</label>')
+        h.append('<button class="ctrl-btn green" onclick="ctrlAction(\'run_hft_cycle\')">Train HFT Models (M1)</button></div>')
+        h.append('</div></div>')
+
+        h.append('</div>')  # end row
+
+        # Model Management
+        h.append('<div class="row">')
+        # Per-symbol canary controls
+        h.append('<div class="card"><h2>Model Promotion</h2>')
+        h.append('<div style="display:flex;flex-direction:column;gap:16px">')
+        for sym in all_symbols:
+            sym_info = active.get("symbols", {}).get(sym, {})
+            champ = sym_info.get("champion") or "none"
+            canary = sym_info.get("canary") or "none"
+            h.append(f'<div style="background:rgba(255,255,255,.03);border-radius:12px;padding:14px 18px;border:1px solid rgba(255,255,255,.06)">')
+            h.append(f'<div style="font-weight:700;font-size:16px;color:#a78bfa;margin-bottom:8px">{_e(sym)}</div>')
+            h.append(f'<div style="font-size:12px;color:#8ea3c2;margin-bottom:10px">Champion: {_e(str(champ)[:40])} | Canary: {_e(str(canary)[:40])}</div>')
+            h.append(f'<div class="ctrl-group">')
+            h.append(f'<button class="ctrl-btn purple" onclick="ctrlAction(\'set_canary_latest\',{{symbol:\'{_e(sym)}\'}})">Set Canary</button>')
+            h.append(f'<button class="ctrl-btn green" onclick="ctrlAction(\'promote_canary\',{{symbol:\'{_e(sym)}\'}})">Promote</button>')
+            h.append(f'<button class="ctrl-btn amber" onclick="ctrlAction(\'promote_canary_force\',{{symbol:\'{_e(sym)}\'}})">Force Promote</button>')
+            h.append(f'<button class="ctrl-btn red" onclick="ctrlAction(\'rollback_canary\',{{symbol:\'{_e(sym)}\'}})">Rollback</button>')
+            h.append('</div></div>')
+        h.append('</div></div>')
+
+        # Server controls
+        h.append('<div class="card"><h2>System Controls</h2>')
+        h.append('<div style="display:flex;flex-direction:column;gap:16px">')
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">Server AGI</label>')
+        h.append('<button class="ctrl-btn green" onclick="ctrlAction(\'restart_server\')">Restart Server</button></div>')
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">Trade Memory</label>')
+        h.append('<button class="ctrl-btn cyan" onclick="ctrlAction(\'rebuild_trade_memory\')">Rebuild Trade Memory</button></div>')
+        h.append('<div class="ctrl-group"><label style="min-width:100px;color:#8ea3c2;font-size:12px;text-transform:uppercase">Processes</label>')
+        h.append('<button class="ctrl-btn red" onclick="ctrlAction(\'normalize_owners\')">Kill Duplicate Processes</button></div>')
+        h.append('</div></div>')
+
+        h.append('</div>')  # end row
+
+    h.append('</main>')
+
+    # Footer
+    h.append(f'<div id="wsStatus" style="color:#8ea3c2;font-size:11px;margin-top:16px;padding-bottom:20px">')
+    h.append(f'<span class="live-dot"></span>')
+    h.append(f'<span id="connLabel">Connecting...</span></div>')
+
+    # Inline control button styles + JS (available on all pages)
+    h.append("""<style>
+.ibtn{display:inline-block;padding:6px 14px;border-radius:8px;font-size:11px;font-weight:700;border:none;cursor:pointer;
+  transition:all .2s;text-transform:uppercase;letter-spacing:.04em;vertical-align:middle;margin-left:6px}
+.ibtn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.ibtn.start{background:linear-gradient(135deg,#1a7a4c,#34d399);color:#fff}
+.ibtn.stop{background:linear-gradient(135deg,#8a1a2e,#fb7185);color:#fff}
+.ibtn.rerun{background:linear-gradient(135deg,#1a6a8a,#4fd6ff);color:#fff}
+.ibtn.cycle{background:linear-gradient(135deg,#5b3d99,#a78bfa);color:#fff}
+.ctrl-toast{position:fixed;top:20px;right:20px;padding:12px 22px;border-radius:12px;font-size:13px;font-weight:600;
+  z-index:9999;animation:toastIn .4s ease both;max-width:400px;backdrop-filter:blur(8px)}
+.ctrl-toast.ok{background:rgba(52,211,153,.2);color:#34d399;border:1px solid rgba(52,211,153,.3)}
+.ctrl-toast.err{background:rgba(251,113,133,.2);color:#fb7185;border:1px solid rgba(251,113,133,.3)}
+@keyframes toastIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+</style>
+<script>
+function ctrlBtn(action, extra){
+  var btn=event.target;btn.disabled=true;btn.style.opacity='.5';
+  var payload=Object.assign({action:action},extra||{});
+  fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      var t=document.createElement('div');
+      t.className='ctrl-toast '+(d.ok?'ok':'err');
+      t.textContent=(d.ok?'OK':'FAIL')+': '+d.message;
+      document.body.appendChild(t);
+      setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove()},400)},4000);
+      btn.disabled=false;btn.style.opacity='1';
+    })
+    .catch(function(e){btn.disabled=false;btn.style.opacity='1';});
+}
+</script>""")
+
+    # WebSocket + fetch polling — real-time JSON updates, NO page refresh
+    h.append("""<script>
+(function(){
+  var ws, reconnDelay=1000, pollTimer=null, wsConnected=false, lastDataTs=0;
+  var connLabel=document.getElementById('connLabel');
+  window.__liveData=null;
+
+  /* ── Disable meta-refresh once JS is running ── */
+  var metaRef=document.getElementById('metaRefresh');
+  if(metaRef) metaRef.remove();
+
+  /* ── Generate ambient particles ── */
+  (function(){
+    var c=document.getElementById('bgParticles');if(!c)return;
+    var colors=['#4fd6ff','#a78bfa','#34d399','#fbbf24'];
+    for(var i=0;i<20;i++){
+      var p=document.createElement('div');p.className='particle';
+      p.style.left=Math.random()*100+'%';
+      p.style.background=colors[Math.floor(Math.random()*colors.length)];
+      p.style.animationDelay=Math.random()*8+'s';
+      p.style.animationDuration=(6+Math.random()*6)+'s';
+      p.style.width=p.style.height=(1+Math.random()*3)+'px';
+      c.appendChild(p);
+    }
+  })();
+
+  function setConn(text,color,cls){
+    if(connLabel){connLabel.textContent=text;connLabel.className=cls||'';}
+    var dot=document.querySelector('#wsStatus .live-dot');
+    if(dot) dot.style.background=color||'#34d399';
+  }
+
+  /* ── Deep-get a value from nested object by dot path ── */
+  function _get(obj,path){
+    var parts=path.split('.');
+    for(var i=0;i<parts.length;i++){
+      if(!obj) return undefined;
+      var k=parts[i], m=k.match(/^(.+)\[(\d+)\]$/);
+      if(m){obj=obj[m[1]];if(Array.isArray(obj))obj=obj[parseInt(m[2])];} else obj=obj[k];
+    }
+    return obj;
+  }
+
+  /* ── Update all elements from live JSON ── */
+  function applyJSON(d){
+    window.__liveData=d;
+    /* Update timestamp in subtitle */
+    var sub=document.querySelector('.sub');
+    if(sub){
+      var ts=(d.timestamp_utc||'').substring(0,19);
+      var html=sub.innerHTML;
+      var idx=html.lastIndexOf('bull;');
+      if(idx>-1) sub.innerHTML=html.substring(0,idx+5)+' '+ts;
+    }
+
+    /* Update data-v bound elements */
+    var els=document.querySelectorAll('[data-v]');
+    for(var i=0;i<els.length;i++){
+      var el=els[i], val=_get(d,el.getAttribute('data-v'));
+      if(val===undefined) continue;
+      var fmt=el.getAttribute('data-fmt'), txt;
+      if(fmt==='bool') txt=val?'Running':'Stopped';
+      else if(fmt==='gate') txt=val?'Ready':'Hold';
+      else if(fmt==='usd') txt='$'+Number(val).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+      else if(fmt==='pct') txt=Math.round(val)+'%';
+      else if(fmt==='int') txt=Number(val).toLocaleString();
+      else txt=String(val);
+      if(el.textContent!==txt){el.textContent=txt;el.classList.remove('val-flash');void el.offsetWidth;el.classList.add('val-flash');}
+    }
+
+    /* ── Live-update training progress bars by ticker label ── */
+    var t=d.training||{}, rows=t.symbol_stage_rows||[], vis=t.visual||{};
+
+    /* Build lookup: symbol -> stage -> {state, progress_pct} */
+    var symStages={};
+    for(var r=0;r<rows.length;r++){
+      var row=rows[r], sym=row.symbol||'';
+      symStages[sym]=row;
+    }
+
+    /* Build lookup: model -> symbol -> {state, progress_pct} from visual queue */
+    var modelQ={};
+    ['lstm','ppo','dreamer'].forEach(function(mk){
+      var mv=vis[mk]||{}, q=mv.queue||[];
+      modelQ[mk]={};
+      for(var j=0;j<q.length;j++){
+        var qi=q[j]; modelQ[mk][qi.symbol||'']=qi;
+      }
+    });
+
+    /* Walk all progress bars: find .bar-label text to identify ticker */
+    var allBars=document.querySelectorAll('.bar, .pbar');
+    for(var b=0;b<allBars.length;b++){
+      var bar=allBars[b];
+      var lbl=bar.querySelector('.bar-label');
+      if(!lbl) continue;
+      var sym=lbl.textContent.trim();
+      if(!sym || sym==='Overall') continue;
+
+      /* Find the parent context to determine which stage/model this bar belongs to */
+      var card=bar.closest('.card');
+      if(!card) continue;
+      var h2=card.querySelector('h2');
+      if(!h2) continue;
+      var title=h2.textContent||'';
+
+      var newPct=null, newState=null;
+
+      /* Match by card title to find the right data */
+      if(title.indexOf('LSTM')>-1){
+        var corr=(symStages[sym]||{}).lstm||{};
+        var qi=modelQ.lstm[sym]||{};
+        newPct=corr.progress_pct||qi.progress_pct||0;
+        newState=corr.state||qi.status||'queued';
+      } else if(title.indexOf('PPO')>-1){
+        var corr=(symStages[sym]||{}).ppo||{};
+        var qi=modelQ.ppo[sym]||{};
+        newPct=corr.progress_pct||qi.progress_pct||0;
+        newState=corr.state||qi.status||'queued';
+      } else if(title.indexOf('Dreamer')>-1||title.indexOf('DreamerV3')>-1){
+        var corr=(symStages[sym]||{}).dreamer||{};
+        var qi=modelQ.dreamer[sym]||{};
+        newPct=corr.progress_pct||qi.progress_pct||0;
+        newState=corr.state||qi.status||'queued';
+      } else if(title.indexOf('Pipeline')>-1||title.indexOf('9-Stage')>-1){
+        /* Pipeline bars - find stage by row context */
+        var td=bar.closest('td');
+        if(td){
+          var tr=td.closest('tr');
+          var cellIdx=Array.prototype.indexOf.call(tr.children, td);
+          var stages=['data_ingest','features','lstm','dreamer','ppo','candidate','backtest','champion','trading'];
+          var stageKey=stages[cellIdx-1];
+          if(stageKey && symStages[sym]){
+            var sg=symStages[sym][stageKey]||{};
+            newPct=sg.progress_pct||0;
+            newState=sg.state||'queued';
+          }
+        }
+        /* Vertical pipeline (ticker page) */
+        var step=bar.closest('.stage-step');
+        if(step){
+          var stepName=step.querySelector('.stage-name');
+          if(stepName){
+            var sn=stepName.textContent.toLowerCase();
+            var stageMap={'mt5':'data_ingest','feature':'features','lstm':'lstm','dreamer':'dreamer',
+              'ppo':'ppo','evaluat':'candidate','gate':'backtest','canary':'champion','champion':'champion','live':'trading','trade':'trading'};
+            for(var sk in stageMap){
+              if(sn.indexOf(sk)>-1 && symStages[sym]){
+                var sg=symStages[sym][stageMap[sk]]||{};
+                newPct=sg.progress_pct||0;
+                newState=sg.state||'queued';
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if(newPct!==null){
+        newPct=Math.round(newPct);
+        var fill=bar.querySelector('.bf,.pfill');
+        if(fill){
+          var curW=parseInt(fill.style.width)||0;
+          if(curW!==newPct){
+            fill.style.transition='width .8s ease';
+            fill.style.width=newPct+'%';
+          }
+          if(newState){
+            fill.className=fill.className.replace(/\b(done|active|failed|queued|waiting|live)\b/g,'').trim()+' '+newState;
+          }
+        }
+        var pctEl=bar.querySelector('.bar-pct');
+        if(pctEl && pctEl.textContent!==newPct+'%') pctEl.textContent=newPct+'%';
+      }
+    }
+
+    /* Update badge states */
+    var allBadges=document.querySelectorAll('.badge');
+    /* Update badges inside stage-steps for ticker page */
+    var stageSteps=document.querySelectorAll('.stage-step');
+    for(var s=0;s<stageSteps.length;s++){
+      var step=stageSteps[s];
+      var nameEl=step.querySelector('.stage-name');
+      var barEl=step.querySelector('.bar');
+      if(!nameEl||!barEl) continue;
+      var lblEl=barEl.querySelector('.bar-label');
+      if(!lblEl) continue;
+      var sym=lblEl.textContent.trim();
+      var sn=nameEl.textContent.toLowerCase();
+      var stageMap={'mt5':'data_ingest','feature':'features','lstm':'lstm','dreamer':'dreamer',
+        'ppo':'ppo','evaluat':'candidate','gate':'backtest','canary':'champion','champion':'champion','live':'trading','trade':'trading'};
+      for(var sk in stageMap){
+        if(sn.indexOf(sk)>-1 && symStages[sym]){
+          var sg=symStages[sym][stageMap[sk]]||{};
+          var badge=nameEl.querySelector('.badge');
+          var numEl=step.querySelector('.stage-num');
+          if(badge && sg.state && badge.textContent!==sg.state){
+            badge.textContent=sg.state;
+            badge.className='badge '+sg.state;
+          }
+          if(numEl && sg.state){
+            numEl.className='stage-num '+sg.state;
+          }
+          break;
+        }
+      }
+    }
+
+    /* ── Live-update training detail text [data-td] ── */
+    var tdEls=document.querySelectorAll('[data-td]');
+    for(var i=0;i<tdEls.length;i++){
+      var el=tdEls[i], key=el.getAttribute('data-td');
+      var parts=key.split('.'); /* mk.sym */
+      if(parts.length<2) continue;
+      var mk=parts[0], sym=parts[1];
+      var qi=(modelQ[mk]||{})[sym]||{};
+      var corr=(symStages[sym]||{})[mk]||{};
+      var txt='';
+      if(mk==='lstm'){
+        var ep=qi.epoch||'?', ept=qi.epochs_total||'?', lo=qi.loss||'?', ac=qi.acc||'?';
+        txt='epoch '+ep+'/'+ept+' loss='+lo+' acc='+ac+'%';
+      } else if(mk==='ppo'){
+        var cs=qi.current_timesteps||0, ts=qi.target_timesteps||0;
+        txt=cs.toLocaleString()+'/'+ts.toLocaleString();
+      } else if(mk==='dreamer'){
+        txt=qi.detail||('steps='+(qi.steps||0));
+      }
+      if(txt && el.textContent!==txt) el.textContent=txt;
+    }
+
+    /* ── Live-update training badges [data-tb] ── */
+    var tbEls=document.querySelectorAll('[data-tb]');
+    for(var i=0;i<tbEls.length;i++){
+      var el=tbEls[i], key=el.getAttribute('data-tb');
+      var parts=key.split('.');
+      if(parts.length<2) continue;
+      var mk=parts[0], sym=parts[1];
+      var corr=(symStages[sym]||{})[mk]||{};
+      var qi=(modelQ[mk]||{})[sym]||{};
+      var st=corr.state||qi.status||'';
+      if(st && el.textContent!==st){
+        el.textContent=st;
+        el.className='badge '+st;
+      }
+    }
+
+    /* ── Live-update stage detail text [data-sd] ── */
+    var sdEls=document.querySelectorAll('[data-sd]');
+    for(var i=0;i<sdEls.length;i++){
+      var el=sdEls[i], key=el.getAttribute('data-sd');
+      var parts=key.split('.');
+      if(parts.length<2) continue;
+      var stageKey=parts[0], sym=parts[1];
+      var sg=(symStages[sym]||{})[stageKey]||{};
+      var det=sg.detail||'';
+      if(det){
+        el.textContent=det;
+        el.style.display='';
+      }
+    }
+
+    /* ── Live-update training grid stats [data-tg] ── */
+    var tgEls=document.querySelectorAll('[data-tg]');
+    for(var i=0;i<tgEls.length;i++){
+      var el=tgEls[i], key=el.getAttribute('data-tg');
+      var parts=key.split('.');
+      if(parts.length<2) continue;
+      var mk=parts[0];
+
+      /* Per-symbol fields: mk.sym.field (e.g., lstm.BTCUSDm.epoch) */
+      if(parts.length>=3){
+        var sym=parts[1], field=parts[2];
+        var qi=(modelQ[mk]||{})[sym]||{};
+        var corr=(symStages[sym]||{})[mk]||{};
+        var txt='';
+        if(field==='pct') txt=Math.round(corr.progress_pct||qi.progress_pct||0)+'%';
+        else if(field==='epoch') txt=(qi.epoch||'?')+'/'+(qi.epochs_total||'?');
+        else if(field==='loss') txt=String(qi.loss||'?');
+        else if(field==='acc') txt=(qi.acc||'?')+'%';
+        else if(field==='timesteps') txt=(qi.current_timesteps||0).toLocaleString()+'/'+(qi.target_timesteps||0).toLocaleString();
+        else if(field==='steps') txt=(qi.steps||0).toLocaleString();
+        else if(field==='detail') txt=qi.detail||'';
+        if(txt && el.textContent!==txt) el.textContent=txt;
+        continue;
+      }
+
+      /* Global model stats: mk.stat (e.g., lstm.completion) */
+      var stat=parts[1];
+      var mv=vis[mk]||{}, summ=mv.summary||{}, q=mv.queue||[];
+      var corr_all={};
+      for(var sym in symStages){
+        var sg=(symStages[sym]||{})[mk];
+        if(sg) corr_all[sym]=sg;
+      }
+      var nDone=0, nActive=0, nFailed=0, nTotal=Object.keys(corr_all).length||summ.total_symbols||0;
+      for(var sym in corr_all){
+        if(corr_all[sym].state==='done') nDone++;
+        else if(corr_all[sym].state==='active') nActive++;
+        else if(corr_all[sym].state==='failed') nFailed++;
+      }
+      var compPct=nTotal>0?Math.round(nDone/nTotal*100):0;
+      var txt='';
+      if(stat==='completion') txt=compPct+'%';
+      else if(stat==='completed') txt=nDone+'/'+nTotal;
+      else if(stat==='active') txt=String(nActive);
+      else if(stat==='failed') txt=String(nFailed);
+      else if(stat==='epochs') txt=String(mv.epochs_total||'—');
+      else if(stat==='timesteps') txt=(mv.target_timesteps||0).toLocaleString();
+      else if(stat==='current_ts') txt=(mv.current_timesteps||0).toLocaleString();
+      else if(stat==='steps') txt=(mv.steps||0).toLocaleString();
+      if(txt && el.textContent!==txt) el.textContent=txt;
+    }
+
+    /* ── Live-update overall completion bars (.pbar with Overall label) ── */
+    var pBars=document.querySelectorAll('.pbar');
+    for(var b=0;b<pBars.length;b++){
+      var bar=pBars[b];
+      var lbl=bar.querySelector('.bar-label');
+      if(!lbl || lbl.textContent.trim()!=='Overall') continue;
+      var card=bar.closest('.card');
+      if(!card) continue;
+      var h2=card.querySelector('h2');
+      if(!h2) continue;
+      var title=h2.textContent||'';
+      var mk=null;
+      if(title.indexOf('LSTM')>-1) mk='lstm';
+      else if(title.indexOf('PPO')>-1) mk='ppo';
+      else if(title.indexOf('Dreamer')>-1||title.indexOf('DreamerV3')>-1) mk='dreamer';
+      if(!mk) continue;
+      var corr_all={};
+      for(var sym in symStages){
+        var sg=(symStages[sym]||{})[mk];
+        if(sg) corr_all[sym]=sg;
+      }
+      var nDone=0, nTotal=Object.keys(corr_all).length;
+      for(var sym in corr_all){ if(corr_all[sym].state==='done') nDone++; }
+      var compPct=nTotal>0?Math.round(nDone/nTotal*100):0;
+      var fill=bar.querySelector('.pfill');
+      if(fill){
+        var curW=parseInt(fill.style.width)||0;
+        if(curW!==compPct){
+          fill.style.transition='width .8s ease';
+          fill.style.width=compPct+'%';
+        }
+      }
+      var pctEl=bar.querySelector('.bar-pct');
+      if(pctEl && pctEl.textContent!==compPct+'%') pctEl.textContent=compPct+'%';
+    }
+  }
+
+  /* ── Fetch-based polling fallback ── */
+  function fetchPoll(){
+    fetch('/api/status').then(function(r){return r.json()}).then(function(d){
+      applyJSON(d);
+      lastDataTs=Date.now();
+      if(!wsConnected) setConn('Polling','#fbbf24','conn-poll');
+    }).catch(function(){});
+  }
+
+  function startPollFallback(){
+    if(pollTimer) return;
+    pollTimer=setInterval(function(){
+      if(!wsConnected || (Date.now()-lastDataTs)>6000) fetchPoll();
+    },3000);
+  }
+
+  function connectWS(){
+    try{
+      var proto=location.protocol==='https:'?'wss':'ws';
+      ws=new WebSocket(proto+'://'+location.host+'/ws');
+    }catch(e){
+      setConn('WS unavailable — polling','#fbbf24','conn-poll');
+      startPollFallback();
+      return;
+    }
+    ws.onopen=function(){
+      wsConnected=true;
+      setConn('Live','#34d399','conn-live');
+      reconnDelay=1000;
+    };
+    ws.onmessage=function(ev){
+      try{
+        var d=JSON.parse(ev.data);
+        lastDataTs=Date.now();
+        applyJSON(d);
+      }catch(e){}
+    };
+    ws.onerror=function(){try{ws.close();}catch(e){}};
+    ws.onclose=function(){
+      ws=null;wsConnected=false;
+      setConn('Reconnecting...','#fbbf24','conn-poll');
+      reconnDelay=Math.min(reconnDelay*1.5,15000);
+      setTimeout(connectWS,reconnDelay);
+    };
+  }
+
+  connectWS();
+  startPollFallback();
+  setConn('Connecting...','#fbbf24','conn-poll');
+})();
+</script>""")
+
+    h.append('</body></html>')
+    return web.Response(text="".join(h), content_type="text/html")
+
+
 async def api_control(request):
     data = await request.json()
     action = str(data.get("action", "")).strip()
@@ -2732,6 +4310,35 @@ async def api_control(request):
     if alerter and result.get("ok"):
         alerter.alert(f"UI control executed: {action} | {result.get('message')}")
     return web.json_response(result)
+
+async def api_patterns(request):
+    from Python.pattern_recognition import get_pattern_library
+    lib = get_pattern_library() or {}
+    if isinstance(lib, dict):
+        items = []
+        for k, v in lib.items():
+            if isinstance(v, dict):
+                items.append({**v, 'pattern_name': k})
+            else:
+                items.append({'pattern_name': k, 'details': v})
+        lib = items
+    return web.json_response(lib)
+
+async def api_performance(request):
+    from Python.perpetual_improvement import export_perpetual_improvement_state
+    try:
+        return web.json_response(export_perpetual_improvement_state())
+    except Exception:
+        return web.json_response({})
+
+async def api_frontend(request):
+    # Serve lightweight static frontend (status.html) if present
+    S = os.path.join(ROOT, 'frontend', 'status.html')
+    if os.path.exists(S):
+        with open(S, 'r', encoding='utf-8') as f:
+            html = f.read()
+        return web.Response(text=html, content_type='text/html')
+    return web.Response(text='<html><body>Frontend MVP not found</body></html>', content_type='text/html')
 
 
 async def ws_status(request):
@@ -2824,11 +4431,16 @@ def run(host="127.0.0.1", port=8088):
     app.router.add_get("/", index)
     app.router.add_get("/mini", mini_app)
     app.router.add_get("/api/status", api_status)
+    app.router.add_get("/api/jsonp", api_jsonp)
+    app.router.add_get("/static", static_status)
     app.router.add_post("/api/control", api_control)
     app.router.add_get("/ws", ws_status)
     app.on_startup.append(on_startup)
+    app.router.add_get("/frontend/status", api_frontend)
+    app.router.add_get("/api/patterns", api_patterns)
+    app.router.add_get("/api/perf", api_performance)
     web.run_app(app, host=host, port=int(port))
 
 
 if __name__ == "__main__":
-    run(host=os.environ.get("AGI_UI_HOST", "127.0.0.1"), port=int(os.environ.get("AGI_UI_PORT", "8088")))
+    run(host=os.environ.get("AGI_UI_HOST", "0.0.0.0"), port=int(os.environ.get("AGI_UI_PORT", "8088")))

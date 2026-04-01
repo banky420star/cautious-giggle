@@ -10,39 +10,331 @@
       "champion_history": []
     },
     "XAUUSDm": {
-      "champion": null,
-      "canary": "C:\\Users\\Administrator\\work\\cautious-giggle-clone-20260320161357\\models\\registry\\candidates\\20260321_133855_042650_XAUUSDm",
+      "champion": "C:\\Users\\Administrator\\work\\cautious-giggle-clone-20260320161357\\models\\registry\\candidates\\20260321_133855_042650_XAUUSDm",
+      "canary": null,
       "canary_policy": {
         "min_trades": 30,
         "min_realized_pnl": 0.0,
         "max_drawdown": 0.12,
         "min_runtime_minutes": 45
       },
-      "canary_state": {
-        "passed": false,
-        "reason": "no_metrics"
-      },
-      "champion_history": []
+      "canary_state": {},
+      "champion_history": [
+        {
+          "path": "C:\\Users\\Administrator\\work\\cautious-giggle-clone-20260320161357\\models\\registry\\candidates\\20260321_133855_042650_XAUUSDm",
+          "recorded_at": "2026-03-22T23:24:15.889054+00:00",
+          "metadata": {
+            "type": "ppo",
+            "symbol": "XAUUSDm",
+            "symbols": [
+              "XAUUSDm"
+            ],
+            "timeframe": "5m",
+            "period": "90d",
+            "candles": 100000,
+            "timesteps": 500000,
+            "data_source": "mt5",
+            "feature_set_version": "ultimate_150",
+            "normalization_version": "vecnorm_v1",
+            "reward": {
+              "version": "v2_risk_adjusted",
+              "weights": {
+                "growth": 8.0,
+                "payoff": 2.0,
+                "sharpe_bonus": 1.0,
+                "drawdown_penalty": 3.0,
+                "cost_penalty": 5.0,
+                "churn_penalty": 0.5,
+                "memory_expectancy_bonus": 0.5,
+                "loss_streak_penalty": 0.4
+              }
+            },
+            "reward_version": "v2_risk_adjusted",
+            "action_config": {},
+            "ppo_params": {
+              "learning_rate": 0.0001,
+              "n_steps": 4096,
+              "batch_size": 512,
+              "n_epochs": 10,
+              "gamma": 0.995,
+              "gae_lambda": 0.95,
+              "clip_range": 0.2,
+              "ent_coef": 0.005,
+              "vf_coef": 0.5,
+              "max_grad_norm": 0.5,
+              "target_kl": 0.01,
+              "use_sde": true,
+              "sde_sample_freq": 4
+            },
+            "policy_extractor": "adaptive_lstm",
+            "window_size": 100,
+            "windows": {
+              "train": "90d",
+              "validate": "120d",
+              "forward": [
+                "60d",
+                "90d",
+                "120d"
+              ]
+            },
+            "source": "EvalCallback best_model.zip + matching VecNormalize",
+            "date": "2026-03-21T12:38:55.183351+00:00",
+            "scorecard": {
+              "type": "ppo",
+              "symbol": "XAUUSDm",
+              "symbols": [
+                "XAUUSDm"
+              ],
+              "timeframe": "5m",
+              "period": "90d",
+              "candles": 100000,
+              "timesteps": 500000,
+              "data_source": "mt5",
+              "feature_set_version": "ultimate_150",
+              "normalization_version": "vecnorm_v1",
+              "reward": {
+                "version": "v2_risk_adjusted",
+                "weights": {
+                  "growth": 8.0,
+                  "payoff": 2.0,
+                  "sharpe_bonus": 1.0,
+                  "drawdown_penalty": 3.0,
+                  "cost_penalty": 5.0,
+                  "churn_penalty": 0.5,
+                  "memory_expectancy_bonus": 0.5,
+                  "loss_streak_penalty": 0.4
+                }
+              },
+              "reward_version": "v2_risk_adjusted",
+              "action_config": {},
+              "ppo_params": {
+                "learning_rate": 0.0001,
+                "n_steps": 4096,
+                "batch_size": 512,
+                "n_epochs": 10,
+                "gamma": 0.995,
+                "gae_lambda": 0.95,
+                "clip_range": 0.2,
+                "ent_coef": 0.005,
+                "vf_coef": 0.5,
+                "max_grad_norm": 0.5,
+                "target_kl": 0.01,
+                "use_sde": true,
+                "sde_sample_freq": 4
+              },
+              "policy_extractor": "adaptive_lstm",
+              "window_size": 100,
+              "windows": {
+                "train": "90d",
+                "validate": "120d",
+                "forward": [
+                  "60d",
+                  "90d",
+                  "120d"
+                ]
+              },
+              "source": "EvalCallback best_model.zip + matching VecNormalize",
+              "date": "2026-03-21T12:38:55.183351+00:00"
+            },
+            "training_timesteps": 500000,
+            "integrity": {
+              "model": "f9e710f03d139fca82a69685ad34b9fccee5e18ff1cef1cc2d5c9857178dac0f",
+              "vec_normalize": "6038ddc1f40cb049da843c7c2b11048a2fffb92e0c08d74898a86a9c3b00b27f"
+            }
+          }
+        }
+      ]
     },
     "BTCUSDm": {
-      "champion": null,
+      "champion": "C:\\Users\\Administrator\\work\\cautious-giggle-clone-20260320161357\\models\\registry\\candidates\\20260322_085224_272856_BTCUSDm",
       "canary": null,
       "canary_policy": {
-        "min_trades": 60,
-        "min_realized_pnl": 0.0,
-        "max_drawdown": 0.08,
-        "min_runtime_minutes": 45
+        "min_trades": 80,
+        "min_realized_pnl": -50.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 30
       },
       "canary_state": {},
-      "champion_history": []
+      "champion_history": [
+        {
+          "path": "C:\\Users\\Administrator\\work\\cautious-giggle-clone-20260320161357\\models\\registry\\candidates\\20260322_085224_272856_BTCUSDm",
+          "recorded_at": "2026-04-01T00:24:57.526725+00:00",
+          "metadata": {
+            "type": "ppo",
+            "symbol": "BTCUSDm",
+            "symbols": [
+              "BTCUSDm"
+            ],
+            "timeframe": "5m",
+            "period": "90d",
+            "candles": 100000,
+            "timesteps": 150000,
+            "data_source": "mt5",
+            "feature_set_version": "ultimate_150",
+            "normalization_version": "vecnorm_v1",
+            "reward": {
+              "version": "v2_risk_adjusted",
+              "weights": {
+                "growth": 8.0,
+                "payoff": 2.0,
+                "sharpe_bonus": 1.0,
+                "drawdown_penalty": 3.0,
+                "cost_penalty": 5.0,
+                "churn_penalty": 0.5,
+                "memory_expectancy_bonus": 0.5,
+                "loss_streak_penalty": 0.4
+              }
+            },
+            "reward_version": "v2_risk_adjusted",
+            "action_config": {},
+            "ppo_params": {
+              "learning_rate": 0.0001,
+              "n_steps": 4096,
+              "batch_size": 512,
+              "n_epochs": 10,
+              "gamma": 0.995,
+              "gae_lambda": 0.95,
+              "clip_range": 0.2,
+              "ent_coef": 0.005,
+              "vf_coef": 0.5,
+              "max_grad_norm": 0.5,
+              "target_kl": 0.01,
+              "use_sde": true,
+              "sde_sample_freq": 4
+            },
+            "policy_extractor": "adaptive_lstm",
+            "window_size": 100,
+            "windows": {
+              "train": "90d",
+              "validate": "120d",
+              "forward": [
+                "60d",
+                "90d",
+                "120d"
+              ]
+            },
+            "source": "EvalCallback best_model.zip + matching VecNormalize",
+            "date": "2026-03-22T07:52:24.351034+00:00",
+            "evaluation": {
+              "candidate_score": -42.00885135013057,
+              "winner": true,
+              "gates_passed": false,
+              "gates_reasons": [
+                "backtest_return_fail:-0.1450<-0.0200"
+              ],
+              "forward_windows": [
+                {
+                  "period": "60d",
+                  "candidate_score": -42.00885135013057,
+                  "champion_score": null,
+                  "wins": true
+                },
+                {
+                  "period": "90d",
+                  "candidate_score": -42.04987597363864,
+                  "champion_score": null,
+                  "wins": true
+                },
+                {
+                  "period": "120d",
+                  "candidate_score": -40.800167511576305,
+                  "champion_score": null,
+                  "wins": true
+                }
+              ],
+              "per_symbol": [
+                {
+                  "symbol": "BTCUSDm",
+                  "score": -42.00885135013057,
+                  "max_drawdown": 0.1501173916153199,
+                  "sharpe": -0.06186827303841944,
+                  "total_return": -0.14497455882089105,
+                  "steps": 3380,
+                  "passes": false,
+                  "checks": {
+                    "dd_ok": true,
+                    "sharpe_ok": true,
+                    "return_ok": false,
+                    "steps_ok": true
+                  }
+                }
+              ],
+              "timestamp": "2026-03-22T07:56:29.733552+00:00"
+            },
+            "integrity": {
+              "model": "bfb8b6cec372806f0e210f7e426ca430a549a15a4e369a84ff32fa61d78c8ef5",
+              "vec_normalize": "dcbc247cfe8859f727d7098ee66227116faa9298b9c6b4f0bd33b02fc98e4d71"
+            },
+            "scorecard": {
+              "type": "ppo",
+              "symbol": "BTCUSDm",
+              "symbols": [
+                "BTCUSDm"
+              ],
+              "timeframe": "5m",
+              "period": "90d",
+              "candles": 100000,
+              "timesteps": 150000,
+              "data_source": "mt5",
+              "feature_set_version": "ultimate_150",
+              "normalization_version": "vecnorm_v1",
+              "reward": {
+                "version": "v2_risk_adjusted",
+                "weights": {
+                  "growth": 8.0,
+                  "payoff": 2.0,
+                  "sharpe_bonus": 1.0,
+                  "drawdown_penalty": 3.0,
+                  "cost_penalty": 5.0,
+                  "churn_penalty": 0.5,
+                  "memory_expectancy_bonus": 0.5,
+                  "loss_streak_penalty": 0.4
+                }
+              },
+              "reward_version": "v2_risk_adjusted",
+              "action_config": {},
+              "ppo_params": {
+                "learning_rate": 0.0001,
+                "n_steps": 4096,
+                "batch_size": 512,
+                "n_epochs": 10,
+                "gamma": 0.995,
+                "gae_lambda": 0.95,
+                "clip_range": 0.2,
+                "ent_coef": 0.005,
+                "vf_coef": 0.5,
+                "max_grad_norm": 0.5,
+                "target_kl": 0.01,
+                "use_sde": true,
+                "sde_sample_freq": 4
+              },
+              "policy_extractor": "adaptive_lstm",
+              "window_size": 100,
+              "windows": {
+                "train": "90d",
+                "validate": "120d",
+                "forward": [
+                  "60d",
+                  "90d",
+                  "120d"
+                ]
+              },
+              "source": "EvalCallback best_model.zip + matching VecNormalize",
+              "date": "2026-03-22T07:52:24.351034+00:00"
+            },
+            "training_timesteps": 150000,
+            "registered_at": "2026-03-22T07:56:29.781707+00:00"
+          }
+        }
+      ]
     }
   },
   "canary_policy": {},
   "canary_state": {},
   "champion_history": [],
   "registry_metadata": {
-    "updated_at": "2026-03-21T20:17:06.547458+00:00",
-    "git_commit": "69bbe906fcd8c6ca0c2d4bb695899c032a9d47c7",
+    "updated_at": "2026-04-01T14:01:31.414897+00:00",
+    "git_commit": "59743305bcac8c80183e6525baa2f5621dd8e50e",
     "champion_metadata": {},
     "canary_metadata": {}
   }

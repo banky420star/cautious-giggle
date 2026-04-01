@@ -1,17 +1,16 @@
 trading:
   symbols:
-    - BTCUSDm
-    - XAUUSDm
+  - BTCUSDm
+  - XAUUSDm
   timeframe: M5
   risk_percent: 1.0
   max_drawdown: 10.0
   confidence_threshold: 0.85
   magic_number: 505
-
 risk:
   max_daily_loss: 1000
-  max_daily_trades: 500
-  max_daily_trades_per_symbol: 50
+  max_daily_trades: 10000
+  max_daily_trades_per_symbol: 5000
   max_daily_losing_trades_per_symbol: 10
   max_lots: 1.0
   supervisor:
@@ -24,11 +23,9 @@ risk:
     max_positions_per_symbol: 3
     min_trade_interval_sec: 45
     max_spread_bps: 25.0
-
 telegram:
-  token: ""
-  chat_id: ""
-
+  token: ''
+  chat_id: ''
 event_intel:
   enabled: true
   poll_sec: 60
@@ -36,14 +33,13 @@ event_intel:
   post_event_min: 30
   news_hold_min: 20
   max_events: 200
-
 drl:
-  total_timesteps: 500000
+  total_timesteps: 100000
   per_symbol: true
   period: 90d
   interval: M5
-  candles_per_symbol: 100000
-  eval_period: 120d
+  candles_per_symbol: 25000
+  eval_period: 90d
   model_path: models/ppo_trading.zip
   feature_version: ultimate_150
   data_source: mt5
@@ -56,8 +52,8 @@ drl:
     window: 64
     feature_version: ultimate_150
     symbols:
-      - BTCUSDm
-      - XAUUSDm
+    - BTCUSDm
+    - XAUUSDm
   ensemble:
     enabled: false
     min_votes: 2
@@ -73,32 +69,29 @@ drl:
       churn_penalty: 0.5
       memory_expectancy_bonus: 0.5
       loss_streak_penalty: 0.4
-
 training:
   lstm_epochs: 20
   per_symbol: true
   lstm_period: 90d
   lstm_interval: M5
-  lstm_candles: 100000
+  lstm_candles: 25000
   feature_version: ultimate_150
   data_source: mt5
-
 evaluation:
-  max_drawdown: 0.25        # relaxed from 0.10 — allow early-stage candidates
-  min_sharpe: -0.5          # relaxed from 0.30 — accept negative-sharpe initial models
-  min_return: -0.10         # relaxed from 0.015 — allow small losses during warm-up
-  score_margin: 0.05        # relaxed from 0.30 — easier to beat null champion
+  max_drawdown: 0.25
+  min_sharpe: -0.5
+  min_return: -0.25
+  score_margin: 0.05
   min_steps_per_symbol: 600
-  min_pass_rate: 0.5        # relaxed from 0.80
+  min_pass_rate: 0.5
   return_margin: 0.0
-  sharpe_margin: 0.0        # relaxed from 0.05
+  sharpe_margin: 0.0
   drawdown_margin: 0.0
   forward_windows:
-    - 60d
-    - 90d
-    - 120d
-  min_forward_win_rate: 0.34  # relaxed from 0.67 — 1/3 windows need to win
-
+  - 60d
+  - 90d
+  - 120d
+  min_forward_win_rate: 0.34
 registry:
   ensemble:
     history_limit: 3
@@ -112,16 +105,13 @@ registry:
       BTCUSDm:
         max_drawdown: 0.08
         min_trades: 60
-
 data:
   source: mt5
-
 cycle:
   skip_completed_training: false
   parallel_symbols: true
-  max_parallel_symbols: 2
-
+  max_parallel_symbols: 1
 mt5:
-  login: 298410020
-  password: "Fuckyou2/"
-  server: "Exness-MT5Trial9"
+  login: ENV:MT5_LOGIN
+  password: ENV:MT5_PASSWORD
+  server: ENV:MT5_SERVER

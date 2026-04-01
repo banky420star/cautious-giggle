@@ -1,4 +1,4 @@
-﻿"""
+"""
 Backtester using the same TradingEnv profile as training.
 """
 import json
@@ -8,6 +8,7 @@ import sys
 import numpy as np
 import pandas as pd
 from loguru import logger
+
 
 class _PPOProxy:
     @staticmethod
@@ -40,7 +41,6 @@ from drl.trading_env import TradingEnv
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 try:
-    # Avoid Windows rotation file-lock contention when multiple backtests run in parallel.
     logger.add(
         os.path.join(LOG_DIR, "backtester.log"),
         level="INFO",
@@ -79,6 +79,24 @@ def _normalize_interval(interval: str | None) -> str:
     if m.startswith("h") and m[1:].isdigit():
         return f"{m[1:]}h"
     return m
+
+
+def _scalarize(value, default: float = np.nan) -> float:
+    if value is None:
+        return float(default)
+    arr = np.asarray(value)
+    if arr.size == 0:
+        return float(default)
+    return float(arr.reshape(-1)[0])
+
+
+def _done_to_bool(done) -> bool:
+    if isinstance(done, (list, tuple)):
+        return any(_done_to_bool(item) for item in done)
+    arr = np.asarray(done)
+    if arr.size == 0:
+        return False
+    return bool(arr.reshape(-1)[0])
 
 
 def _make_env(
@@ -174,18 +192,20 @@ def run_ppo_backtest(
         obs, reward, done, info = env.step(action)
 
         info0 = info[0] if isinstance(info, (list, tuple)) else info
-        eq = float(info0.get("equity", np.nan))
-        cost = float(info0.get("cost", 0.0))
-        pos = float(info0.get("position", 0.0))
+        if not isinstance(info0, dict):
+            raise RuntimeError(f"Invalid vec env info payload for {symbol}: {type(info0).__name__}")
+        eq = _scalarize(info0.get("equity"), np.nan)
+        cost = _scalarize(info0.get("cost"), 0.0)
+        pos = _scalarize(info0.get("position"), 0.0)
 
-        rc = info0.get("reward_components", {}) if isinstance(info0, dict) else {}
+        rc = info0.get("reward_components", {})
         for k in reward_component_sums:
-            reward_component_sums[k] += float(rc.get(k, 0.0))
+            reward_component_sums[k] += _scalarize(rc.get(k), 0.0)
 
         equities.append(eq)
         costs.append(cost)
         positions.append(pos)
-        rewards.append(float(reward))
+        rewards.append(_scalarize(reward, 0.0))
 
         if prev_eq is not None and prev_eq > 0:
             step_rets.append((eq - prev_eq) / prev_eq)
@@ -194,7 +214,7 @@ def run_ppo_backtest(
         steps += 1
         if max_steps and steps >= max_steps:
             break
-        if bool(done):
+        if _done_to_bool(done):
             break
 
     equity = np.array(equities, dtype=np.float64)

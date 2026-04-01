@@ -128,9 +128,12 @@ class ModelRegistry:
             tmp.close()
 
         if os.path.exists(self.active_path):
-            backup_path = f"{self.active_path}.bak"
+            backup2 = f"{self.active_path}.bak2"
+            backup1 = f"{self.active_path}.bak"
             try:
-                shutil.copy2(self.active_path, backup_path)
+                if os.path.exists(backup1):
+                    shutil.copy2(backup1, backup2)
+                shutil.copy2(self.active_path, backup1)
             except Exception:
                 logger.warning("Unable to backup active registry file.")
 
@@ -204,6 +207,7 @@ class ModelRegistry:
             return False
         recorded = self.read_metadata(candidate_dir).get("integrity")
         if not isinstance(recorded, dict) or not recorded:
+            logger.warning(f"No integrity snapshot for {candidate_dir} — accepting but flagging for audit")
             return True
         for label, expected in recorded.items():
             target = INTEGRITY_TARGETS.get(label)

@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import json
 import os
-import subprocess
 import sys
 import time
 
@@ -278,6 +277,25 @@ class AutonomyLoop:
             pass
         return False
 
+    async def _run_training_subprocess(self, cmd: list, env: dict, label: str, timeout: int):
+        """Run a training subprocess without blocking the event loop."""
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=PROJECT_ROOT,
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.communicate()
+            raise RuntimeError(f"Training subprocess timed out after {timeout}s: {label}")
+        if proc.returncode != 0:
+            err_msg = (stderr or b"").decode("utf-8", errors="replace")[-2000:]
+            raise RuntimeError(f"Training subprocess failed ({label}): exit code {proc.returncode}\n{err_msg}")
+
     async def _train_symbol_candidate(self, symbol: str):
         # Do not start autonomous training while champion_cycle.py is actively running.
         # Both paths write to the model registry and must not race each other.
@@ -289,25 +307,41 @@ class AutonomyLoop:
             started = time.time()
             self._notify(f"Autonomy training started {symbol}: isolated LSTM + Dreamer + PPO")
 
+            train_timeout = int(os.environ.get("AGI_TRAIN_TIMEOUT_SEC", "7200"))
+
             lstm_env = os.environ.copy()
             lstm_env["AGI_LSTM_SYMBOLS"] = str(symbol)
-            subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT, env=lstm_env)
+            await self._run_training_subprocess(
+                [sys.executable, "training/train_lstm.py"], lstm_env, f"LSTM ({symbol})", train_timeout
+            )
             self._notify(f"LSTM training finished {symbol}")
 
             if self._dreamer_train_enabled():
                 dreamer_env = os.environ.copy()
                 dreamer_env["AGI_DREAMER_SYMBOL"] = str(symbol)
-                subprocess.check_call([sys.executable, "training/train_dreamer.py"], cwd=PROJECT_ROOT, env=dreamer_env)
+                await self._run_training_subprocess(
+                    [sys.executable, "training/train_dreamer.py"], dreamer_env, f"Dreamer ({symbol})", train_timeout
+                )
                 self._notify(f"Dreamer training finished {symbol}")
 
             drl_env = os.environ.copy()
             drl_env["AGI_DRL_SYMBOL"] = str(symbol)
-            subprocess.check_call([sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT, env=drl_env)
+            await self._run_training_subprocess(
+                [sys.executable, "training/train_drl.py"], drl_env, f"DRL ({symbol})", train_timeout
+            )
 
             cand = self._latest_candidate_dir(symbol=symbol)
-            if cand:
-                self._last_evaluated_candidate_by_symbol[symbol] = cand
-                self._maybe_set_canary(cand, symbol)
+            if not cand or not os.path.isdir(cand):
+                logger.error(f"Training completed but no candidate dir found for {symbol}; skipping canary evaluation")
+                self._notify(f"Training completed but no candidate dir for {symbol}")
+                return
+            model_path = os.path.join(cand, "ppo_trading.zip")
+            if not os.path.exists(model_path):
+                logger.error(f"Candidate dir {cand} has no ppo_trading.zip for {symbol}; skipping")
+                self._notify(f"Candidate missing model artifact for {symbol}")
+                return
+            self._last_evaluated_candidate_by_symbol[symbol] = cand
+            self._maybe_set_canary(cand, symbol)
 
             elapsed = int(time.time() - started)
             self._last_train_ts = time.time()

@@ -2,7 +2,9 @@
 import datetime
 import json
 import os
+import signal
 import subprocess
+import threading
 import time
 
 try:
@@ -24,23 +26,26 @@ from loguru import logger
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_MODE_TAG = os.environ.get("AGI_MODE_TAG", "")  # e.g. "hft" for HFT mode
 LOCK_DIR = os.path.join(BASE_DIR, ".tmp")
-LOCK_PATH = os.path.join(LOCK_DIR, "server_agi.lock")
+LOCK_PATH = os.path.join(LOCK_DIR, f"server_agi{'_' + _MODE_TAG if _MODE_TAG else ''}.lock")
 LOG_DIR = os.path.join(BASE_DIR, "logs")
-SERVER_LOG = os.path.join(LOG_DIR, "server.log")
-AUDIT_LOG = os.path.join(LOG_DIR, "audit_events.jsonl")
-TRADE_EVENTS_LOG = os.path.join(LOG_DIR, "trade_events.jsonl")
+SERVER_LOG = os.path.join(LOG_DIR, f"server{'_' + _MODE_TAG if _MODE_TAG else ''}.log")
+AUDIT_LOG = os.path.join(LOG_DIR, f"audit_events{'_' + _MODE_TAG if _MODE_TAG else ''}.jsonl")
+TRADE_EVENTS_LOG = os.path.join(LOG_DIR, f"trade_events{'_' + _MODE_TAG if _MODE_TAG else ''}.jsonl")
 ACTIVE_MODELS_PATH = os.path.join(BASE_DIR, "models", "registry", "active.json")
 
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(SERVER_LOG, rotation="10 MB", level="INFO")
+
+_shutdown_flag = threading.Event()
 
 SYMBOL_EXECUTION_PROFILES = {
     "BTCUSDm": {
         "ppo_weight": 0.65,
         "dreamer_weight": 0.25,
         "agi_weight": 0.10,
-        "min_trade_threshold": 0.18,
+        "min_trade_threshold": 0.05,
         "max_abs_target": 1.00,
         "cooldown_sec": 30,
     },
@@ -48,7 +53,7 @@ SYMBOL_EXECUTION_PROFILES = {
         "ppo_weight": 0.50,
         "dreamer_weight": 0.20,
         "agi_weight": 0.30,
-        "min_trade_threshold": 0.12,
+        "min_trade_threshold": 0.05,
         "max_abs_target": 0.75,
         "cooldown_sec": 45,
     },
@@ -68,14 +73,23 @@ def _json_default(v):
 _JSONL_MAX_BYTES = 10 * 1024 * 1024  # 10 MB per JSONL file before rotation
 
 
+_JSONL_MAX_GENERATIONS = 5
+
+
 def _rotate_jsonl_if_needed(path: str) -> None:
-    """Rename path -> path.1 (keeping one backup) when the file exceeds _JSONL_MAX_BYTES."""
+    """Rotate path -> path.1 -> ... -> path.N, keeping _JSONL_MAX_GENERATIONS backups."""
     try:
         if os.path.exists(path) and os.path.getsize(path) >= _JSONL_MAX_BYTES:
-            backup = path + ".1"
-            if os.path.exists(backup):
-                os.remove(backup)
-            os.rename(path, backup)
+            # Shift existing backups: .4 -> .5, .3 -> .4, ... .1 -> .2
+            for i in range(_JSONL_MAX_GENERATIONS, 1, -1):
+                src = f"{path}.{i - 1}"
+                dst = f"{path}.{i}"
+                if os.path.exists(src):
+                    if os.path.exists(dst):
+                        os.remove(dst)
+                    os.rename(src, dst)
+            # Rotate current -> .1
+            os.rename(path, f"{path}.1")
     except Exception:
         pass  # Never let rotation failure block a write
 
@@ -634,8 +648,8 @@ def _scan_trade_events(alerter, risk, known_open_tickets, seen_closed_deals, las
             closed_events.append(payload)
             try:
                 risk.record_trade_result(payload["symbol"], pnl)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.error(f"RISK_UPDATE_FAILED symbol={payload['symbol']} pnl={pnl} error={exc}")
             alerter.trade_closed(
                 symbol=payload["symbol"],
                 ticket=payload["ticket"],
@@ -667,7 +681,19 @@ def main(live=False):
         raise RuntimeError(f"MT5 init failed: {mt5.last_error()}")
 
     runtime = _load_runtime_components()
-    risk = runtime["RiskEngine"]()
+    risk = runtime["RiskEngine"](cfg=cfg)
+    restored = runtime["RiskEngine"].load_state(cfg=cfg)
+    if restored is not None:
+        # Preserve config-driven limits from fresh instance, restore runtime counters
+        restored.max_daily_loss = risk.max_daily_loss
+        restored.max_daily_trades = risk.max_daily_trades
+        restored.max_daily_trades_per_symbol = risk.max_daily_trades_per_symbol
+        restored.max_daily_losing_trades_per_symbol = risk.max_daily_losing_trades_per_symbol
+        restored.max_lots = risk.max_lots
+        restored.default_symbol_profile = risk.default_symbol_profile
+        restored.symbol_profiles = risk.symbol_profiles
+        risk = restored
+        logger.warning("Risk engine state restored from disk")
     supervisor = runtime["RiskSupervisor"](cfg)
     executor = runtime["MT5Executor"](risk)
     brain = runtime["HybridBrain"](risk, executor)
@@ -697,6 +723,13 @@ def main(live=False):
 
     atexit.register(_notify_offline)
 
+    def _handle_shutdown_signal(signum, frame):
+        logger.warning(f"Received signal {signum}, initiating graceful shutdown")
+        _shutdown_flag.set()
+
+    signal.signal(signal.SIGTERM, _handle_shutdown_signal)
+    signal.signal(signal.SIGINT, _handle_shutdown_signal)
+
     known_open_tickets = set()
     seen_closed_deals = set()
     last_deal_check = _utc_now() - datetime.timedelta(minutes=30)
@@ -717,7 +750,7 @@ def main(live=False):
     last_closed_by_symbol = {}
     trade_learning_by_symbol = {}
 
-    while True:
+    while not _shutdown_flag.is_set():
         now = time.time()
 
         if now - last_heartbeat >= max(15, heartbeat_sec):
@@ -918,7 +951,7 @@ def main(live=False):
                             "agi_risk_scalar": float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
                         },
                     )
-                    if order_meta:
+                    if order_meta and order_meta.get("executed"):
                         supervisor.mark_trade(symbol)
                 else:
                     order_meta = None
@@ -1026,6 +1059,19 @@ def main(live=False):
             last_symbol_cards = now
 
         time.sleep(max(5, loop_sleep_sec))
+
+    # Graceful shutdown
+    logger.warning("Shutdown flag set — exiting main loop")
+    try:
+        risk.save_state()
+        logger.info("Risk engine state saved")
+    except Exception as exc:
+        logger.error(f"Failed to save risk engine state: {exc}")
+    try:
+        mt5.shutdown()
+        logger.info("MT5 shutdown complete")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ services:
   agi:
     build: .
     ports:
-      - "9090:9090"
+      - "127.0.0.1:${AGI_PORT:-9090}:9090"
     volumes:
       - .:/app
       - ./models:/app/models
@@ -16,16 +16,34 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - PYTORCH_ENABLE_MPS_FALLBACK=1
+      - AGI_HOST=${AGI_HOST:-0.0.0.0}
+      - AGI_PORT=${AGI_PORT:-9090}
+      - AGI_TOKEN=${AGI_TOKEN:?Set AGI_TOKEN in .env or your shell environment}
+      - AGI_AUTONOMY_AUTO_CANARY=${AGI_AUTONOMY_AUTO_CANARY:-true}
+      - AGI_PNL_POLL=${AGI_PNL_POLL:-true}
+      - AGI_COOLDOWN_SEC=${AGI_COOLDOWN_SEC:-45}
+      - AGI_MIN_HOLD_SEC=${AGI_MIN_HOLD_SEC:-120}
+      - CANARY_LOT_MULT=${CANARY_LOT_MULT:-0.25}
+      - AGI_DZ_EURUSD=${AGI_DZ_EURUSD:-0.18}
+      - AGI_DZ_GBPUSD=${AGI_DZ_GBPUSD:-0.20}
+      - AGI_DZ_XAUUSD=${AGI_DZ_XAUUSD:-0.22}
+      - MT5_LOGIN=${MT5_LOGIN:-}
+      - MT5_PASSWORD=${MT5_PASSWORD:-}
+      - MT5_SERVER=${MT5_SERVER:-}
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
 
   n8n:
     image: n8nio/n8n:latest
     ports:
-      - "5678:5678"
+      - "127.0.0.1:5678:5678"
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n-workflow:/home/node/workflows
     environment:
-      - N8N_BASIC_AUTH_ACTIVE=false
+      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE:-true}
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER:?Set N8N_BASIC_AUTH_USER in .env or your shell environment}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD:?Set N8N_BASIC_AUTH_PASSWORD in .env or your shell environment}
       - GENERIC_TIMEZONE=Africa/Johannesburg
     depends_on:
       - agi
@@ -35,7 +53,7 @@ services:
     image: redis:alpine
     command: redis-server --appendonly yes
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped

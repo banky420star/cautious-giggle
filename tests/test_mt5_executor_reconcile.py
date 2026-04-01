@@ -12,11 +12,12 @@ class _Pos:
 
 
 class _Risk:
-    def __init__(self):
+    def __init__(self, can_trade=True):
         self.trades = []
+        self._can_trade = can_trade
 
     def can_trade(self, symbol=None):
-        return True
+        return self._can_trade
 
     def record_trade(self, symbol=None):
         self.trades.append(symbol)
@@ -60,6 +61,45 @@ def test_reconcile_exposure_flips_to_target_not_preclose_delta():
 
     assert len(exec_.closed) == 1
     assert exec_.opened == [("EURUSDm", 0, 0.1)]
+
+
+def test_reconcile_exposure_allows_flatten_when_trade_halted():
+    risk = _Risk(can_trade=False)
+    exec_ = _Exec(risk, shorts=[_Pos("EURUSDm", 0.15, 1)])
+
+    meta = exec_.reconcile_exposure("EURUSDm", 0.0, 1.0)
+
+    assert meta["request_action"] == "close"
+    assert len(exec_.closed) == 1
+    assert exec_.opened == []
+    assert risk.trades == ["EURUSDm"]
+
+
+def test_reconcile_exposure_does_not_reverse_when_trade_halted():
+    risk = _Risk(can_trade=False)
+    exec_ = _Exec(risk, shorts=[_Pos("EURUSDm", 0.15, 1)])
+
+    meta = exec_.reconcile_exposure("EURUSDm", 0.10, 1.0)
+
+    assert meta["request_action"] == "close"
+    assert len(exec_.closed) == 1
+    assert exec_.opened == []
+    assert risk.trades == ["EURUSDm"]
+
+
+def test_reconcile_exposure_does_not_record_trade_on_rejected_order():
+    risk = _Risk()
+    exec_ = _Exec(risk)
+
+    def _rejected(*_args, **_kwargs):
+        return {"request_action": "open", "executed": False}
+
+    exec_.open_position = _rejected
+
+    meta = exec_.reconcile_exposure("EURUSDm", 0.10, 1.0)
+
+    assert meta["executed"] is False
+    assert risk.trades == []
 
 
 def test_translate_trade_action_skips_zero_exposure():
