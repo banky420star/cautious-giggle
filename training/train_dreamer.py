@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import sys
+import time
 
 import numpy as np
 import yaml
@@ -186,6 +187,8 @@ def _train_symbol(symbol: str, args, period: str, interval: str, candles: int, f
 
     obs = env.reset()
     h, z = None, None
+    _dreamer_t0 = time.time()
+    _dreamer_log_interval = max(100, args.steps // 50)
     for step in range(args.steps):
         action_onehot, (h, z) = agent.act(obs, h, z, deterministic=False)
         next_obs, reward, done, _ = env.step(action_onehot)
@@ -195,6 +198,12 @@ def _train_symbol(symbol: str, args, period: str, interval: str, candles: int, f
         obs = env.reset() if done else next_obs
         if done:
             h, z = None, None
+        if step > 0 and step % _dreamer_log_interval == 0:
+            elapsed = int(time.time() - _dreamer_t0)
+            pct = round(step / args.steps * 100, 2)
+            logger.info(
+                f"Dreamer progress | symbol={symbol} | step={step}/{args.steps} | pct={pct} | elapsed_s={elapsed}"
+            )
 
     out_dir = os.path.join(PROJECT_ROOT, "models", "dreamer")
     os.makedirs(out_dir, exist_ok=True)

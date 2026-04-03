@@ -527,6 +527,8 @@ tr:hover td{background:var(--white-a03)}
       </div>
     </div>
     <div class="section">
+      <div class="section-title">Telegram Bot <span class="count" id="tg-status-pill">--</span></div>
+      <div id="telegram-status" style="margin-bottom:14px"></div>
       <div class="section-title">Service Controls</div>
       <div class="ctrl-grid">
         <div class="ctrl-card">
@@ -761,10 +763,19 @@ function renderTraining(d) {
 
   // Active banner
   const banner = $('train-active-banner');
-  banner.textContent = visual.active_label || 'Training idle';
-  banner.style.background = anyRunning ? 'var(--cyan-dim)' : 'var(--white-a05)';
-  banner.style.borderColor = anyRunning ? 'rgba(79,214,255,.15)' : 'var(--border)';
-  banner.style.color = anyRunning ? 'var(--cyan)' : 'var(--dim)';
+  const hb = trn.cycle_heartbeat;
+  let bannerText = visual.active_label || 'Training idle';
+  if (trn.train_error) bannerText += ' | Error: ' + trn.train_error;
+  if (hb && hb.ts) {
+    const ago = Math.round((Date.now() - new Date(hb.ts).getTime()) / 60000);
+    bannerText += ` | Cycle loop: ${hb.status || '?'} (${ago}m ago)`;
+    if (hb.consecutive_failures > 0) bannerText += ` | ${hb.consecutive_failures} failures`;
+  }
+  banner.textContent = bannerText;
+  const hasError = trn.train_error || (hb && hb.consecutive_failures > 0);
+  banner.style.background = hasError ? 'var(--red-dim)' : anyRunning ? 'var(--cyan-dim)' : 'var(--white-a05)';
+  banner.style.borderColor = hasError ? 'rgba(251,113,133,.15)' : anyRunning ? 'rgba(79,214,255,.15)' : 'var(--border)';
+  banner.style.color = hasError ? 'var(--red)' : anyRunning ? 'var(--cyan)' : 'var(--dim)';
 
   // Stage cards
   const stages = [
@@ -1119,6 +1130,26 @@ function render(d) {
   renderTraining(d);
   renderModels(d);
   renderLogs(d);
+  renderTelegram(d);
+}
+
+function renderTelegram(d) {
+  const tg = d.telegram || {};
+  const pill = $('tg-status-pill');
+  const el = $('telegram-status');
+  if (!el) return;
+  const configured = tg.configured;
+  pill.textContent = configured ? 'Connected' : 'Not configured';
+  pill.style.color = configured ? 'var(--green)' : 'var(--red)';
+  if (!configured) {
+    el.innerHTML = `<div style="padding:12px 16px;border-radius:var(--radius-sm);background:var(--amber-dim);border:1px solid rgba(251,191,36,.2);font-size:12px;color:var(--amber)">
+      Telegram bot is not configured. Set <strong>TELEGRAM_TOKEN</strong> and <strong>TELEGRAM_CHAT_ID</strong> in your <code>.env</code> file or <code>config.yaml</code> under <code>telegram:</code>.
+    </div>`;
+    return;
+  }
+  el.innerHTML = `<div style="padding:10px 14px;border-radius:var(--radius-sm);background:var(--green-dim);border:1px solid rgba(52,211,153,.2);font-size:12px;color:var(--green)">
+    Telegram bot connected. Delivery: ${esc(tg.delivery_target||'unknown')}
+  </div>`;
 }
 
 

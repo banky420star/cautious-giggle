@@ -140,6 +140,7 @@ def _load_runtime_components():
     from Python.event_intel import EventIntel
     from Python.hybrid_brain import HybridBrain
     from Python.mt5_executor import MT5Executor
+    from Python.pattern_recognition import PatternRecognitionSystem
     from Python.risk_engine import RiskEngine
     from Python.risk_supervisor import RiskSupervisor
     from Python.trade_learning import build_trade_learning
@@ -150,6 +151,7 @@ def _load_runtime_components():
         "EventIntel": EventIntel,
         "HybridBrain": HybridBrain,
         "MT5Executor": MT5Executor,
+        "PatternRecognitionSystem": PatternRecognitionSystem,
         "RiskEngine": RiskEngine,
         "RiskSupervisor": RiskSupervisor,
         "build_trade_learning": build_trade_learning,
@@ -789,6 +791,7 @@ def main(live=False):
     executor = runtime["MT5Executor"](risk)
     brain = runtime["HybridBrain"](risk, executor)
     agi = runtime["SmartAGI"]()
+    pattern_system = runtime["PatternRecognitionSystem"](log_dir=LOG_DIR)
 
     trading_cfg = cfg.get("trading", {})
     symbols = resolve_trading_symbols(cfg, env_keys=("AGI_RUNTIME_SYMBOLS",), fallback=DEFAULT_TRADING_SYMBOLS)
@@ -971,6 +974,10 @@ def main(live=False):
                 agi_meta = agi.predict(df, production=True)
                 conf = float((agi_meta or {}).get("confidence", 0.0) or 0.0)
                 regime = str((agi_meta or {}).get("regime", (agi_meta or {}).get("signal", "UNKNOWN")))
+                try:
+                    pattern_system.detect_and_log(symbol, df)
+                except Exception:
+                    pass
                 trade_memory = trade_learning_by_symbol.get(str(symbol), {})
 
                 ppo_meta = brain.predict_ppo_action(symbol, df)

@@ -1808,7 +1808,20 @@ def _training_state(procs):
         "lstm_epochs_total": progress.get("lstm_epochs_total") if lstm_running else None,
         "train_error": progress.get("train_error"),
         "visual": visual,
+        "cycle_heartbeat": _read_cycle_heartbeat(),
     }
+
+
+def _read_cycle_heartbeat():
+    """Read champion loop heartbeat file for cycle health visibility."""
+    hb_path = os.path.join(ROOT, ".tmp", "champion_loop.heartbeat")
+    if not os.path.exists(hb_path):
+        return None
+    try:
+        with open(hb_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
 
 
 def _server_state(procs):
