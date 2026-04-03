@@ -8,6 +8,21 @@ import numpy as np
 import yaml
 from loguru import logger
 
+# Compatibility shim: models pickled with numpy 2.x reference numpy._core.numeric
+# which doesn't exist in numpy 1.x.  Alias it so cloudpickle can deserialize.
+import sys as _sys
+try:
+    import numpy._core.numeric  # noqa: F401
+except (ModuleNotFoundError, ImportError):
+    import types as _types
+    import numpy.core as _nc
+    import numpy.core.numeric as _ncn
+    # Create numpy._core shim for numpy < 1.26
+    _core_mod = _types.ModuleType("numpy._core")
+    _core_mod.numeric = _ncn
+    _sys.modules.setdefault("numpy._core", _core_mod)
+    _sys.modules.setdefault("numpy._core.numeric", _ncn)
+
 from Python.action_translator import translate_trade_action
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, resolve_trading_symbols
 from Python.feature_pipeline import ENGINEERED_V2, feature_count_for_version
@@ -69,7 +84,7 @@ class HybridBrain:
         cfg_blend = float(drl_cfg.get("ppo_blend", 0.55))
         self.ppo_enabled = os.environ.get("AGI_PPO_ENABLED", "true").lower() == "true"
         self.ppo_blend = float(os.environ.get("AGI_PPO_BLEND", str(cfg_blend)))
-        self.ppo_min_abs = float(os.environ.get("AGI_PPO_MIN_ABS", "0.03"))
+        self.ppo_min_abs = float(os.environ.get("AGI_PPO_MIN_ABS", "0.005"))
         self.window_size = int(os.environ.get("AGI_PPO_WINDOW", str(drl_cfg.get("window_size", 100) or 100)))
         self.ppo_ensemble_enabled = os.environ.get("AGI_PPO_ENSEMBLE", str(bool(ensemble_cfg.get("enabled", False)))).lower() == "true"
         self.ppo_ensemble_min_votes = int(os.environ.get("AGI_PPO_ENSEMBLE_MIN_VOTES", str(ensemble_cfg.get("min_votes", 2) or 2)))
@@ -312,10 +327,17 @@ class HybridBrain:
 
             self.ppo_bundles = bundles
             self.ppo_bundles_by_symbol = bundles_by_symbol
+            # Prefer global bundles; fall back to first symbol-scoped bundle
             if bundles:
                 self.ppo_model = bundles[0]["model"]
                 self.vec_norm = bundles[0]["vec_norm"]
                 self.ppo_metadata = bundles[0]["meta"]
+            elif bundles_by_symbol:
+                first_sym = next(iter(bundles_by_symbol))
+                self.ppo_model = bundles_by_symbol[first_sym][0]["model"]
+                self.vec_norm = bundles_by_symbol[first_sym][0]["vec_norm"]
+                self.ppo_metadata = bundles_by_symbol[first_sym][0]["meta"]
+                logger.info(f"Using symbol-scoped PPO from {first_sym} as default model")
             else:
                 self.ppo_model = None
                 self.vec_norm = None

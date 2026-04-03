@@ -24,8 +24,8 @@ def _direction_to_risk_scalar(direction: str) -> float:
     """Higher risk tolerance when the model has a clear directional conviction."""
     d = str(direction or "").upper()
     if d in ("BUY", "SELL"):
-        return 0.90
-    return 0.80  # HOLD / uncertain — reduce position sizing slightly
+        return 1.0
+    return 0.95  # HOLD / uncertain — mild reduction only
 
 
 def _direction_to_trend_bias(direction: str) -> float:

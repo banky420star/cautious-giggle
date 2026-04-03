@@ -276,21 +276,41 @@ def _active_models():
 
 def _trade_learning_status():
     path = os.path.join(LOG_DIR, "learning", "trade_learning_latest.json")
+    empty = {
+        "available": False,
+        "trades": 0,
+        "win_rate": 0.0,
+        "expectancy": 0.0,
+        "profit_factor": 0.0,
+        "total_pnl": 0.0,
+        "generated_at_utc": None,
+        "best_symbols": [],
+        "worst_symbols": [],
+        "by_symbol": [],
+    }
     if not os.path.exists(path):
-        return {
-            "available": False,
-            "trades": 0,
-            "win_rate": 0.0,
-            "expectancy": 0.0,
-            "profit_factor": 0.0,
-            "total_pnl": 0.0,
-            "generated_at_utc": None,
-            "best_symbols": [],
-            "worst_symbols": [],
-        }
+        return empty
     try:
         with open(path, "r", encoding="utf-8") as f:
             d = json.load(f)
+        by_symbol_raw = d.get("by_symbol", []) if isinstance(d.get("by_symbol"), list) else []
+        by_symbol = []
+        for row in by_symbol_raw:
+            if not isinstance(row, dict):
+                continue
+            by_symbol.append({
+                "symbol": str(row.get("symbol", "")),
+                "trades": int(row.get("trades", 0)),
+                "wins": int(row.get("wins", 0)),
+                "losses": int(row.get("losses", 0)),
+                "win_rate": round(float(row.get("win_rate", 0.0)), 2),
+                "expectancy": round(float(row.get("expectancy", 0.0)), 4),
+                "profit_factor": round(float(row.get("profit_factor", 0.0)), 4),
+                "total_pnl": round(float(row.get("total_pnl", 0.0)), 2),
+                "recent_loss_streak": int(row.get("recent_loss_streak", 0)),
+                "max_loss_streak": int(row.get("max_loss_streak", 0)),
+                "avg_hold_minutes": round(float(row.get("avg_hold_minutes", 0.0)), 2),
+            })
         return {
             "available": True,
             "trades": int(d.get("trades", 0)),
@@ -301,19 +321,10 @@ def _trade_learning_status():
             "generated_at_utc": d.get("generated_at_utc"),
             "best_symbols": d.get("best_symbols", [])[:3],
             "worst_symbols": d.get("worst_symbols", [])[:3],
+            "by_symbol": by_symbol,
         }
     except Exception:
-        return {
-            "available": False,
-            "trades": 0,
-            "win_rate": 0.0,
-            "expectancy": 0.0,
-            "profit_factor": 0.0,
-            "total_pnl": 0.0,
-            "generated_at_utc": None,
-            "best_symbols": [],
-            "worst_symbols": [],
-        }
+        return empty
 
 
 def _event_intel_status():

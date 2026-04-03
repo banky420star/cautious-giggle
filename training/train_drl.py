@@ -1,4 +1,5 @@
 import atexit
+import copy
 import datetime
 import json
 import os
@@ -531,7 +532,7 @@ def _maybe_optimize_ppo_params(
         )
         eval_env = VecMonitor(eval_env)
         eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
-        eval_env.obs_rms = env.obs_rms
+        eval_env.obs_rms = copy.deepcopy(env.obs_rms)
         eval_env.training = False
         eval_env.norm_reward = False
 
@@ -766,7 +767,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         eval_env = VecMonitor(eval_env)
         eval_env = VecNormalize(eval_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
 
-        eval_env.obs_rms = env.obs_rms
+        eval_env.obs_rms = copy.deepcopy(env.obs_rms)
         eval_env.training = False
         eval_env.norm_reward = False
 

@@ -595,6 +595,13 @@ class TradingEnv(gym.Env):
             pass
 
     def _process_action(self, action_meta: dict, current_price: float):
+        target = float(action_meta.get("target", 0.0))
+        # Neutral action: close any open position and return
+        if abs(target) < 1e-8:
+            if self.open_trade and self.open_trade.get("is_open"):
+                self._close_trade(current_price, "neutral_action")
+            return
+
         if self.open_trade and self.open_trade.get("is_open"):
             return
 

@@ -106,7 +106,7 @@ def _build_specs() -> List[ProcessSpec]:
     return [
         ProcessSpec(
             name="server_agi",
-            detection_tokens=[],
+            detection_tokens=["Python.Server_AGI"],
             cmd=[sys.executable, "-m", "Python.Server_AGI", "--live"],
             cwd=PROJECT_ROOT,
             lock_file=SERVER_LOCK_PATH,
@@ -301,9 +301,30 @@ def is_healthy(state: ProcessState) -> bool:
 # Starting / stopping processes
 # ---------------------------------------------------------------------------
 
+def _cleanup_stale_lock(lock_path: Optional[str]) -> None:
+    """Remove *lock_path* if it references a PID that is no longer alive."""
+    if not lock_path or not os.path.exists(lock_path):
+        return
+    pid = _pid_from_lock_file(lock_path)
+    if pid and _pid_alive(pid):
+        return  # Process is genuinely alive -- leave lock alone.
+    logger.warning(
+        "Removing stale lock {} (PID {} is dead)", lock_path, pid
+    )
+    try:
+        os.remove(lock_path)
+    except OSError as exc:
+        logger.error("Could not remove stale lock {}: {}", lock_path, exc)
+
+
 def start_process(state: ProcessState) -> None:
     """Launch the process described by *state.spec*."""
     spec = state.spec
+
+    # Clean up any stale lock left by a crashed previous instance so the new
+    # process can acquire it successfully.
+    _cleanup_stale_lock(spec.lock_file)
+
     env = os.environ.copy()
     env.update(spec.env_extra)
 

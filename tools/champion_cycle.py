@@ -61,12 +61,21 @@ def _build_alerter(cfg: dict):
 
 
 def _pid_exists(pid: int) -> bool:
+    """Check if *pid* is alive.  Uses OpenProcess on Windows for reliability."""
     if pid <= 0:
         return False
     try:
+        if sys.platform == "win32":
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(0x100000, False, pid)  # SYNCHRONIZE
+            if handle:
+                kernel32.CloseHandle(handle)
+                return True
+            return False
         os.kill(pid, 0)
         return True
-    except OSError:
+    except (OSError, ProcessLookupError):
         return False
 
 
@@ -271,6 +280,139 @@ def _run_symbol_jobs(label: str, symbols: list[str], cfg: dict, fn):
         raise RuntimeError(f"{label} failed for symbols: {failed_symbols}")
 
 
+def _check_canary_promotion(reg: ModelRegistry, symbols: list[str], per_symbol: bool) -> list[dict]:
+    """Check active canaries and promote or reject them based on canary_policy gates.
+
+    Called at the START of each cycle so canaries set in a previous cycle
+    get evaluated before new training begins.
+
+    Returns a list of dicts describing what happened to each canary checked.
+    """
+    results = []
+
+    if per_symbol:
+        for symbol in symbols:
+            entry = reg.get_symbol_active(symbol)
+            canary_path = entry.get("canary")
+            if not canary_path:
+                continue
+
+            policy = entry.get("canary_policy", {})
+            state = entry.get("canary_state", {})
+            runtime = float(state.get("runtime_minutes", 0.0))
+            min_runtime = float(policy.get("min_runtime_minutes", 30))
+
+            if runtime < min_runtime:
+                logger.info(
+                    f"Canary for {symbol} not yet mature: "
+                    f"runtime={runtime:.1f}m < min_runtime={min_runtime:.1f}m"
+                )
+                results.append({
+                    "symbol": symbol,
+                    "canary": canary_path,
+                    "action": "waiting",
+                    "reason": f"runtime {runtime:.1f}m < min_runtime {min_runtime:.1f}m",
+                })
+                continue
+
+            # Canary has run long enough — check all gates
+            can_promote, reason = reg.can_promote_canary(symbol=symbol)
+
+            if can_promote:
+                try:
+                    reg.promote_canary_to_champion(symbol=symbol)
+                    logger.success(
+                        f"Auto-promoted canary to champion for {symbol}: {canary_path}"
+                    )
+                    results.append({
+                        "symbol": symbol,
+                        "canary": canary_path,
+                        "action": "promoted",
+                        "reason": "all canary policy gates passed",
+                    })
+                except Exception as exc:
+                    logger.exception(
+                        f"Failed to promote canary for {symbol}: {exc}"
+                    )
+                    results.append({
+                        "symbol": symbol,
+                        "canary": canary_path,
+                        "action": "error",
+                        "reason": str(exc),
+                    })
+            else:
+                # Canary has had enough runtime but fails gates — reject it
+                logger.warning(
+                    f"Canary rejected for {symbol} after {runtime:.1f}m runtime: {reason}"
+                )
+                reg.clear_canary(symbol=symbol)
+                results.append({
+                    "symbol": symbol,
+                    "canary": canary_path,
+                    "action": "rejected",
+                    "reason": reason,
+                })
+    else:
+        # Global (non per-symbol) canary check
+        active = reg._read_active()
+        canary_path = active.get("canary")
+        if canary_path:
+            policy = active.get("canary_policy", {})
+            state = active.get("canary_state", {})
+            runtime = float(state.get("runtime_minutes", 0.0))
+            min_runtime = float(policy.get("min_runtime_minutes", 30))
+
+            if runtime < min_runtime:
+                logger.info(
+                    f"Global canary not yet mature: "
+                    f"runtime={runtime:.1f}m < min_runtime={min_runtime:.1f}m"
+                )
+                results.append({
+                    "symbol": "GLOBAL",
+                    "canary": canary_path,
+                    "action": "waiting",
+                    "reason": f"runtime {runtime:.1f}m < min_runtime {min_runtime:.1f}m",
+                })
+            else:
+                can_promote, reason = reg.can_promote_canary()
+
+                if can_promote:
+                    try:
+                        reg.promote_canary_to_champion()
+                        logger.success(
+                            f"Auto-promoted global canary to champion: {canary_path}"
+                        )
+                        results.append({
+                            "symbol": "GLOBAL",
+                            "canary": canary_path,
+                            "action": "promoted",
+                            "reason": "all canary policy gates passed",
+                        })
+                    except Exception as exc:
+                        logger.exception(
+                            f"Failed to promote global canary: {exc}"
+                        )
+                        results.append({
+                            "symbol": "GLOBAL",
+                            "canary": canary_path,
+                            "action": "error",
+                            "reason": str(exc),
+                        })
+                else:
+                    logger.warning(
+                        f"Global canary rejected after {runtime:.1f}m runtime: {reason}"
+                    )
+                    reg.clear_canary()
+                    results.append({
+                        "symbol": "GLOBAL",
+                        "canary": canary_path,
+                        "action": "rejected",
+                        "reason": reason,
+                    })
+
+    return results
+
+
 def main():
     _acquire_single_instance_lock()
     cfg = load_project_config(PROJECT_ROOT, live_mode=False)
@@ -311,9 +453,26 @@ def main():
         dreamer_trained = True
 
     reg = ModelRegistry()
+
+    # --- Canary auto-promotion check ---
+    # Before training new candidates, check if any canaries from a previous cycle
+    # have accumulated enough live metrics to be promoted (or rejected).
+    logger.info("Checking for active canaries eligible for promotion...")
+    canary_promotion_results = _check_canary_promotion(reg, symbols, per_symbol)
+    for result in canary_promotion_results:
+        action = result["action"]
+        sym = result["symbol"]
+        if action == "promoted":
+            logger.success(f"Canary promotion summary: {sym} -> promoted to champion")
+        elif action == "rejected":
+            logger.warning(f"Canary promotion summary: {sym} -> rejected ({result['reason']})")
+        elif action == "waiting":
+            logger.info(f"Canary promotion summary: {sym} -> still maturing ({result['reason']})")
+
     cycle_report = {
         "mode": "per_symbol" if per_symbol else "global",
         "symbols": [],
+        "canary_promotions": canary_promotion_results,
         "eval_period": eval_period,
         "eval_interval": eval_interval,
         "gates": gates,
@@ -469,8 +628,16 @@ def main():
         raise
 
     _write_cycle_report(cycle_report)
-    promoted = [row.get("symbol") for row in cycle_report["symbols"] if row.get("wins") and row.get("passes_thresholds")]
-    detail = f"promoted={','.join(str(x) for x in promoted) if promoted else 'none'}"
+    new_canaries = [row.get("symbol") for row in cycle_report["symbols"] if row.get("wins") and row.get("passes_thresholds")]
+    auto_promoted = [r["symbol"] for r in canary_promotion_results if r["action"] == "promoted"]
+    auto_rejected = [r["symbol"] for r in canary_promotion_results if r["action"] == "rejected"]
+    detail_parts = [
+        f"new_canaries={','.join(str(x) for x in new_canaries) if new_canaries else 'none'}",
+        f"auto_promoted={','.join(str(x) for x in auto_promoted) if auto_promoted else 'none'}",
+    ]
+    if auto_rejected:
+        detail_parts.append(f"auto_rejected={','.join(str(x) for x in auto_rejected)}")
+    detail = " | ".join(detail_parts)
     alerter.training_cycle("complete", symbols, cycle_report, detail=detail)
 
 

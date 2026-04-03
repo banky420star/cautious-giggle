@@ -9,6 +9,17 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
+# Compatibility shim for PPO models pickled with numpy 2.x
+try:
+    import numpy._core.numeric  # noqa: F401
+except (ModuleNotFoundError, ImportError):
+    import types as _types
+    import numpy.core.numeric as _ncn
+    _core_mod = _types.ModuleType("numpy._core")
+    _core_mod.numeric = _ncn
+    sys.modules.setdefault("numpy._core", _core_mod)
+    sys.modules.setdefault("numpy._core.numeric", _ncn)
+
 
 class _PPOProxy:
     @staticmethod

@@ -81,14 +81,27 @@ def _write_metric(ts, status, duration_sec, error, consecutive_failures, next_re
 
 
 def _is_pid_alive(pid):
-    """Return True if *pid* appears to be a running process."""
+    """Return True if *pid* appears to be a running process.
+
+    Uses OpenProcess on Windows for reliability -- os.kill(pid, 0) is
+    unreliable on Windows and may even terminate the target process in
+    some Python builds.
+    """
+    if pid <= 0:
+        return False
     try:
+        if sys.platform == "win32":
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(0x100000, False, pid)  # SYNCHRONIZE
+            if handle:
+                kernel32.CloseHandle(handle)
+                return True
+            return False
         os.kill(pid, 0)
-    except OSError:
+        return True
+    except (OSError, ProcessLookupError):
         return False
-    except SystemError:
-        return False
-    return True
 
 
 def _cleanup_stale_lock():

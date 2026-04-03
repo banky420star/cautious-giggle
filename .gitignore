@@ -15,6 +15,7 @@ config.yaml
 
 .venv312/
 .tmp/
-!logs/
-logs/*
-!logs/server.log
+runtime/
+.claude/
+frontend/node_modules/
+frontend/dist/

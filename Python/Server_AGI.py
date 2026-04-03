@@ -26,6 +26,20 @@ from loguru import logger
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Session config — single source of truth written by launcher
+_SESSION_PATH = os.path.join(BASE_DIR, "runtime", "session.json")
+
+def _load_session() -> dict | None:
+    """Load runtime session config if it exists."""
+    try:
+        if os.path.exists(_SESSION_PATH):
+            with open(_SESSION_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        pass
+    return None
+
 _MODE_TAG = os.environ.get("AGI_MODE_TAG", "")  # e.g. "hft" for HFT mode
 LOCK_DIR = os.path.join(BASE_DIR, ".tmp")
 LOCK_PATH = os.path.join(LOCK_DIR, f"server_agi{'_' + _MODE_TAG if _MODE_TAG else ''}.lock")
@@ -324,6 +338,25 @@ def _runtime_owner_health():
     return out
 
 
+def _is_lock_pid_alive(pid: int) -> bool:
+    """Check if a PID is alive.  Uses OpenProcess on Windows for reliability."""
+    if pid <= 0:
+        return False
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(0x100000, False, pid)  # SYNCHRONIZE
+            if handle:
+                kernel32.CloseHandle(handle)
+                return True
+            return False
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
 def _acquire_single_instance_lock():
     os.makedirs(LOCK_DIR, exist_ok=True)
     try:
@@ -331,12 +364,42 @@ def _acquire_single_instance_lock():
         os.write(fd, str(os.getpid()).encode("utf-8"))
         os.close(fd)
     except FileExistsError:
-        return False
+        # Lock file exists -- check if the owning process is still alive.
+        try:
+            existing_pid = int(
+                (open(LOCK_PATH, "r", encoding="utf-8").read() or "0").strip()
+            )
+        except Exception:
+            existing_pid = 0
+
+        if existing_pid and _is_lock_pid_alive(existing_pid):
+            # Genuinely running -- refuse.
+            return False
+
+        # Stale lock from a dead process -- remove and re-acquire.
+        logger.warning(
+            "Removing stale lock {} (PID {} is dead)", LOCK_PATH, existing_pid
+        )
+        try:
+            os.remove(LOCK_PATH)
+        except OSError:
+            return False
+
+        try:
+            fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode("utf-8"))
+            os.close(fd)
+        except FileExistsError:
+            # Another process raced us -- let them win.
+            return False
 
     def _cleanup_lock():
         try:
             if os.path.exists(LOCK_PATH):
-                os.remove(LOCK_PATH)
+                # Only remove if we still own it.
+                with open(LOCK_PATH, "r", encoding="utf-8") as fh:
+                    if fh.read().strip() == str(os.getpid()):
+                        os.remove(LOCK_PATH)
         except Exception:
             pass
 
@@ -676,6 +739,26 @@ def main(live=False):
         os.environ["AGI_IS_LIVE"] = "1"
 
     cfg = _load_cfg(live=live)
+
+    # ── Session config (written by launcher) ──────────────────────────────
+    session = _load_session()
+    cold_start = False
+    if session:
+        logger.info(
+            "SESSION mode=%s equity=%.2f max_lots=%.2f cold_start=%s",
+            session.get("mode", "?"),
+            session.get("start_equity", 0), session.get("max_lots", 0),
+            session.get("cold_start", False),
+        )
+        cold_start = bool(session.get("cold_start", False))
+        # Override YAML config with session values
+        risk_cfg = cfg.setdefault("risk", {})
+        risk_cfg["max_lots"] = session.get("max_lots", risk_cfg.get("max_lots", 1.0))
+        sup_cfg = risk_cfg.setdefault("supervisor", {})
+        sup_cfg["max_drawdown_pct"] = session.get("max_dd_pct", sup_cfg.get("max_drawdown_pct", 12.0))
+    else:
+        logger.warning("No session config at %s — using YAML defaults", _SESSION_PATH)
+
     ok = _init_mt5(cfg)
     if not ok:
         raise RuntimeError(f"MT5 init failed: {mt5.last_error()}")
@@ -694,6 +777,14 @@ def main(live=False):
         restored.symbol_profiles = risk.symbol_profiles
         risk = restored
         logger.warning("Risk engine state restored from disk")
+
+    # Apply session equity as peak if available and risk engine has no valid peak
+    if session and session.get("start_equity"):
+        if not risk.peak_equity or risk.peak_equity <= 0:
+            risk.peak_equity = session["start_equity"]
+            risk.current_dd = 0.0
+            logger.info("RISK_BASELINE set peak_equity=%.2f from session config", risk.peak_equity)
+
     supervisor = runtime["RiskSupervisor"](cfg)
     executor = runtime["MT5Executor"](risk)
     brain = runtime["HybridBrain"](risk, executor)
@@ -749,6 +840,8 @@ def main(live=False):
     last_symbol_state = {str(s): {} for s in symbols}
     last_closed_by_symbol = {}
     trade_learning_by_symbol = {}
+    cold_start_cycles = 0
+    COLD_START_WARMUP = 3  # skip first N cycles on cold start
 
     while not _shutdown_flag.is_set():
         now = time.time()
@@ -850,6 +943,25 @@ def main(live=False):
                 logger.warning(f"trade learning update failed: {e}")
             last_learning = now
 
+        # Cold start: skip trading for first N cycles to let signals stabilise
+        if cold_start and cold_start_cycles < COLD_START_WARMUP:
+            cold_start_cycles += 1
+            logger.info("COLD_START cycle %d/%d — warming up, no trades", cold_start_cycles, COLD_START_WARMUP)
+            if cold_start_cycles >= COLD_START_WARMUP:
+                cold_start = False
+                # Clear cold_start in session file
+                try:
+                    s = _load_session()
+                    if s and s.get("cold_start"):
+                        s["cold_start"] = False
+                        with open(_SESSION_PATH, "w", encoding="utf-8") as f:
+                            json.dump(s, f, indent=4)
+                except Exception:
+                    pass
+                logger.info("COLD_START complete — trading enabled")
+            _shutdown_flag.wait(loop_sleep_sec)
+            continue
+
         for symbol in symbols:
             try:
                 df = _fetch_symbol_df(symbol, timeframe)
@@ -934,6 +1046,12 @@ def main(live=False):
                     "current_symbol_exposure": float(current_symbol_exposure),
                     "total_exposure": float(total_exposure),
                 }
+                if abs(exposure) > 0.001:
+                    logger.info(
+                        "EXEC_TRACE %s | exposure=%.4f supervisor=%s reason=%s dd=%.2f positions=%d sym_positions=%d"
+                        % (symbol, exposure, supervisor_decision.allowed, supervisor_decision.reason,
+                           float(risk.current_dd), total_positions, symbol_positions)
+                    )
                 if supervisor_decision.allowed:
                     order_meta = brain.live_trade(
                         symbol,
