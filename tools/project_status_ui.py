@@ -706,6 +706,7 @@ def _build_lstm_visual(lines, running: bool) -> dict:
 
         fm = skip_re.search(line)
         if fm:
+            reason = fm.group(0).strip()
             sym = str(fm.group(1))
             if sym not in symbols:
                 symbols.append(sym)
@@ -717,10 +718,12 @@ def _build_lstm_visual(lines, running: bool) -> dict:
                     "loss": None,
                     "acc": None,
                     "status": "failed",
+                    "fail_reason": reason,
                     "updated_utc": None,
                 },
             )
             item["status"] = "failed"
+            item["fail_reason"] = reason
             ts = _line_ts_utc(line)
             item["updated_utc"] = ts.isoformat() if ts else None
             latest_ts = ts or latest_ts
@@ -778,8 +781,7 @@ def _build_lstm_visual(lines, running: bool) -> dict:
             pct = 0.0
             counts["queued"] += 1
 
-        queue.append(
-            {
+        entry = {
                 "symbol": sym,
                 "status": status,
                 "epoch": epoch,
@@ -789,7 +791,9 @@ def _build_lstm_visual(lines, running: bool) -> dict:
                 "acc": item.get("acc"),
                 "updated_utc": item.get("updated_utc"),
             }
-        )
+        if item.get("fail_reason"):
+            entry["fail_reason"] = item["fail_reason"]
+        queue.append(entry)
 
     total_symbols = len(symbols)
     completed = counts["done"]
@@ -1392,7 +1396,7 @@ def _symbol_stage_rows(training: dict, active: dict, account: dict | None = None
             lstm_progress = 50.0
             lstm_detail = "retraining"
         elif lstm_state == "failed":
-            lstm_detail = "training failed"
+            lstm_detail = lstm_item.get("fail_reason") or "training failed"
         if lstm_state in {"active", "partial", "done"} and lstm_detail == "waiting":
             if total > 0:
                 lstm_detail = f"epoch {epoch}/{total}"

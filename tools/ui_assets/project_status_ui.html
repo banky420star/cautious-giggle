@@ -671,9 +671,9 @@ function renderSignals(d) {
     const supState = exec.block_reason ? 'BLOCKED' : dec.state || '--';
     return `<div class="signal-card">
       <div class="signal-header">
-        <span class="signal-sym">${row.symbol}</span>
+        <span class="signal-sym">${esc(row.symbol)}</span>
         ${regimePill(regime)}
-        <span style="margin-left:auto;font-size:10px;font-weight:600;letter-spacing:.05em;${exec.block_reason?'color:var(--red)':'color:var(--muted)'}">${supState.toUpperCase()}</span>
+        <span style="margin-left:auto;font-size:10px;font-weight:600;letter-spacing:.05em;${exec.block_reason?'color:var(--red)':'color:var(--muted)'}">${esc(supState.toUpperCase())}</span>
       </div>
       <div class="signal-grid">
         <span class="k">Confidence</span><span class="v">${fmt(dec.confidence,3)}</span><span></span>
@@ -682,7 +682,7 @@ function renderSignals(d) {
         <span class="k">Raw</span><span class="v">${fmt(dec.raw_target,4)}</span>
         <span class="k">Final Exp</span><span class="v" style="color:${Math.abs(dec.final_target||0)>.05?'var(--cyan)':'inherit'}">${fmt(dec.final_target,4)}</span>
         <span class="k">Risk</span><span class="v">${fmt(dec.risk_scalar,2)}</span>
-        ${exec.block_reason ? `<span class="k">Block</span><span class="v sup-blocked">${exec.block_reason}</span><span></span>` : ''}
+        ${exec.block_reason ? `<span class="k">Block</span><span class="v sup-blocked">${esc(exec.block_reason)}</span><span></span>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -696,8 +696,8 @@ function renderPositions(d) {
     const side = p.type || '--';
     const sideCls = side === 'BUY' ? 'pos-buy' : side === 'SELL' ? 'pos-sell' : '';
     return `<tr>
-      <td><strong>${p.symbol}</strong></td>
-      <td class="${sideCls}">${side}</td>
+      <td><strong>${esc(p.symbol)}</strong></td>
+      <td class="${esc(sideCls)}">${esc(side)}</td>
       <td>${fmt(p.volume,2)}</td>
       <td>${fmt(p.open_price,5)}</td>
       <td>${fmt(p.current_price,5)}</td>
@@ -716,7 +716,7 @@ function renderTradePerf(d) {
   if (!bySymbol.length) { $('trade-perf').innerHTML = '<div class="empty-state">No trade history yet</div>'; return; }
   const rows = bySymbol.map(s =>
     `<tr>
-      <td>${s.symbol}</td><td>${s.trades}</td><td>${s.wins}/${s.losses}</td>
+      <td>${esc(s.symbol)}</td><td>${s.trades}</td><td>${s.wins}/${s.losses}</td>
       <td class="${s.win_rate >= 0.5 ? 'pnl-pos' : 'pnl-neg'}">${fmt(s.win_rate*100,1)}%</td>
       <td>${fmt(s.expectancy,2)}</td><td>${fmt(s.profit_factor,2)}</td>
       <td class="${pnlCls(s.total_pnl)}"><strong>${fmtUsd(s.total_pnl)}</strong></td>
@@ -737,7 +737,7 @@ function renderIncidents(d) {
     const ts = i.ts ? new Date(i.ts).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '';
     return `<div class="incident ${sev}">
       <div class="inc-top"><span class="inc-sev ${sev}">${sev}</span><span class="inc-ts">${ts}</span></div>
-      <div class="inc-msg">${i.summary||i.event||'event'}</div>
+      <div class="inc-msg">${esc(i.summary||i.event||'event')}</div>
     </div>`;
   }).join('');
 }
@@ -788,14 +788,16 @@ function renderTraining(d) {
   const stageRows = trn.symbol_stage_rows || [];
   if (stageRows.length) {
     $('train-symbol-queue').innerHTML = `<div class="symbol-queue">${stageRows.map(r => {
-      const lstmSt = r.lstm_state || 'queued';
-      const ppoSt = r.ppo_state || 'queued';
-      const dreamerSt = r.dreamer_state || 'queued';
+      const ls = (r.lstm||{});  const ps = (r.ppo||{});  const ds = (r.dreamer||{});
+      const lstmSt = ls.state || 'queued';
+      const ppoSt = ps.state || 'queued';
+      const dreamerSt = ds.state || 'queued';
+      const lstmLabel = lstmSt === 'failed' && ls.detail ? esc(ls.detail) : lstmSt;
       return `<div class="sq-row" style="grid-template-columns:80px 1fr 1fr 1fr">
-        <span class="sq-sym">${r.symbol}</span>
-        <span><span style="color:var(--muted);font-size:10px">LSTM </span><span class="sq-state ${lstmSt}">${lstmSt}</span></span>
-        <span><span style="color:var(--muted);font-size:10px">PPO </span><span class="sq-state ${ppoSt}">${ppoSt}</span></span>
-        <span><span style="color:var(--muted);font-size:10px">DRM </span><span class="sq-state ${dreamerSt}">${dreamerSt}</span></span>
+        <span class="sq-sym">${esc(r.symbol)}</span>
+        <span title="${esc(ls.detail||'')}" style="overflow:hidden;text-overflow:ellipsis"><span style="color:var(--muted);font-size:10px">LSTM </span><span class="sq-state ${lstmSt}">${lstmLabel}</span></span>
+        <span title="${esc(ps.detail||'')}"><span style="color:var(--muted);font-size:10px">PPO </span><span class="sq-state ${ppoSt}">${ppoSt}</span></span>
+        <span title="${esc(ds.detail||'')}"><span style="color:var(--muted);font-size:10px">DRM </span><span class="sq-state ${dreamerSt}">${dreamerSt}</span></span>
       </div>`;
     }).join('')}</div>`;
   } else {
@@ -808,11 +810,13 @@ function renderTraining(d) {
     $('train-lstm-detail').innerHTML = lstmQ.map(item => {
       const st = item.status || 'queued';
       const pct = item.progress_pct || 0;
+      const reason = item.fail_reason ? esc(item.fail_reason) : '';
       return `<div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-          <strong>${item.symbol||'?'}</strong>
+          <strong>${esc(item.symbol||'?')}</strong>
           <span class="sq-state ${st}">${st}${item.epoch ? ' '+item.epoch+'/'+item.epochs_total : ''}</span>
         </div>
+        ${reason ? `<div style="font-size:11px;color:var(--red);margin-bottom:3px">${reason}</div>` : ''}
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       </div>`;
     }).join('');
@@ -841,7 +845,7 @@ function renderTraining(d) {
       const pct = item.progress_pct || 0;
       return `<div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-          <strong>${item.symbol||'global'}</strong>
+          <strong>${esc(item.symbol||'global')}</strong>
           <span class="sq-state ${st}">${st}</span>
         </div>
         <div class="progress-track"><div class="progress-fill amber" style="width:${pct}%"></div></div>
@@ -858,7 +862,7 @@ function renderTraining(d) {
       const pct = item.progress_pct || 0;
       return `<div style="margin-bottom:8px">
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-          <strong>${item.symbol||'?'}</strong>
+          <strong>${esc(item.symbol||'?')}</strong>
           <span class="sq-state ${st}">${st}</span>
         </div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
@@ -895,12 +899,22 @@ function renderModels(d) {
     </div>`;
 
   // Registry summary
-  if (reg && typeof reg === 'object' && Object.keys(reg).length) {
-    let regHtml = '';
-    for (const [k, v] of Object.entries(reg)) {
-      regHtml += `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(26,48,80,.2);font-size:12px">
-        <span style="color:var(--muted)">${esc(k)}</span>
-        <span style="font-weight:600">${esc(typeof v === 'object' ? JSON.stringify(v) : String(v))}</span>
+  if (reg && typeof reg === 'object' && reg.symbol_count != null) {
+    const history = (reg.champion_history || []).map(h => esc(typeof h === 'string' ? h.split(/[/\\]/).pop() : JSON.stringify(h)));
+    let regHtml = `
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(26,48,80,.2);font-size:12px">
+        <span style="color:var(--muted)">Symbols tracked</span><span style="font-weight:600">${reg.symbol_count}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(26,48,80,.2);font-size:12px">
+        <span style="color:var(--muted)">Global Champion</span><span style="font-weight:600">${esc(reg.champion ? String(reg.champion).split(/[/\\]/).pop() : 'none')}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(26,48,80,.2);font-size:12px">
+        <span style="color:var(--muted)">Global Canary</span><span style="font-weight:600">${esc(reg.canary ? String(reg.canary).split(/[/\\]/).pop() : 'none')}</span>
+      </div>`;
+    if (history.length) {
+      regHtml += `<div style="padding:6px 0;font-size:11px;color:var(--muted)">
+        <div style="margin-bottom:3px;font-weight:600;color:var(--cyan);font-size:10px;text-transform:uppercase;letter-spacing:.1em">Champion History</div>
+        ${history.map(h => `<div style="padding:2px 0">${h}</div>`).join('')}
       </div>`;
     }
     $('registry-summary').innerHTML = regHtml;
@@ -928,10 +942,10 @@ function renderModels(d) {
       ${s.lstm ? `<div class="model-row"><span class="mk">LSTM</span><span class="mv">${esc(String(s.lstm).split(/[/\\]/).pop())}</span></div>` : ''}
       ${s.dreamer ? `<div class="model-row"><span class="mk">Dreamer</span><span class="mv">${esc(String(s.dreamer).split(/[/\\]/).pop())}</span></div>` : ''}
       <div class="model-actions">
-        <button class="btn btn-cyan" onclick="ctrlAction('set_canary_latest',{symbol:'${sym}'})">Set Canary</button>
-        <button class="btn btn-green" onclick="ctrlAction('promote_canary',{symbol:'${sym}'})">Promote</button>
-        <button class="btn btn-amber" onclick="ctrlAction('promote_canary_force',{symbol:'${sym}'})">Force Promote</button>
-        <button class="btn btn-red" onclick="ctrlAction('rollback_canary',{symbol:'${sym}'})">Rollback</button>
+        <button class="btn btn-cyan" data-action="set_canary_latest" data-symbol="${esc(sym)}">Set Canary</button>
+        <button class="btn btn-green" data-action="promote_canary" data-symbol="${esc(sym)}">Promote</button>
+        <button class="btn btn-amber" data-action="promote_canary_force" data-symbol="${esc(sym)}">Force Promote</button>
+        <button class="btn btn-red" data-action="rollback_canary" data-symbol="${esc(sym)}">Rollback</button>
       </div>
     </div>`;
   }).join('');
@@ -952,7 +966,8 @@ function fetchPatterns() {
 
 function renderPatterns() {
   const items = _patterns || [];
-  const q = ($('pattern-search').value || '').toLowerCase();
+  const searchEl = $('pattern-search');
+  const q = (searchEl ? searchEl.value : '').toLowerCase();
   const filtered = q ? items.filter(p => {
     const hay = (p.pattern_name||'') + ' ' + (p.symbol||'') + ' ' + (p.regime||'');
     return hay.toLowerCase().includes(q);
@@ -1024,7 +1039,7 @@ function renderFooter(d) {
   $('footer').innerHTML =
     pills.map(p => `<span class="status-pill ${p.on?'on':'off'}">${p.label}</span>`).join('') +
     `<span class="sep"></span>` +
-    `<span class="model-info">Champion: ${champion ? champion.split(/[/\\]/).pop() : 'none'}</span>` +
+    `<span class="model-info">Champion: ${champion ? esc(champion.split(/[/\\]/).pop()) : 'none'}</span>` +
     `<span class="session-info" id="session-id"></span>`;
 
   const badge = $('phase-badge');
@@ -1074,6 +1089,12 @@ function showToast(kind, msg) {
   clearTimeout(t._timer);
   t._timer = setTimeout(() => { t.className = 'toast'; }, 4000);
 }
+
+// Delegated click handler for model action buttons (avoids inline JS injection)
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-action][data-symbol]');
+  if (btn) ctrlAction(btn.dataset.action, {symbol: btn.dataset.symbol});
+});
 
 
 /* ═══════════════════════════════════════════════════════════════
