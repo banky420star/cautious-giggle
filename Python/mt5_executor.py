@@ -248,7 +248,11 @@ class MT5Executor:
         short_lots = sum(p.volume for p in shorts)
         can_increase_exposure = self.risk.can_trade(symbol)
 
-        target_lots = round(float(target_exposure) * float(max_lots), 2)
+        raw_lots = float(target_exposure) * float(max_lots)
+        if abs(raw_lots) < 0.01 and abs(float(target_exposure)) > 0.05:
+            target_lots = 0.01 if raw_lots > 0 else -0.01
+        else:
+            target_lots = round(raw_lots, 2)
         result_meta = {
             "request_action": "noop",
             "executed": False,

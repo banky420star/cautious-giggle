@@ -43,6 +43,7 @@ ACCOUNT_HISTORY_PATH = os.path.join(LOG_DIR, "account_history.jsonl")
 LOG_TS_FMT = "%Y-%m-%d %H:%M:%S"
 ACCOUNT_HISTORY_INTERVAL_SECONDS = 5
 _JSONL_MAX_BYTES = 10 * 1024 * 1024  # 10 MB per JSONL file before rotation
+FRONTEND_DIST_DIR = os.path.join(ROOT, "frontend", "dist")
 
 
 def _rotate_jsonl_if_needed(path: str) -> None:
@@ -2985,6 +2986,27 @@ async def mini_app(_request):
     return web.Response(text=_load_html(MINI_UI_HTML_PATH), content_type="text/html")
 
 
+async def react_app(_request):
+    """Serve the React SPA index.html from frontend/dist/."""
+    index_path = os.path.join(FRONTEND_DIST_DIR, "index.html")
+    if os.path.isfile(index_path):
+        return web.FileResponse(index_path)
+    return web.Response(text="React build not found. Run npm run build in frontend/.", status=404)
+
+
+async def react_app_static(request):
+    """Serve static files under /app/ with SPA fallback to index.html."""
+    rel_path = request.match_info.get("path", "")
+    file_path = os.path.join(FRONTEND_DIST_DIR, rel_path.replace("/", os.sep))
+    if rel_path and os.path.isfile(file_path):
+        return web.FileResponse(file_path)
+    # SPA fallback: serve index.html for any unknown path under /app/
+    index_path = os.path.join(FRONTEND_DIST_DIR, "index.html")
+    if os.path.isfile(index_path):
+        return web.FileResponse(index_path)
+    return web.Response(text="React build not found. Run npm run build in frontend/.", status=404)
+
+
 async def api_status(_request):
     return web.json_response(read_status(refresh_if_booting=False))
 
@@ -4422,11 +4444,212 @@ async def telegram_card_sync_loop(app):
         await asyncio.sleep(TELEGRAM_CARD_SYNC_SECONDS)
 
 
+# ── Telegram Bot: command polling & mini-app attachment ──────────────
+
+def _tg_api(token, method, payload, timeout=10):
+    """Direct Telegram Bot API call (used for long-poll with custom timeout)."""
+    import requests as _req
+    url = f"https://api.telegram.org/bot{token}/{method}"
+    body = dict(payload or {})
+    try:
+        resp = _req.post(url, json=body, timeout=timeout)
+        if resp.ok:
+            data = resp.json()
+            if data.get("ok"):
+                return data.get("result")
+    except Exception:
+        pass
+    return None
+
+
+def _bot_start_response():
+    return (
+        "<b>Cautious Giggle Trading Bot</b>\n\n"
+        "Your AGI trading system is connected.\n\n"
+        "<b>Commands</b>\n"
+        "/status — System status\n"
+        "/balance — Account balance\n"
+        "/signals — Current trading signals\n"
+        "/training — Training pipeline\n"
+        "/help — Show this help\n\n"
+        "Tap the <b>Dashboard</b> button to open the full mini app."
+    )
+
+
+def _bot_help_response():
+    return _bot_start_response()
+
+
+def _bot_status_response():
+    try:
+        status = read_status(refresh_if_booting=False)
+        server = status.get("server", {})
+        training = status.get("training", {})
+        gate = status.get("canary_gate", {})
+        symbols = ", ".join(training.get("configured_symbols", [])) or "none"
+        return (
+            f"<b>System Status</b>\n"
+            f"Runtime: {'RUNNING' if server.get('running') else 'STOPPED'}\n"
+            f"Training cycle: {'ACTIVE' if training.get('cycle_running') else 'IDLE'}\n"
+            f"Canary gate: {'READY' if gate.get('ready') else 'HOLD'}\n"
+            f"Symbols: {symbols}"
+        )
+    except Exception as exc:
+        return f"<b>Status unavailable</b>\n{str(exc)[:200]}"
+
+
+def _bot_balance_response():
+    try:
+        status = read_status(refresh_if_booting=False)
+        account = status.get("account", {})
+        bal = float(account.get("balance", 0) or 0)
+        eq = float(account.get("equity", 0) or 0)
+        fm = float(account.get("free_margin", 0) or 0)
+        op = int(account.get("open_positions", 0) or 0)
+        return (
+            f"<b>Account</b>\n"
+            f"Balance: ${bal:.2f}\n"
+            f"Equity: ${eq:.2f}\n"
+            f"Free margin: ${fm:.2f}\n"
+            f"Open positions: {op}"
+        )
+    except Exception as exc:
+        return f"<b>Balance unavailable</b>\n{str(exc)[:200]}"
+
+
+def _bot_signals_response():
+    try:
+        status = read_status(refresh_if_booting=False)
+        rows = (status.get("training", {}).get("symbol_lane_rows") or [])[:6]
+        if not rows:
+            return "<b>Signals</b>\nNo signal lanes active."
+        lines = ["<b>Current Signals</b>"]
+        for row in rows:
+            sym = row.get("symbol", "?")
+            decision = row.get("decision", {})
+            regime = decision.get("regime", "-")
+            final_t = float(decision.get("final_target", 0) or 0)
+            ppo_t = float(decision.get("ppo_target", 0) or 0)
+            dreamer_t = float(decision.get("dreamer_target", 0) or 0)
+            lines.append(
+                f"\n<b>{sym}</b>  regime={regime}  "
+                f"final={final_t:.3f}  PPO={ppo_t:.3f}  Dreamer={dreamer_t:.3f}"
+            )
+        return "\n".join(lines)
+    except Exception as exc:
+        return f"<b>Signals unavailable</b>\n{str(exc)[:200]}"
+
+
+def _bot_training_response():
+    try:
+        status = read_status(refresh_if_booting=False)
+        training = status.get("training", {})
+        visual = training.get("visual", {})
+        lstm = visual.get("lstm", {})
+        ppo = visual.get("ppo", {})
+        dreamer = visual.get("dreamer", {})
+        return (
+            f"<b>Training Pipeline</b>\n"
+            f"Cycle: {'RUNNING' if training.get('cycle_running') else 'IDLE'}\n\n"
+            f"LSTM: {lstm.get('current_symbol', '-')} ({lstm.get('state', 'idle')})\n"
+            f"PPO: {ppo.get('current_symbol', '-')} ({ppo.get('state', 'idle')})\n"
+            f"Dreamer: {dreamer.get('current_symbol', '-')} ({dreamer.get('state', 'idle')})"
+        )
+    except Exception as exc:
+        return f"<b>Training unavailable</b>\n{str(exc)[:200]}"
+
+
+_BOT_COMMANDS = {
+    "/start": _bot_start_response,
+    "/help": _bot_help_response,
+    "/status": _bot_status_response,
+    "/balance": _bot_balance_response,
+    "/signals": _bot_signals_response,
+    "/training": _bot_training_response,
+}
+
+
+async def _telegram_bot_setup(alerter):
+    """Register bot commands and attach the mini-app menu button."""
+    if not alerter._configured():
+        return
+    token = alerter.token
+    commands = [
+        {"command": "start", "description": "Start the bot and show mini app"},
+        {"command": "status", "description": "Get current system status"},
+        {"command": "balance", "description": "Show account balance"},
+        {"command": "signals", "description": "Show current trading signals"},
+        {"command": "training", "description": "Show training pipeline status"},
+        {"command": "help", "description": "Show available commands"},
+    ]
+    await asyncio.to_thread(_tg_api, token, "setMyCommands", {"commands": commands})
+
+    mini_app_url = os.environ.get("AGI_MINI_APP_URL", "").strip()
+    if mini_app_url:
+        await asyncio.to_thread(
+            _tg_api, token, "setChatMenuButton",
+            {
+                "menu_button": {
+                    "type": "web_app",
+                    "text": "Dashboard",
+                    "web_app": {"url": mini_app_url},
+                }
+            },
+        )
+
+
+async def telegram_bot_polling_loop(app):
+    """Long-poll for incoming Telegram bot commands and respond."""
+    alerter = app.get("alerter")
+    if not alerter or not alerter._configured():
+        return
+    token = alerter.token
+    offset = 0
+    while True:
+        try:
+            updates = await asyncio.to_thread(
+                _tg_api, token, "getUpdates",
+                {"offset": offset, "timeout": 25, "allowed_updates": ["message"]},
+                timeout=35,
+            )
+            if not updates:
+                await asyncio.sleep(1)
+                continue
+            for upd in updates:
+                offset = max(offset, int(upd.get("update_id", 0)) + 1)
+                msg = upd.get("message") or {}
+                text = (msg.get("text") or "").strip()
+                chat_id = (msg.get("chat") or {}).get("id")
+                if not chat_id or not text:
+                    continue
+                cmd = text.split()[0].lower().split("@")[0]
+                handler = _BOT_COMMANDS.get(cmd)
+                if not handler:
+                    continue
+                reply = handler()
+                if not reply:
+                    continue
+                payload = {"chat_id": chat_id, "text": reply, "parse_mode": "HTML"}
+                mini_url = os.environ.get("AGI_MINI_APP_URL", "").strip()
+                if cmd == "/start" and mini_url:
+                    payload["reply_markup"] = json.dumps({
+                        "inline_keyboard": [[{
+                            "text": "Open Dashboard",
+                            "web_app": {"url": mini_url},
+                        }]]
+                    })
+                await asyncio.to_thread(_tg_api, token, "sendMessage", payload)
+        except Exception:
+            await asyncio.sleep(5)
+
+
 async def on_startup(app):
     app["alerter"] = _build_alerter()
     app["status_task"] = asyncio.create_task(status_refresh_loop())
     app["notify_task"] = asyncio.create_task(notify_loop(app))
     app["telegram_task"] = asyncio.create_task(telegram_card_sync_loop(app))
+    await _telegram_bot_setup(app["alerter"])
+    app["telegram_bot_task"] = asyncio.create_task(telegram_bot_polling_loop(app))
 
 
 async def status_refresh_loop():
@@ -4454,7 +4677,28 @@ async def status_refresh_loop():
         await asyncio.sleep(4)
 
 
+def _kill_port(port: int) -> None:
+    """Kill any process occupying *port* so the server can bind cleanly."""
+    try:
+        out = subprocess.check_output(
+            ["netstat", "-ano"], text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        for line in out.splitlines():
+            if f":{port}" in line and "LISTENING" in line:
+                parts = line.split()
+                pid = int(parts[-1])
+                if pid > 0 and pid != os.getpid():
+                    subprocess.run(
+                        ["taskkill", "/F", "/PID", str(pid)],
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                        capture_output=True,
+                    )
+    except Exception:
+        pass
+
+
 def run(host="127.0.0.1", port=8088):
+    _kill_port(int(port))
     app = web.Application()
     app.router.add_get("/", index)
     app.router.add_get("/mini", mini_app)
@@ -4467,6 +4711,8 @@ def run(host="127.0.0.1", port=8088):
     app.router.add_get("/frontend/status", api_frontend)
     app.router.add_get("/api/patterns", api_patterns)
     app.router.add_get("/api/perf", api_performance)
+    app.router.add_get("/app", react_app)
+    app.router.add_get("/app/{path:.*}", react_app_static)
     web.run_app(app, host=host, port=int(port))
 
 

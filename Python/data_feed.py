@@ -191,7 +191,7 @@ def _normalize_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _assert_recent_bars(df: pd.DataFrame, interval: str, stale_bars: int = 3):
+def _assert_recent_bars(df: pd.DataFrame, interval: str, stale_bars: int = 12):
     if df.empty or not isinstance(df.index, pd.DatetimeIndex):
         raise RuntimeError("cannot validate freshness: missing datetime index")
     last_ts = pd.to_datetime(df.index.max(), utc=True)
@@ -394,7 +394,7 @@ def _fetch_mt5_data(
         return pd.DataFrame()
 
     if require_fresh:
-        _assert_recent_bars(df, interval=interval, stale_bars=3)
+        _assert_recent_bars(df, interval=interval, stale_bars=12)
 
     df["symbol"] = symbol
     return df

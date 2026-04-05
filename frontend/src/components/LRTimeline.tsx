@@ -1,5 +1,4 @@
 import React from 'react'
-import { PerpetualImprovementSnapshot } from '../types'
 
 interface Props { data: Array<any> | null; height?: number }
 const defaultHeight = 60

@@ -27,6 +27,16 @@ from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, re
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Auto-load .env so Server_AGI works regardless of how it's launched
+_env_path = os.path.join(BASE_DIR, ".env")
+if os.path.exists(_env_path):
+    with open(_env_path, "r", encoding="utf-8") as _ef:
+        for _line in _ef:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
 # Session config — single source of truth written by launcher
 _SESSION_PATH = os.path.join(BASE_DIR, "runtime", "session.json")
 
@@ -973,7 +983,6 @@ def main(live=False):
 
                 agi_meta = agi.predict(df, production=True)
                 conf = float((agi_meta or {}).get("confidence", 0.0) or 0.0)
-                regime = str((agi_meta or {}).get("regime", (agi_meta or {}).get("signal", "UNKNOWN")))
                 try:
                     pattern_system.detect_and_log(symbol, df)
                 except Exception:
@@ -984,6 +993,15 @@ def main(live=False):
                 dreamer_meta = brain.predict_dreamer_action(symbol, df)
                 decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, cfg=cfg)
                 exposure = float(decision["target"])
+
+                # Derive regime from blended signal, not LSTM alone.
+                # The LSTM can inform but shouldn't veto the whole pipeline.
+                if abs(exposure) < 0.05:
+                    regime = "HOLD"
+                elif exposure > 0:
+                    regime = "BUY"
+                else:
+                    regime = "SELL"
 
                 logger.info(
                     "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f"

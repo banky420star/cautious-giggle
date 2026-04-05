@@ -8,20 +8,17 @@ import numpy as np
 import yaml
 from loguru import logger
 
-# Compatibility shim: models pickled with numpy 2.x reference numpy._core.numeric
-# which doesn't exist in numpy 1.x.  Alias it so cloudpickle can deserialize.
-import sys as _sys
-try:
-    import numpy._core.numeric  # noqa: F401
-except (ModuleNotFoundError, ImportError):
-    import types as _types
-    import numpy.core as _nc
-    import numpy.core.numeric as _ncn
-    # Create numpy._core shim for numpy < 1.26
-    _core_mod = _types.ModuleType("numpy._core")
-    _core_mod.numeric = _ncn
-    _sys.modules.setdefault("numpy._core", _core_mod)
-    _sys.modules.setdefault("numpy._core.numeric", _ncn)
+# Compatibility shim: models saved with numpy 2.x reference numpy._core modules
+# (e.g. numpy._core.multiarray) which don't exist in numpy 1.x.  Map them to the
+# numpy.core equivalents so pickle / cloudpickle can deserialize.
+import sys
+import numpy.core
+import numpy.core.multiarray
+import numpy.core.numeric
+if "numpy._core" not in sys.modules:
+    sys.modules["numpy._core"] = numpy.core
+    sys.modules["numpy._core.multiarray"] = numpy.core.multiarray
+    sys.modules["numpy._core.numeric"] = numpy.core.numeric
 
 from Python.action_translator import translate_trade_action
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, resolve_trading_symbols
