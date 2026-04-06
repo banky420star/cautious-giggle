@@ -34,6 +34,7 @@ _BROKER_REJECTION_RETCODES = {
 class MT5Executor:
     def __init__(self, risk):
         self.risk = risk
+        self._partial_tp_done = set()  # tickets already partially closed
 
     def _is_system_error(self, result) -> bool:
         """Return True for real system errors (null result, connection loss).
@@ -293,6 +294,57 @@ class MT5Executor:
                 )
                 return result_meta
 
+        # Phase B1: minimum hold time for winning positions
+        min_hold_sec = 0
+        for payload in (execution_context, order_meta):
+            if isinstance(payload, dict) and payload.get("min_hold_time_sec") is not None:
+                try:
+                    min_hold_sec = max(min_hold_sec, int(payload.get("min_hold_time_sec", 0)))
+                except Exception:
+                    pass
+
+        is_reducing = abs(target_lots) < abs(current_lots) - 0.005
+        is_closing = abs(target_lots) < 0.01
+
+        if min_hold_sec > 0 and (is_reducing or is_closing):
+            import time as _time
+            now_ts = _time.time()
+            all_positions = list(longs or []) + list(shorts or [])
+            for p in all_positions:
+                p_time = int(getattr(p, "time", 0) or 0)
+                p_profit = float(getattr(p, "profit", 0.0) or 0.0)
+                age_sec = now_ts - p_time if p_time > 0 else 999999
+                if p_profit > 0 and age_sec < min_hold_sec:
+                    result_meta.update({
+                        "request_action": "hold",
+                        "hold_reason": "min_hold_time",
+                        "current_lots": float(current_lots),
+                    })
+                    return result_meta
+
+        # Phase B4: ignore small reductions on winning positions
+        ignore_small_reduction = False
+        ignore_threshold = 0.0
+        for payload in (execution_context, order_meta):
+            if isinstance(payload, dict):
+                if payload.get("ignore_small_reduction"):
+                    ignore_small_reduction = True
+                    ignore_threshold = max(ignore_threshold,
+                        float(payload.get("ignore_reduction_threshold", 0.15) or 0.15))
+
+        if ignore_small_reduction and same_side_rebalance and is_reducing:
+            all_positions = list(longs or []) + list(shorts or [])
+            total_floating = sum(float(getattr(p, "profit", 0.0) or 0.0) for p in all_positions)
+            current_exp_approx = float(current_lots) / max(float(max_lots), 1e-8)
+            exposure_drop = abs(abs(float(target_exposure)) - abs(current_exp_approx))
+            if total_floating > 0 and exposure_drop < ignore_threshold:
+                result_meta.update({
+                    "request_action": "hold",
+                    "hold_reason": "ignore_small_reduction_winning",
+                    "current_lots": float(current_lots),
+                })
+                return result_meta
+
         if abs(target_lots) < 0.01:
             if long_lots > 0:
                 _capture(self.close_positions(longs, order_meta=order_meta, execution_context=execution_context))
@@ -375,6 +427,41 @@ class MT5Executor:
                 self.risk.record_error()
         return last_meta
 
+    def close_partial_position(self, position, fraction, order_meta=None):
+        """Close a fraction (0..1) of a single position. Used for partial TP."""
+        close_volume = round(float(position.volume) * float(fraction), 2)
+        if close_volume < 0.01:
+            return {"request_action": "partial_close", "executed": False, "reason": "volume_too_small"}
+
+        tick = self._symbol_tick(position.symbol)
+        if tick is None:
+            self.risk.record_error()
+            return {"request_action": "partial_close", "executed": False}
+
+        close_type = mt5.ORDER_TYPE_SELL if position.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
+        close_price = tick.bid if close_type == mt5.ORDER_TYPE_SELL else tick.ask
+
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": position.symbol,
+            "volume": close_volume,
+            "type": close_type,
+            "position": position.ticket,
+            "price": close_price,
+            "deviation": 20,
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self._select_filling_mode(position.symbol),
+        }
+        request["magic"] = self._magic_for_order(position.symbol, order_meta, request_kind="close")
+        request["comment"] = self._order_comment(position.symbol, order_meta, request_kind="close")
+
+        result = mt5.order_send(request)
+        meta = self._log_order_send(position.symbol, "partial_close", request, result, order_meta)
+        meta["executed"] = bool(result is not None and result.retcode == mt5.TRADE_RETCODE_DONE)
+        if self._is_system_error(result):
+            self.risk.record_error()
+        return meta
+
     def _atr_points(self, symbol, bars=120, period=14):
         rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 0, bars)
         info = self._symbol_info(symbol)
@@ -411,7 +498,8 @@ class MT5Executor:
         if atr_points is None:
             return base_sl, base_tp
 
-        dyn_sl = max(base_sl, int(atr_points * 1.4))
+        sl_mult = float(profile.get("sl_atr_multiplier", 1.4))
+        dyn_sl = max(base_sl, int(atr_points * sl_mult))
         dyn_tp = max(base_tp, int(atr_points * 2.2))
         return dyn_sl, dyn_tp
 
@@ -477,7 +565,7 @@ class MT5Executor:
             self.risk.record_error()
         return meta
 
-    def manage_open_positions(self, symbol):
+    def manage_open_positions(self, symbol, signal_context=None):
         positions = mt5.positions_get(symbol=symbol)
         info = self._symbol_info(symbol)
         tick = self._symbol_tick(symbol)
@@ -489,9 +577,27 @@ class MT5Executor:
         profile = self.risk.get_symbol_profile(symbol)
 
         dyn_sl, dyn_tp = self._dynamic_points(symbol)
-        breakeven_trigger = int(profile.get("breakeven_points", max(25, dyn_sl // 3)))
+        be_divisor = max(1, int(profile.get("breakeven_atr_divisor", 3)))
+        breakeven_trigger = int(profile.get("breakeven_points", max(25, dyn_sl // be_divisor)))
         trailing_trigger = int(profile.get("trailing_trigger_points", max(40, dyn_sl // 2)))
         trailing_step = int(profile.get("trailing_step_points", max(10, dyn_sl // 8)))
+
+        # Phase B2: widen trailing when signal is strongly aligned with position
+        trailing_widen_factor = 1.0
+        sig_exposure = 0.0
+        if isinstance(signal_context, dict):
+            sig_exposure = float(signal_context.get("blended_exposure", 0.0) or 0.0)
+            widen = float(profile.get("trailing_widen_factor", 1.0) or 1.0)
+            if widen > 1.0:
+                trailing_widen_factor = widen  # applied per-position below
+
+        # Phase B3: partial TP config
+        partial_tp_enabled = bool(profile.get("partial_tp_enabled", False))
+        partial_tp_fraction = float(profile.get("partial_tp_fraction", 0.5) or 0.5)
+
+        # Prune stale tickets from partial_tp_done
+        live_tickets = {p.ticket for p in positions}
+        self._partial_tp_done = self._partial_tp_done & live_tickets
 
         for p in positions:
             current_price = tick.bid if p.type == mt5.ORDER_TYPE_BUY else tick.ask
@@ -513,7 +619,7 @@ class MT5Executor:
                     else p.price_open - tp_dist
                 )
 
-            # Break-even promotion
+            # Break-even promotion (A2: faster with configurable divisor)
             if profit_points >= breakeven_trigger:
                 be_buffer = 5 * point
                 be_sl = (
@@ -526,9 +632,17 @@ class MT5Executor:
                 ):
                     new_sl = be_sl
 
-            # Trailing after trigger
+            # Trailing after trigger (B2: widen when signal aligned)
             if profit_points >= trailing_trigger:
-                trail_dist = trailing_step * point
+                # Check if signal is aligned with this position for wider trail
+                effective_widen = 1.0
+                if trailing_widen_factor > 1.0:
+                    if (p.type == mt5.ORDER_TYPE_BUY and sig_exposure > 0.3) or \
+                       (p.type == mt5.ORDER_TYPE_SELL and sig_exposure < -0.3):
+                        effective_widen = trailing_widen_factor
+
+                effective_step = int(trailing_step * effective_widen)
+                trail_dist = effective_step * point
                 trail_sl = (
                     current_price - trail_dist
                     if p.type == mt5.ORDER_TYPE_BUY
@@ -538,6 +652,18 @@ class MT5Executor:
                     p.type == mt5.ORDER_TYPE_SELL and (new_sl is None or trail_sl < new_sl)
                 ):
                     new_sl = trail_sl
+
+            # Phase B3: partial take profit
+            if partial_tp_enabled and new_tp is not None and profit_points > 0:
+                tp_distance = abs(float(new_tp) - float(p.price_open)) / max(point, 1e-12)
+                if tp_distance > 0 and profit_points >= tp_distance * 0.90:
+                    if p.ticket not in self._partial_tp_done:
+                        partial_result = self.close_partial_position(p, partial_tp_fraction)
+                        if partial_result and partial_result.get("executed"):
+                            self._partial_tp_done.add(p.ticket)
+                            new_tp = None  # remove TP, let trailing handle the rest
+                            logger.info("PARTIAL_TP {} ticket={} fraction={:.2f}",
+                                        symbol, p.ticket, partial_tp_fraction)
 
             new_sl, new_tp = self._sanitize_sl_tp(symbol, p.type, new_sl, new_tp, tick)
 

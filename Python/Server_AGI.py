@@ -1112,6 +1112,127 @@ def main(live=False):
                 sym_state["raw_target"] = float(decision["raw_target"])
                 sym_state["blend_exposure"] = float(exposure)
 
+                # ── Phase A3: Signal collapse exit ──────────────────────
+                trade_profile = _symbol_profile(symbol, cfg=cfg)
+                if trade_profile.get("signal_collapse_exit", False):
+                    _longs, _shorts = executor.get_positions(symbol)
+                    pos_dir = 0
+                    if _longs and not _shorts:
+                        pos_dir = 1
+                    elif _shorts and not _longs:
+                        pos_dir = -1
+
+                    if pos_dir != 0:
+                        sig_dir = 1 if exposure > 0.05 else (-1 if exposure < -0.05 else 0)
+                        collapse_cycles = int(trade_profile.get("signal_collapse_cycles", 2))
+
+                        if sig_dir != 0 and sig_dir != pos_dir:
+                            sym_state["signal_flip_count"] = sym_state.get("signal_flip_count", 0) + 1
+                        else:
+                            sym_state["signal_flip_count"] = 0
+
+                        if sym_state.get("signal_flip_count", 0) >= collapse_cycles:
+                            logger.info("SIGNAL_COLLAPSE %s | flip_count=%d >= %d, forcing flat",
+                                        symbol, sym_state["signal_flip_count"], collapse_cycles)
+                            exposure = 0.0
+                            regime = "HOLD"
+                            sym_state["signal_flip_count"] = 0
+                    else:
+                        sym_state["signal_flip_count"] = 0
+
+                # ── Phase A4: Regime flip exit (losing positions only) ──
+                if trade_profile.get("regime_flip_exit_losing", False):
+                    prev_regime = sym_state.get("last_regime", "HOLD")
+                    if prev_regime != regime and prev_regime in ("BUY", "SELL"):
+                        _positions = mt5.positions_get(symbol=symbol) or []
+                        total_floating = sum(float(getattr(p, "profit", 0.0)) for p in _positions)
+                        if total_floating < 0 and len(_positions) > 0:
+                            logger.info("REGIME_FLIP_EXIT %s | prev=%s new=%s floating=%.2f, forcing flat",
+                                        symbol, prev_regime, regime, total_floating)
+                            exposure = 0.0
+                            regime = "HOLD"
+
+                sym_state["last_regime"] = regime
+
+                # ── Phase C: Pyramid winners ────────────────────────────
+                if trade_profile.get("pyramid_enabled", False):
+                    _longs, _shorts = executor.get_positions(symbol)
+                    _positions_list = _longs if _longs else (_shorts if _shorts else [])
+
+                    if _positions_list:
+                        _pos_dir = 1 if _longs else -1
+                        _signal_same_side = (exposure > 0.05 and _pos_dir > 0) or (exposure < -0.05 and _pos_dir < 0)
+
+                        if _signal_same_side:
+                            _info = mt5.symbol_info(symbol)
+                            _tick = mt5.symbol_info_tick(symbol)
+                            if _info and _tick:
+                                _point = float(_info.point) if _info.point else 0.0001
+                                _p0 = _positions_list[0]
+                                _cur_price = _tick.bid if _p0.type == 0 else _tick.ask  # 0=BUY
+                                _profit_pts = ((_cur_price - _p0.price_open) / _point
+                                               if _p0.type == 0
+                                               else (_p0.price_open - _cur_price) / _point)
+
+                                _min_profit = int(trade_profile.get("pyramid_min_profit_points", 50))
+                                _layers = int(sym_state.get("pyramid_layers", 0))
+                                _max_layers = int(trade_profile.get("pyramid_max_layers", 2))
+
+                                # Signal strength must have increased
+                                _prev_signal = abs(float(sym_state.get("last_blended_exposure", 0.0)))
+                                _curr_signal = abs(exposure)
+                                _sig_increase = float(trade_profile.get("pyramid_signal_increase", 0.10))
+
+                                # ATR spike check
+                                _current_atr = executor._atr_points(symbol)
+                                _prev_atr = sym_state.get("last_atr_points")
+                                _atr_limit = float(trade_profile.get("pyramid_atr_spike_limit", 1.5))
+                                _atr_ok = (_prev_atr is None or _current_atr is None or
+                                           _current_atr <= _prev_atr * _atr_limit)
+
+                                # Time between adds
+                                import time as _time
+                                _min_time = int(trade_profile.get("pyramid_min_time_between_sec", 120))
+                                _last_add_ts = float(sym_state.get("pyramid_last_add_ts", 0))
+                                _time_ok = (_time.time() - _last_add_ts) >= _min_time
+
+                                if (_profit_pts >= _min_profit and
+                                    _layers < _max_layers and
+                                    _curr_signal >= _prev_signal + _sig_increase and
+                                    _atr_ok and _time_ok):
+
+                                    _decay = float(trade_profile.get("pyramid_volume_decay", 0.5))
+                                    _last_vol = float(sym_state.get("pyramid_last_volume", _p0.volume))
+                                    _add_vol = round(_last_vol * _decay, 2)
+                                    if _add_vol >= 0.01:
+                                        _add_exp = _add_vol / max(float(max_lots), 1e-8)
+                                        if _pos_dir < 0:
+                                            _add_exp = -_add_exp
+                                        _current_lots = sum(p.volume for p in _longs) - sum(p.volume for p in _shorts)
+                                        _current_exp = _current_lots / max(float(max_lots), 1e-8)
+                                        _pyramid_target = _current_exp + _add_exp
+                                        _max_abs = float(trade_profile.get("max_abs_target", 0.75))
+                                        _pyramid_target = max(-_max_abs, min(_max_abs, _pyramid_target))
+
+                                        logger.info(
+                                            "PYRAMID %s | layer=%d profit_pts=%.0f signal=%.4f>%.4f+%.2f atr_ok=%s vol=%.2f",
+                                            symbol, _layers + 1, _profit_pts, _curr_signal, _prev_signal,
+                                            _sig_increase, _atr_ok, _add_vol
+                                        )
+                                        exposure = _pyramid_target
+                                        sym_state["pyramid_layers"] = _layers + 1
+                                        sym_state["pyramid_last_volume"] = _add_vol
+                                        sym_state["pyramid_last_add_ts"] = _time.time()
+
+                                if _current_atr is not None:
+                                    sym_state["last_atr_points"] = _current_atr
+                    else:
+                        sym_state["pyramid_layers"] = 0
+                        sym_state.pop("pyramid_last_volume", None)
+                        sym_state.pop("pyramid_last_add_ts", None)
+
+                sym_state["last_blended_exposure"] = exposure
+
                 action_meta = ppo_meta or brain.get_last_action_meta(symbol=symbol)
                 current_symbol_exposure, total_exposure, symbol_positions, total_positions = _position_exposure_state(
                     symbol, max_lots
@@ -1158,6 +1279,9 @@ def main(live=False):
                             "rebalance_min_delta_exposure": float(
                                 (decision.get("profile") or {}).get("rebalance_min_delta_exposure", 0.0) or 0.0
                             ),
+                            "min_hold_time_sec": int(trade_profile.get("min_hold_time_sec", 0) or 0),
+                            "ignore_small_reduction": bool(trade_profile.get("ignore_small_reduction", False)),
+                            "ignore_reduction_threshold": float(trade_profile.get("ignore_reduction_threshold", 0.15) or 0.15),
                         },
                     )
                     if order_meta and order_meta.get("executed"):
@@ -1174,7 +1298,12 @@ def main(live=False):
                             "signal": regime,
                         },
                     )
-                executor.manage_open_positions(symbol)
+                executor.manage_open_positions(symbol, signal_context={
+                    "blended_exposure": float(exposure),
+                    "regime": regime,
+                    "ppo_target": float((ppo_meta or {}).get("target", 0.0) or 0.0),
+                    "dreamer_target": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
+                })
                 if order_meta:
                     tp_outcome_usd, sl_outcome_usd = _expected_usd(
                         symbol=symbol,
