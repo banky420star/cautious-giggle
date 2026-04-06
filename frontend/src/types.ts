@@ -29,18 +29,41 @@ export interface TrainingVisual {
   fail_reason?: string
 }
 
+export interface TrainingPipelineSummary {
+  symbols_total?: number
+  training_active_symbols?: number
+  canary_review_symbols?: number
+  champion_live_symbols?: number
+  trading_ready_symbols?: number
+  trading_active_symbols?: number
+}
+
+export interface TrainingLaneSummary {
+  actionable_symbols?: number
+  executed_symbols?: number
+  blocked_symbols?: number
+  neutral_symbols?: number
+  open_positions?: number
+}
+
 export interface TrainingState {
   cycle_running?: boolean
+  lstm_running?: boolean
+  drl_running?: boolean
+  dreamer_running?: boolean
   configured_symbols?: string[]
   visual?: {
     lstm?: TrainingVisual
     ppo?: TrainingVisual
     dreamer?: TrainingVisual
+    active_label?: string
   }
+  pattern_library?: { [pattern_name: string]: PatternRecord }
   symbol_stage_rows?: any[]
   symbol_lane_rows?: any[]
-  pipeline_summary?: any
+  pipeline_summary?: TrainingPipelineSummary
   cycle_heartbeat?: any
+  lane_summary?: TrainingLaneSummary
 }
 
 export interface ServerInfo {

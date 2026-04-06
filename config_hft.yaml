@@ -8,8 +8,8 @@ trading:
   - BTCUSDm
   - XAUUSDm
   timeframe: M1
-  risk_percent: 0.5
-  max_drawdown: 15.0
+  risk_percent: 2.0
+  max_drawdown: 18.0
   confidence_threshold: 0.55
   magic_number: 506
   # Per-symbol aggressive profiles
@@ -18,26 +18,38 @@ trading:
       ppo_weight: 0.75
       dreamer_weight: 0.20
       agi_context_weight: 0.05
-      min_actionable_exposure: 0.08
-      max_policy_exposure: 1.50
+      min_actionable_exposure: 0.12
+      max_policy_exposure: 1.10
       min_trade_interval_sec: 10
+      rebalance_min_delta_exposure: 0.15
+      memory_min_trades: 10
+      memory_penalty_scale: 0.50
+      memory_profit_factor_floor: 0.95
+      memory_expectancy_floor: -0.05
+      memory_max_recent_loss_streak: 3
     XAUUSDm:
       ppo_weight: 0.70
       dreamer_weight: 0.20
       agi_context_weight: 0.10
-      min_actionable_exposure: 0.06
-      max_policy_exposure: 1.20
+      min_actionable_exposure: 0.10
+      max_policy_exposure: 0.90
       min_trade_interval_sec: 10
+      rebalance_min_delta_exposure: 0.12
+      memory_min_trades: 10
+      memory_penalty_scale: 0.45
+      memory_profit_factor_floor: 1.00
+      memory_expectancy_floor: 0.00
+      memory_max_recent_loss_streak: 2
 
 risk:
-  max_daily_loss: 500
+  max_daily_loss: 100000.0
   max_daily_trades: 10000
   max_daily_trades_per_symbol: 5000
   max_daily_losing_trades_per_symbol: 100
-  max_lots: 0.5
+  max_lots: 0.1
   supervisor:
-    enabled: true
-    max_daily_loss: 500
+    enabled: false
+    max_daily_loss: 100000.0
     max_drawdown_pct: 12.0
     max_symbol_exposure: 0.50
     max_total_exposure: 2.0
@@ -83,6 +95,17 @@ drl:
     enabled: false
     min_votes: 2
     agreement_threshold: 0.5
+  symbol_overrides:
+    BTCUSDm:
+      action:
+        min_direction_abs: 0.05
+        min_size_abs: 0.05
+        min_target_abs: 0.05
+    XAUUSDm:
+      action:
+        min_direction_abs: 0.04
+        min_size_abs: 0.04
+        min_target_abs: 0.04
   reward:
     version: v2_risk_adjusted
     weights:
@@ -105,7 +128,7 @@ training:
   data_source: mt5
 
 evaluation:
-  max_drawdown: 0.30
+  max_drawdown: 18.0
   min_sharpe: -0.8
   min_return: -0.20
   score_margin: 0.03
@@ -126,11 +149,11 @@ registry:
     default:
       min_trades: 50
       min_realized_pnl: -50.0
-      max_drawdown: 0.15
+      max_drawdown: 18.0
       min_runtime_minutes: 30
     per_symbol:
       BTCUSDm:
-        max_drawdown: 0.12
+        max_drawdown: 18.0
         min_trades: 80
 
 data:

@@ -17,6 +17,19 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+# Mirror Server_AGI startup so the dashboard sees the same MT5/Telegram config.
+ENV_PATH = os.path.join(ROOT, ".env")
+if os.path.exists(ENV_PATH):
+    try:
+        with open(ENV_PATH, "r", encoding="utf-8") as _env_file:
+            for _line in _env_file:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    os.environ.setdefault(_k.strip(), _v.strip())
+    except Exception:
+        pass
+
 try:
     import yaml
 except Exception:
@@ -46,6 +59,32 @@ _JSONL_MAX_BYTES = 10 * 1024 * 1024  # 10 MB per JSONL file before rotation
 FRONTEND_DIST_DIR = os.path.join(ROOT, "frontend", "dist")
 
 
+def _ui_pattern_library(limit_per_symbol: int = 1) -> dict:
+    try:
+        raw = get_pattern_library() or {}
+    except Exception:
+        raw = {}
+    if not isinstance(raw, dict):
+        return {}
+    configured = {str(sym) for sym in _configured_symbols()}
+    by_symbol = {}
+    for pattern_name, payload in raw.items():
+        if not isinstance(payload, dict):
+            continue
+        symbol = str(payload.get("symbol") or "").strip()
+        if not symbol or (configured and symbol not in configured):
+            continue
+        discovered_at = str(payload.get("discovered_at") or "")
+        entry = {"pattern_name": pattern_name, **payload}
+        by_symbol.setdefault(symbol, []).append((discovered_at, pattern_name, entry))
+    compact = {}
+    for symbol, rows in by_symbol.items():
+        rows.sort(key=lambda item: (item[0], item[1]), reverse=True)
+        for _, pattern_name, entry in rows[: max(1, int(limit_per_symbol))]:
+            compact[pattern_name] = entry
+    return compact
+
+
 def _rotate_jsonl_if_needed(path: str) -> None:
     """Rename path -> path.1 (keeping one backup) when the file exceeds _JSONL_MAX_BYTES."""
     try:
@@ -64,17 +103,14 @@ def _noop(*a, **k):
 
 async def api_patterns(_request):
     try:
-        lib = get_pattern_library() or {}
-        # Normalize to list for UI friendliness
-        if isinstance(lib, dict):
-            items = []
-            for k, v in lib.items():
-                if isinstance(v, dict):
-                    items.append({**v, 'pattern_name': k})
-                else:
-                    items.append({'pattern_name': k, 'details': v})
-            lib = items
-        return _aioweb.web.json_response(lib)
+        lib = _ui_pattern_library()
+        items = []
+        for k, v in lib.items():
+            if isinstance(v, dict):
+                items.append({**v, 'pattern_name': k})
+            else:
+                items.append({'pattern_name': k, 'details': v})
+        return _aioweb.web.json_response(items)
     except Exception:
         return _aioweb.web.json_response([])
 
@@ -1311,16 +1347,38 @@ def _build_dreamer_visual(lines, running: bool) -> dict:
     return out
 
 
+def _stage_completion_pct(stage: dict | None) -> float:
+    if not isinstance(stage, dict):
+        return 0.0
+    summary = stage.get("summary") if isinstance(stage.get("summary"), dict) else {}
+    return float(summary.get("completion_pct") or 0.0)
+
+
 def _build_training_visuals(lstm_lines, ppo_lines, dreamer_lines, lstm_running: bool, drl_running: bool, dreamer_running: bool) -> dict:
     lstm = _build_lstm_visual(lstm_lines, lstm_running)
     ppo = _build_ppo_visual(ppo_lines, drl_running)
     dreamer = _build_dreamer_visual(dreamer_lines, dreamer_running)
+    lstm["progress_pct"] = _stage_completion_pct(lstm)
+    ppo["progress_pct"] = _stage_completion_pct(ppo)
+    dreamer["progress_pct"] = _stage_completion_pct(dreamer)
     lstm_active = _as_int((lstm.get("summary") or {}).get("active_symbols"), 0)
     ppo_active = _as_int((ppo.get("summary") or {}).get("active_symbols"), 0)
     dreamer_active = _as_int((dreamer.get("summary") or {}).get("active_symbols"), 0)
-    if lstm_running and drl_running:
+    running_labels = []
+    if lstm_running:
+        running_labels.append("LSTM")
+    if drl_running:
+        running_labels.append("PPO")
+    if dreamer_running:
+        running_labels.append("Dreamer")
+    if len(running_labels) >= 2:
         active_stage = "parallel"
-        active_label = "LSTM and PPO running"
+        if len(running_labels) == 2:
+            active_label = f"{running_labels[0]} and {running_labels[1]} running"
+        else:
+            active_label = f"{', '.join(running_labels[:-1])}, and {running_labels[-1]} running"
+        if not dreamer_running and str(dreamer.get("phase") or "") == "stalled":
+            active_label += " | Dreamer stalled"
     elif lstm_active > 1 or ppo_active > 1 or dreamer_active > 1:
         active_stage = "parallel"
         active_label = "Parallel pair-lane training running"
@@ -1730,7 +1788,7 @@ def _latest_training_progress() -> dict:
         re.IGNORECASE,
     )
     lstm_re = re.compile(r"([A-Za-z0-9_]+)\s*\|\s*epoch\s+(\d+)\s*/\s*(\d+)")
-    cycle_ppo_re = re.compile(r"Cycle step:\s*train PPO candidate for\s+([A-Za-z0-9_]+)", re.IGNORECASE)
+    cycle_ppo_re = re.compile(r"(?:Cycle step:\s*train PPO candidate for\s+|PPO start\s*\|\s*symbol=)([A-Za-z0-9_]+)", re.IGNORECASE)
     err_re = re.compile(r"(Authorization failed|insufficient MT5 data|MT5 initialize failed)", re.IGNORECASE)
 
     for line in reversed(ppo_lines):
@@ -2266,9 +2324,32 @@ def _telegram_status():
     chat_id = os.environ.get("TELEGRAM_CHAT_ID") or _resolve_cfg_value(tel.get("chat_id"))
     configured = bool(token and chat_id)
     cards = TelegramAlerter(None, None).state_summary(limit=14)
+    card_rows = cards.get("cards") if isinstance(cards.get("cards"), list) else []
+    recent_live_card = any(str((row or {}).get("delivery_status") or "") == "both" for row in card_rows)
     cards["configured"] = configured
+    cards["connected"] = bool(configured or recent_live_card)
     cards["delivery_target"] = "both" if configured else "dashboard_only"
     return cards
+
+
+def _risk_supervisor_halt_until() -> datetime | None:
+    path = os.path.join(LOG_DIR, "risk_supervisor_state.json")
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    halt_until = data.get("halt_until")
+    if not halt_until:
+        return None
+    try:
+        return datetime.fromisoformat(str(halt_until))
+    except Exception:
+        return None
 
 
 def _incident_feed(limit: int = 40):
@@ -2306,6 +2387,10 @@ def _incident_feed(limit: int = 40):
         if symbol:
             summary = f"{symbol} · {summary}"
         if event == "risk_supervisor_block":
+            halt_until = _risk_supervisor_halt_until()
+            now = datetime.now(timezone.utc)
+            if not halt_until or now >= halt_until:
+                continue
             summary = f"{symbol or 'runtime'} · blocked by risk supervisor"
         elif event == "runtime_owner_health" and payload.get("issues"):
             summary = "runtime ownership warning"
@@ -2454,15 +2539,7 @@ def _collect_status():
         lr_snapshot = getattr(pis, "learning_rates", {}) if hasattr(pis, "learning_rates") else {}
         training["perpetual_improvement"]["rates_snapshot"] = dict(lr_snapshot)
         # Pattern library exposure from disk (best-effort)
-        pattern_lib_path = os.path.join(LOG_DIR, "pattern_library.json")
-        if os.path.exists(pattern_lib_path):
-            try:
-                with open(pattern_lib_path, "r", encoding="utf-8") as pf:
-                    training["pattern_library"] = json.load(pf) or {}
-            except Exception:
-                training["pattern_library"] = {}
-        else:
-            training["pattern_library"] = {}
+        training["pattern_library"] = _ui_pattern_library()
     except Exception:
         pass
     return {
@@ -4362,17 +4439,14 @@ async def api_control(request):
     return web.json_response(result)
 
 async def api_patterns(request):
-    from Python.pattern_recognition import get_pattern_library
-    lib = get_pattern_library() or {}
-    if isinstance(lib, dict):
-        items = []
-        for k, v in lib.items():
-            if isinstance(v, dict):
-                items.append({**v, 'pattern_name': k})
-            else:
-                items.append({'pattern_name': k, 'details': v})
-        lib = items
-    return web.json_response(lib)
+    lib = _ui_pattern_library()
+    items = []
+    for k, v in lib.items():
+        if isinstance(v, dict):
+            items.append({**v, 'pattern_name': k})
+        else:
+            items.append({'pattern_name': k, 'details': v})
+    return web.json_response(items)
 
 async def api_performance(request):
     from Python.perpetual_improvement import export_perpetual_improvement_state

@@ -68,6 +68,7 @@ const SettingsPanel: React.FC<Props> = ({ status }) => {
   const [toast, setToast] = React.useState<{ msg: string; ok: boolean } | null>(null)
 
   const telegram = status.telegram
+  const telegramConnected = Boolean(telegram?.connected ?? telegram?.configured)
 
   const handleAction = async (action: string) => {
     setLoading(action)
@@ -94,21 +95,27 @@ const SettingsPanel: React.FC<Props> = ({ status }) => {
         {telegram ? (
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             <div style={{ background: colors.bg, borderRadius: 8, padding: 14, border: '1px solid rgba(90,215,255,0.08)', minWidth: 120 }}>
-              <div style={labelStyle}>Configured</div>
+              <div style={labelStyle}>Connected</div>
               <div style={{
                 fontSize: 15,
                 fontWeight: 700,
-                color: telegram.configured ? colors.green : colors.red,
+                color: telegramConnected ? colors.green : colors.red,
               }}>
                 <span style={{
                   display: 'inline-block',
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  background: telegram.configured ? colors.green : colors.red,
+                  background: telegramConnected ? colors.green : colors.red,
                   marginRight: 6,
                   verticalAlign: 'middle',
                 }} />
+                {telegramConnected ? 'Yes' : 'No'}
+              </div>
+            </div>
+            <div style={{ background: colors.bg, borderRadius: 8, padding: 14, border: '1px solid rgba(90,215,255,0.08)', minWidth: 120 }}>
+              <div style={labelStyle}>Configured</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: telegram.configured ? colors.green : colors.red }}>
                 {telegram.configured ? 'Yes' : 'No'}
               </div>
             </div>
@@ -196,6 +203,37 @@ const SettingsPanel: React.FC<Props> = ({ status }) => {
             {toast.msg}
           </div>
         )}
+      </div>
+
+      {/* Runtime Health */}
+      <div style={panelStyle}>
+        <h3 style={{ margin: '0 0 12px', fontSize: 14, color: colors.muted, fontWeight: 600 }}>Runtime Health</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+          <div style={{ background: colors.bg, borderRadius: 8, padding: 12, border: '1px solid rgba(90,215,255,0.08)' }}>
+            <div style={labelStyle}>Server</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: status.server?.running ? colors.green : colors.red }}>
+              {status.server?.running ? 'Running' : 'Stopped'}
+            </div>
+          </div>
+          <div style={{ background: colors.bg, borderRadius: 8, padding: 12, border: '1px solid rgba(90,215,255,0.08)' }}>
+            <div style={labelStyle}>Cycle</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: status.training?.cycle_running ? colors.green : colors.amber }}>
+              {status.training?.cycle_running ? 'Active' : 'Idle'}
+            </div>
+          </div>
+          <div style={{ background: colors.bg, borderRadius: 8, padding: 12, border: '1px solid rgba(90,215,255,0.08)' }}>
+            <div style={labelStyle}>Training</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: colors.cyan }}>
+              {[
+                status.training?.drl_running ? 'PPO' : '',
+                status.training?.lstm_running ? 'LSTM' : '',
+                status.training?.dreamer_running ? 'Dreamer' : '',
+              ]
+                .filter(Boolean)
+                .join(', ') || 'none'}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* System Info */}

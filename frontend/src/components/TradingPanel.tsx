@@ -106,11 +106,55 @@ const TradingPanel: React.FC<Props> = ({ status }) => {
               </div>
             </div>
           ))}
-        </div>
       </div>
+    </div>
 
-      {/* Active Positions */}
-      <div style={cardOuter}>
+    {/* Lane Summary */}
+    <div style={cardOuter}>
+      <h3 style={sectionHeading}>Lane Summary</h3>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        {[
+          { label: 'Actionable', value: status?.training?.lane_summary?.actionable_symbols },
+          { label: 'Executed', value: status?.training?.lane_summary?.executed_symbols },
+          { label: 'Blocked', value: status?.training?.lane_summary?.blocked_symbols },
+          { label: 'Neutral', value: status?.training?.lane_summary?.neutral_symbols },
+          { label: 'Open Positions', value: status?.training?.lane_summary?.open_positions },
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{
+              background: innerBg,
+              borderRadius: 6,
+              padding: 10,
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: 11, color: mutedColor, marginBottom: 4 }}>{item.label}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: accentBlue }}>
+              {item.value ?? '--'}
+            </div>
+          </div>
+        ))}
+      </div>
+      {laneRows && laneRows.length > 0 && (
+        <div style={{ fontSize: 12, color: mutedColor }}>
+          Last block:{' '}
+          <span style={{ color: profitRed }}>
+            {laneRows.find((row) => row.execution?.block_reason)?.execution?.block_reason ?? 'none'}
+          </span>
+        </div>
+      )}
+    </div>
+
+    {/* Active Positions */}
+    <div style={cardOuter}>
         <h3 style={sectionHeading}>Active Positions</h3>
         {positions.length === 0 ? (
           <div style={{ color: mutedColor, textAlign: 'center', padding: 20 }}>

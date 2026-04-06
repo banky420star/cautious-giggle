@@ -148,3 +148,20 @@ def test_order_comment_includes_symbol_lane_and_version():
     assert "CA" in comment
     assert "072910" in comment
     assert len(comment) <= 31
+
+
+def test_reconcile_exposure_skips_small_same_side_rebalance():
+    risk = _Risk()
+    exec_ = _Exec(risk, longs=[_Pos("EURUSDm", 0.03, 0)])
+
+    meta = exec_.reconcile_exposure(
+        "EURUSDm",
+        0.40,
+        0.1,
+        execution_context={"rebalance_min_delta_exposure": 0.20},
+    )
+
+    assert meta["request_action"] == "hold"
+    assert meta["rebalance_skipped"] is True
+    assert exec_.closed == []
+    assert exec_.opened == []

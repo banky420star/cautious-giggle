@@ -45,6 +45,58 @@ const btnBase: React.CSSProperties = {
   transition: 'opacity 0.15s',
 }
 
+const queueTableStyle: React.CSSProperties = {
+  fontSize: 12,
+  marginTop: 10,
+  borderRadius: 6,
+  border: '1px solid rgba(90,215,255,0.15)',
+  overflow: 'hidden',
+  background: '#0a111a',
+}
+
+const queueRowStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  padding: '6px 10px',
+  borderBottom: '1px solid rgba(255,255,255,0.04)',
+}
+
+function formatQueuePercent(pct?: number): string {
+  if (pct == null || isNaN(pct)) return '--'
+  return `${pct.toFixed(1)}%`
+}
+
+const StageQueueCard: React.FC<{ label: string; visual?: TrainingVisual }> = ({ label, visual }) => {
+  const queue = visual?.queue ?? []
+  return (
+    <div style={{ ...cardStyle, minHeight: 220 }}>
+      <div style={{ fontSize: 12, color: '#94a6c6', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: colors.cyan }}>
+        {visual?.state ?? 'idle'}
+      </div>
+      <div style={{ fontSize: 11, color: colors.muted, marginBottom: 8 }}>
+        Progress: {formatQueuePercent(visual?.progress_pct)}
+      </div>
+      {queue.length === 0 ? (
+        <div style={{ marginTop: 12, color: colors.muted }}>Queue empty</div>
+      ) : (
+        <div style={queueTableStyle}>
+          {queue.slice(0, 4).map((item: any, idx: number) => (
+            <div key={idx} style={queueRowStyle}>
+              <span>
+                <strong>{item.symbol ?? '-'}</strong> · {item.status ?? 'queued'}
+              </span>
+              <span style={{ color: '#5ad7ff' }}>
+                {formatQueuePercent(item.progress_pct)} ({item.epoch ?? 0}/{item.epochs_total ?? 0})
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const thStyle: React.CSSProperties = {
   textAlign: 'left',
   padding: '8px 10px',
@@ -151,6 +203,23 @@ const TrainingPanel: React.FC<Props> = ({ status }) => {
     }
   }
 
+  const pipelineSummary = training?.pipeline_summary
+  const visual = training?.visual
+  const activeStage = visual?.active_label ?? 'idle'
+  const cycleHeartbeat = training?.cycle_heartbeat
+  const cycleHeartbeatText = !cycleHeartbeat
+    ? null
+    : typeof cycleHeartbeat === 'string'
+      ? cycleHeartbeat
+      : [
+          cycleHeartbeat.status ? `status=${cycleHeartbeat.status}` : null,
+          cycleHeartbeat.last_cycle ? `last=${cycleHeartbeat.last_cycle}` : null,
+          cycleHeartbeat.consecutive_failures !== undefined ? `failures=${cycleHeartbeat.consecutive_failures}` : null,
+          cycleHeartbeat.ts ? `updated=${new Date(cycleHeartbeat.ts).toLocaleString()}` : null,
+        ]
+          .filter(Boolean)
+          .join(' | ')
+
   return (
     <section style={{ background: colors.bg, color: colors.text, borderRadius: 12, padding: 20, marginBottom: 20 }}>
       <h2 style={{ margin: '0 0 16px', fontSize: 18, color: colors.cyan, fontWeight: 700 }}>
@@ -165,6 +234,43 @@ const TrainingPanel: React.FC<Props> = ({ status }) => {
           <PipelineCard label="PPO" visual={training?.visual?.ppo} />
           <PipelineCard label="Dreamer" visual={training?.visual?.dreamer} />
         </div>
+      </div>
+
+      {/* Queue Snapshot */}
+      <div style={{ ...panelStyle, marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 14, color: colors.muted, fontWeight: 600 }}>Queue Snapshot</h3>
+          <div style={{ fontSize: 12, color: colors.muted }}>
+            Active stage: <span style={{ color: colors.cyan }}>{activeStage}</span>
+          </div>
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 12,
+          }}
+        >
+          <StageQueueCard label="LSTM Queue" visual={visual?.lstm} />
+          <StageQueueCard label="PPO Queue" visual={visual?.ppo} />
+          <StageQueueCard label="Dreamer Queue" visual={visual?.dreamer} />
+        </div>
+        {pipelineSummary && (
+          <div
+            style={{
+              marginTop: 14,
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 12,
+              fontSize: 12,
+              color: colors.muted,
+            }}
+          >
+            <div>Active symbols: {pipelineSummary.training_active_symbols ?? 0}</div>
+            <div>Champion live: {pipelineSummary.champion_live_symbols ?? 0}</div>
+            <div>Trading ready: {pipelineSummary.trading_ready_symbols ?? 0}</div>
+          </div>
+        )}
       </div>
 
       {/* Symbol Queue Table */}
@@ -246,13 +352,11 @@ const TrainingPanel: React.FC<Props> = ({ status }) => {
       </div>
 
       {/* Cycle Heartbeat */}
-      {training?.cycle_heartbeat && (
+      {cycleHeartbeatText && (
         <div style={{ ...panelStyle, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ color: colors.muted, fontSize: 12 }}>Cycle Heartbeat:</span>
           <span style={{ fontFamily: 'monospace', fontSize: 13, color: colors.cyan }}>
-            {typeof training.cycle_heartbeat === 'string'
-              ? training.cycle_heartbeat
-              : new Date(training.cycle_heartbeat).toLocaleString()}
+            {cycleHeartbeatText}
           </span>
         </div>
       )}

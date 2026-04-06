@@ -24,6 +24,7 @@ import pandas as pd
 from loguru import logger
 
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
+from Python.perpetual_improvement import get_perpetual_improvement_system
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -69,17 +70,29 @@ SYMBOL_EXECUTION_PROFILES = {
         "ppo_weight": 0.65,
         "dreamer_weight": 0.25,
         "agi_weight": 0.10,
-        "min_trade_threshold": 0.05,
-        "max_abs_target": 1.00,
+        "min_trade_threshold": 0.10,
+        "max_abs_target": 0.75,
         "cooldown_sec": 30,
+        "rebalance_min_delta_exposure": 0.12,
+        "memory_min_trades": 8,
+        "memory_penalty_scale": 0.45,
+        "memory_profit_factor_floor": 0.95,
+        "memory_expectancy_floor": -0.10,
+        "memory_max_recent_loss_streak": 3,
     },
     "XAUUSDm": {
         "ppo_weight": 0.50,
         "dreamer_weight": 0.20,
         "agi_weight": 0.30,
-        "min_trade_threshold": 0.05,
-        "max_abs_target": 0.75,
+        "min_trade_threshold": 0.12,
+        "max_abs_target": 0.45,
         "cooldown_sec": 45,
+        "rebalance_min_delta_exposure": 0.10,
+        "memory_min_trades": 8,
+        "memory_penalty_scale": 0.35,
+        "memory_profit_factor_floor": 1.00,
+        "memory_expectancy_floor": 0.00,
+        "memory_max_recent_loss_streak": 2,
     },
 }
 
@@ -144,6 +157,8 @@ def _append_trade_event(event: str, payload: dict):
     _append_jsonl(TRADE_EVENTS_LOG, row)
     _append_audit(event, payload)
 
+
+_PERPETUAL_IMPROVEMENT = get_perpetual_improvement_system()
 
 def _load_runtime_components():
     from Python.agi_brain import SmartAGI
@@ -487,6 +502,18 @@ def _symbol_profile(symbol: str, cfg: dict | None = None) -> dict:
             base["max_abs_target"] = float(raw["max_policy_exposure"])
         if "min_trade_interval_sec" in raw:
             base["cooldown_sec"] = int(raw["min_trade_interval_sec"])
+        if "rebalance_min_delta_exposure" in raw:
+            base["rebalance_min_delta_exposure"] = float(raw["rebalance_min_delta_exposure"])
+        if "memory_min_trades" in raw:
+            base["memory_min_trades"] = int(raw["memory_min_trades"])
+        if "memory_penalty_scale" in raw:
+            base["memory_penalty_scale"] = float(raw["memory_penalty_scale"])
+        if "memory_profit_factor_floor" in raw:
+            base["memory_profit_factor_floor"] = float(raw["memory_profit_factor_floor"])
+        if "memory_expectancy_floor" in raw:
+            base["memory_expectancy_floor"] = float(raw["memory_expectancy_floor"])
+        if "memory_max_recent_loss_streak" in raw:
+            base["memory_max_recent_loss_streak"] = int(raw["memory_max_recent_loss_streak"])
     return base
 
 
@@ -495,6 +522,7 @@ def _blend_symbol_decision(
     agi_meta: dict | None,
     ppo_meta: dict | None,
     dreamer_meta: dict | None,
+    trade_memory: dict | None = None,
     cfg: dict | None = None,
 ) -> dict:
     profile = _symbol_profile(symbol, cfg=cfg)
@@ -518,6 +546,28 @@ def _blend_symbol_decision(
     adjusted = raw * agi_risk
     adjusted = _clip(adjusted, -float(profile["max_abs_target"]), float(profile["max_abs_target"]))
 
+    memory = trade_memory or {}
+    memory_scale = 1.0
+    memory_reason = "neutral"
+    memory_min_trades = int(profile.get("memory_min_trades", 0) or 0)
+    memory_penalty_scale = _clip(float(profile.get("memory_penalty_scale", 1.0) or 1.0), 0.0, 1.0)
+    if memory_min_trades > 0 and int(memory.get("trades", 0) or 0) >= memory_min_trades:
+        profit_factor = float(memory.get("profit_factor", 1.0) or 1.0)
+        expectancy = float(memory.get("expectancy", 0.0) or 0.0)
+        recent_loss_streak = int(memory.get("recent_loss_streak", 0) or 0)
+        profit_factor_floor = float(profile.get("memory_profit_factor_floor", 0.0) or 0.0)
+        expectancy_floor = float(profile.get("memory_expectancy_floor", -999.0) or -999.0)
+        max_recent_loss_streak = int(profile.get("memory_max_recent_loss_streak", 999) or 999)
+        if (
+            profit_factor < profit_factor_floor
+            or expectancy < expectancy_floor
+            or recent_loss_streak > max_recent_loss_streak
+        ):
+            memory_scale = memory_penalty_scale
+            memory_reason = f"pf={profit_factor:.2f} exp={expectancy:.2f} streak={recent_loss_streak}"
+
+    adjusted *= memory_scale
+
     if abs(adjusted) < float(profile["min_trade_threshold"]):
         adjusted = 0.0
 
@@ -534,6 +584,8 @@ def _blend_symbol_decision(
         "ppo_weight_used": round(ppo_w, 3),
         "dreamer_weight_used": round(dreamer_w, 3),
         "agi_weight_used": round(agi_w, 3),
+        "memory_scale": round(memory_scale, 3),
+        "memory_reason": memory_reason,
         "profile": profile,
     }
 
@@ -952,6 +1004,17 @@ def main(live=False):
                     for row in (learn.get("by_symbol", []) if isinstance(learn, dict) else [])
                     if isinstance(row, dict) and row.get("symbol")
                 }
+                try:
+                    for row in learn.get("by_symbol", []) if isinstance(learn, dict) else []:
+                        if not isinstance(row, dict):
+                            continue
+                        symbol_name = str((row or {}).get("symbol") or "").strip()
+                        if not symbol_name:
+                            continue
+                        score = float(row.get("profit_factor", 1.0) or 1.0)
+                        _PERPETUAL_IMPROVEMENT.record_model_performance("trade_learning", symbol_name, score)
+                except Exception:
+                    pass
             except Exception as e:
                 logger.warning(f"trade learning update failed: {e}")
             last_learning = now
@@ -991,7 +1054,7 @@ def main(live=False):
 
                 ppo_meta = brain.predict_ppo_action(symbol, df)
                 dreamer_meta = brain.predict_dreamer_action(symbol, df)
-                decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, cfg=cfg)
+                decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, trade_memory=trade_memory, cfg=cfg)
                 exposure = float(decision["target"])
 
                 # Derive regime from blended signal, not LSTM alone.
@@ -1092,6 +1155,9 @@ def main(live=False):
                             "dreamer_target": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
                             "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
                             "agi_risk_scalar": float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
+                            "rebalance_min_delta_exposure": float(
+                                (decision.get("profile") or {}).get("rebalance_min_delta_exposure", 0.0) or 0.0
+                            ),
                         },
                     )
                     if order_meta and order_meta.get("executed"):

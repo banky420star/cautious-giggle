@@ -500,3 +500,21 @@ def test_symbol_lane_summary_counts_execution_states():
     assert out["blocked_symbols"] == 1
     assert out["neutral_symbols"] == 1
     assert out["open_positions"] == 1
+
+
+def test_latest_training_progress_uses_ppo_start_log_symbol(monkeypatch):
+    def fake_tail(path, _n=60):
+        path = str(path)
+        if path.endswith("ppo_training.log"):
+            return []
+        if path.endswith("lstm_training.log"):
+            return []
+        if path.endswith("champion_cycle_stderr.log"):
+            return ["2026-03-13 14:39:02.495 | INFO | tools.champion_cycle:main:495 - PPO start | symbol=BTCUSDm"]
+        return []
+
+    monkeypatch.setattr(ui, "_tail", fake_tail)
+
+    out = ui._latest_training_progress()
+
+    assert out["cycle_ppo_symbol"] == "BTCUSDm"

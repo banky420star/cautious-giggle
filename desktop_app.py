@@ -649,8 +649,10 @@ def _launch(args: list[str], *, env_updates: dict[str, str] | None = None) -> su
 
 
 def start_ui_server() -> subprocess.Popen[Any] | None:
+    # Reuse an existing dashboard only when it serves one of our known routes.
     if port_open(HOST, PORT):
-        return None
+        if _http_ready(DASHBOARD_PRIMARY_URL) or _http_ready(DASHBOARD_FALLBACK_URL) or _http_ready(DASHBOARD_MINI_URL):
+            return None
     return _launch([PYTHON, "-u", str(UI_SCRIPT)], env_updates={"AGI_UI_HOST": HOST, "AGI_UI_PORT": str(PORT)})
 
 
@@ -820,7 +822,7 @@ def _set_details(window: Any, details: list[str]) -> None:
 
 
 def _wait_for_dashboard() -> str | None:
-    deadline = time.time() + 20
+    deadline = time.time() + 45
     while time.time() < deadline:
         if _http_ready(DASHBOARD_PRIMARY_URL):
             return DASHBOARD_PRIMARY_URL

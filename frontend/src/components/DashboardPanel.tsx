@@ -78,6 +78,9 @@ const DashboardPanel: React.FC<Props> = ({ status }) => {
   const serverBadge = statusBadge(server?.running, 'running', 'stopped')
   const trainingBadge = statusBadge(training?.cycle_running, 'active', 'idle')
   const canaryBadge = statusBadge(canary?.ready, 'ready', 'hold')
+  const pipelineSummary = training?.pipeline_summary
+  const laneSummary = training?.lane_summary
+  const activeStageLabel = training?.visual?.active_label ?? 'Idle'
 
   return (
     <div style={{ background: colors.bg, color: colors.text, padding: 20 }}>
@@ -122,6 +125,39 @@ const DashboardPanel: React.FC<Props> = ({ status }) => {
           <span style={{ ...valueStyle, color: canaryBadge.color }}>
             {canaryBadge.label}
           </span>
+        </div>
+      </div>
+
+      <div style={{ ...panelStyle, marginBottom: 24 }}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: 14, color: colors.cyan, fontWeight: 600 }}>
+          Pipeline Snapshot
+        </h3>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: 12,
+          }}
+        >
+          <div style={{ ...panelStyle, padding: '10px 12px' }}>
+            <div style={labelStyle}>Active training symbols</div>
+            <div style={valueStyle}>{pipelineSummary?.training_active_symbols ?? '--'}</div>
+          </div>
+          <div style={{ ...panelStyle, padding: '10px 12px' }}>
+            <div style={labelStyle}>Champion live</div>
+            <div style={valueStyle}>{pipelineSummary?.champion_live_symbols ?? '--'}</div>
+          </div>
+          <div style={{ ...panelStyle, padding: '10px 12px' }}>
+            <div style={labelStyle}>Trading ready symbols</div>
+            <div style={valueStyle}>{pipelineSummary?.trading_ready_symbols ?? '--'}</div>
+          </div>
+          <div style={{ ...panelStyle, padding: '10px 12px' }}>
+            <div style={labelStyle}>Blocked symbols</div>
+            <div style={valueStyle}>{laneSummary?.blocked_symbols ?? '--'}</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 12, fontSize: 12, color: colors.muted }}>
+          Active stage: <span style={{ color: colors.cyan }}>{activeStageLabel}</span>
         </div>
       </div>
 

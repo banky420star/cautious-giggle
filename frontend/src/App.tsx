@@ -49,6 +49,21 @@ const App: React.FC = () => {
     }
   }, [])
 
+  React.useEffect(() => {
+    const lib = status?.training?.pattern_library
+    if (!lib) {
+      return
+    }
+    const records: PatternRecord[] = Object.entries(lib)
+      .map(([pattern_name, payload]) => ({
+        pattern_name,
+        ...(payload || {}),
+      }))
+      .sort((a, b) => new Date(b.discovered_at || 0).getTime() - new Date(a.discovered_at || 0).getTime())
+      .slice(0, 2)
+    setPatterns(records)
+  }, [status])
+
   const renderContent = () => {
     switch (activeTab) {
       case 'home':

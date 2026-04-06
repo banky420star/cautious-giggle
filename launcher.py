@@ -13,6 +13,9 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import Any
+
+from Python.config_utils import load_project_config
 
 BASE_DIR = Path(__file__).resolve().parent
 PYTHON = sys.executable
@@ -200,6 +203,27 @@ function setStatus(cls, msg) {
   el.textContent = msg;
 }
 
+async function autoConnectSaved() {
+  if (!window.pywebview || !window.pywebview.api || !window.pywebview.api.get_saved_mt5) {
+    return;
+  }
+  try {
+    var creds = await window.pywebview.api.get_saved_mt5();
+    if (creds.login && creds.password && creds.server) {
+      document.getElementById('login').value = creds.login;
+      document.getElementById('password').value = creds.password;
+      document.getElementById('server').value = creds.server;
+      await doConnect();
+    }
+  } catch (e) {
+    console.warn('Auto connect failed', e);
+  }
+}
+
+window.addEventListener('pywebviewready', () => {
+  autoConnectSaved();
+});
+
 async function doConnect() {
   var login = document.getElementById('login').value.trim();
   var password = document.getElementById('password').value.trim();
@@ -315,6 +339,29 @@ class LauncherAPI:
         }
         mt5.shutdown()  # Let the bot reconnect clean
         return result
+
+    def get_saved_mt5(self) -> dict:
+        login = os.environ.get("MT5_LOGIN", "").strip()
+        password = os.environ.get("MT5_PASSWORD", "").strip()
+        server = os.environ.get("MT5_SERVER", "").strip()
+        if not (login and password and server):
+            try:
+                cfg = load_project_config(str(BASE_DIR), live_mode=False) or {}
+            except Exception:
+                cfg = {}
+            mt5_cfg = cfg.get("mt5", {}) if isinstance(cfg, dict) else {}
+            def resolve(raw: Any) -> str:
+                val = str(raw or "").strip()
+                if val.upper().startswith("ENV:"):
+                    env_name = val.split(":", 1)[1].strip()
+                    return os.environ.get(env_name, "").strip()
+                return val
+            login = login or resolve(mt5_cfg.get("login", ""))
+            password = password or resolve(mt5_cfg.get("password", ""))
+            server = server or resolve(mt5_cfg.get("server", ""))
+        if login and password and server:
+            return {"login": login, "password": password, "server": server}
+        return {}
 
     # -- Step 2: One clean call. That's it. --------------------------------
     def start_trading(self, risk_mode: str = "balanced") -> dict:

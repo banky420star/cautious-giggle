@@ -25,6 +25,7 @@ _BROKER_REJECTION_RETCODES = {
     10015,  # Invalid price
     10016,  # Invalid stops
     10017,  # Trade disabled
+    10018,  # Market closed
     10019,  # No changes
     10021,  # Not enough quotes
 }
@@ -253,6 +254,17 @@ class MT5Executor:
             target_lots = 0.01 if raw_lots > 0 else -0.01
         else:
             target_lots = round(raw_lots, 2)
+        current_lots = round(float(long_lots) - float(short_lots), 2)
+        rebalance_min_delta_exposure = 0.0
+        for payload in (execution_context, order_meta):
+            if isinstance(payload, dict) and payload.get("rebalance_min_delta_exposure") is not None:
+                try:
+                    rebalance_min_delta_exposure = max(
+                        rebalance_min_delta_exposure,
+                        abs(float(payload.get("rebalance_min_delta_exposure") or 0.0)),
+                    )
+                except Exception:
+                    pass
         result_meta = {
             "request_action": "noop",
             "executed": False,
@@ -265,6 +277,21 @@ class MT5Executor:
             if meta:
                 result_meta = meta
                 executed_any = executed_any or bool(meta.get("executed"))
+
+        same_side_rebalance = current_lots != 0.0 and target_lots != 0.0 and ((current_lots > 0 and target_lots > 0) or (current_lots < 0 and target_lots < 0))
+        if same_side_rebalance and rebalance_min_delta_exposure > 0.0:
+            delta_lots = abs(float(target_lots) - float(current_lots))
+            min_delta_lots = max(0.01, round(abs(rebalance_min_delta_exposure) * float(max_lots), 2))
+            if delta_lots < min_delta_lots:
+                result_meta.update(
+                    {
+                        "request_action": "hold",
+                        "current_lots": float(current_lots),
+                        "rebalance_skipped": True,
+                        "rebalance_delta_lots": round(delta_lots, 4),
+                    }
+                )
+                return result_meta
 
         if abs(target_lots) < 0.01:
             if long_lots > 0:

@@ -75,6 +75,9 @@ class RiskSupervisor:
             halt_until_str = state.get("halt_until")
             if halt_until_str:
                 self.halt_until = dt.datetime.fromisoformat(halt_until_str)
+            now = self._now()
+            if self.halt_until and (not self.enabled or now >= self.halt_until):
+                self.halt_until = None
             for k, v in (state.get("last_trade_at") or {}).items():
                 self.last_trade_at_by_symbol[str(k)] = dt.datetime.fromisoformat(v)
         except Exception:

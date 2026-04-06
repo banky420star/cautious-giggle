@@ -79,22 +79,17 @@ const ModelsPanel: React.FC<Props> = ({ status }) => {
         Model Registry
       </h2>
 
-      {/* Active Models */}
       <div style={panelStyle}>
         <h3 style={{ margin: '0 0 12px', fontSize: 14, color: colors.muted, fontWeight: 600 }}>Active Models</h3>
         {activeModels ? (
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 200, background: colors.bg, borderRadius: 8, padding: 14, border: '1px solid rgba(90,215,255,0.08)' }}>
               <div style={labelStyle}>Champion</div>
-              <div style={valueStyle}>
-                {activeModels.champion_path ?? activeModels.champion ?? 'None'}
-              </div>
+              <div style={valueStyle}>{activeModels.champion_path ?? activeModels.champion ?? 'None'}</div>
             </div>
             <div style={{ flex: 1, minWidth: 200, background: colors.bg, borderRadius: 8, padding: 14, border: '1px solid rgba(90,215,255,0.08)' }}>
               <div style={labelStyle}>Canary</div>
-              <div style={valueStyle}>
-                {activeModels.canary_path ?? activeModels.canary ?? 'None'}
-              </div>
+              <div style={valueStyle}>{activeModels.canary_path ?? activeModels.canary ?? 'None'}</div>
             </div>
           </div>
         ) : (
@@ -102,7 +97,40 @@ const ModelsPanel: React.FC<Props> = ({ status }) => {
         )}
       </div>
 
-      {/* Canary Gate */}
+      <div style={panelStyle}>
+        <h3 style={{ margin: '0 0 12px', fontSize: 14, color: colors.muted, fontWeight: 600 }}>Symbol Registry</h3>
+        {registry?.symbol_rows && registry.symbol_rows.length > 0 ? (
+          <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr>
+                  {['Symbol', 'Champion', 'Canary', 'Ready', 'Reason'].map((h) => (
+                    <th key={h} style={{ textAlign: 'left', padding: 6, borderBottom: '1px solid rgba(255,255,255,0.08)', color: colors.muted }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {registry.symbol_rows.map((row: any, idx: number) => (
+                  <tr key={idx} style={{ background: idx % 2 === 0 ? 'transparent' : 'rgba(90,215,255,0.03)' }}>
+                    <td style={{ padding: 6, color: colors.cyan }}>{row.symbol ?? '-'}</td>
+                    <td style={{ padding: 6, fontFamily: 'monospace', color: colors.text }}>{row.champion ?? 'none'}</td>
+                    <td style={{ padding: 6, fontFamily: 'monospace', color: colors.text }}>{row.canary ?? 'none'}</td>
+                    <td style={{ padding: 6, color: row.canary_ready ? colors.green : colors.amber }}>
+                      {row.canary_ready ? 'pass' : 'pending'}
+                    </td>
+                    <td style={{ padding: 6, color: colors.muted }}>{row.canary_reason ?? row.min_trades ?? '--'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div style={{ color: colors.muted, fontSize: 13 }}>No registry data available</div>
+        )}
+      </div>
+
       <div style={panelStyle}>
         <h3 style={{ margin: '0 0 12px', fontSize: 14, color: colors.muted, fontWeight: 600 }}>Canary Gate</h3>
         {canaryGate ? (
@@ -115,9 +143,7 @@ const ModelsPanel: React.FC<Props> = ({ status }) => {
               borderRadius: 20,
               fontSize: 13,
               fontWeight: 700,
-              background: canaryGate.ready
-                ? 'rgba(57,217,138,0.15)'
-                : 'rgba(243,187,74,0.15)',
+              background: canaryGate.ready ? 'rgba(57,217,138,0.15)' : 'rgba(243,187,74,0.15)',
               color: canaryGate.ready ? colors.green : colors.amber,
               border: `1px solid ${canaryGate.ready ? 'rgba(57,217,138,0.3)' : 'rgba(243,187,74,0.3)'}`,
             }}>
@@ -130,18 +156,13 @@ const ModelsPanel: React.FC<Props> = ({ status }) => {
               }} />
               {canaryGate.ready ? 'Ready' : 'Hold'}
             </span>
-            {canaryGate.reason && (
-              <span style={{ fontSize: 13, color: colors.muted }}>
-                {canaryGate.reason}
-              </span>
-            )}
+            {canaryGate.reason && <span style={{ fontSize: 13, color: colors.muted }}>{canaryGate.reason}</span>}
           </div>
         ) : (
           <div style={{ color: colors.muted, fontSize: 13 }}>No canary gate data available</div>
         )}
       </div>
 
-      {/* Registry Summary */}
       <div style={panelStyle}>
         <h3 style={{ margin: '0 0 12px', fontSize: 14, color: colors.muted, fontWeight: 600 }}>Registry Summary</h3>
         {registry ? (
@@ -149,9 +170,7 @@ const ModelsPanel: React.FC<Props> = ({ status }) => {
             <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 12 }}>
               <div style={{ background: colors.bg, borderRadius: 8, padding: 14, border: '1px solid rgba(90,215,255,0.08)', minWidth: 120 }}>
                 <div style={labelStyle}>Symbol Count</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: colors.cyan }}>
-                  {registry.symbol_count ?? 0}
-                </div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: colors.cyan }}>{registry.symbol_count ?? 0}</div>
               </div>
             </div>
             {registry.champion_history && Array.isArray(registry.champion_history) && registry.champion_history.length > 0 && (
@@ -189,7 +208,6 @@ const ModelsPanel: React.FC<Props> = ({ status }) => {
         )}
       </div>
 
-      {/* Controls */}
       <div style={panelStyle}>
         <h3 style={{ margin: '0 0 12px', fontSize: 14, color: colors.muted, fontWeight: 600 }}>Controls</h3>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
