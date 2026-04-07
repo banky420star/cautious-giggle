@@ -24,7 +24,7 @@ from Python.config_utils import load_project_config
 
 PORT = 8088
 HOST = "127.0.0.1"
-TITLE = "Cautious Giggle"
+TITLE = "Cautious Giggle AGI Trading Bot"
 WIDTH, HEIGHT = 1440, 920
 BASE_DIR = Path(__file__).resolve().parent
 PYTHON = sys.executable
@@ -358,45 +358,51 @@ body::before{
 <div class="shell">
   <section class="hero">
     <div>
-      <div class="eyebrow">Autonomous trading control room</div>
-      <div class="title">Launch with preflight, not guesswork.</div>
+      <div class="eyebrow">Cautious Giggle AGI Trading Bot</div>
+      <div class="title">Multi-brain autonomous trading engine.</div>
       <div class="lede">
-        The desktop shell now validates secrets, config, and runtime targets before
-        it touches live services. When something is wrong, the failure is surfaced
-        here instead of being hidden in a background process.
+        Blended LSTM + Dreamer v3 + PPO signals with three-phase trade management:
+        cut losers fast, hold winners longer, pyramid into strength. Full risk
+        supervision, self-optimization from live P&amp;L, and isolated HFT lane.
       </div>
       <div class="heroGrid">
         <div class="heroMetric">
-          <div class="k">Dashboard route</div>
-          <div class="v">Primary UI</div>
+          <div class="k">Signal blend</div>
+          <div class="v">PPO + Dreamer + LSTM</div>
         </div>
         <div class="heroMetric">
-          <div class="k">Launch mode</div>
-          <div class="v">Guarded live</div>
+          <div class="k">Symbols</div>
+          <div class="v">BTCUSDm &middot; XAUUSDm</div>
         </div>
         <div class="heroMetric">
-          <div class="k">Health model</div>
-          <div class="v">Fail fast</div>
+          <div class="k">Timeframe</div>
+          <div class="v">M5 Live</div>
         </div>
       </div>
     </div>
     <div class="heroRail">
       <div class="railItem">
         <div>
-          <strong>Preflight first</strong>
-          <span>AGI token, MT5 credentials, config files, and route readiness are checked up front.</span>
+          <strong>PPO diagnostics</strong>
+          <span>Every decision cycle logs structured PPO inference status &mdash; model path, obs shape, raw action, skip reason. No silent failures.</span>
         </div>
       </div>
       <div class="railItem">
         <div>
-          <strong>Safer launch</strong>
-          <span>Services start in sequence, and the UI opens only after the dashboard is confirmed reachable.</span>
+          <strong>Self-optimization loop</strong>
+          <span>Closed trades from MT5 feed back into trade learning &mdash; win rate, expectancy, and loss streaks shape future PPO rewards.</span>
         </div>
       </div>
       <div class="railItem">
         <div>
-          <strong>Operator-visible faults</strong>
-          <span>Any blocking issue is rendered in the launcher instead of failing silently in the background.</span>
+          <strong>HFT lane isolation</strong>
+          <span>Standard (magic 51000-52999) and HFT (magic 61000-62999) run independently with separate position filters and risk limits.</span>
+        </div>
+      </div>
+      <div class="railItem">
+        <div>
+          <strong>Risk supervisor</strong>
+          <span>Portfolio-level circuit breaker: daily loss cap, trade cooldowns, max positions, spread guard, and drawdown halt.</span>
         </div>
       </div>
     </div>
@@ -426,47 +432,47 @@ body::before{
         <div class="stepDot"></div>
         <div class="stepMain">
           <strong>Preflight validation</strong>
-          <span>Load .env, validate config, and confirm live prerequisites.</span>
+          <span>Load .env, validate MT5 credentials, AGI token, config files, and risk supervisor settings.</span>
         </div>
         <div class="stepState">pending</div>
       </div>
       <div class="step" id="step-2">
         <div class="stepDot"></div>
         <div class="stepMain">
-          <strong>Dashboard service</strong>
-          <span>Bring up the primary operator dashboard and confirm the HTTP route is ready.</span>
+          <strong>Dashboard &amp; trade history</strong>
+          <span>Start operator dashboard with Trade History, PPO Diagnostics, Trade Learning, and HFT Health panels.</span>
         </div>
         <div class="stepState">pending</div>
       </div>
       <div class="step" id="step-3">
         <div class="stepDot"></div>
         <div class="stepMain">
-          <strong>Live core</strong>
-          <span>Start the standard Server_AGI live loop with validated credentials.</span>
+          <strong>Standard trading brain</strong>
+          <span>Launch Server_AGI with blended PPO+Dreamer+LSTM signals, three-phase trade management, and risk supervisor.</span>
         </div>
         <div class="stepState">pending</div>
       </div>
       <div class="step" id="step-4">
         <div class="stepDot"></div>
         <div class="stepMain">
-          <strong>High-frequency lane</strong>
-          <span>Optionally start the HFT lane if the dedicated config is present.</span>
+          <strong>HFT scalping lane</strong>
+          <span>Launch isolated HFT bot (magic 61000-62999) with M1 timeframe, separate position filters, and own risk limits.</span>
         </div>
         <div class="stepState">pending</div>
       </div>
       <div class="step" id="step-5">
         <div class="stepDot"></div>
         <div class="stepMain">
-          <strong>Champion cycle</strong>
-          <span>Start background model governance and promotion checks.</span>
+          <strong>Champion cycle &amp; self-optimization</strong>
+          <span>Start LSTM&#8594;Dreamer&#8594;PPO training loop, canary evaluation, champion promotion, and trade learning feedback.</span>
         </div>
         <div class="stepState">pending</div>
       </div>
       <div class="step" id="step-6">
         <div class="stepDot"></div>
         <div class="stepMain">
-          <strong>Watchdog</strong>
-          <span>Attach process supervision and self-healing before handing off to the dashboard.</span>
+          <strong>Watchdog &amp; recovery</strong>
+          <span>Attach process supervision, crash detection, and automatic restart before handing off to operator dashboard.</span>
         </div>
         <div class="stepState">pending</div>
       </div>
@@ -843,77 +849,84 @@ def splash_sequence(window: Any) -> None:
     detail_rows.extend(f"Warning: {item}" for item in warnings)
     _set_details(window, detail_rows)
 
-    _set_status(window, "", "Preflight", "Validating environment and launch prerequisites.", 8)
-    _set_step(window, 1, "active", "Loading .env and verifying config, secrets, and entrypoints.")
+    _set_status(window, "", "Preflight", "Validating MT5 credentials, AGI token, configs, and risk supervisor.", 8)
+    _set_step(window, 1, "active", "Loading .env, checking MT5 credentials, AGI token, and config validity.")
     time.sleep(0.6)
 
     if warnings:
-        _set_banner(window, "warn", "Non-blocking warnings were detected. Optional services may be skipped.")
+        _set_banner(window, "warn", "Non-blocking warnings detected. Optional services may be skipped.")
 
     if issues:
         _set_step(window, 1, "fail", "Preflight failed. Live services were not started.")
-        _set_status(window, "err", "Blocked", "Startup stopped because required production prerequisites are missing.", 12)
+        _set_status(window, "err", "Blocked", "Missing required prerequisites for live trading.", 12)
         _set_banner(window, "err", " | ".join(issues))
         _set_details(window, detail_rows + [f"Blocking: {item}" for item in issues])
         return
 
-    _set_step(window, 1, "done", "Environment and live prerequisites validated.")
+    _set_step(window, 1, "done", "MT5 credentials, AGI token, configs, and risk settings validated.")
     procs: list[subprocess.Popen[Any] | None] = []
 
-    _set_status(window, "", "Dashboard", "Starting the dashboard service and waiting for the primary route.", 22)
-    _set_step(window, 2, "active", "Bringing up the aiohttp dashboard and verifying the main UI route.")
+    _set_status(window, "", "Dashboard", "Starting dashboard with Trade History, PPO Diagnostics, and HFT Health panels.", 22)
+    _set_step(window, 2, "active", "Starting operator dashboard (Overview, Training, Performance, Trades, PPO, HFT, Activity, Control).")
     ui_proc = start_ui_server()
     procs.append(ui_proc)
     dashboard_url = _wait_for_dashboard()
     if not dashboard_url:
         _set_step(window, 2, "fail", "Dashboard did not become reachable within the launch timeout.")
-        _set_status(window, "err", "Blocked", "UI server failed to expose a reachable dashboard route.", 28)
-        _set_banner(window, "err", "Dashboard startup timed out. Inspect tools/project_status_ui.py and the UI server logs.")
+        _set_status(window, "err", "Blocked", "UI server failed to start. Check tools/project_status_ui.py logs.", 28)
+        _set_banner(window, "err", "Dashboard startup timed out. Check logs/ui_restart.log for details.")
         for proc in procs:
             terminate_proc(proc)
         _clear_orchestrator_state()
         return
-    _set_step(window, 2, "done", f"Dashboard ready at {dashboard_url}")
+    _set_step(window, 2, "done", f"Dashboard ready at {dashboard_url} — all 8 tabs active.")
 
-    _set_status(window, "", "Live core", "Starting the standard Server_AGI live loop.", 40)
-    _set_step(window, 3, "active", "Launching the main live trading engine.")
+    _set_status(window, "", "Trading brain", "Launching PPO+Dreamer+LSTM blended signal engine with risk supervisor.", 40)
+    _set_step(window, 3, "active", "Starting Server_AGI: M5 timeframe, three-phase trade management, PPO diagnostics enabled.")
     agi_proc = start_server_agi()
     procs.append(agi_proc)
     time.sleep(0.7)
-    _set_step(window, 3, "done", "Standard live loop launched or already running.")
+    _set_step(window, 3, "done", "Standard trading brain online (magic 51000-52999) with risk supervisor active.")
 
-    _set_status(window, "", "HFT lane", "Starting the high-frequency lane when the dedicated config is available.", 56)
-    _set_step(window, 4, "active", "Checking HFT prerequisites and starting the optional lane.")
+    _set_status(window, "", "HFT lane", "Starting isolated HFT scalper with separate magic range and position filters.", 56)
+    _set_step(window, 4, "active", "Launching HFT bot (magic 61000-62999, M1 timeframe, independent risk limits).")
     hft_issue = _hft_launch_issue()
     hft_proc = start_hft_server()
     procs.append(hft_proc)
     if hft_issue:
         _set_step(window, 4, "done", f"HFT lane skipped: {hft_issue}")
     elif HFT_CONFIG_PATH.exists():
-        _set_step(window, 4, "done", "HFT lane launched or already running.")
+        _set_step(window, 4, "done", "HFT lane online (magic 61000-62999) — isolated from standard brain.")
     else:
-        _set_step(window, 4, "done", "HFT lane skipped because config_hft.yaml is absent.")
+        _set_step(window, 4, "done", "HFT lane skipped — config_hft.yaml not found.")
 
-    _set_status(window, "", "Champion cycle", "Starting background promotion governance.", 70)
-    _set_step(window, 5, "active", "Starting champion cycle governance.")
+    _set_status(window, "", "Self-optimization", "Starting training loop and trade learning feedback.", 70)
+    _set_step(window, 5, "active", "Launching LSTM > Dreamer > PPO training cycle, canary eval, and champion promotion.")
     cycle_proc = start_champion_loop()
     procs.append(cycle_proc)
-    _set_step(window, 5, "done", "Champion cycle launched or already running.")
+    _set_step(window, 5, "done", "Champion cycle active — trade P&L feeds back into PPO reward shaping.")
 
-    _set_status(window, "", "Watchdog", "Starting process supervision before handoff to the operator UI.", 84)
-    _set_step(window, 6, "active", "Starting watchdog and self-healing.")
+    _set_status(window, "", "Watchdog", "Starting crash detection and automatic recovery.", 84)
+    _set_step(window, 6, "active", "Attaching process supervision, crash detection, and auto-restart.")
     watchdog_proc = start_watchdog()
     procs.append(watchdog_proc)
     if WATCHDOG_SCRIPT.exists():
-        _set_step(window, 6, "done", "Watchdog launched or already running.")
+        _set_step(window, 6, "done", "Watchdog active — monitoring all processes for crash recovery.")
     else:
-        _set_step(window, 6, "done", "Watchdog skipped because tools/watchdog.py is absent.")
+        _set_step(window, 6, "done", "Watchdog skipped — tools/watchdog.py not found.")
 
     window._procs = procs
     _write_orchestrator_state(procs)
-    _set_details(window, detail_rows + [f"Dashboard: {dashboard_url}", "Launch complete. Opening primary dashboard route."])
+    _set_details(window, detail_rows + [
+        f"Dashboard: {dashboard_url}",
+        "Standard brain: PPO+Dreamer+LSTM on M5 (magic 51000-52999)",
+        "HFT lane: M1 scalper (magic 61000-62999)" if not hft_issue else f"HFT: skipped ({hft_issue})",
+        "Risk supervisor: enabled (daily loss cap, trade cooldowns, position limits)",
+        "Self-optimization: trade learning > reward shaping > PPO retraining",
+        "Launch complete. Opening operator dashboard.",
+    ])
     _set_banner(window, "", "")
-    _set_status(window, "ok", "Ready", "All selected services are online. Handing off to the primary dashboard.", 100)
+    _set_status(window, "ok", "Trading", "All systems online. Multi-brain trading engine active.", 100)
     time.sleep(0.8)
     window.load_url(dashboard_url)
 
