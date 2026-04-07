@@ -3545,6 +3545,9 @@ td:last-child,th:last-child{padding-right:14px}
     h.append(_nav_link("training", "Training"))
     h.append(_nav_link("performance", "Performance"))
     h.append(_nav_link("activity", "Activity"))
+    h.append(_nav_link("trades", "Trades"))
+    h.append(_nav_link("ppo_diag", "PPO"))
+    h.append(_nav_link("hft_health", "HFT"))
     h.append(_nav_link("control", "Control"))
     h.append('<span style="width:2px;background:rgba(255,255,255,.1);margin:0 8px;border-radius:1px"></span>')
     for sym in all_symbols:
@@ -3965,6 +3968,208 @@ td:last-child,th:last-child{padding-right:14px}
                 h.append(f'<span style="color:#edf4ff">{_e(summ[:120])}</span>')
                 h.append('</div>')
             h.append('</div></div>')
+
+    # ============================================================
+    # PAGE: TRADE HISTORY
+    # ============================================================
+    if page == "trades":
+        h.append('''<div class="card"><h2>Trade History</h2>
+<div id="trades-filters" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+  <select id="tf-symbol" style="background:#1a2236;color:#edf4ff;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px"><option value="">All Symbols</option></select>
+  <select id="tf-lane" style="background:#1a2236;color:#edf4ff;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px"><option value="">All Lanes</option><option value="standard">Standard</option><option value="hft">HFT</option></select>
+  <select id="tf-side" style="background:#1a2236;color:#edf4ff;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px"><option value="">All Sides</option><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+  <select id="tf-outcome" style="background:#1a2236;color:#edf4ff;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px"><option value="">All Outcomes</option><option value="win">Win</option><option value="loss">Loss</option><option value="breakeven">Breakeven</option></select>
+  <button onclick="loadTrades()" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 16px;cursor:pointer;font-weight:600">Filter</button>
+</div>
+<div id="trades-summary" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-size:13px;color:#8ea3c2"></div>
+<div class="table-shell"><table id="trades-table"><thead><tr>
+  <th>Time</th><th>Symbol</th><th>Side</th><th>Lane</th><th>Volume</th><th>Open</th><th>Close</th><th>PnL</th><th>Hold</th><th>Outcome</th>
+</tr></thead><tbody id="trades-body"></tbody></table></div>
+<div id="trades-pagination" style="display:flex;gap:10px;align-items:center;margin-top:12px;font-size:13px;color:#8ea3c2"></div>
+</div>
+<script>
+var tradeOffset=0, tradeLimit=50;
+function loadTrades(offset){
+  tradeOffset = offset||0;
+  var qs = "limit="+tradeLimit+"&offset="+tradeOffset;
+  var sym=document.getElementById("tf-symbol").value;
+  var lane=document.getElementById("tf-lane").value;
+  var side=document.getElementById("tf-side").value;
+  var outcome=document.getElementById("tf-outcome").value;
+  if(sym) qs+="&symbol="+sym;
+  if(lane) qs+="&bot_lane="+lane;
+  if(side) qs+="&side="+side;
+  if(outcome) qs+="&outcome="+outcome;
+  fetch("/api/trades?"+qs).then(function(r){return r.json()}).then(function(d){
+    var tb=document.getElementById("trades-body"); tb.innerHTML="";
+    (d.trades||[]).forEach(function(t){
+      var pnl=parseFloat(t.profit||0);
+      var cls=pnl>0?"good":pnl<0?"bad":"";
+      var hold=t.hold_minutes!=null?t.hold_minutes.toFixed(1)+"m":"—";
+      var ct=t.close_time?(new Date(t.close_time)).toLocaleString():"—";
+      tb.innerHTML+='<tr><td>'+ct+'</td><td style="font-weight:600">'+
+        (t.symbol||"—")+'</td><td>'+(t.side||"—")+'</td><td>'+
+        (t.bot_lane||"—")+'</td><td>'+(t.volume||0)+'</td><td>'+
+        (t.open_price||0).toFixed(2)+'</td><td>'+(t.close_price||0).toFixed(2)+
+        '</td><td class="'+cls+'">$'+pnl.toFixed(2)+'</td><td>'+hold+
+        '</td><td>'+(t.outcome||"—")+'</td></tr>';
+    });
+    var pg=document.getElementById("trades-pagination");
+    var total=d.total||0;
+    pg.innerHTML="Showing "+(tradeOffset+1)+"-"+Math.min(tradeOffset+tradeLimit,total)+" of "+total;
+    if(tradeOffset>0) pg.innerHTML+=' <a href="#" onclick="loadTrades('+(tradeOffset-tradeLimit)+');return false" style="color:#a78bfa">Prev</a>';
+    if(tradeOffset+tradeLimit<total) pg.innerHTML+=' <a href="#" onclick="loadTrades('+(tradeOffset+tradeLimit)+');return false" style="color:#a78bfa">Next</a>';
+  });
+  fetch("/api/trades/summary?"+qs).then(function(r){return r.json()}).then(function(s){
+    var ov=s.overall||{};
+    var sm=document.getElementById("trades-summary");
+    sm.innerHTML="<span>Trades: <b>"+
+      (ov.total_trades||0)+"</b></span><span>Win Rate: <b>"+
+      (ov.win_rate||0).toFixed(1)+"%</b></span><span>PnL: <b style=\\"color:"+(
+      (ov.total_pnl||0)>=0?"#34d399":"#fb7185")+"\\">$"+(ov.total_pnl||0).toFixed(2)+
+      "</b></span><span>P/F: <b>"+(ov.profit_factor||0)+"</b></span><span>Avg Hold: <b>"+
+      (ov.avg_hold_minutes||0).toFixed(1)+"m</b></span>";
+    // populate symbol filter
+    var sel=document.getElementById("tf-symbol");
+    if(sel.options.length<=1 && s.by_symbol){
+      Object.keys(s.by_symbol).forEach(function(k){
+        var o=document.createElement("option"); o.value=k; o.text=k; sel.add(o);
+      });
+    }
+  });
+}
+loadTrades(0);
+</script>''')
+
+    # ============================================================
+    # PAGE: PPO DIAGNOSTICS
+    # ============================================================
+    if page == "ppo_diag":
+        ppo_diags = _ppo_diagnostics_from_status(d)
+        h.append('<div class="card"><h2>PPO Diagnostics</h2>')
+        h.append('<p style="color:#8ea3c2;font-size:13px;margin-bottom:14px">Live PPO inference status per symbol. Updates each decision cycle.</p>')
+        if ppo_diags:
+            h.append('<div class="table-shell"><table><thead><tr><th>Symbol</th><th>Status</th><th>Model Path</th><th>Obs Shape</th><th>Raw Action</th><th>Decoded Target</th><th>Threshold</th><th>Skip Reason</th></tr></thead><tbody>')
+            for pd in ppo_diags:
+                active = pd.get("active", False)
+                status_label = '<span style="color:#34d399;font-weight:600">ACTIVE</span>' if active else '<span style="color:#fb7185;font-weight:600">SKIPPED</span>'
+                raw_act = pd.get("raw_action")
+                raw_str = str([round(float(x), 4) for x in raw_act]) if isinstance(raw_act, (list, tuple)) else str(raw_act or "—")
+                decoded = pd.get("decoded_target")
+                decoded_str = f'{float(decoded):.4f}' if decoded is not None else "—"
+                thresh = pd.get("threshold")
+                thresh_str = f'{float(thresh):.4f}' if thresh is not None else "—"
+                skip = _e(str(pd.get("skip_reason") or "—"))
+                h.append(f'<tr><td style="font-weight:600">{_e(pd.get("symbol","?"))}</td>')
+                h.append(f'<td>{status_label}</td>')
+                h.append(f'<td style="font-size:11px;word-break:break-all">{_e(pd.get("model_path","—"))}</td>')
+                h.append(f'<td>{_e(pd.get("obs_shape","—"))}</td>')
+                h.append(f'<td style="font-family:monospace;font-size:12px">{_e(raw_str)}</td>')
+                h.append(f'<td style="font-family:monospace;font-size:12px">{_e(decoded_str)}</td>')
+                h.append(f'<td style="font-family:monospace;font-size:12px">{_e(thresh_str)}</td>')
+                h.append(f'<td style="color:#fbbf24;font-size:12px">{skip}</td></tr>')
+            h.append('</tbody></table></div>')
+        else:
+            h.append('<div style="color:#8ea3c2;padding:20px;text-align:center">No PPO diagnostic data available yet. Start the trading server to see live diagnostics.</div>')
+        h.append('</div>')
+
+        # PPO Model Registry
+        h.append('<div class="card"><h2>PPO Model Registry</h2>')
+        champ = registry.get("champion")
+        canary = registry.get("canary")
+        if champ or canary:
+            h.append('<div class="grid">')
+            if champ:
+                h.append(f'<div class="kv"><div class="label">Champion</div><div class="val good">{_e(str(champ))}</div></div>')
+            if canary:
+                h.append(f'<div class="kv"><div class="label">Canary</div><div class="val" style="color:#fbbf24">{_e(str(canary))}</div></div>')
+            h.append('</div>')
+        else:
+            h.append('<div style="color:#8ea3c2;padding:12px">No models registered yet.</div>')
+        h.append('</div>')
+
+    # ============================================================
+    # PAGE: HFT HEALTH
+    # ============================================================
+    if page == "hft_health":
+        h.append('<div class="card"><h2>HFT Bot Health</h2>')
+        h.append('<p style="color:#8ea3c2;font-size:13px;margin-bottom:14px">Status of the HFT (High-Frequency Trading) scalping bot — separate from the standard trading brain.</p>')
+        # HFT process status
+        hft_running = False
+        hft_pid = None
+        try:
+            import subprocess
+            ps_out = subprocess.check_output(["tasklist", "/FI", "IMAGENAME eq python.exe", "/FO", "CSV"], text=True, timeout=5)
+            for ps_line in ps_out.strip().split("\\n"):
+                if "hft" in ps_line.lower() or "config_hft" in ps_line.lower():
+                    hft_running = True
+                    break
+        except Exception:
+            pass
+        h.append('<div class="grid">')
+        h.append(f'<div class="kv"><div class="label">HFT Process</div><div class="val {"good" if hft_running else "bad"}" >{"Running" if hft_running else "Not Detected"}</div></div>')
+        h.append('<div class="kv"><div class="label">Magic Range BTC</div><div class="val">61000-61999</div></div>')
+        h.append('<div class="kv"><div class="label">Magic Range XAU</div><div class="val">62000-62999</div></div>')
+        h.append('<div class="kv"><div class="label">Standard Magic BTC</div><div class="val">51000-51999</div></div>')
+        h.append('<div class="kv"><div class="label">Standard Magic XAU</div><div class="val">52000-52999</div></div>')
+        h.append('</div></div>')
+
+        # HFT config summary
+        h.append('<div class="card"><h2>HFT Configuration</h2>')
+        try:
+            import yaml as _yaml
+            hft_cfg_path = os.path.join(ROOT, "config_hft.yaml")
+            if os.path.exists(hft_cfg_path):
+                with open(hft_cfg_path, "r", encoding="utf-8") as _hf:
+                    hft_cfg = _yaml.safe_load(_hf) or {}
+                hft_trading = hft_cfg.get("trading", {})
+                hft_risk = hft_cfg.get("risk", {})
+                hft_sup = hft_risk.get("supervisor", {})
+                h.append('<div class="grid">')
+                h.append(f'<div class="kv"><div class="label">Timeframe</div><div class="val">{_e(str(hft_trading.get("timeframe","?")))}</div></div>')
+                h.append(f'<div class="kv"><div class="label">Symbols</div><div class="val">{_e(", ".join(hft_trading.get("symbols",[])))}</div></div>')
+                h.append(f'<div class="kv"><div class="label">Max Daily Loss</div><div class="val">${_safe_float(hft_risk.get("max_daily_loss",0)):,.0f}</div></div>')
+                h.append(f'<div class="kv"><div class="label">Max Daily Trades</div><div class="val">{int(hft_risk.get("max_daily_trades",0))}</div></div>')
+                h.append(f'<div class="kv"><div class="label">Supervisor</div><div class="val {"good" if hft_sup.get("enabled") else "bad"}" >{"Enabled" if hft_sup.get("enabled") else "Disabled"}</div></div>')
+                h.append(f'<div class="kv"><div class="label">Max Open Positions</div><div class="val">{int(hft_sup.get("max_open_positions",0))}</div></div>')
+                h.append('</div>')
+            else:
+                h.append('<div style="color:#8ea3c2;padding:12px">config_hft.yaml not found.</div>')
+        except Exception:
+            h.append('<div style="color:#8ea3c2;padding:12px">Could not read HFT config.</div>')
+        h.append('</div>')
+
+        # HFT Trades summary (filtered by bot_lane=hft)
+        h.append('''<div class="card"><h2>HFT Trade Performance</h2>
+<div id="hft-summary" style="color:#8ea3c2">Loading...</div>
+<div class="table-shell" style="margin-top:12px"><table><thead><tr>
+  <th>Time</th><th>Symbol</th><th>Side</th><th>Volume</th><th>PnL</th><th>Hold</th><th>Outcome</th>
+</tr></thead><tbody id="hft-trades-body"></tbody></table></div>
+</div>
+<script>
+fetch("/api/trades?bot_lane=hft&limit=30").then(function(r){return r.json()}).then(function(d){
+  var tb=document.getElementById("hft-trades-body");
+  (d.trades||[]).forEach(function(t){
+    var pnl=parseFloat(t.profit||0);
+    var cls=pnl>0?"good":pnl<0?"bad":"";
+    var hold=t.hold_minutes!=null?t.hold_minutes.toFixed(1)+"m":"—";
+    var ct=t.close_time?(new Date(t.close_time)).toLocaleString():"—";
+    tb.innerHTML+='<tr><td>'+ct+'</td><td style="font-weight:600">'+(t.symbol||"—")+
+      '</td><td>'+(t.side||"—")+'</td><td>'+(t.volume||0)+
+      '</td><td class="'+cls+'">$'+pnl.toFixed(2)+'</td><td>'+hold+
+      '</td><td>'+(t.outcome||"—")+'</td></tr>';
+  });
+});
+fetch("/api/trades/summary?bot_lane=hft").then(function(r){return r.json()}).then(function(s){
+  var ov=s.overall||{};
+  var el=document.getElementById("hft-summary");
+  if(!ov.total_trades){el.innerHTML="No HFT trades recorded yet.";return;}
+  el.innerHTML="<b>"+ov.total_trades+"</b> trades | Win rate: <b>"+
+    (ov.win_rate||0).toFixed(1)+"%</b> | PnL: <b style=\\"color:"+
+    ((ov.total_pnl||0)>=0?"#34d399":"#fb7185")+"\\">$"+(ov.total_pnl||0).toFixed(2)+
+    "</b> | P/F: <b>"+(ov.profit_factor||0)+"</b>";
+});
+</script>''')
 
     # ============================================================
     # PAGE: CONTROL PANEL
@@ -4636,30 +4841,6 @@ async def api_performance(request):
         return web.json_response(export_perpetual_improvement_state())
     except Exception:
         return web.json_response({})
-
-async def api_trades(request):
-    """Paginated, filterable trade history from MT5."""
-    try:
-        symbol = request.query.get("symbol", "")
-        outcome = request.query.get("outcome", "all")
-        lane = request.query.get("lane", "")
-        page = max(1, int(request.query.get("page", "1")))
-        page_size = min(100, max(10, int(request.query.get("page_size", "50"))))
-        days = min(90, max(1, int(request.query.get("days", "30"))))
-        return web.json_response(_mt5_trade_history(
-            days=days, symbol_filter=symbol, outcome_filter=outcome,
-            lane_filter=lane, page=page, page_size=page_size))
-    except Exception:
-        return web.json_response({"trades": [], "total": 0, "page": 1,
-                                  "page_size": 50, "symbols": [], "lanes": []})
-
-
-async def api_trades_summary(_request):
-    """Trade summary split by standard vs HFT bot lane."""
-    try:
-        return web.json_response(_mt5_trade_summary())
-    except Exception:
-        return web.json_response({"standard": {}, "hft": {}, "available": False})
 
 
 async def api_frontend(request):
