@@ -3627,6 +3627,117 @@ td:last-child,th:last-child{padding-right:14px}
                 h.append('</div></div></a>')
             h.append('</div>')
 
+        # ── Trade Performance Summary (live from API) ──
+        h.append('''<div class="card"><h2>Trade Performance</h2>
+<div id="ov-perf" class="grid" style="margin-bottom:14px"><div class="kv"><div class="label">Loading</div><div class="val">...</div></div></div>
+<div id="ov-by-symbol"></div>
+</div>
+<script>
+fetch("/api/trades/summary").then(function(r){return r.json()}).then(function(s){
+  var ov=s.overall||{};
+  var g=document.getElementById("ov-perf");
+  if(!ov.total_trades){g.innerHTML='<div class="kv"><div class="label">Trades</div><div class="val">No data yet</div></div>';return;}
+  var pnl=ov.total_pnl||0;
+  g.innerHTML=
+    '<div class="kv"><div class="label">Total Trades</div><div class="val">'+ov.total_trades+'</div></div>'+
+    '<div class="kv"><div class="label">Win Rate</div><div class="val '+(ov.win_rate>50?'good':'bad')+'">'+(ov.win_rate||0).toFixed(1)+'%</div></div>'+
+    '<div class="kv"><div class="label">Total PnL</div><div class="val '+(pnl>=0?'good':'bad')+'">$'+pnl.toFixed(2)+'</div></div>'+
+    '<div class="kv"><div class="label">Profit Factor</div><div class="val '+(parseFloat(ov.profit_factor||0)>1?'good':'bad')+'">'+ov.profit_factor+'</div></div>'+
+    '<div class="kv"><div class="label">Avg Win</div><div class="val good">$'+(ov.avg_profit||0).toFixed(2)+'</div></div>'+
+    '<div class="kv"><div class="label">Avg Loss</div><div class="val bad">$'+(ov.avg_loss||0).toFixed(2)+'</div></div>'+
+    '<div class="kv"><div class="label">Max Loss Streak</div><div class="val bad">'+(ov.max_loss_streak||0)+'</div></div>'+
+    '<div class="kv"><div class="label">Avg Hold</div><div class="val">'+(ov.avg_hold_minutes||0).toFixed(1)+' min</div></div>';
+  var bs=s.by_symbol||{};
+  var bsEl=document.getElementById("ov-by-symbol");
+  var html='<h3 style="color:#a78bfa;margin:14px 0 8px">By Symbol</h3><div class="table-shell"><table><tr><th>Symbol</th><th>Trades</th><th>Win Rate</th><th>PnL</th><th>P/F</th><th>Avg Hold</th></tr>';
+  for(var sym in bs){
+    var r=bs[sym];
+    var p=r.total_pnl||0;
+    html+='<tr><td style="font-weight:600">'+sym+'</td><td>'+(r.total_trades||0)+'</td><td class="'+(r.win_rate>50?'good':'bad')+'">'+(r.win_rate||0).toFixed(1)+'%</td><td class="'+(p>=0?'good':'bad')+'">$'+p.toFixed(2)+'</td><td>'+(r.profit_factor||0)+'</td><td>'+(r.avg_hold_minutes||0).toFixed(1)+'m</td></tr>';
+  }
+  html+='</table></div>';
+  bsEl.innerHTML=html;
+});
+</script>''')
+
+        # ── Recent Trades (last 15) ──
+        h.append('''<div class="card"><h2>Recent Trades</h2>
+<div class="table-shell"><table><thead><tr>
+<th>Time</th><th>Symbol</th><th>Side</th><th>Lane</th><th>Volume</th><th>PnL</th><th>Hold</th><th>Outcome</th>
+</tr></thead><tbody id="ov-recent"></tbody></table></div>
+<div style="margin-top:10px"><a href="/static?p=trades" style="color:#4fd6ff;font-size:13px">View all trades &rarr;</a></div>
+</div>
+<script>
+fetch("/api/trades?limit=15").then(function(r){return r.json()}).then(function(d){
+  var tb=document.getElementById("ov-recent");
+  if(!d.trades||!d.trades.length){tb.innerHTML='<tr><td colspan="8" style="color:#8ea3c2;text-align:center;padding:20px">No trades recorded yet</td></tr>';return;}
+  d.trades.forEach(function(t){
+    var pnl=parseFloat(t.profit||0);
+    var cls=pnl>0?"good":pnl<0?"bad":"";
+    var hold=t.hold_minutes!=null?t.hold_minutes.toFixed(1)+"m":"--";
+    var ct=t.close_time?(new Date(t.close_time)).toLocaleString():"--";
+    var oc=t.outcome||"--";
+    var ocCls=oc==="win"?"good":oc==="loss"?"bad":"";
+    tb.innerHTML+='<tr><td style="font-size:12px">'+ct+'</td><td style="font-weight:600">'+
+      (t.symbol||"--")+'</td><td>'+(t.side||"--")+'</td><td style="font-size:12px">'+
+      (t.bot_lane||"--")+'</td><td>'+(t.volume||0)+'</td><td class="'+cls+'">$'+pnl.toFixed(2)+
+      '</td><td>'+hold+'</td><td class="'+ocCls+'" style="font-weight:600">'+oc+'</td></tr>';
+  });
+});
+</script>''')
+
+        # ── PPO Brain Status ──
+        ppo_diags = _ppo_diagnostics_from_status(d)
+        h.append('<div class="card"><h2>PPO Brain Status</h2>')
+        if ppo_diags:
+            h.append('<div class="grid">')
+            for pd in ppo_diags:
+                active_ppo = pd.get("active", False)
+                skip = pd.get("skip_reason", "")
+                status_color = "good" if active_ppo else "bad"
+                status_text = "ACTIVE" if active_ppo else f"SKIP: {skip[:40]}" if skip else "INACTIVE"
+                decoded = pd.get("decoded_target")
+                decoded_str = f'{float(decoded):.4f}' if decoded is not None else "--"
+                h.append(f'<div class="kv"><div class="label">{_e(pd.get("symbol","?"))} PPO</div><div class="val {status_color}">{_e(status_text)}</div></div>')
+            h.append('</div>')
+            h.append('<div style="margin-top:10px"><a href="/static?p=ppo_diag" style="color:#4fd6ff;font-size:13px">Full PPO diagnostics &rarr;</a></div>')
+        else:
+            h.append('<div style="color:#8ea3c2;padding:12px">No PPO diagnostic data. Start the trading server.</div>')
+        h.append('</div>')
+
+        # ── Risk & Supervisor Status ──
+        h.append('<div class="row">')
+        h.append('<div class="card"><h2>Risk Supervisor</h2><div class="grid">')
+        risk_state = d.get("risk_state", {})
+        if isinstance(risk_state, dict) and risk_state:
+            daily_loss = float(risk_state.get("daily_loss", 0) or 0)
+            daily_trades = int(risk_state.get("daily_trades", 0) or 0)
+            halted = bool(risk_state.get("halted"))
+            h.append(f'<div class="kv"><div class="label">Status</div><div class="val {"bad" if halted else "good"}">{"HALTED" if halted else "Active"}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Daily Loss</div><div class="val {"bad" if daily_loss<-100 else "warn" if daily_loss<0 else "good"}">${daily_loss:,.2f}</div></div>')
+            h.append(f'<div class="kv"><div class="label">Daily Trades</div><div class="val">{daily_trades}</div></div>')
+        else:
+            h.append('<div class="kv"><div class="label">Supervisor</div><div class="val warn">No data</div></div>')
+        h.append('</div></div>')
+
+        # ── HFT Lane Quick Status ──
+        h.append('<div class="card"><h2>HFT Lane</h2><div class="grid">')
+        h.append('<div class="kv"><div class="label">Magic Range</div><div class="val">61000-62999</div></div>')
+        h.append(f'<div class="kv"><div class="label">Config</div><div class="val {"good" if os.path.exists(os.path.join(ROOT, "config_hft.yaml")) else "bad"}">{"Present" if os.path.exists(os.path.join(ROOT, "config_hft.yaml")) else "Missing"}</div></div>')
+        h.append('</div>')
+        h.append('''<div id="ov-hft-perf" style="margin-top:8px;font-size:13px;color:#8ea3c2">Loading HFT stats...</div>
+<div style="margin-top:10px"><a href="/static?p=hft_health" style="color:#4fd6ff;font-size:13px">Full HFT health &rarr;</a></div>
+</div>
+<script>
+fetch("/api/trades/summary?bot_lane=hft").then(function(r){return r.json()}).then(function(s){
+  var ov=s.overall||{};
+  var el=document.getElementById("ov-hft-perf");
+  if(!ov.total_trades){el.textContent="No HFT trades yet.";return;}
+  el.innerHTML="<b>"+ov.total_trades+"</b> trades | Win: <b>"+(ov.win_rate||0).toFixed(1)+"%</b> | PnL: <b style='color:"+((ov.total_pnl||0)>=0?"#34d399":"#fb7185")+"'>$"+(ov.total_pnl||0).toFixed(2)+"</b>";
+});
+</script>''')
+        h.append('</div>')  # close .row
+
         # Model Registry summary
         h.append('<div class="card"><h2>Model Registry</h2><div class="grid">')
         h.append(f'<div class="kv"><div class="label">Global Champion</div><div class="val">{_e(active.get("champion") or "none")}</div></div>')
