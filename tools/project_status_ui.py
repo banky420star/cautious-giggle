@@ -2073,6 +2073,188 @@ def _mt5_symbol_perf(days=7, max_points=24):
         return []
 
 
+def _mt5_trade_history(days: int = 30, limit: int = 200, symbol_filter: str = "",
+                       outcome_filter: str = "all", lane_filter: str = "",
+                       page: int = 1, page_size: int = 50) -> dict:
+    """Return paginated recent closed trades from MT5 deal history."""
+    empty = {"trades": [], "total": 0, "page": page, "page_size": page_size,
+             "symbols": [], "lanes": []}
+    if mt5 is None:
+        return empty
+    try:
+        if not _init_mt5_from_cfg():
+            return empty
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(days=int(days))
+        deals = mt5.history_deals_get(start, end)
+        if not deals:
+            return empty
+
+        rows = []
+        all_symbols = set()
+        all_lanes = set()
+        for d in deals:
+            if int(getattr(d, "entry", -1)) != int(mt5.DEAL_ENTRY_OUT):
+                continue
+            sym = str(getattr(d, "symbol", ""))
+            profit = float(getattr(d, "profit", 0.0) + getattr(d, "commission", 0.0) + getattr(d, "swap", 0.0))
+            volume = float(getattr(d, "volume", 0.0))
+            magic = int(getattr(d, "magic", 0))
+            comment = str(getattr(d, "comment", ""))
+            deal_time = int(getattr(d, "time", 0))
+            deal_type = int(getattr(d, "type", -1))
+            side = "BUY" if deal_type == int(mt5.DEAL_TYPE_BUY) else "SELL" if deal_type == int(mt5.DEAL_TYPE_SELL) else "OTHER"
+            outcome = "win" if profit > 0 else "loss" if profit < 0 else "breakeven"
+            # Derive bot_lane from magic number or comment
+            bot_lane = "standard"
+            if magic >= 900000 or "hft" in comment.lower():
+                bot_lane = "hft"
+            elif "canary" in comment.lower():
+                bot_lane = "canary"
+
+            all_symbols.add(sym)
+            all_lanes.add(bot_lane)
+
+            rows.append({
+                "time": datetime.fromtimestamp(deal_time, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                "time_unix": deal_time,
+                "symbol": sym,
+                "side": side,
+                "volume": round(volume, 4),
+                "profit": round(profit, 2),
+                "magic": magic,
+                "bot_lane": bot_lane,
+                "outcome": outcome,
+                "comment": comment[:60],
+            })
+
+        rows.sort(key=lambda x: x["time_unix"], reverse=True)
+
+        # Apply filters
+        if symbol_filter:
+            rows = [r for r in rows if r["symbol"] == symbol_filter]
+        if outcome_filter and outcome_filter != "all":
+            rows = [r for r in rows if r["outcome"] == outcome_filter]
+        if lane_filter:
+            rows = [r for r in rows if r["bot_lane"] == lane_filter]
+
+        total = len(rows)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        page_rows = rows[start_idx:end_idx]
+
+        return {
+            "trades": page_rows,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "symbols": sorted(all_symbols),
+            "lanes": sorted(all_lanes),
+        }
+    except Exception:
+        return empty
+
+
+def _mt5_trade_summary() -> dict:
+    """Aggregate trade stats split by standard vs HFT bot lane."""
+    empty = {"standard": {}, "hft": {}, "available": False}
+    if mt5 is None:
+        return empty
+    try:
+        if not _init_mt5_from_cfg():
+            return empty
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(days=30)
+        deals = mt5.history_deals_get(start, end)
+        if not deals:
+            return empty
+
+        buckets = {"standard": [], "hft": []}
+        for d in deals:
+            if int(getattr(d, "entry", -1)) != int(mt5.DEAL_ENTRY_OUT):
+                continue
+            profit = float(getattr(d, "profit", 0.0) + getattr(d, "commission", 0.0) + getattr(d, "swap", 0.0))
+            magic = int(getattr(d, "magic", 0))
+            comment = str(getattr(d, "comment", ""))
+            deal_time = int(getattr(d, "time", 0))
+            lane = "hft" if magic >= 900000 or "hft" in comment.lower() else "standard"
+            buckets[lane].append({"profit": profit, "time": deal_time})
+
+        result = {"available": True}
+        for lane, trades in buckets.items():
+            if not trades:
+                result[lane] = {"total_trades": 0, "wins": 0, "losses": 0, "win_rate": 0.0,
+                                "profit_factor": 0.0, "expectancy": 0.0,
+                                "avg_hold_minutes": 0.0, "max_loss_streak": 0}
+                continue
+            wins = [t for t in trades if t["profit"] > 0]
+            losses = [t for t in trades if t["profit"] < 0]
+            total_win = sum(t["profit"] for t in wins)
+            total_loss = abs(sum(t["profit"] for t in losses))
+            pf = (total_win / total_loss) if total_loss > 0 else 0.0
+            exp = sum(t["profit"] for t in trades) / len(trades) if trades else 0.0
+            # Max loss streak
+            max_streak = 0
+            cur_streak = 0
+            for t in sorted(trades, key=lambda x: x["time"]):
+                if t["profit"] < 0:
+                    cur_streak += 1
+                    max_streak = max(max_streak, cur_streak)
+                else:
+                    cur_streak = 0
+            result[lane] = {
+                "total_trades": len(trades),
+                "wins": len(wins),
+                "losses": len(losses),
+                "win_rate": round((len(wins) / len(trades)) * 100.0, 2) if trades else 0.0,
+                "profit_factor": round(pf, 4),
+                "expectancy": round(exp, 4),
+                "avg_hold_minutes": 0.0,  # Not available from MT5 deal data directly
+                "max_loss_streak": max_streak,
+            }
+        return result
+    except Exception:
+        return empty
+
+
+def _ppo_diagnostics_from_status(status: dict) -> list:
+    """Extract per-symbol PPO diagnostics from status data."""
+    diags = []
+    incidents = status.get("incidents", [])
+
+    # Gather from recent signal audit events
+    ppo_diag_by_sym = {}
+    for inc in incidents:
+        payload = inc.get("payload") if isinstance(inc.get("payload"), dict) else {}
+        sym = payload.get("symbol", "")
+        ppo_d = payload.get("ppo_diag") if isinstance(payload.get("ppo_diag"), dict) else {}
+        if sym and ppo_d and sym not in ppo_diag_by_sym:
+            ppo_diag_by_sym[sym] = ppo_d
+
+    # Build output from configured symbols
+    configured = {str(sym) for sym in _configured_symbols()}
+    for sym in sorted(configured):
+        diag = ppo_diag_by_sym.get(sym, {})
+        skip_reason = str(diag.get("ppo_skip_reason") or "")
+        model_path = str(diag.get("model_path") or diag.get("ppo_model_path") or "")
+        obs_shape = str(diag.get("obs_shape") or "")
+        raw_action = diag.get("raw_action")
+        decoded_target = diag.get("decoded_target") or diag.get("target")
+        threshold = diag.get("threshold") or diag.get("min_trade_threshold")
+        is_active = not bool(skip_reason)
+        diags.append({
+            "symbol": sym,
+            "active": is_active,
+            "model_path": model_path[-60:] if len(model_path) > 60 else model_path,
+            "obs_shape": obs_shape,
+            "raw_action": raw_action,
+            "decoded_target": decoded_target,
+            "threshold": threshold,
+            "skip_reason": skip_reason,
+        })
+    return diags
+
+
 def _record_account_history(account: dict):
     global _ACCOUNT_HISTORY_LAST_TS, _ACCOUNT_HISTORY_LAST_SIG
 
@@ -4455,6 +4637,31 @@ async def api_performance(request):
     except Exception:
         return web.json_response({})
 
+async def api_trades(request):
+    """Paginated, filterable trade history from MT5."""
+    try:
+        symbol = request.query.get("symbol", "")
+        outcome = request.query.get("outcome", "all")
+        lane = request.query.get("lane", "")
+        page = max(1, int(request.query.get("page", "1")))
+        page_size = min(100, max(10, int(request.query.get("page_size", "50"))))
+        days = min(90, max(1, int(request.query.get("days", "30"))))
+        return web.json_response(_mt5_trade_history(
+            days=days, symbol_filter=symbol, outcome_filter=outcome,
+            lane_filter=lane, page=page, page_size=page_size))
+    except Exception:
+        return web.json_response({"trades": [], "total": 0, "page": 1,
+                                  "page_size": 50, "symbols": [], "lanes": []})
+
+
+async def api_trades_summary(_request):
+    """Trade summary split by standard vs HFT bot lane."""
+    try:
+        return web.json_response(_mt5_trade_summary())
+    except Exception:
+        return web.json_response({"standard": {}, "hft": {}, "available": False})
+
+
 async def api_frontend(request):
     # Serve lightweight static frontend (status.html) if present
     S = os.path.join(ROOT, 'frontend', 'status.html')
@@ -4751,6 +4958,550 @@ async def status_refresh_loop():
         await asyncio.sleep(4)
 
 
+# ── Trade History API ─────────────────────────────────────────────────
+
+TRADE_EVENTS_JSONL = os.path.join(LOG_DIR, "trade_events.jsonl")
+TRADE_EVENTS_HFT_JSONL = os.path.join(LOG_DIR, "trade_events_hft.jsonl")
+AUDIT_EVENTS_JSONL = os.path.join(LOG_DIR, "audit_events.jsonl")
+AUDIT_EVENTS_HFT_JSONL = os.path.join(LOG_DIR, "audit_events_hft.jsonl")
+
+# Magic number → bot_lane mapping.
+# Standard mode uses MAGIC_BY_SYMBOL from mt5_executor (BTC=51000, XAU=52000).
+# HFT mode re-uses the same base but logs to separate files.
+# Lane offset: champion=0, canary=100, history=200, unknown=900.
+_MAGIC_LANE_RANGES = [
+    # (magic_low, magic_high, bot_lane)
+    (51000, 51099, "BTC_standard_champion"),
+    (51100, 51199, "BTC_standard_canary"),
+    (51200, 51299, "BTC_standard_history"),
+    (51900, 51999, "BTC_standard_unknown"),
+    (52000, 52099, "XAU_standard_champion"),
+    (52100, 52199, "XAU_standard_canary"),
+    (52200, 52299, "XAU_standard_history"),
+    (52900, 52999, "XAU_standard_unknown"),
+]
+
+
+def _bot_lane_from_magic(magic: int | None, symbol: str = "", source_file: str = "") -> str:
+    """Derive a human-readable bot_lane from the magic number.
+
+    Falls back to symbol-based guessing when magic is absent.  Files with
+    ``_hft`` in the name are tagged as HFT lanes.
+    """
+    is_hft = "_hft" in str(source_file).lower()
+    if magic is not None and isinstance(magic, (int, float)):
+        magic = int(magic)
+        for low, high, lane in _MAGIC_LANE_RANGES:
+            if low <= magic <= high:
+                if is_hft:
+                    return lane.replace("_standard_", "_HFT_")
+                return lane
+    # Fallback: derive from symbol + file origin
+    sym_upper = str(symbol).upper()
+    if sym_upper.startswith("BTC"):
+        return "BTC_HFT" if is_hft else "BTC_standard"
+    if sym_upper.startswith("XAU"):
+        return "XAU_HFT" if is_hft else "XAU_standard"
+    return "HFT_unknown" if is_hft else "unknown"
+
+
+def _trade_outcome(profit: float) -> str:
+    if profit > 0:
+        return "win"
+    if profit < 0:
+        return "loss"
+    return "breakeven"
+
+
+def _parse_iso_ts(raw) -> datetime | None:
+    """Parse an ISO-format timestamp string into a timezone-aware datetime."""
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    try:
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except (ValueError, TypeError):
+        return None
+
+
+def _safe_float(v, default: float = 0.0) -> float:
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _iter_jsonl_file(path: str):
+    """Yield parsed dicts from a JSONL file (plus its .1 backup)."""
+    for p in [path + ".1", path]:
+        if not os.path.exists(p):
+            continue
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        yield json.loads(line), p
+                    except json.JSONDecodeError:
+                        continue
+        except OSError:
+            continue
+
+
+def _build_audit_magic_index() -> dict:
+    """Build ticket -> {magic, model_source, model_version, lane} from audit trade_action events."""
+    index = {}
+    for audit_path in [AUDIT_EVENTS_JSONL, AUDIT_EVENTS_HFT_JSONL]:
+        for row, _src in _iter_jsonl_file(audit_path):
+            event = str(row.get("event", "")).strip()
+            if event != "trade_action":
+                continue
+            payload = row.get("payload") or {}
+            ticket = payload.get("ticket")
+            if ticket is None:
+                continue
+            try:
+                ticket = int(ticket)
+            except (TypeError, ValueError):
+                continue
+            if ticket <= 0:
+                continue
+            entry = {}
+            if payload.get("magic") is not None:
+                try:
+                    entry["magic"] = int(payload["magic"])
+                except (TypeError, ValueError):
+                    pass
+            if payload.get("lane"):
+                entry["lane"] = str(payload["lane"])
+            if payload.get("model_source"):
+                entry["model"] = str(payload["model_source"])
+            elif payload.get("model_version"):
+                entry["model"] = str(payload["model_version"])
+            comment = payload.get("comment")
+            if comment:
+                entry["comment"] = str(comment)
+            if entry:
+                index[ticket] = entry
+    return index
+
+
+def _build_trade_history() -> list[dict]:
+    """Read trade_events JSONL files and return a list of normalized closed trades.
+
+    Pairs trade_open events with trade_closed events by ticket.  Enriches
+    with magic/model data from audit_events when available.  Falls back to
+    MT5 history_deals_get when no JSONL closed trades exist.
+    """
+    opened_by_ticket: dict[int, dict] = {}
+    closed_trades: list[dict] = []
+
+    # Pass 1: read all JSONL trade event files
+    for jsonl_path in [TRADE_EVENTS_JSONL, TRADE_EVENTS_HFT_JSONL]:
+        for row, source_file in _iter_jsonl_file(jsonl_path):
+            event = str(row.get("event", "")).strip()
+            payload = row.get("payload") or {}
+            ts = _parse_iso_ts(row.get("ts"))
+
+            if event == "trade_open":
+                ticket = 0
+                try:
+                    ticket = int(payload.get("ticket", 0) or 0)
+                except (TypeError, ValueError):
+                    continue
+                if ticket <= 0:
+                    continue
+                opened_by_ticket[ticket] = {
+                    "open_time": ts,
+                    "symbol": str(payload.get("symbol", "")).strip(),
+                    "side": str(payload.get("side", "UNKNOWN")).upper(),
+                    "open_price": _safe_float(payload.get("open_price")),
+                    "volume": _safe_float(payload.get("volume")),
+                    "source_file": source_file,
+                }
+                continue
+
+            if event != "trade_closed":
+                continue
+
+            ticket = 0
+            try:
+                ticket = int(payload.get("ticket", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+
+            symbol = str(payload.get("symbol", "")).strip()
+            profit = _safe_float(payload.get("profit"))
+            volume = _safe_float(payload.get("volume"))
+            close_price = _safe_float(payload.get("price"))
+            comment = str(payload.get("comment", "") or "")
+
+            # Merge with corresponding open event
+            opened = opened_by_ticket.get(ticket, {})
+            side = opened.get("side", "UNKNOWN")
+            open_price = opened.get("open_price", 0.0)
+            open_time = opened.get("open_time")
+            close_time = ts
+            source = opened.get("source_file", source_file)
+
+            if not symbol and opened.get("symbol"):
+                symbol = opened["symbol"]
+            if volume == 0.0 and opened.get("volume"):
+                volume = opened["volume"]
+
+            closed_trades.append({
+                "ticket": ticket,
+                "symbol": symbol,
+                "side": side,
+                "volume": volume,
+                "open_time": open_time.isoformat() if open_time else None,
+                "close_time": close_time.isoformat() if close_time else None,
+                "open_price": open_price,
+                "close_price": close_price,
+                "profit": profit,
+                "comment": comment,
+                "hold_minutes": (
+                    round((close_time - open_time).total_seconds() / 60.0, 2)
+                    if close_time and open_time else None
+                ),
+                "_source_file": source,
+                "_ticket_for_enrich": ticket,
+            })
+
+    # Pass 2: fallback to MT5 closed deals if JSONL had no closed trades
+    if not closed_trades and mt5 is not None:
+        try:
+            if mt5.initialize():
+                now_utc = datetime.now(timezone.utc)
+                cutoff = now_utc - timedelta(days=90)
+                deals = mt5.history_deals_get(cutoff, now_utc) or []
+                for d in deals:
+                    try:
+                        if int(getattr(d, "entry", -1)) != int(mt5.DEAL_ENTRY_OUT):
+                            continue
+                        pnl = (
+                            _safe_float(getattr(d, "profit", 0.0))
+                            + _safe_float(getattr(d, "commission", 0.0))
+                            + _safe_float(getattr(d, "swap", 0.0))
+                        )
+                        ts_epoch = int(getattr(d, "time", 0))
+                        close_time = datetime.fromtimestamp(ts_epoch, tz=timezone.utc) if ts_epoch else None
+                        # For DEAL_ENTRY_OUT, type==ORDER_TYPE_SELL means the original position was BUY
+                        side = "BUY" if int(getattr(d, "type", 1)) == int(mt5.ORDER_TYPE_SELL) else "SELL"
+                        magic = int(getattr(d, "magic", 0) or 0) or None
+                        ticket = int(getattr(d, "position_id", 0) or 0)
+                        symbol = str(getattr(d, "symbol", ""))
+
+                        closed_trades.append({
+                            "ticket": ticket,
+                            "symbol": symbol,
+                            "side": side,
+                            "volume": _safe_float(getattr(d, "volume", 0.0)),
+                            "open_time": None,
+                            "close_time": close_time.isoformat() if close_time else None,
+                            "open_price": 0.0,
+                            "close_price": _safe_float(getattr(d, "price", 0.0)),
+                            "profit": pnl,
+                            "comment": str(getattr(d, "comment", "") or ""),
+                            "hold_minutes": None,
+                            "_source_file": "mt5",
+                            "_ticket_for_enrich": ticket,
+                            "_magic_override": magic,
+                        })
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+
+    # Pass 3: enrich from audit events (magic, model, lane, comment)
+    audit_index = _build_audit_magic_index()
+
+    results = []
+    for trade in closed_trades:
+        ticket = trade.pop("_ticket_for_enrich", 0)
+        source_file = trade.pop("_source_file", "")
+        magic_override = trade.pop("_magic_override", None)
+
+        audit = audit_index.get(ticket, {})
+        magic = magic_override or audit.get("magic")
+        model = audit.get("model", "")
+        lane_from_audit = audit.get("lane", "")
+        comment_from_audit = audit.get("comment", "")
+
+        if not trade["comment"] and comment_from_audit:
+            trade["comment"] = comment_from_audit
+
+        bot_lane = _bot_lane_from_magic(magic, trade["symbol"], source_file)
+
+        # Parse model from comment if not in audit (format: AGI|SYM|LANE|KIND|MODEL|PPO)
+        if not model and trade["comment"].startswith("AGI|"):
+            parts = trade["comment"].split("|")
+            if len(parts) >= 5:
+                model = parts[4]
+
+        # Derive action_type from comment
+        action_type = "close"
+        if trade["comment"].startswith("AGI|") and "|" in trade["comment"]:
+            parts = trade["comment"].split("|")
+            if len(parts) >= 4:
+                kind_code = parts[3]
+                action_type = {"O": "open", "C": "close", "M": "manage"}.get(kind_code, "close")
+
+        trade["magic"] = magic
+        trade["bot_lane"] = bot_lane
+        trade["model"] = model
+        trade["action_type"] = action_type
+        trade["outcome"] = _trade_outcome(trade["profit"])
+        results.append(trade)
+
+    # Sort by close_time descending (most recent first)
+    results.sort(key=lambda t: t.get("close_time") or "", reverse=True)
+    return results
+
+
+def _filter_trades(
+    trades: list[dict],
+    symbol: str | None = None,
+    bot_lane: str | None = None,
+    side: str | None = None,
+    outcome: str | None = None,
+    magic: int | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+) -> list[dict]:
+    """Apply query-parameter filters to a list of normalized trades."""
+    filtered = trades
+
+    if symbol:
+        sym_upper = symbol.upper()
+        filtered = [t for t in filtered if sym_upper in t.get("symbol", "").upper()]
+
+    if bot_lane:
+        lane_lower = bot_lane.lower()
+        filtered = [t for t in filtered if lane_lower in t.get("bot_lane", "").lower()]
+
+    if side:
+        side_upper = side.upper()
+        filtered = [t for t in filtered if t.get("side", "").upper() == side_upper]
+
+    if outcome:
+        outcome_lower = outcome.lower()
+        filtered = [t for t in filtered if t.get("outcome", "").lower() == outcome_lower]
+
+    if magic is not None:
+        filtered = [t for t in filtered if t.get("magic") == magic]
+
+    if date_from:
+        dt_from = _parse_iso_ts(date_from)
+        if dt_from:
+            filtered = [
+                t for t in filtered
+                if t.get("close_time") and _parse_iso_ts(t["close_time"])
+                and _parse_iso_ts(t["close_time"]) >= dt_from
+            ]
+
+    if date_to:
+        dt_to = _parse_iso_ts(date_to)
+        if dt_to:
+            filtered = [
+                t for t in filtered
+                if t.get("close_time") and _parse_iso_ts(t["close_time"])
+                and _parse_iso_ts(t["close_time"]) <= dt_to
+            ]
+
+    return filtered
+
+
+def _compute_trade_summary(trades: list[dict]) -> dict:
+    """Compute aggregate statistics for a list of trades."""
+    total = len(trades)
+    if total == 0:
+        return {
+            "total_trades": 0, "wins": 0, "losses": 0, "breakevens": 0,
+            "win_rate": 0.0, "total_pnl": 0.0, "avg_profit": 0.0,
+            "avg_loss": 0.0, "profit_factor": 0.0, "avg_hold_minutes": 0.0,
+            "max_loss_streak": 0,
+        }
+
+    wins = [t for t in trades if t.get("outcome") == "win"]
+    losses = [t for t in trades if t.get("outcome") == "loss"]
+    breakevens = [t for t in trades if t.get("outcome") == "breakeven"]
+
+    total_pnl = sum(t.get("profit", 0.0) for t in trades)
+    gross_profit = sum(t.get("profit", 0.0) for t in wins)
+    gross_loss = abs(sum(t.get("profit", 0.0) for t in losses))
+
+    avg_profit = (gross_profit / len(wins)) if wins else 0.0
+    avg_loss = (gross_loss / len(losses)) if losses else 0.0
+    profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (float("inf") if gross_profit > 0 else 0.0)
+
+    hold_values = [t["hold_minutes"] for t in trades if t.get("hold_minutes") is not None]
+    avg_hold = (sum(hold_values) / len(hold_values)) if hold_values else 0.0
+
+    # Max consecutive loss streak
+    max_streak = 0
+    current_streak = 0
+    # Sort by close_time ascending for streak calculation
+    sorted_trades = sorted(trades, key=lambda t: t.get("close_time") or "")
+    for t in sorted_trades:
+        if t.get("outcome") == "loss":
+            current_streak += 1
+            max_streak = max(max_streak, current_streak)
+        else:
+            current_streak = 0
+
+    return {
+        "total_trades": total,
+        "wins": len(wins),
+        "losses": len(losses),
+        "breakevens": len(breakevens),
+        "win_rate": round(len(wins) / total * 100.0, 2) if total > 0 else 0.0,
+        "total_pnl": round(total_pnl, 2),
+        "avg_profit": round(avg_profit, 2),
+        "avg_loss": round(avg_loss, 2),
+        "profit_factor": round(profit_factor, 4) if profit_factor != float("inf") else "Inf",
+        "avg_hold_minutes": round(avg_hold, 2),
+        "max_loss_streak": max_streak,
+    }
+
+
+async def api_trades(request):
+    """GET /api/trades — Paginated, filterable list of closed trades."""
+    try:
+        trades = await asyncio.to_thread(_build_trade_history)
+    except Exception:
+        trades = []
+
+    # Extract query params
+    symbol = request.query.get("symbol") or None
+    bot_lane = request.query.get("bot_lane") or None
+    side = request.query.get("side") or None
+    outcome = request.query.get("outcome") or None
+    date_from = request.query.get("date_from") or None
+    date_to = request.query.get("date_to") or None
+
+    magic_param = request.query.get("magic")
+    magic_val = None
+    if magic_param is not None:
+        try:
+            magic_val = int(magic_param)
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        limit = max(1, min(10000, int(request.query.get("limit", 200))))
+    except (TypeError, ValueError):
+        limit = 200
+
+    try:
+        offset = max(0, int(request.query.get("offset", 0)))
+    except (TypeError, ValueError):
+        offset = 0
+
+    filtered = _filter_trades(
+        trades,
+        symbol=symbol,
+        bot_lane=bot_lane,
+        side=side,
+        outcome=outcome,
+        magic=magic_val,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    total = len(filtered)
+    page = filtered[offset: offset + limit]
+
+    return web.json_response({
+        "trades": page,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "filters": {
+            "symbol": symbol,
+            "bot_lane": bot_lane,
+            "side": side,
+            "outcome": outcome,
+            "magic": magic_val,
+            "date_from": date_from,
+            "date_to": date_to,
+        },
+    })
+
+
+async def api_trades_summary(request):
+    """GET /api/trades/summary — Aggregate trade statistics, overall and per-symbol/bot_lane."""
+    try:
+        trades = await asyncio.to_thread(_build_trade_history)
+    except Exception:
+        trades = []
+
+    # Apply the same filters as /api/trades for consistency
+    symbol = request.query.get("symbol") or None
+    bot_lane = request.query.get("bot_lane") or None
+    side = request.query.get("side") or None
+    outcome = request.query.get("outcome") or None
+    date_from = request.query.get("date_from") or None
+    date_to = request.query.get("date_to") or None
+
+    magic_param = request.query.get("magic")
+    magic_val = None
+    if magic_param is not None:
+        try:
+            magic_val = int(magic_param)
+        except (TypeError, ValueError):
+            pass
+
+    filtered = _filter_trades(
+        trades,
+        symbol=symbol,
+        bot_lane=bot_lane,
+        side=side,
+        outcome=outcome,
+        magic=magic_val,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+    overall = _compute_trade_summary(filtered)
+
+    # Breakdown by symbol
+    by_symbol: dict[str, list[dict]] = {}
+    for t in filtered:
+        sym = t.get("symbol") or "UNKNOWN"
+        by_symbol.setdefault(sym, []).append(t)
+    symbol_breakdown = {sym: _compute_trade_summary(group) for sym, group in sorted(by_symbol.items())}
+
+    # Breakdown by bot_lane
+    by_lane: dict[str, list[dict]] = {}
+    for t in filtered:
+        lane = t.get("bot_lane") or "unknown"
+        by_lane.setdefault(lane, []).append(t)
+    lane_breakdown = {lane: _compute_trade_summary(group) for lane, group in sorted(by_lane.items())}
+
+    return web.json_response({
+        "overall": overall,
+        "by_symbol": symbol_breakdown,
+        "by_bot_lane": lane_breakdown,
+        "filters": {
+            "symbol": symbol,
+            "bot_lane": bot_lane,
+            "side": side,
+            "outcome": outcome,
+            "magic": magic_val,
+            "date_from": date_from,
+            "date_to": date_to,
+        },
+    })
+
+
 def _kill_port(port: int) -> None:
     """Kill any process occupying *port* so the server can bind cleanly."""
     try:
@@ -4785,6 +5536,8 @@ def run(host="127.0.0.1", port=8088):
     app.router.add_get("/frontend/status", api_frontend)
     app.router.add_get("/api/patterns", api_patterns)
     app.router.add_get("/api/perf", api_performance)
+    app.router.add_get("/api/trades", api_trades)
+    app.router.add_get("/api/trades/summary", api_trades_summary)
     app.router.add_get("/app", react_app)
     app.router.add_get("/app/{path:.*}", react_app_static)
     web.run_app(app, host=host, port=int(port))

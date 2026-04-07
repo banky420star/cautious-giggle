@@ -38,6 +38,24 @@ def _iter_jsonl(path):
                 continue
 
 
+def _magic_to_lane(magic: int) -> str:
+    """Map a magic number to a bot lane name."""
+    magic = int(magic or 0)
+    if magic == 0:
+        return "unknown"
+    # Standard lanes: 51000-51999 BTC, 52000-52999 XAU
+    if 51000 <= magic < 52000:
+        return "standard_btc"
+    if 52000 <= magic < 53000:
+        return "standard_xau"
+    # HFT lanes: 61000-61999 BTC, 62000-62999 XAU
+    if 61000 <= magic < 62000:
+        return "hft_btc"
+    if 62000 <= magic < 63000:
+        return "hft_xau"
+    return "other"
+
+
 def _compute_core_metrics(rows):
     trades = len(rows)
     pnl_values = [r["pnl"] for r in rows]
@@ -142,8 +160,10 @@ def build_trade_learning(log_dir, out_dir, lookback_days=30):
             }
         )
 
-    # Fallback to MT5 closed deals if JSONL close events are unavailable.
-    if not closed_rows and mt5 is not None:
+    # Always reconcile from MT5 closed deals (primary PnL source of truth).
+    # Enrich with JSONL data for hold_minutes/open_price where available.
+    jsonl_tickets = {r["ticket"] for r in closed_rows}
+    if mt5 is not None:
         try:
             if mt5.initialize():
                 now_utc = dt.datetime.now(dt.timezone.utc)
@@ -152,6 +172,12 @@ def build_trade_learning(log_dir, out_dir, lookback_days=30):
                     try:
                         if int(getattr(d, "entry", -1)) != int(mt5.DEAL_ENTRY_OUT):
                             continue
+                        ticket = int(getattr(d, "position_id", 0) or 0)
+                        if ticket in jsonl_tickets:
+                            continue  # already have JSONL data with richer detail
+                        symbol = str(getattr(d, "symbol", "?"))
+                        if not symbol or symbol == "?":
+                            continue
                         pnl = _safe_float(
                             _safe_float(getattr(d, "profit", 0.0))
                             + _safe_float(getattr(d, "commission", 0.0))
@@ -159,11 +185,13 @@ def build_trade_learning(log_dir, out_dir, lookback_days=30):
                         )
                         ts = dt.datetime.fromtimestamp(int(getattr(d, "time", 0)), tz=dt.timezone.utc)
                         side = "BUY" if int(getattr(d, "type", 1)) == int(mt5.ORDER_TYPE_SELL) else "SELL"
+                        magic = int(getattr(d, "magic", 0) or 0)
+                        bot_lane = _magic_to_lane(magic)
                         closed_rows.append(
                             {
                                 "ts": ts,
-                                "ticket": int(getattr(d, "position_id", 0) or 0),
-                                "symbol": str(getattr(d, "symbol", "?")),
+                                "ticket": ticket,
+                                "symbol": symbol,
                                 "side": side,
                                 "pnl": pnl,
                                 "volume": _safe_float(getattr(d, "volume", 0.0)),
@@ -171,6 +199,8 @@ def build_trade_learning(log_dir, out_dir, lookback_days=30):
                                 "close_price": _safe_float(getattr(d, "price", 0.0)),
                                 "hold_minutes": None,
                                 "hour_utc": int(ts.hour),
+                                "magic": magic,
+                                "bot_lane": bot_lane,
                             }
                         )
                     except Exception:

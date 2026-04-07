@@ -469,17 +469,47 @@ class HybridBrain:
             return None
 
     def _predict_bundle_action(self, symbol: str, df, bundle: dict) -> Optional[dict]:
+        candidate_dir = str(bundle.get("candidate_dir", "") or "")
+        source = str(bundle.get("source", "") or "")
+        meta = bundle.get("meta", {}) or {}
+        model_path = os.path.join(candidate_dir, "ppo_trading.zip") if candidate_dir else "unknown"
+
+        # Diagnostics dict — always populated, attached to result or logged on skip
+        diag = {
+            "ppo_model_path": model_path,
+            "symbol": symbol,
+            "timeframe": str(meta.get("timeframe", "unknown")),
+            "obs_shape": None,
+            "raw_action": None,
+            "decoded_target": None,
+            "threshold_used": None,
+            "ppo_skip_reason": None,
+        }
+
         obs = self._build_ppo_observation(df, bundle)
         if obs is None:
-            return None
+            expected_dim = self._expected_obs_dim(bundle)
+            bars = len(df) if df is not None else 0
+            diag["ppo_skip_reason"] = f"obs_build_failed bars={bars} expected_dim={expected_dim}"
+            logger.info("PPO_DIAG %s | %s", symbol, diag["ppo_skip_reason"])
+            return diag  # return with skip_reason so caller can log it
+
+        diag["obs_shape"] = list(obs.shape)
+
         obs = self._normalize_obs_safe(bundle, obs)
         if obs is None:
-            return None
+            diag["ppo_skip_reason"] = "vecnorm_failed"
+            logger.info("PPO_DIAG %s | vecnorm_failed", symbol)
+            return diag
+
         action, _ = bundle["model"].predict(obs, deterministic=True)
+        diag["raw_action"] = [round(float(a), 6) for a in action.flatten()]
+
         from drl.trading_env import TradingEnv
 
         action_cfg = self._symbol_action_config(symbol)
         min_abs = self._symbol_ppo_min_abs(symbol)
+        diag["threshold_used"] = round(min_abs, 4)
         action_meta = TradingEnv.decode_action(
             action,
             max_leverage=1.0,
@@ -488,10 +518,13 @@ class HybridBrain:
             min_target_abs=float(action_cfg.get("min_target_abs", min_abs)),
         )
         action_val = float(np.clip(action_meta["target"], -1.0, 1.0))
+        diag["decoded_target"] = round(action_val, 6)
+
         if abs(action_val) < min_abs:
-            return None
-        source = str(bundle.get("source", "") or "")
-        candidate_dir = str(bundle.get("candidate_dir", "") or "")
+            diag["ppo_skip_reason"] = f"below_threshold target={action_val:.4f} min={min_abs:.4f}"
+            logger.info("PPO_DIAG %s | %s", symbol, diag["ppo_skip_reason"])
+            return diag
+
         model_version = os.path.basename(candidate_dir) if candidate_dir else None
         lane = "unknown"
         if ":canary" in source:
@@ -500,39 +533,57 @@ class HybridBrain:
             lane = "champion"
         elif ":history" in source:
             lane = "history"
-        meta = bundle.get("meta", {}) or {}
         action_meta["lane"] = lane
         action_meta["model_source"] = source
         action_meta["model_candidate_dir"] = candidate_dir
         action_meta["model_version"] = model_version
         action_meta["model_family"] = str(meta.get("policy_extractor") or meta.get("type") or "ppo")
         action_meta["model_symbol"] = str(meta.get("symbol") or symbol)
+        action_meta["ppo_diag"] = diag
         return action_meta
 
     def predict_ppo_action(self, symbol: str, df) -> Optional[dict]:
-        # Legacy helper retained for backward compatibility. Live runtime uses
-        # Server_AGI._blend_symbol_decision with symbol-scoped action metadata.
+        """Return action_meta with 'target' for blending, or None.
+
+        When PPO cannot produce a signal the returned dict (or None) always
+        carries a ``ppo_diag`` sub-dict so the caller can log structured
+        diagnostics instead of silently dropping to zero.
+        """
         if str(symbol) in self.active_symbols:
             bundles = self.ppo_bundles_by_symbol.get(str(symbol)) or []
         else:
             bundles = self.ppo_bundles
         if not bundles:
+            diag = {"ppo_skip_reason": "no_bundles_loaded", "symbol": symbol}
             self._last_action_meta = None
             self._last_action_meta_by_symbol[str(symbol)] = None
+            self._last_ppo_diag_by_symbol = getattr(self, "_last_ppo_diag_by_symbol", {})
+            self._last_ppo_diag_by_symbol[str(symbol)] = diag
             return None
 
         try:
             metas = []
+            skip_diags = []
             for bundle in bundles:
                 action_meta = self._predict_bundle_action(symbol, df, bundle)
-                if action_meta is not None:
-                    metas.append(action_meta)
+                if action_meta is None:
+                    continue
+                # _predict_bundle_action now always returns a dict;
+                # check if it's a diagnostic-only result (skip_reason set)
+                if action_meta.get("ppo_skip_reason") or action_meta.get("ppo_diag", {}).get("ppo_skip_reason"):
+                    skip_diags.append(action_meta.get("ppo_diag") or action_meta)
+                    continue
+                metas.append(action_meta)
+
+            self._last_ppo_diag_by_symbol = getattr(self, "_last_ppo_diag_by_symbol", {})
 
             if not metas:
+                diag = skip_diags[0] if skip_diags else {"ppo_skip_reason": "all_bundles_skipped", "symbol": symbol}
                 self._ppo_error_count = 0
                 self._ppo_error_count_by_symbol[str(symbol)] = 0
                 self._last_action_meta = None
                 self._last_action_meta_by_symbol[str(symbol)] = None
+                self._last_ppo_diag_by_symbol[str(symbol)] = diag
                 return None
 
             symbol_action = None
@@ -546,6 +597,7 @@ class HybridBrain:
                     if same_side_votes < self.ppo_ensemble_min_votes or agreement < self.ppo_ensemble_threshold:
                         self._last_action_meta_by_symbol[str(symbol)] = None
                         self._last_action_meta = None
+                        self._last_ppo_diag_by_symbol[str(symbol)] = {"ppo_skip_reason": "ensemble_disagreement"}
                         return None
                 blended = dict(metas[0])
                 blended["target"] = float(np.mean([float(meta.get("target", 0.0)) for meta in metas]))
@@ -558,6 +610,7 @@ class HybridBrain:
             self._ppo_error_count_by_symbol[str(symbol)] = 0
             self._last_action_meta = symbol_action
             self._last_action_meta_by_symbol[str(symbol)] = symbol_action
+            self._last_ppo_diag_by_symbol[str(symbol)] = symbol_action.get("ppo_diag", {})
             return symbol_action
         except Exception as exc:
             count = int(self._ppo_error_count_by_symbol.get(str(symbol), 0)) + 1
@@ -572,6 +625,8 @@ class HybridBrain:
                 self.ppo_bundles_by_symbol[str(symbol)] = []
             self._last_action_meta = None
             self._last_action_meta_by_symbol[str(symbol)] = None
+            self._last_ppo_diag_by_symbol = getattr(self, "_last_ppo_diag_by_symbol", {})
+            self._last_ppo_diag_by_symbol[str(symbol)] = {"ppo_skip_reason": f"exception: {exc}", "symbol": symbol}
             return None
 
     def predict_ppo_exposure(self, symbol: str, df) -> Optional[float]:

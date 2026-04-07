@@ -13,7 +13,9 @@ def _mk_local_cfg_root() -> Path:
     return root
 
 
-def test_live_mode_rejects_placeholder_telegram_values():
+def test_live_mode_rejects_placeholder_telegram_values(monkeypatch):
+    for key in ("TELEGRAM_TOKEN", "TELEGRAM_CHAT_ID", "MT5_LOGIN", "MT5_PASSWORD", "MT5_SERVER", "AGI_CONFIG"):
+        monkeypatch.delenv(key, raising=False)
     root = _mk_local_cfg_root()
     try:
         cfg = root / "config.yaml"
@@ -32,7 +34,8 @@ telegram:
         shutil.rmtree(root, ignore_errors=True)
 
 
-def test_non_live_mode_allows_example_values():
+def test_non_live_mode_allows_example_values(monkeypatch):
+    monkeypatch.delenv("AGI_CONFIG", raising=False)
     root = _mk_local_cfg_root()
     try:
         cfg = root / "config.yaml"

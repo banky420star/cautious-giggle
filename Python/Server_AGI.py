@@ -1066,8 +1066,16 @@ def main(live=False):
                 else:
                     regime = "SELL"
 
+                # PPO diagnostics — always present even when PPO returns None
+                ppo_diag = {}
+                if ppo_meta and ppo_meta.get("ppo_diag"):
+                    ppo_diag = ppo_meta["ppo_diag"]
+                elif ppo_meta is None:
+                    ppo_diag = getattr(brain, "_last_ppo_diag_by_symbol", {}).get(str(symbol), {})
+                ppo_skip = str(ppo_diag.get("ppo_skip_reason") or "")
+
                 logger.info(
-                    "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f"
+                    "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f ppo_skip=%s"
                     % (
                         symbol,
                         regime,
@@ -1078,6 +1086,7 @@ def main(live=False):
                         float((dreamer_meta or {}).get("target", 0.0) or 0.0),
                         float(decision["raw_target"]),
                         float(decision["target"]),
+                        ppo_skip or "none",
                     )
                 )
                 _append_audit(
@@ -1099,6 +1108,7 @@ def main(live=False):
                             "profit_factor": float(trade_memory.get("profit_factor", 0.0) or 0.0),
                             "recent_loss_streak": int(trade_memory.get("recent_loss_streak", 0) or 0),
                         },
+                        "ppo_diag": ppo_diag if ppo_diag else None,
                     },
                 )
                 sym_state = last_symbol_state.setdefault(str(symbol), {})

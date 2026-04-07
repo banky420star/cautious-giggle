@@ -231,12 +231,24 @@ class MT5Executor:
 
         return new_sl, new_tp
 
+    def _owns_position(self, position) -> bool:
+        """Return True if this position belongs to our magic range."""
+        pos_magic = int(getattr(position, "magic", 0) or 0)
+        if pos_magic == 0:
+            return True  # untagged positions belong to everyone
+        sym = str(getattr(position, "symbol", "") or "")
+        base = self._symbol_magic_base(sym)
+        # Our magic range: base .. base+999  (e.g. 51000-51999 for standard BTC)
+        return base <= pos_magic < base + 1000
+
     def get_positions(self, symbol):
         positions = mt5.positions_get(symbol=symbol)
         longs = []
         shorts = []
         if positions:
             for p in positions:
+                if not self._owns_position(p):
+                    continue
                 if p.type == mt5.ORDER_TYPE_BUY:
                     longs.append(p)
                 else:
@@ -332,18 +344,28 @@ class MT5Executor:
                     ignore_threshold = max(ignore_threshold,
                         float(payload.get("ignore_reduction_threshold", 0.15) or 0.15))
 
-        if ignore_small_reduction and same_side_rebalance and is_reducing:
+        if same_side_rebalance and is_reducing:
             all_positions = list(longs or []) + list(shorts or [])
             total_floating = sum(float(getattr(p, "profit", 0.0) or 0.0) for p in all_positions)
-            current_exp_approx = float(current_lots) / max(float(max_lots), 1e-8)
-            exposure_drop = abs(abs(float(target_exposure)) - abs(current_exp_approx))
-            if total_floating > 0 and exposure_drop < ignore_threshold:
+            # Hard rule: NEVER reduce a profitable same-side position
+            if total_floating > 0:
                 result_meta.update({
                     "request_action": "hold",
-                    "hold_reason": "ignore_small_reduction_winning",
+                    "hold_reason": "profitable_same_side_no_reduce",
                     "current_lots": float(current_lots),
                 })
                 return result_meta
+            # For losing positions, still apply the ignore threshold
+            if ignore_small_reduction:
+                current_exp_approx = float(current_lots) / max(float(max_lots), 1e-8)
+                exposure_drop = abs(abs(float(target_exposure)) - abs(current_exp_approx))
+                if exposure_drop < ignore_threshold:
+                    result_meta.update({
+                        "request_action": "hold",
+                        "hold_reason": "ignore_small_reduction_losing",
+                        "current_lots": float(current_lots),
+                    })
+                    return result_meta
 
         if abs(target_lots) < 0.01:
             if long_lots > 0:
@@ -361,8 +383,23 @@ class MT5Executor:
                 _capture(self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context))
                 short_lots = 0.0
             if long_lots > target_lots + 0.01:
-                _capture(self.close_positions(longs, order_meta=order_meta, execution_context=execution_context))
-                long_lots = 0.0
+                # Partial close: trim excess instead of closing all and reopening
+                excess = round(long_lots - target_lots, 2)
+                if excess >= 0.01:
+                    # Close smallest positions first to trim down
+                    sorted_longs = sorted(longs, key=lambda p: p.volume)
+                    remaining_to_close = excess
+                    for p in sorted_longs:
+                        if remaining_to_close < 0.01:
+                            break
+                        close_vol = min(p.volume, remaining_to_close)
+                        if close_vol >= 0.01:
+                            if abs(close_vol - p.volume) < 0.005:
+                                _capture(self.close_positions([p], order_meta=order_meta, execution_context=execution_context))
+                            else:
+                                _capture(self.close_partial_position(p, close_vol / p.volume, order_meta=order_meta))
+                            remaining_to_close = round(remaining_to_close - close_vol, 2)
+                    long_lots = round(long_lots - excess + remaining_to_close, 2)
             add_lots = round(target_lots - long_lots, 2)
             if add_lots >= 0.01 and can_increase_exposure:
                 _capture(self.open_position(
@@ -378,8 +415,22 @@ class MT5Executor:
                 _capture(self.close_positions(longs, order_meta=order_meta, execution_context=execution_context))
                 long_lots = 0.0
             if short_lots > desired_short_lots + 0.01:
-                _capture(self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context))
-                short_lots = 0.0
+                # Partial close: trim excess instead of closing all and reopening
+                excess = round(short_lots - desired_short_lots, 2)
+                if excess >= 0.01:
+                    sorted_shorts = sorted(shorts, key=lambda p: p.volume)
+                    remaining_to_close = excess
+                    for p in sorted_shorts:
+                        if remaining_to_close < 0.01:
+                            break
+                        close_vol = min(p.volume, remaining_to_close)
+                        if close_vol >= 0.01:
+                            if abs(close_vol - p.volume) < 0.005:
+                                _capture(self.close_positions([p], order_meta=order_meta, execution_context=execution_context))
+                            else:
+                                _capture(self.close_partial_position(p, close_vol / p.volume, order_meta=order_meta))
+                            remaining_to_close = round(remaining_to_close - close_vol, 2)
+                    short_lots = round(short_lots - excess + remaining_to_close, 2)
             add_lots = round(desired_short_lots - short_lots, 2)
             if add_lots >= 0.01 and can_increase_exposure:
                 _capture(self.open_position(
@@ -566,7 +617,8 @@ class MT5Executor:
         return meta
 
     def manage_open_positions(self, symbol, signal_context=None):
-        positions = mt5.positions_get(symbol=symbol)
+        all_positions = mt5.positions_get(symbol=symbol)
+        positions = [p for p in (all_positions or []) if self._owns_position(p)]
         info = self._symbol_info(symbol)
         tick = self._symbol_tick(symbol)
         if not positions or info is None or tick is None:

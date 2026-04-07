@@ -2,7 +2,7 @@ trading:
   symbols:
   - BTCUSDm
   - XAUUSDm
-  timeframe: M30
+  timeframe: M5
   risk_percent: 2.0
   max_drawdown: 18.0
   confidence_threshold: 0.85
@@ -14,7 +14,8 @@ trading:
       agi_context_weight: 0.10
       min_actionable_exposure: 0.10
       max_policy_exposure: 0.75
-      rebalance_min_delta_exposure: 0.12
+      rebalance_min_delta_exposure: 0.35
+      min_trade_interval_sec: 30
       memory_min_trades: 8
       memory_penalty_scale: 0.45
       memory_profit_factor_floor: 0.95
@@ -24,15 +25,15 @@ trading:
       sl_atr_multiplier: 1.1
       breakeven_atr_divisor: 5
       signal_collapse_exit: true
-      signal_collapse_cycles: 2
+      signal_collapse_cycles: 3
       regime_flip_exit_losing: true
       # Phase B: hold winners longer
-      min_hold_time_sec: 120
+      min_hold_time_sec: 300
       trailing_widen_factor: 1.5
       partial_tp_enabled: true
       partial_tp_fraction: 0.5
       ignore_small_reduction: true
-      ignore_reduction_threshold: 0.15
+      ignore_reduction_threshold: 0.35
       # Phase C: pyramid winners
       pyramid_enabled: true
       pyramid_max_layers: 2
@@ -47,7 +48,8 @@ trading:
       agi_context_weight: 0.30
       min_actionable_exposure: 0.12
       max_policy_exposure: 0.45
-      rebalance_min_delta_exposure: 0.10
+      rebalance_min_delta_exposure: 0.30
+      min_trade_interval_sec: 30
       memory_min_trades: 8
       memory_penalty_scale: 0.35
       memory_profit_factor_floor: 1.00
@@ -57,15 +59,15 @@ trading:
       sl_atr_multiplier: 1.2
       breakeven_atr_divisor: 5
       signal_collapse_exit: true
-      signal_collapse_cycles: 2
+      signal_collapse_cycles: 3
       regime_flip_exit_losing: true
       # Phase B: hold winners longer
-      min_hold_time_sec: 180
+      min_hold_time_sec: 300
       trailing_widen_factor: 1.4
       partial_tp_enabled: true
       partial_tp_fraction: 0.5
       ignore_small_reduction: true
-      ignore_reduction_threshold: 0.15
+      ignore_reduction_threshold: 0.35
       # Phase C: pyramid winners
       pyramid_enabled: true
       pyramid_max_layers: 1
@@ -75,20 +77,20 @@ trading:
       pyramid_volume_decay: 0.5
       pyramid_min_time_between_sec: 180
 risk:
-  max_daily_loss: 100000.0
-  max_daily_trades: 10000
-  max_daily_trades_per_symbol: 5000
+  max_daily_loss: 200.0
+  max_daily_trades: 50
+  max_daily_trades_per_symbol: 25
   max_daily_losing_trades_per_symbol: 10
   max_lots: 0.1
   supervisor:
-    enabled: false
-    max_daily_loss: 100000.0
-    max_drawdown_pct: 8.0
-    max_symbol_exposure: 0.35
-    max_total_exposure: 1.2
-    max_open_positions: 6
-    max_positions_per_symbol: 3
-    min_trade_interval_sec: 45
+    enabled: true
+    max_daily_loss: 200.0
+    max_drawdown_pct: 10.0
+    max_symbol_exposure: 0.50
+    max_total_exposure: 1.0
+    max_open_positions: 4
+    max_positions_per_symbol: 2
+    min_trade_interval_sec: 30
     max_spread_bps: 25.0
 telegram:
   token: ENV:TELEGRAM_TOKEN
@@ -104,7 +106,7 @@ drl:
   total_timesteps: 500000
   per_symbol: true
   period: 90d
-  interval: M30
+  interval: M5
   candles_per_symbol: 50000
   eval_period: 90d
   model_path: models/ppo_trading.zip
@@ -128,14 +130,14 @@ drl:
   symbol_overrides:
     BTCUSDm:
       action:
-        min_direction_abs: 0.04
-        min_size_abs: 0.04
-        min_target_abs: 0.04
+        min_direction_abs: 0.01
+        min_size_abs: 0.01
+        min_target_abs: 0.01
     XAUUSDm:
       action:
-        min_direction_abs: 0.03
-        min_size_abs: 0.03
-        min_target_abs: 0.03
+        min_direction_abs: 0.01
+        min_size_abs: 0.01
+        min_target_abs: 0.01
   reward:
     version: v2_risk_adjusted
     weights:
@@ -151,7 +153,7 @@ training:
   lstm_epochs: 20
   per_symbol: true
   lstm_period: 90d
-  lstm_interval: M30
+  lstm_interval: M5
   lstm_candles: 25000
   feature_version: ultimate_150
   data_source: mt5

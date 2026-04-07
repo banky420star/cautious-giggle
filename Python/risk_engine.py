@@ -164,12 +164,23 @@ class RiskEngine:
         state_path = path or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "risk_engine_state.json")
         os.makedirs(os.path.dirname(state_path), exist_ok=True)
         tmp_path = state_path + ".tmp"
+        data = json.dumps(self.to_dict(), indent=2)
         try:
             with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(self.to_dict(), f, indent=2)
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
             os.replace(tmp_path, state_path)
-        except Exception as exc:
-            logger.error("RISK_STATE_SAVE_FAILED path={} error={}", state_path, exc)
+        except OSError:
+            # Fallback: on Windows os.replace can fail if another process
+            # briefly locks the file.  Write directly instead.
+            try:
+                with open(state_path, "w", encoding="utf-8") as f:
+                    f.write(data)
+                    f.flush()
+                    os.fsync(f.fileno())
+            except Exception as exc:
+                logger.error("RISK_STATE_SAVE_FAILED path={} error={}", state_path, exc)
 
     @classmethod
     def load_state(

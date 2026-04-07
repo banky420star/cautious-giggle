@@ -15,13 +15,14 @@ trading:
   # Per-symbol aggressive profiles
   symbol_profiles:
     BTCUSDm:
+      magic_base: 61000
       ppo_weight: 0.75
       dreamer_weight: 0.20
       agi_context_weight: 0.05
       min_actionable_exposure: 0.12
       max_policy_exposure: 1.10
-      min_trade_interval_sec: 10
-      rebalance_min_delta_exposure: 0.15
+      min_trade_interval_sec: 30
+      rebalance_min_delta_exposure: 0.30
       memory_min_trades: 10
       memory_penalty_scale: 0.50
       memory_profit_factor_floor: 0.95
@@ -30,14 +31,14 @@ trading:
       sl_atr_multiplier: 1.0
       breakeven_atr_divisor: 5
       signal_collapse_exit: true
-      signal_collapse_cycles: 2
+      signal_collapse_cycles: 3
       regime_flip_exit_losing: true
-      min_hold_time_sec: 60
+      min_hold_time_sec: 180
       trailing_widen_factor: 1.3
       partial_tp_enabled: true
       partial_tp_fraction: 0.5
       ignore_small_reduction: true
-      ignore_reduction_threshold: 0.15
+      ignore_reduction_threshold: 0.30
       pyramid_enabled: true
       pyramid_max_layers: 2
       pyramid_min_profit_points: 30
@@ -46,13 +47,14 @@ trading:
       pyramid_volume_decay: 0.5
       pyramid_min_time_between_sec: 60
     XAUUSDm:
+      magic_base: 62000
       ppo_weight: 0.70
       dreamer_weight: 0.20
       agi_context_weight: 0.10
       min_actionable_exposure: 0.10
       max_policy_exposure: 0.90
-      min_trade_interval_sec: 10
-      rebalance_min_delta_exposure: 0.12
+      min_trade_interval_sec: 30
+      rebalance_min_delta_exposure: 0.25
       memory_min_trades: 10
       memory_penalty_scale: 0.45
       memory_profit_factor_floor: 1.00
@@ -61,14 +63,14 @@ trading:
       sl_atr_multiplier: 1.1
       breakeven_atr_divisor: 5
       signal_collapse_exit: true
-      signal_collapse_cycles: 2
+      signal_collapse_cycles: 3
       regime_flip_exit_losing: true
-      min_hold_time_sec: 90
+      min_hold_time_sec: 180
       trailing_widen_factor: 1.3
       partial_tp_enabled: true
       partial_tp_fraction: 0.5
       ignore_small_reduction: true
-      ignore_reduction_threshold: 0.15
+      ignore_reduction_threshold: 0.30
       pyramid_enabled: true
       pyramid_max_layers: 1
       pyramid_min_profit_points: 50
@@ -78,20 +80,20 @@ trading:
       pyramid_min_time_between_sec: 90
 
 risk:
-  max_daily_loss: 100000.0
-  max_daily_trades: 10000
-  max_daily_trades_per_symbol: 5000
-  max_daily_losing_trades_per_symbol: 100
+  max_daily_loss: 200.0
+  max_daily_trades: 100
+  max_daily_trades_per_symbol: 50
+  max_daily_losing_trades_per_symbol: 15
   max_lots: 0.1
   supervisor:
-    enabled: false
-    max_daily_loss: 100000.0
-    max_drawdown_pct: 12.0
+    enabled: true
+    max_daily_loss: 200.0
+    max_drawdown_pct: 10.0
     max_symbol_exposure: 0.50
-    max_total_exposure: 2.0
-    max_open_positions: 12
-    max_positions_per_symbol: 6
-    min_trade_interval_sec: 10
+    max_total_exposure: 1.0
+    max_open_positions: 6
+    max_positions_per_symbol: 3
+    min_trade_interval_sec: 20
     max_spread_bps: 15.0
 
 telegram:
@@ -134,14 +136,14 @@ drl:
   symbol_overrides:
     BTCUSDm:
       action:
-        min_direction_abs: 0.05
-        min_size_abs: 0.05
-        min_target_abs: 0.05
+        min_direction_abs: 0.01
+        min_size_abs: 0.01
+        min_target_abs: 0.01
     XAUUSDm:
       action:
-        min_direction_abs: 0.04
-        min_size_abs: 0.04
-        min_target_abs: 0.04
+        min_direction_abs: 0.01
+        min_size_abs: 0.01
+        min_target_abs: 0.01
   reward:
     version: v2_risk_adjusted
     weights:
