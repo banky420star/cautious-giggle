@@ -7,14 +7,20 @@ import TrainingPanel from './components/TrainingPanel'
 import ModelsPanel from './components/ModelsPanel'
 import PatternLibraryPanel from './components/PatternLibraryPanel'
 import SettingsPanel from './components/SettingsPanel'
+import TradeHistoryPanel from './components/TradeHistoryPanel'
+import PPODiagPanel from './components/PPODiagPanel'
+import HFTHealthPanel from './components/HFTHealthPanel'
 
-type TabId = 'home' | 'trading' | 'training' | 'models' | 'patterns' | 'settings'
+type TabId = 'home' | 'trading' | 'training' | 'models' | 'patterns' | 'settings' | 'trades' | 'ppo' | 'hft'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'trading', label: 'Trading' },
+  { id: 'trades', label: 'Trade History' },
   { id: 'training', label: 'Training' },
   { id: 'models', label: 'Models' },
+  { id: 'ppo', label: 'PPO Brain' },
+  { id: 'hft', label: 'HFT Health' },
   { id: 'patterns', label: 'Patterns' },
   { id: 'settings', label: 'Settings' },
 ]
@@ -70,10 +76,16 @@ const App: React.FC = () => {
         return status ? <DashboardPanel status={status} /> : null
       case 'trading':
         return status ? <TradingPanel status={status} /> : null
+      case 'trades':
+        return <TradeHistoryPanel />
       case 'training':
         return status ? <TrainingPanel status={status} /> : null
       case 'models':
         return status ? <ModelsPanel status={status} /> : null
+      case 'ppo':
+        return status ? <PPODiagPanel status={status} /> : null
+      case 'hft':
+        return status ? <HFTHealthPanel status={status} /> : null
       case 'patterns':
         return <PatternLibraryPanel patterns={patterns} status={status} />
       case 'settings':

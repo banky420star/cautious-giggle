@@ -1,5 +1,6 @@
 import React from 'react'
 import { StatusPayload } from '../types'
+import { Trade, TradeSummary, fetchTrades, fetchTradesSummary } from '../services/api'
 
 interface Props {
   status: StatusPayload
@@ -68,12 +69,30 @@ function statusBadge(
 }
 
 const DashboardPanel: React.FC<Props> = ({ status }) => {
+  const [tradeSummary, setTradeSummary] = React.useState<TradeSummary | null>(null)
+  const [recentTrades, setRecentTrades] = React.useState<Trade[]>([])
+
+  React.useEffect(() => {
+    const loadTradeData = async () => {
+      const [summaryRes, tradesRes] = await Promise.all([
+        fetchTradesSummary().catch((): TradeSummary => ({ overall: {} as any, by_symbol: {} })),
+        fetchTrades({ limit: '5' }).catch(() => ({ trades: [] as Trade[], total: 0, limit: 5, offset: 0 })),
+      ])
+      setTradeSummary(summaryRes)
+      setRecentTrades(tradesRes.trades)
+    }
+    loadTradeData()
+    const interval = setInterval(loadTradeData, 15_000)
+    return () => clearInterval(interval)
+  }, [])
+
   const account = status.account
   const server = status.server
   const training = status.training
   const canary = status.canary_gate
   const lanes = training?.symbol_lane_rows ?? []
   const incidents = (status.incidents ?? []).slice(0, 8)
+  const tradeOverall = tradeSummary?.overall
 
   const serverBadge = statusBadge(server?.running, 'running', 'stopped')
   const trainingBadge = statusBadge(training?.cycle_running, 'active', 'idle')
@@ -307,6 +326,127 @@ const DashboardPanel: React.FC<Props> = ({ status }) => {
                 </div>
               )
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Trade Performance */}
+      <div style={{ ...panelStyle, marginTop: 24 }}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: 14, color: colors.cyan, fontWeight: 600 }}>
+          Trade Performance
+        </h3>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: 12,
+          }}
+        >
+          <div style={{ ...panelStyle, padding: '10px 12px' }}>
+            <div style={labelStyle}>Total Trades</div>
+            <div style={valueStyle}>{tradeOverall?.total_trades ?? '--'}</div>
+          </div>
+          <div style={{ ...panelStyle, padding: '10px 12px' }}>
+            <div style={labelStyle}>Win Rate</div>
+            <div style={{ ...valueStyle, color: colors.green }}>
+              {tradeOverall?.win_rate != null ? `${(tradeOverall.win_rate * 100).toFixed(1)}%` : '--'}
+            </div>
+          </div>
+          <div style={{ ...panelStyle, padding: '10px 12px' }}>
+            <div style={labelStyle}>Total PnL</div>
+            <div style={{
+              ...valueStyle,
+              color: tradeOverall?.total_pnl != null
+                ? (tradeOverall.total_pnl > 0 ? colors.green : tradeOverall.total_pnl < 0 ? colors.red : colors.text)
+                : colors.text,
+            }}>
+              {tradeOverall?.total_pnl != null ? fmtMoney(tradeOverall.total_pnl) : '--'}
+            </div>
+          </div>
+          <div style={{ ...panelStyle, padding: '10px 12px' }}>
+            <div style={labelStyle}>Profit Factor</div>
+            <div style={{ ...valueStyle, color: colors.amber }}>
+              {tradeOverall?.profit_factor != null
+                ? String(typeof tradeOverall.profit_factor === 'number' ? tradeOverall.profit_factor.toFixed(2) : tradeOverall.profit_factor)
+                : '--'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Trades */}
+      <div style={panelStyle}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: 14, color: colors.cyan, fontWeight: 600 }}>
+          Recent Trades
+        </h3>
+        {recentTrades.length === 0 ? (
+          <div style={{ color: colors.muted, fontSize: 13 }}>No recent trades.</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr>
+                  {['Time', 'Symbol', 'Side', 'PnL', 'Outcome'].map(h => (
+                    <th
+                      key={h}
+                      style={{
+                        textAlign: 'left',
+                        padding: '6px 10px',
+                        borderBottom: `1px solid ${colors.border}`,
+                        color: colors.muted,
+                        fontWeight: 600,
+                        fontSize: 11,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {recentTrades.map((t, idx) => {
+                  const profitColor = t.profit > 0 ? colors.green : t.profit < 0 ? colors.red : colors.text
+                  const outcomeCol = t.outcome === 'win' ? colors.green : t.outcome === 'loss' ? colors.red : colors.amber
+                  return (
+                    <tr
+                      key={t.ticket}
+                      style={{ background: idx % 2 === 0 ? 'transparent' : 'rgba(90,215,255,0.02)' }}
+                    >
+                      <td style={{ padding: '6px 10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                        {t.close_time ?? '--'}
+                      </td>
+                      <td style={{ padding: '6px 10px', color: colors.cyan, fontWeight: 600 }}>
+                        {t.symbol}
+                      </td>
+                      <td style={{
+                        padding: '6px 10px',
+                        color: t.side === 'BUY' ? colors.green : colors.red,
+                        fontWeight: 600,
+                      }}>
+                        {t.side}
+                      </td>
+                      <td style={{ padding: '6px 10px', fontFamily: 'monospace', color: profitColor, fontWeight: 700 }}>
+                        {t.profit >= 0 ? `+${fmtMoney(t.profit)}` : fmtMoney(t.profit)}
+                      </td>
+                      <td style={{ padding: '6px 10px' }}>
+                        <span style={{
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          background: `${outcomeCol}20`,
+                          color: outcomeCol,
+                        }}>
+                          {t.outcome}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
