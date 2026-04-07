@@ -5832,6 +5832,7 @@ def run(host="127.0.0.1", port=8088):
     app.router.add_get("/api/trades/summary", api_trades_summary)
     app.router.add_get("/app", react_app)
     app.router.add_get("/app/{path:.*}", react_app_static)
+    app.router.add_static("/assets", os.path.join(FRONTEND_DIST_DIR, "assets"), show_index=False)
     web.run_app(app, host=host, port=int(port))
 
 
