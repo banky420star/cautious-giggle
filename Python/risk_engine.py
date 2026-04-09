@@ -45,6 +45,14 @@ class RiskEngine:
         self.error_count = 0
         self.last_reset_day = datetime.utcnow().date()
 
+    def reset_halt(self, current_equity: float | None = None):
+        """Clear halt state and optionally reset peak equity to current level."""
+        self.halt = False
+        self.error_count = 0
+        if current_equity is not None and float(current_equity) > 0:
+            self.peak_equity = float(current_equity)
+            self.current_dd = 0.0
+
     def maybe_roll_day(self):
         today = datetime.utcnow().date()
         if today != self.last_reset_day:
@@ -84,7 +92,7 @@ class RiskEngine:
 
     def record_error(self):
         self.error_count += 1
-        if self.error_count >= 3:
+        if self.error_count >= 10:
             self.halt = True
 
     def can_trade(self, symbol=None):

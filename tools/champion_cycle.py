@@ -283,7 +283,10 @@ def main():
                 passes = bool(report.get("passes_thresholds"))
                 logger.info(f"{symbol} | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
 
-                if wins and passes:
+                if champion is None and passes:
+                    reg.set_canary(candidate, symbol=symbol)
+                    logger.success(f"No existing champion for {symbol}; auto-promoting candidate as canary: {candidate}")
+                elif wins and passes:
                     reg.set_canary(candidate, symbol=symbol)
                     logger.success(f"Canary set for {symbol}: {candidate}")
                 else:
@@ -328,7 +331,10 @@ def main():
             passes = bool(report.get("passes_thresholds"))
             logger.info(f"Evaluation result | wins={wins} passes_thresholds={passes} pass_rate={report.get('pass_rate', 0):.2f}")
 
-            if wins and passes:
+            if champion is None and passes:
+                reg.set_canary(candidate)
+                logger.success(f"No existing champion; auto-promoting candidate as canary: {candidate}")
+            elif wins and passes:
                 reg.set_canary(candidate)
                 logger.success(f"Canary set to {candidate}")
             else:

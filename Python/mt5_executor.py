@@ -220,6 +220,54 @@ class MT5Executor:
                     shorts.append(p)
         return longs, shorts
 
+    # -- Discipline thresholds --------------------------------------------------
+    # Only resize when the delta exceeds this fraction of current lots.
+    # Prevents the old behaviour of closing+reopening on every tiny opinion shift.
+    REBALANCE_THRESHOLD = 0.25  # 25 % change required to act
+    MIN_PARTIAL_CLOSE_LOTS = 0.01
+
+    def _floating_profit(self, positions) -> float:
+        """Sum of unrealised profit across given position objects."""
+        return sum(float(getattr(p, "profit", 0.0) or 0.0) for p in positions)
+
+    def _partial_close(self, positions, reduce_lots, order_meta=None, execution_context=None):
+        """Close the smallest positions first until *reduce_lots* are removed."""
+        remaining = round(float(reduce_lots), 2)
+        last_meta = {"request_action": "partial_close", "executed": False}
+        # Close smallest first to preserve the larger (usually better) entries.
+        for p in sorted(positions, key=lambda p: p.volume):
+            if remaining < self.MIN_PARTIAL_CLOSE_LOTS:
+                break
+            close_vol = min(p.volume, remaining)
+            tick = self._symbol_tick(p.symbol)
+            if tick is None:
+                self.risk.record_error()
+                continue
+            close_type = mt5.ORDER_TYPE_SELL if p.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
+            close_price = tick.bid if close_type == mt5.ORDER_TYPE_SELL else tick.ask
+            request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": p.symbol,
+                "volume": round(close_vol, 2),
+                "type": close_type,
+                "position": p.ticket,
+                "price": close_price,
+                "deviation": 20,
+                "type_time": mt5.ORDER_TIME_GTC,
+                "type_filling": self._select_filling_mode(p.symbol),
+            }
+            request["magic"] = self._magic_for_order(p.symbol, order_meta, request_kind="close")
+            request["comment"] = self._order_comment(p.symbol, order_meta, request_kind="close")
+            result = mt5.order_send(request)
+            last_meta = self._log_order_send(p.symbol, "partial_close", request, result, order_meta)
+            last_meta["executed"] = bool(result is not None and result.retcode == mt5.TRADE_RETCODE_DONE)
+            if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
+                self.risk.record_error()
+            else:
+                remaining = round(remaining - close_vol, 2)
+                self.risk.record_trade(p.symbol)
+        return last_meta
+
     def reconcile_exposure(self, symbol, target_exposure, max_lots, order_meta=None, execution_context=None):
         if not self.risk.can_trade(symbol):
             return {"request_action": "blocked", "executed": False}
@@ -228,6 +276,8 @@ class MT5Executor:
 
         long_lots = sum(p.volume for p in longs)
         short_lots = sum(p.volume for p in shorts)
+        current_lots = long_lots - short_lots  # positive = net long
+        current_side_is_long = current_lots >= 0
 
         target_lots = round(float(target_exposure) * float(max_lots), 2)
         result_meta = {
@@ -235,48 +285,78 @@ class MT5Executor:
             "executed": False,
             "target_lots": float(target_lots),
         }
+
+        # ---- Flat target: close everything ---------------------------------
         if abs(target_lots) < 0.01:
             if long_lots > 0:
                 result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
+                if result_meta.get("executed"):
+                    self.risk.record_trade(symbol)
             if short_lots > 0:
                 result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
+                if result_meta.get("executed"):
+                    self.risk.record_trade(symbol)
             return result_meta
 
-        if target_lots > 0:
-            if short_lots > 0:
-                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
-                short_lots = 0.0
-            if long_lots > target_lots + 0.01:
-                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
-                long_lots = 0.0
-            add_lots = round(target_lots - long_lots, 2)
-            if add_lots >= 0.01:
-                result_meta = self.open_position(
-                    symbol,
-                    mt5.ORDER_TYPE_BUY,
-                    add_lots,
-                    order_meta=order_meta,
-                    execution_context=execution_context,
-                )
-        else:
-            desired_short_lots = abs(target_lots)
-            if long_lots > 0:
-                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
-                long_lots = 0.0
-            if short_lots > desired_short_lots + 0.01:
-                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
-                short_lots = 0.0
-            add_lots = round(desired_short_lots - short_lots, 2)
-            if add_lots >= 0.01:
-                result_meta = self.open_position(
-                    symbol,
-                    mt5.ORDER_TYPE_SELL,
-                    add_lots,
-                    order_meta=order_meta,
-                    execution_context=execution_context,
-                )
+        target_is_long = target_lots > 0
 
-        self.risk.record_trade(symbol)
+        # ---- Side reversal: close opposite then open new -------------------
+        if target_is_long and short_lots > 0:
+            result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
+            if result_meta.get("executed"):
+                self.risk.record_trade(symbol)
+            short_lots = 0.0
+        elif not target_is_long and long_lots > 0:
+            result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
+            if result_meta.get("executed"):
+                self.risk.record_trade(symbol)
+            long_lots = 0.0
+
+        # ---- Same-side logic -----------------------------------------------
+        if target_is_long:
+            same_lots = long_lots
+        else:
+            same_lots = short_lots
+
+        abs_target = abs(target_lots)
+        delta = abs_target - same_lots
+
+        # Rule 1: same side, profitable, target only smaller -> hold
+        if delta < 0 and same_lots > 0:
+            same_positions = longs if target_is_long else shorts
+            floating = self._floating_profit(same_positions)
+            if floating >= 0 and abs(delta) / max(same_lots, 0.01) < self.REBALANCE_THRESHOLD:
+                result_meta["request_action"] = "hold"
+                return result_meta
+
+        # Rule 2: same side, need to reduce -> partial close (not close-all + reopen)
+        if delta < -self.MIN_PARTIAL_CLOSE_LOTS:
+            reduce = round(abs(delta), 2)
+            # Only act if the reduction is significant enough
+            if same_lots > 0 and reduce / same_lots >= self.REBALANCE_THRESHOLD:
+                same_positions = longs if target_is_long else shorts
+                result_meta = self._partial_close(
+                    same_positions, reduce, order_meta=order_meta, execution_context=execution_context
+                )
+            else:
+                result_meta["request_action"] = "hold"
+            return result_meta
+
+        # Rule 3: same side, need to add -> open additional
+        if delta >= 0.01:
+            order_type = mt5.ORDER_TYPE_BUY if target_is_long else mt5.ORDER_TYPE_SELL
+            result_meta = self.open_position(
+                symbol,
+                order_type,
+                round(delta, 2),
+                order_meta=order_meta,
+                execution_context=execution_context,
+            )
+            if result_meta.get("executed"):
+                self.risk.record_trade(symbol)
+        else:
+            result_meta["request_action"] = "hold"
+
         return result_meta
 
     def close_positions(self, positions, order_meta=None, execution_context=None):

@@ -450,6 +450,8 @@ class HybridBrain:
     def _predict_bundle_action(self, symbol: str, df, bundle: dict) -> Optional[dict]:
         obs = self._build_ppo_observation(df, bundle)
         if obs is None:
+            logger.info("PPO_DIAG {} | obs_build_failed (df rows={}, bundle={})",
+                        symbol, len(df) if df is not None else 0, bundle.get("source", "?"))
             return None
         obs = self._normalize_obs_safe(bundle, obs)
         action, _ = bundle["model"].predict(obs, deterministic=True)
@@ -465,6 +467,10 @@ class HybridBrain:
             min_target_abs=float(action_cfg.get("min_target_abs", min_abs)),
         )
         action_val = float(np.clip(action_meta["target"], -1.0, 1.0))
+        logger.info("PPO_DIAG {} | raw_action={:.4f} decoded_target={:.4f} min_abs={:.4f} source={} obs_dim={}",
+                     symbol, float(action[0]) if hasattr(action, '__len__') else float(action),
+                     action_val, min_abs, bundle.get("source", "?"),
+                     obs.shape[0] if hasattr(obs, 'shape') else len(obs))
         if abs(action_val) < min_abs:
             return None
         source = str(bundle.get("source", "") or "")
@@ -486,9 +492,21 @@ class HybridBrain:
         action_meta["model_symbol"] = str(meta.get("symbol") or symbol)
         return action_meta
 
+    def ppo_skip_reason(self, symbol: str) -> str:
+        """Return a human-readable reason why PPO returned None for *symbol*."""
+        if not self.ppo_enabled:
+            return "ppo_disabled"
+        sym = str(symbol)
+        sym_bundles = self.ppo_bundles_by_symbol.get(sym) or []
+        global_bundles = self.ppo_bundles
+        if not sym_bundles and not global_bundles:
+            return "no_model_loaded"
+        count = int(self._ppo_error_count_by_symbol.get(sym, 0))
+        if count >= 10:
+            return "disabled_after_errors"
+        return "below_threshold"
+
     def predict_ppo_action(self, symbol: str, df) -> Optional[dict]:
-        # Legacy helper retained for backward compatibility. Live runtime uses
-        # Server_AGI._blend_symbol_decision with symbol-scoped action metadata.
         if str(symbol) in self.active_symbols:
             bundles = self.ppo_bundles_by_symbol.get(str(symbol)) or []
         else:

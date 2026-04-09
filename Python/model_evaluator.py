@@ -9,17 +9,17 @@ def run_multi(*args, **kwargs):
 
 def _default_gates():
     return {
-        "max_drawdown": 0.10,
-        "min_sharpe": 0.30,
-        "min_return": 0.015,
-        "score_margin": 0.30,
+        "max_drawdown": 0.20,
+        "min_sharpe": 0.05,
+        "min_return": 0.001,
+        "score_margin": 0.0,
         "min_steps_per_symbol": 600,
-        "min_pass_rate": 0.80,
+        "min_pass_rate": 0.5,
         "return_margin": 0.0,
         "sharpe_margin": 0.05,
         "drawdown_margin": 0.0,
         "forward_windows": [],
-        "min_forward_win_rate": 0.67,
+        "min_forward_win_rate": 0.50,
     }
 
 

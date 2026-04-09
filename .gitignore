@@ -16,3 +16,6 @@ config.yaml
 !logs/
 logs/*
 !logs/server.log
+.claude/
+.venv/
+logs/

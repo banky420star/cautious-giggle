@@ -22,7 +22,7 @@ class TradingEnv(gym.Env):
         df=None,
         initial_balance: float = 10000.0,
         commission_rate: float = 0.0002,
-        spread_bps: float = 2.0,
+        spread_bps: float = 12.0,
         max_drawdown: float = 0.15,
         window_size: int = 100,
         max_leverage: float = 1.0,
@@ -36,13 +36,18 @@ class TradingEnv(gym.Env):
         super().__init__()
         self.initial_balance = float(initial_balance)
         self.commission_rate = float(commission_rate)
+        self.symbol = str(symbol or "")
         self.spread_bps = float(spread_bps)
+        # Realistic spread sampling per symbol for training
+        if self.symbol and "BTC" in self.symbol.upper():
+            self.spread_bps = max(self.spread_bps, 15.0)  # BTC: 10-30bps
+        elif self.symbol and "XAU" in self.symbol.upper():
+            self.spread_bps = max(self.spread_bps, 10.0)  # Gold: 8-20bps
         self.max_drawdown = float(max_drawdown)
         self.window_size = int(window_size)
         self.max_leverage = float(max_leverage)
         self.feature_version = str(feature_version or ENGINEERED_V2)
-        self.symbol = str(symbol or "")
-        self.action_version = "multi_trade_v1"
+        self.action_version = "target_exposure_v1"
         self.trade_memory = trade_memory or {}
 
         w = reward_weights or {}
@@ -51,8 +56,8 @@ class TradingEnv(gym.Env):
             "payoff": float(w.get("payoff", 2.0)),
             "sharpe_bonus": float(w.get("sharpe_bonus", 1.0)),
             "drawdown_penalty": float(w.get("drawdown_penalty", 3.0)),
-            "cost_penalty": float(w.get("cost_penalty", 5.0)),
-            "churn_penalty": float(w.get("churn_penalty", 0.5)),
+            "cost_penalty": float(w.get("cost_penalty", 1.5)),
+            "churn_penalty": float(w.get("churn_penalty", 0.1)),
             "memory_expectancy_bonus": float(w.get("memory_expectancy_bonus", 0.5)),
             "loss_streak_penalty": float(w.get("loss_streak_penalty", 0.4)),
             "directional_followthrough": float(w.get("directional_followthrough", 0.0)),
@@ -85,7 +90,7 @@ class TradingEnv(gym.Env):
 
         self.n_features = 0
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(1,), dtype=np.float32)
-        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
 
         if df is not None:
             self._set_data(df)
@@ -172,6 +177,10 @@ class TradingEnv(gym.Env):
                 "size": float(min(1.0, abs(target) / max(float(max_leverage), 1e-12))),
                 "risk": 1.0,
                 "target": float(target),
+                "entry_mode": "market",
+                "entry_offset_pct": 0.0,
+                "tp_offset_pct": 0.012,  # 1.2% default TP
+                "sl_offset_pct": 0.008,  # 0.8% default SL
                 "legacy": True,
             }
 

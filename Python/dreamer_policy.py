@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from Python.feature_pipeline import ULTIMATE_150, build_env_feature_matrix
+from Python.feature_pipeline import ENGINEERED_V2, ULTIMATE_150, build_env_feature_matrix
 from drl.dreamer_agent import DreamerV3Agent
 
 
@@ -15,7 +15,7 @@ class DreamerPolicy:
             self.meta = json.load(f) or {}
         self.checkpoint_path = checkpoint_path
         self.window_size = int(self.meta.get("window_size", 64) or 64)
-        self.feature_version = str(self.meta.get("feature_version", ULTIMATE_150) or ULTIMATE_150)
+        self.feature_version = str(self.meta.get("feature_version", ENGINEERED_V2) or ENGINEERED_V2)
         self.obs_dim = int(self.meta.get("obs_dim", 0) or 0)
         self.device = "cuda" if torch.cuda.is_available() else ("mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available() else "cpu")
         self.agent = DreamerV3Agent(obs_dim=self.obs_dim, action_dim=3, device=self.device)

@@ -2541,11 +2541,145 @@ async def status_refresh_loop():
         await asyncio.sleep(4)
 
 
+async def api_trades(request):
+    """Trade history API: GET /api/trades?symbol=BTCUSDm&side=BUY&days=30&limit=200&offset=0"""
+    from Python.trade_learning import _iter_jsonl, _parse_ts, _safe_float
+
+    qs = request.query
+    filter_symbol = qs.get("symbol", "").strip() or None
+    filter_side = qs.get("side", "").strip().upper() or None
+    limit = min(int(qs.get("limit", "200") or 200), 2000)
+    offset = int(qs.get("offset", "0") or 0)
+    days = int(qs.get("days", "30") or 30)
+    filter_action = qs.get("action", "").strip().lower() or None
+
+    trade_events_path = os.path.join(LOG_DIR, "trade_events.jsonl")
+    cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, days))
+
+    opened = {}
+    closed = []
+
+    for row in _iter_jsonl(trade_events_path):
+        event = str(row.get("event", "")).strip()
+        payload = row.get("payload", {}) or {}
+        ts = _parse_ts(row.get("ts"))
+        if ts is None or ts < cutoff:
+            if event == "trade_open":
+                ticket = int(payload.get("ticket", 0) or 0)
+                if ticket > 0:
+                    opened[ticket] = {
+                        "opened_at": ts.isoformat() if ts else None,
+                        "symbol": str(payload.get("symbol", "?")),
+                        "side": str(payload.get("side", "UNKNOWN")).upper(),
+                        "open_price": _safe_float(payload.get("open_price")),
+                        "volume": _safe_float(payload.get("volume")),
+                    }
+            continue
+
+        if event == "trade_open":
+            ticket = int(payload.get("ticket", 0) or 0)
+            if ticket > 0:
+                opened[ticket] = {
+                    "opened_at": ts.isoformat() if ts else None,
+                    "symbol": str(payload.get("symbol", "?")),
+                    "side": str(payload.get("side", "UNKNOWN")).upper(),
+                    "open_price": _safe_float(payload.get("open_price")),
+                    "volume": _safe_float(payload.get("volume")),
+                }
+            continue
+
+        if event != "trade_closed":
+            continue
+
+        ticket = int(payload.get("ticket", 0) or 0)
+        symbol = str(payload.get("symbol", "?"))
+        pnl = _safe_float(payload.get("profit", 0.0))
+        volume = _safe_float(payload.get("volume", 0.0))
+        close_price = _safe_float(payload.get("price", 0.0))
+        side = "UNKNOWN"
+        open_price = 0.0
+        hold_minutes = None
+        opened_entry = opened.get(ticket)
+        if opened_entry:
+            side = opened_entry["side"]
+            open_price = opened_entry["open_price"]
+            if opened_entry["opened_at"]:
+                try:
+                    ots = _parse_ts(opened_entry["opened_at"])
+                    if ots:
+                        hold_minutes = round((ts - ots).total_seconds() / 60.0, 2)
+                except Exception:
+                    pass
+
+        if filter_symbol and symbol != filter_symbol:
+            continue
+        if filter_side and side != filter_side:
+            continue
+
+        closed.append({
+            "ts": ts.isoformat(),
+            "ticket": ticket,
+            "symbol": symbol,
+            "side": side,
+            "pnl": round(pnl, 4),
+            "volume": volume,
+            "open_price": open_price,
+            "close_price": close_price,
+            "hold_minutes": hold_minutes,
+        })
+
+    # Most recent first
+    closed.sort(key=lambda r: r["ts"], reverse=True)
+    total = len(closed)
+    page = closed[offset:offset + limit]
+
+    return web.json_response({
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "trades": page,
+    })
+
+
+async def api_decisions(request):
+    """Recent decision log: GET /api/decisions?symbol=BTCUSDm&lines=100"""
+    qs = request.query
+    filter_symbol = qs.get("symbol", "").strip() or None
+    lines = min(int(qs.get("lines", "100") or 100), 500)
+
+    server_log = os.path.join(LOG_DIR, "server.log")
+    raw = _tail(server_log, lines=max(lines * 3, 300))
+    decisions = []
+    for line in raw:
+        if "DECISION " not in line and "EXEC_TRACE " not in line and "ACTION " not in line:
+            continue
+        if filter_symbol and filter_symbol not in line:
+            continue
+        decisions.append(line)
+    return web.json_response({"decisions": decisions[-lines:]})
+
+
+async def api_learning(request):
+    """Trade learning metrics: GET /api/learning"""
+    path = os.path.join(LOG_DIR, "learning", "trade_learning_latest.json")
+    if not os.path.exists(path):
+        return web.json_response({"error": "no learning data"}, status=404)
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return web.json_response(data)
+    except Exception as exc:
+        return web.json_response({"error": str(exc)}, status=500)
+
+
 def run(host="127.0.0.1", port=8088):
     app = web.Application()
     app.router.add_get("/", index)
     app.router.add_get("/mini", mini_app)
     app.router.add_get("/api/status", api_status)
+    app.router.add_get("/api/trades", api_trades)
+    app.router.add_get("/api/decisions", api_decisions)
+    app.router.add_get("/api/learning", api_learning)
     app.router.add_post("/api/control", api_control)
     app.router.add_get("/ws", ws_status)
     app.on_startup.append(on_startup)

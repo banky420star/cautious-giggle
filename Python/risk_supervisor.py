@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections import deque
 from dataclasses import dataclass
 
 
@@ -38,8 +39,39 @@ class RiskSupervisor:
         self.max_spread_bps = float(supervisor_cfg.get("max_spread_bps", trading_cfg.get("max_spread_bps", 25.0)))
         self.max_confidence_gap = float(supervisor_cfg.get("max_confidence_gap", 1.0))
 
+        # --- Losing-streak throttle ---
+        self.loss_streak_threshold = int(supervisor_cfg.get("loss_streak_threshold", 5))
+        self.loss_streak_cooldown_minutes = int(supervisor_cfg.get("loss_streak_cooldown_minutes", 10))
+
+        # --- Drawdown-based size reduction ---
+        default_drawdown_tiers = [
+            {"pct": 5.0, "factor": 0.50},
+            {"pct": 10.0, "factor": 0.25},
+            {"pct": 15.0, "factor": 0.0},
+        ]
+        self.drawdown_reduction_tiers: list[dict] = sorted(
+            supervisor_cfg.get("drawdown_reduction_tiers", default_drawdown_tiers),
+            key=lambda t: float(t["pct"]),
+            reverse=True,
+        )
+
+        # --- Max adjustments per symbol per hour ---
+        self.max_adjustments_per_hour = int(supervisor_cfg.get("max_adjustments_per_hour", 10))
+
+        # --- In-memory tracking ---
         self.last_trade_at_by_symbol: dict[str, dt.datetime] = {}
         self.halt_until: dt.datetime | None = None
+        self.consecutive_losses: dict[str, int] = {}
+        self.symbol_cooldown_until: dict[str, dt.datetime] = {}
+        self.adjustment_timestamps: dict[str, deque[dt.datetime]] = {}
+
+    def clear_blocks(self):
+        """Clear all halts, cooldowns, and tracking state for a fresh start."""
+        self.halt_until = None
+        self.consecutive_losses.clear()
+        self.symbol_cooldown_until.clear()
+        self.adjustment_timestamps.clear()
+        self.last_trade_at_by_symbol.clear()
 
     def _symbol_profile(self, symbol: str) -> dict:
         profile = self.symbol_profiles.get(str(symbol), {})
@@ -50,6 +82,46 @@ class RiskSupervisor:
 
     def mark_trade(self, symbol: str):
         self.last_trade_at_by_symbol[str(symbol)] = self._now()
+
+    def record_trade_result(self, symbol: str, *, is_loss: bool):
+        """Call after a trade closes to update the consecutive-loss tracker."""
+        sym = str(symbol)
+        if is_loss:
+            self.consecutive_losses[sym] = self.consecutive_losses.get(sym, 0) + 1
+            if self.consecutive_losses[sym] >= self.loss_streak_threshold:
+                self.symbol_cooldown_until[sym] = self._now() + dt.timedelta(
+                    minutes=self.loss_streak_cooldown_minutes
+                )
+        else:
+            self.consecutive_losses[sym] = 0
+
+    def _record_adjustment(self, symbol: str) -> None:
+        sym = str(symbol)
+        now = self._now()
+        if sym not in self.adjustment_timestamps:
+            self.adjustment_timestamps[sym] = deque()
+        self.adjustment_timestamps[sym].append(now)
+
+    def _adjustments_in_last_hour(self, symbol: str) -> int:
+        sym = str(symbol)
+        if sym not in self.adjustment_timestamps:
+            return 0
+        now = self._now()
+        cutoff = now - dt.timedelta(hours=1)
+        q = self.adjustment_timestamps[sym]
+        while q and q[0] < cutoff:
+            q.popleft()
+        return len(q)
+
+    def _drawdown_exposure_factor(self, drawdown_pct: float) -> float:
+        """Return the multiplier to apply to exposure limits based on drawdown tiers.
+
+        Returns 1.0 when no tier is hit. Returns 0.0 when trading should halt.
+        """
+        for tier in self.drawdown_reduction_tiers:
+            if drawdown_pct >= float(tier["pct"]):
+                return float(tier["factor"])
+        return 1.0
 
     def enforce_halt(self, minutes: int, reason: str) -> RiskDecision:
         self.halt_until = self._now() + dt.timedelta(minutes=max(1, int(minutes)))
@@ -85,6 +157,27 @@ class RiskSupervisor:
         if self.halt_until and now < self.halt_until:
             return RiskDecision(False, f"halt_until {self.halt_until.isoformat()}")
 
+        # --- Losing-streak cooldown ---
+        cooldown_until = self.symbol_cooldown_until.get(str(symbol))
+        if cooldown_until and now < cooldown_until:
+            return RiskDecision(
+                False,
+                f"loss_streak_cooldown {str(symbol)} until {cooldown_until.isoformat()}"
+            )
+
+        # --- Max adjustments per symbol per hour ---
+        adj_count = self._adjustments_in_last_hour(symbol)
+        if adj_count >= self.max_adjustments_per_hour:
+            return RiskDecision(
+                False,
+                f"max_adjustments_per_hour {adj_count} >= {self.max_adjustments_per_hour} for {str(symbol)}"
+            )
+
+        # --- Drawdown-based size reduction ---
+        dd_factor = self._drawdown_exposure_factor(drawdown_pct)
+        if dd_factor <= 0.0:
+            return RiskDecision(False, f"drawdown_halt drawdown_pct={drawdown_pct:.2f}")
+
         pnl_today = float(snapshot.get("pnl_today", 0.0) or 0.0)
         if pnl_today <= -abs(self.max_daily_loss):
             return self.enforce_halt(24 * 60, f"daily_loss {pnl_today:.2f} <= -{abs(self.max_daily_loss):.2f}")
@@ -98,13 +191,17 @@ class RiskSupervisor:
         if symbol_positions >= max_positions_per_symbol and abs(target_exposure) > abs(current_symbol_exposure):
             return RiskDecision(False, f"max_positions_per_symbol {symbol_positions} >= {max_positions_per_symbol}")
 
+        # Apply drawdown reduction factor to exposure limits
+        effective_max_symbol_exposure = max_symbol_exposure * dd_factor
+        effective_max_total_exposure = self.max_total_exposure * dd_factor
+
         projected_symbol_exposure = max(abs(current_symbol_exposure), abs(target_exposure))
-        if projected_symbol_exposure > max_symbol_exposure:
-            return RiskDecision(False, f"symbol_exposure {projected_symbol_exposure:.3f} > {max_symbol_exposure:.3f}")
+        if projected_symbol_exposure > effective_max_symbol_exposure:
+            return RiskDecision(False, f"symbol_exposure {projected_symbol_exposure:.3f} > {effective_max_symbol_exposure:.3f} (dd_factor={dd_factor})")
 
         projected_total_exposure = max(abs(total_exposure), abs(total_exposure - current_symbol_exposure + target_exposure))
-        if projected_total_exposure > self.max_total_exposure:
-            return RiskDecision(False, f"total_exposure {projected_total_exposure:.3f} > {self.max_total_exposure:.3f}")
+        if projected_total_exposure > effective_max_total_exposure:
+            return RiskDecision(False, f"total_exposure {projected_total_exposure:.3f} > {effective_max_total_exposure:.3f} (dd_factor={dd_factor})")
 
         if spread_bps is not None and float(spread_bps) > max_spread_bps:
             return RiskDecision(False, f"spread_bps {float(spread_bps):.2f} > {max_spread_bps:.2f}")
@@ -119,4 +216,5 @@ class RiskSupervisor:
             if elapsed < min_trade_interval_sec:
                 return RiskDecision(False, f"cooldown {elapsed:.0f}s < {min_trade_interval_sec}s")
 
+        self._record_adjustment(symbol)
         return RiskDecision(True, "ok")

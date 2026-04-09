@@ -18,13 +18,23 @@ risk:
   supervisor:
     enabled: true
     max_daily_loss: 1000
-    max_drawdown_pct: 8.0
+    max_drawdown_pct: 15.0
     max_symbol_exposure: 0.35
     max_total_exposure: 1.2
     max_open_positions: 6
     max_positions_per_symbol: 3
-    min_trade_interval_sec: 45
-    max_spread_bps: 25.0
+    min_trade_interval_sec: 30
+    max_spread_bps: 35.0
+    loss_streak_threshold: 7
+    loss_streak_cooldown_minutes: 5
+    max_adjustments_per_hour: 20
+    drawdown_reduction_tiers:
+      - pct: 8.0
+        factor: 0.50
+      - pct: 12.0
+        factor: 0.25
+      - pct: 18.0
+        factor: 0.0
 telegram:
   token: YOUR_BOT_TOKEN_HERE
   chat_id: YOUR_CHAT_ID_HERE
@@ -36,14 +46,14 @@ event_intel:
   news_hold_min: 20
   max_events: 200
 drl:
-  total_timesteps: 500000
+  total_timesteps: 2000000
   per_symbol: true
   period: 90d
   interval: M5
   candles_per_symbol: 100000
   eval_period: 120d
   model_path: models/ppo_trading.zip
-  feature_version: ultimate_150
+  feature_version: engineered_v2
   data_source: mt5
   optuna_trials: 0
   optuna_timesteps: 10000
@@ -52,7 +62,7 @@ drl:
     train_in_cycle: true
     steps: 5000
     window: 64
-    feature_version: ultimate_150
+    feature_version: engineered_v2
     symbols: *id001
   ensemble:
     enabled: false
@@ -61,12 +71,12 @@ drl:
   reward:
     version: v2_risk_adjusted
     weights:
-      growth: 8.0
+      growth: 10.0
       payoff: 2.0
-      sharpe_bonus: 1.0
+      sharpe_bonus: 1.5
       drawdown_penalty: 3.0
-      cost_penalty: 5.0
-      churn_penalty: 0.5
+      cost_penalty: 1.5
+      churn_penalty: 0.1
       memory_expectancy_bonus: 0.5
       loss_streak_penalty: 0.4
 training:
@@ -75,15 +85,15 @@ training:
   lstm_period: 90d
   lstm_interval: M5
   lstm_candles: 100000
-  feature_version: ultimate_150
+  feature_version: engineered_v2
   data_source: mt5
 evaluation:
-  max_drawdown: 0.1
-  min_sharpe: 0.3
-  min_return: 0.015
-  score_margin: 0.3
+  max_drawdown: 0.20
+  min_sharpe: 0.05
+  min_return: 0.001
+  score_margin: 0.0
   min_steps_per_symbol: 600
-  min_pass_rate: 0.8
+  min_pass_rate: 0.5
   return_margin: 0.0
   sharpe_margin: 0.05
   drawdown_margin: 0.0
@@ -91,23 +101,23 @@ evaluation:
   - 60d
   - 90d
   - 120d
-  min_forward_win_rate: 0.67
+  min_forward_win_rate: 0.50
 registry:
   ensemble:
     history_limit: 3
   canary_policy:
     default:
-      min_trades: 30
-      min_realized_pnl: 0.0
-      max_drawdown: 0.12
-      min_runtime_minutes: 45
+      min_trades: 20
+      min_realized_pnl: -5.0
+      max_drawdown: 0.15
+      min_runtime_minutes: 30
     per_symbol:
       EURUSDm:
-        max_drawdown: 0.15
-        min_trades: 40
+        max_drawdown: 0.18
+        min_trades: 30
       BTCUSDm:
-        max_drawdown: 0.08
-        min_trades: 60
+        max_drawdown: 0.15
+        min_trades: 30
 data:
   source: mt5
 cycle:

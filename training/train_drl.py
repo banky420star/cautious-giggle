@@ -429,8 +429,8 @@ def _policy_kwargs_for(feature_version: str) -> dict:
         )
     return dict(
         features_extractor_class=LSTMFeatureExtractor,
-        features_extractor_kwargs=dict(features_dim=256),
-        net_arch=[512, 256],
+        features_extractor_kwargs=dict(features_dim=128),
+        net_arch=[256, 128],
         activation_fn=torch.nn.ReLU,
     )
 
@@ -491,6 +491,17 @@ def _maybe_optimize_ppo_params(
     sample_df = df_pd.tail(sample_rows).copy()
     df = pl.from_pandas(sample_df)
 
+    # Split data: train on first 80%, eval on last 20% (forward-only)
+    split_idx = int(len(df) * 0.8)
+    df_train = df[:split_idx]
+    df_eval = df[split_idx:]
+    if len(df_eval) < 200:
+        # Fallback: if eval set too small, use last 30%
+        split_idx = int(len(df) * 0.7)
+        df_train = df[:split_idx]
+        df_eval = df[split_idx:]
+    logger.info(f"Optuna data split: train={len(df_train)} rows, eval={len(df_eval)} rows (forward-only)")
+
     def objective(trial):
         params = _default_ppo_params()
         params["learning_rate"] = trial.suggest_float("learning_rate", 3e-5, 5e-4, log=True)
@@ -501,7 +512,7 @@ def _maybe_optimize_ppo_params(
         env = DummyVecEnv(
             [
                 make_env(
-                    df,
+                    df_train,
                     11,
                     initial_balance,
                     reward_weights,
@@ -517,7 +528,7 @@ def _maybe_optimize_ppo_params(
         eval_env = DummyVecEnv(
             [
                 make_env(
-                    df,
+                    df_eval,
                     99,
                     initial_balance,
                     reward_weights,
@@ -710,12 +721,24 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         raise RuntimeError("No valid training data found")
 
     df = pl.from_pandas(df_pd)
+
+    # Split data: train on first 80%, eval on last 20% (forward-only)
+    split_idx = int(len(df) * 0.8)
+    df_train = df[:split_idx]
+    df_eval = df[split_idx:]
+    if len(df_eval) < 200:
+        # Fallback: if eval set too small, use last 30%
+        split_idx = int(len(df) * 0.7)
+        df_train = df[:split_idx]
+        df_eval = df[split_idx:]
+    logger.info(f"Data split: train={len(df_train)} rows, eval={len(df_eval)} rows (forward-only)")
+
     n_envs = 4
 
     env = DummyVecEnv(
         [
             make_env(
-                df,
+                df_train,
                 i,
                 initial_balance=initial_balance,
                 reward_weights=reward_weights,
@@ -751,7 +774,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         eval_env = DummyVecEnv(
             [
                 make_env(
-                    df,
+                    df_eval,
                     99,
                     initial_balance=initial_balance,
                     reward_weights=reward_weights,

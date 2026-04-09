@@ -418,10 +418,10 @@ def _blend_symbol_decision(
 
 def _low_volatility_memory_base(trade_memory: dict | None) -> float:
     memory = trade_memory or {}
-    min_trades = int(os.environ.get("AGI_LOW_VOL_MIN_TRADES", "20") or 20)
-    min_profit_factor = float(os.environ.get("AGI_LOW_VOL_MIN_PROFIT_FACTOR", "1.15") or 1.15)
-    min_expectancy = float(os.environ.get("AGI_LOW_VOL_MIN_EXPECTANCY", "0.0") or 0.0)
-    max_recent_loss_streak = int(os.environ.get("AGI_LOW_VOL_MAX_RECENT_LOSS_STREAK", "3") or 3)
+    min_trades = int(os.environ.get("AGI_LOW_VOL_MIN_TRADES", "30") or 30)
+    min_profit_factor = float(os.environ.get("AGI_LOW_VOL_MIN_PROFIT_FACTOR", "0.9") or 0.9)
+    min_expectancy = float(os.environ.get("AGI_LOW_VOL_MIN_EXPECTANCY", "-1.0") or -1.0)
+    max_recent_loss_streak = int(os.environ.get("AGI_LOW_VOL_MAX_RECENT_LOSS_STREAK", "6") or 6)
 
     trades = int(memory.get("trades", 0) or 0)
     profit_factor = float(memory.get("profit_factor", 0.0) or 0.0)
@@ -429,7 +429,7 @@ def _low_volatility_memory_base(trade_memory: dict | None) -> float:
     recent_loss_streak = int(memory.get("recent_loss_streak", 0) or 0)
 
     if trades < min_trades:
-        return 0.0
+        return 1.0  # not enough data yet — allow full trading
     if profit_factor < min_profit_factor:
         return 0.0
     if expectancy < min_expectancy:
@@ -439,7 +439,7 @@ def _low_volatility_memory_base(trade_memory: dict | None) -> float:
     return 1.0
 
 
-def _fetch_symbol_df(symbol: str, timeframe, bars=220):
+def _fetch_symbol_df(symbol: str, timeframe, bars=2000):
     rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, bars)
     if rates is None or len(rates) < 80:
         return None
@@ -535,7 +535,7 @@ def _position_exposure_state(symbol: str, max_lots: float) -> tuple[float, float
     return float(current_symbol_exposure), float(total_exposure), len(symbol_positions), len(positions)
 
 
-def _scan_trade_events(alerter, risk, known_open_tickets, seen_closed_deals, last_deal_check):
+def _scan_trade_events(alerter, risk, known_open_tickets, seen_closed_deals, last_deal_check, supervisor=None):
     now_utc = _utc_now()
     closed_events = []
 
@@ -603,6 +603,11 @@ def _scan_trade_events(alerter, risk, known_open_tickets, seen_closed_deals, las
                 risk.record_trade_result(payload["symbol"], pnl)
             except Exception:
                 pass
+            if supervisor is not None:
+                try:
+                    supervisor.record_trade_result(payload["symbol"], is_loss=(pnl < 0))
+                except Exception:
+                    pass
             alerter.trade_closed(
                 symbol=payload["symbol"],
                 ticket=payload["ticket"],
@@ -640,6 +645,14 @@ def main(live=False):
     brain = runtime["HybridBrain"](risk, executor)
     agi = runtime["SmartAGI"]()
 
+    # Fresh start: clear all blocks, reset peak equity to current account equity
+    snap = _account_snapshot()
+    current_equity = snap.get("equity") or snap.get("balance") or 0.0
+    if current_equity > 0:
+        risk.reset_halt(current_equity=current_equity)
+        supervisor.clear_blocks()
+        logger.info(f"FRESH_START | Cleared all blocks, peak_equity reset to {current_equity:.2f}")
+
     trading_cfg = cfg.get("trading", {})
     symbols = resolve_trading_symbols(cfg, env_keys=("AGI_RUNTIME_SYMBOLS",), fallback=DEFAULT_TRADING_SYMBOLS)
     timeframe = _to_mt5_timeframe(trading_cfg.get("timeframe", "M5"))
@@ -649,7 +662,7 @@ def main(live=False):
     alerter = runtime["TelegramAlerter"](token, chat_id)
     event_intel = runtime["EventIntel"](cfg, LOG_DIR)
 
-    alerter.online("Trading engine initialized")
+    alerter.online(f"Trading engine initialized | Fresh start equity={current_equity:.2f}")
 
     def _notify_offline():
         try:
@@ -755,7 +768,7 @@ def main(live=False):
                 learn = runtime["build_trade_learning"](
                     log_dir=LOG_DIR,
                     out_dir=os.path.join(LOG_DIR, "learning"),
-                    lookback_days=int(os.environ.get("AGI_TRADE_LEARN_DAYS", "30")),
+                    lookback_days=int(os.environ.get("AGI_TRADE_LEARN_DAYS", "7")),
                 )
                 _append_audit(
                     "trade_learning",
@@ -796,22 +809,78 @@ def main(live=False):
                 trade_memory = trade_learning_by_symbol.get(str(symbol), {})
 
                 ppo_meta = brain.predict_ppo_action(symbol, df)
+                ppo_skip = "" if ppo_meta is not None else brain.ppo_skip_reason(symbol)
                 dreamer_meta = brain.predict_dreamer_action(symbol, df)
                 decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, cfg=cfg)
                 exposure = float(decision["target"])
 
+                # --- PPO-first hierarchy: if PPO is missing, re-blend with boosted AGI weight ---
+                fallback_mode = ppo_meta is None and abs(float(decision["raw_target"])) > 0.0
+                if fallback_mode:
+                    fallback_profile = dict(decision["profile"])
+                    fallback_profile["agi_weight"] = max(fallback_profile["agi_weight"], 0.50)
+                    fallback_profile["ppo_weight"] = 0.0
+                    w_sum = fallback_profile["agi_weight"] + fallback_profile["dreamer_weight"]
+                    if w_sum > 0:
+                        fallback_profile["dreamer_weight"] = fallback_profile["dreamer_weight"] / w_sum * (1.0 - fallback_profile["agi_weight"])
+                    raw_fb = (
+                        fallback_profile["ppo_weight"] * decision["ppo_target"]
+                        + fallback_profile["dreamer_weight"] * decision["dreamer_target"]
+                        + fallback_profile["agi_weight"] * decision["agi_bias"]
+                    )
+                    adjusted_fb = raw_fb * decision["agi_risk_scalar"]
+                    adjusted_fb = _clip(adjusted_fb, -float(fallback_profile["max_abs_target"]), float(fallback_profile["max_abs_target"]))
+                    if abs(adjusted_fb) < float(fallback_profile["min_trade_threshold"]):
+                        adjusted_fb = 0.0
+                    exposure = adjusted_fb * 0.5  # safety discount for no-PPO mode
+
+                # --- Trade-memory gate: scale down when memory is bad (applies after fallback) ---
+                mem_pf = float(trade_memory.get("profit_factor", 1.0) or 1.0)
+                mem_exp = float(trade_memory.get("expectancy", 0.0) or 0.0)
+                mem_streak = int(trade_memory.get("recent_loss_streak", 0) or 0)
+                mem_trades = int(trade_memory.get("trades", 0) or 0)
+                memory_gate = _low_volatility_memory_base(trade_memory)
+                if mem_trades >= 30 and memory_gate < 1.0:
+                    if mem_pf < 0.3 or mem_exp < -2.0 or mem_streak >= 8:
+                        exposure = exposure * 0.40
+                    elif mem_pf < 0.8:
+                        exposure = exposure * 0.60
+                    else:
+                        exposure = exposure * 0.80
+
+                # --- Scenario tagging for diagnostics -----------------------
+                scenario = ""
+                if ppo_skip:
+                    scenario = "scenario_no_ppo"
+                elif mem_trades < 30:
+                    scenario = "scenario_no_data"
+                elif memory_gate < 1.0:
+                    scenario = "scenario_memory_penalty"
+
+                ppo_val = float((ppo_meta or {}).get("target", 0.0) or 0.0)
+                dreamer_val = float((dreamer_meta or {}).get("target", 0.0) or 0.0)
+                log_extra = ""
+                if ppo_skip:
+                    log_extra += " ppo_skip=%s" % ppo_skip
+                log_extra += " target=%.4f min=%.4f" % (abs(ppo_val), brain._symbol_ppo_min_abs(symbol))
+                if scenario:
+                    log_extra += " scenario=%s" % scenario
+                if mem_trades >= 20:
+                    log_extra += " memory=pf=%.2f exp=%.2f streak=%d" % (mem_pf, mem_exp, mem_streak)
+
                 logger.info(
-                    "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f"
+                    "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f%s"
                     % (
                         symbol,
                         regime,
                         float((agi_meta or {}).get("confidence", 0.0) or 0.0),
                         float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
                         float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
-                        float((ppo_meta or {}).get("target", 0.0) or 0.0),
-                        float((dreamer_meta or {}).get("target", 0.0) or 0.0),
+                        ppo_val,
+                        dreamer_val,
                         float(decision["raw_target"]),
-                        float(decision["target"]),
+                        float(exposure),
+                        log_extra,
                     )
                 )
                 _append_audit(
@@ -868,6 +937,19 @@ def main(live=False):
                     "current_symbol_exposure": float(current_symbol_exposure),
                     "total_exposure": float(total_exposure),
                 }
+                logger.info(
+                    "EXEC_TRACE %s | exposure=%.4f supervisor=%s reason=%s dd=%.2f positions=%d sym_positions=%d%s"
+                    % (
+                        symbol,
+                        float(exposure),
+                        supervisor_decision.allowed,
+                        supervisor_decision.reason,
+                        float(risk.current_dd),
+                        total_positions,
+                        symbol_positions,
+                        " fallback=ppo_missing" if fallback_mode else "",
+                    )
+                )
                 if supervisor_decision.allowed:
                     order_meta = brain.live_trade(
                         symbol,
@@ -883,6 +965,9 @@ def main(live=False):
                             "dreamer_target": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
                             "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
                             "agi_risk_scalar": float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
+                            "fallback_mode": fallback_mode,
+                            "ppo_skip": ppo_skip,
+                            "scenario": scenario,
                         },
                     )
                     if order_meta:
@@ -916,8 +1001,23 @@ def main(live=False):
                         order_meta["sl_outcome_usd"] = float(sl_outcome_usd)
                         order_meta["expected_loss_usd"] = float(sl_outcome_usd)
                     _append_audit("trade_action", dict(order_meta))
+                    # Determine which sub-brains wanted to act
+                    wanted_parts = []
+                    if abs(float((ppo_meta or {}).get("target", 0.0) or 0.0)) > 0.01:
+                        wanted_parts.append("ppo")
+                    if abs(float((dreamer_meta or {}).get("target", 0.0) or 0.0)) > 0.01:
+                        wanted_parts.append("dreamer")
+                    if abs(float((agi_meta or {}).get("trend_bias", 0.0) or 0.0)) > 0.01:
+                        wanted_parts.append("agi")
+                    wanted_str = "+".join(wanted_parts) if wanted_parts else "none"
+                    vetoed_str = "none"  # veto tracking is in supervisor
+                    action_extra = ""
+                    if mem_trades >= 20:
+                        action_extra += " memory=pf=%.2f exp=%.2f streak=%d" % (mem_pf, mem_exp, mem_streak)
+                    if scenario:
+                        action_extra += " scenario=%s" % scenario
                     logger.info(
-                        "ACTION %s | req=%s side=%s volume=%s target=%.4f ppo=%.4f dreamer=%.4f agi=%.4f magic=%s comment=%s ticket=%s retcode=%s TP=%s SL=%s"
+                        "ACTION %s | req=%s side=%s volume=%s target=%.4f ppo=%.4f dreamer=%.4f agi=%.4f magic=%s ticket=%s retcode=%s TP=%s SL=%s wanted=%s vetoed=%s%s"
                         % (
                             symbol,
                             order_meta.get("request_action"),
@@ -928,11 +1028,13 @@ def main(live=False):
                             float(order_meta.get("dreamer_target", 0.0) or 0.0),
                             float(order_meta.get("agi_bias", 0.0) or 0.0),
                             order_meta.get("magic"),
-                            order_meta.get("comment"),
                             order_meta.get("ticket"),
                             order_meta.get("retcode"),
                             order_meta.get("tp_price"),
                             order_meta.get("sl_price"),
+                            wanted_str,
+                            vetoed_str,
+                            action_extra,
                         )
                     )
                     alerter.trade_action(symbol, order_meta)
@@ -951,6 +1053,7 @@ def main(live=False):
             known_open_tickets,
             seen_closed_deals,
             last_deal_check,
+            supervisor=supervisor,
         )
         for c in closed_events:
             try:
