@@ -7,6 +7,7 @@ build/
 
 # Virtual environments
 .venv/
+.venv312/
 venv/
 
 # Models & training artifacts
@@ -33,6 +34,12 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Claude Code
+.claude/
+
+# Temp
+.tmp/
 
 # Tensorboard
 runs/

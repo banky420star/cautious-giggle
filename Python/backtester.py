@@ -21,9 +21,9 @@ os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "backtester.log"), rotation="10 MB", level="INFO")
 
 
-def _make_env(df_pd: pd.DataFrame, initial_balance: float = 10000.0):
+def _make_env(df_pd: pd.DataFrame, initial_balance: float = 10000.0, feature_version: str = "ultimate_150"):
     def _init():
-        return TradingEnv(df_pd, initial_balance=initial_balance)
+        return TradingEnv(df_pd, initial_balance=initial_balance, feature_version=feature_version)
     return DummyVecEnv([_init])
 
 
@@ -72,7 +72,7 @@ def run_ppo_backtest(symbol: str, model_path: str, vecnorm_path: str, period: st
         equities.append(eq)
         costs.append(cost)
         positions.append(pos)
-        rewards.append(float(reward))
+        rewards.append(float(reward[0]) if hasattr(reward, '__len__') else float(reward))
 
         if prev_eq is not None and prev_eq > 0:
             step_rets.append((eq - prev_eq) / prev_eq)

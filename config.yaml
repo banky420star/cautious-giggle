@@ -1,5 +1,5 @@
 trading:
-  symbols: ["EURUSD", "GBPUSD", "XAUUSD"]
+  symbols: ["EURUSDm", "GBPUSDm", "XAUUSDm"]
   timeframe: "M5"
   risk_percent: 1.0
   max_drawdown: 10.0
@@ -11,9 +11,9 @@ telegram:
   chat_id: "${TELEGRAM_CHAT_ID}"
 
 risk:
-  max_daily_loss: 500
-  max_daily_trades: 20
-  max_lots: 1.0
+  max_daily_loss: 99999
+  max_daily_trades: 9999
+  max_lots: 100.0
 
 drl:
   total_timesteps: 100000

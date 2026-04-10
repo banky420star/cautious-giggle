@@ -2,6 +2,7 @@
 Risk Engine — Portfolio risk management with safe config defaults.
 """
 import os
+import sys
 import yaml
 from datetime import datetime
 from loguru import logger
@@ -31,13 +32,45 @@ class RiskEngine:
         self.daily_trades = 0
         self.halt = False
         self.error_count = 0
-        self._peak_equity = 0.0
-        self._current_equity = 0.0
+
+        # ── Bootstrap equity from MT5 or AGI_START_EQUITY ─────────────
+        initial_equity = self._bootstrap_equity()
+        self._peak_equity = initial_equity
+        self._current_equity = initial_equity
 
         logger.info(
             f"RiskEngine initialized: max_loss=${self.max_daily_loss} "
-            f"max_trades={self.max_daily_trades} max_lots={self.max_lots}"
+            f"max_trades={self.max_daily_trades} max_lots={self.max_lots} "
+            f"initial_equity=${initial_equity:.2f}"
         )
+
+    @staticmethod
+    def _bootstrap_equity() -> float:
+        """Read initial equity from MT5 account (Windows) or AGI_START_EQUITY env var."""
+        # Try MT5 first on Windows
+        if sys.platform == "win32":
+            try:
+                import MetaTrader5 as mt5
+                if mt5.initialize():
+                    info = mt5.account_info()
+                    if info is not None and info.equity > 0:
+                        logger.info(f"RiskEngine: initial equity from MT5 = ${info.equity:.2f}")
+                        return float(info.equity)
+            except Exception as e:
+                logger.debug(f"RiskEngine: MT5 equity read failed ({e}), falling back to env var")
+
+        # Fallback: env var
+        env_eq = os.environ.get("AGI_START_EQUITY", "0")
+        try:
+            val = float(env_eq)
+            if val > 0:
+                logger.info(f"RiskEngine: initial equity from AGI_START_EQUITY = ${val:.2f}")
+                return val
+        except ValueError:
+            pass
+
+        logger.warning("RiskEngine: no initial equity source — defaulting to 0.0")
+        return 0.0
 
     @property
     def current_dd(self) -> float:

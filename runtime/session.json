@@ -1,0 +1,13 @@
+{
+    "login": "298410020",
+    "server": "Exness-MT5Trial9",
+    "start_equity": 484.8,
+    "balance": 484.8,
+    "mode": "aggressive",
+    "risk_percent": 2.0,
+    "max_dd_pct": 18.0,
+    "max_lots": 0.01,
+    "max_daily_loss": 29.09,
+    "cold_start": false,
+    "timestamp": 1775580674.7656147
+}

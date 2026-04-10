@@ -31,6 +31,7 @@ from Python.risk_engine import RiskEngine
 from Python.mt5_executor import MT5Executor
 from Python.hybrid_brain import HybridBrain
 from Python.data_feed import get_latest_data, fetch_training_data
+from Python.api_server import start_api_server, cache_decision
 
 # ── Logging ─────────────────────────────────────────────────────────
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
@@ -76,7 +77,12 @@ class AGIServer:
             self.symbols = ["EURUSD"]
 
         self.start_time = time.time()
+        self._equity_poll_interval = int(os.environ.get("AGI_EQUITY_POLL_SEC", "30"))
         logger.success(f"AGIServer initialized | live={self.live} | symbols={self.symbols}")
+
+        # Start equity polling in background
+        self._equity_thread = threading.Thread(target=self._equity_poll_loop, daemon=True)
+        self._equity_thread.start()
 
     def handle_command(self, request: dict) -> dict:
         """Process a command from the socket server or n8n bridge."""
@@ -106,6 +112,7 @@ class AGIServer:
                 return {"error": f"Insufficient data for {symbol}", "action": "ERROR"}
 
             decision = self.brain.decide(symbol, df)
+            cache_decision(symbol, decision)
             return decision
         except Exception as e:
             return {"error": str(e), "action": "ERROR"}
@@ -118,7 +125,9 @@ class AGIServer:
                 return {"error": f"Insufficient data for {symbol}", "action": "ERROR"}
 
             decision = self.brain.live_trade(symbol, df)
-            return decision if decision else {"action": "HOLD", "reason": "risk_blocked"}
+            result = decision if decision else {"action": "HOLD", "reason": "risk_blocked"}
+            cache_decision(symbol, result)
+            return result
         except Exception as e:
             return {"error": str(e), "action": "ERROR"}
 
@@ -147,6 +156,32 @@ class AGIServer:
             "current_dd": self.risk.current_dd,
             "can_trade": self.risk.can_trade(),
         }
+
+    def _equity_poll_loop(self):
+        """Background thread: poll MT5 account equity and update the risk engine."""
+        logger.info(f"Equity poll started (every {self._equity_poll_interval}s)")
+        while True:
+            try:
+                equity = self._read_equity()
+                if equity is not None and equity > 0:
+                    self.risk.update_equity(equity)
+                    logger.debug(f"Equity update: ${equity:.2f} | peak=${self.risk._peak_equity:.2f} | dd={self.risk.current_dd:.2f}%")
+            except Exception as e:
+                logger.warning(f"Equity poll error: {e}")
+            time.sleep(self._equity_poll_interval)
+
+    def _read_equity(self) -> float | None:
+        """Read current account equity from MT5 (Windows) or return None for dry-run."""
+        if _mt5 is not None and self.live:
+            try:
+                info = _mt5.account_info()
+                if info is not None:
+                    return float(info.equity)
+            except Exception as e:
+                logger.debug(f"MT5 equity read failed: {e}")
+                return None
+        # Dry-run mode: no live equity feed — rely on initial bootstrap value
+        return None
 
     def run_socket_server(self):
         """Run the TCP socket server for n8n bridge communication."""
@@ -196,6 +231,9 @@ class AGIServer:
 
 def main(live=False):
     server = AGIServer(live=live)
+
+    # Start HTTP API server for React dashboard (port 8088)
+    start_api_server(server)
 
     # Start socket server in background
     socket_thread = threading.Thread(target=server.run_socket_server, daemon=True)

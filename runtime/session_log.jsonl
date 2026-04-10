@@ -1,0 +1,8 @@
+{"ts": 1775152674.1056225, "ts_iso": "2026-04-02T17:57:54Z", "event": "session_created", "mode": "balanced", "equity": 100.0, "max_lots": 0.01}
+{"ts": 1775152677.4878209, "ts_iso": "2026-04-02T17:57:57Z", "event": "services_started", "count": 5}
+{"ts": 1775152930.8886127, "ts_iso": "2026-04-02T18:02:10Z", "event": "session_created", "mode": "balanced", "equity": 100.0, "max_lots": 0.01}
+{"ts": 1775152934.604933, "ts_iso": "2026-04-02T18:02:14Z", "event": "services_started", "count": 5}
+{"ts": 1775154388.591684, "ts_iso": "2026-04-02T18:26:28Z", "event": "session_created", "mode": "aggressive", "equity": 100.0, "max_lots": 0.01}
+{"ts": 1775154390.6933248, "ts_iso": "2026-04-02T18:26:30Z", "event": "phase1_started", "services": ["ui", "champion_cycle"]}
+{"ts": 1775154391.1774325, "ts_iso": "2026-04-02T18:26:31Z", "event": "champion_exists", "action": "starting_trading_immediately"}
+{"ts": 1775154392.5775967, "ts_iso": "2026-04-02T18:26:32Z", "event": "phase2_started", "services": ["server_agi", "hft", "watchdog"]}

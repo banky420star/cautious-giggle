@@ -8,8 +8,12 @@ Decision flow:
   4. Canary scaling: reduce position size when running a canary model
   5. Final signal passed to executor for trade reconciliation
 """
+import json
 import os
 import sys
+from collections import deque
+from datetime import datetime, timezone
+
 import numpy as np
 import pandas as pd
 from loguru import logger
@@ -19,6 +23,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+
+from Python.feature_pipeline import build_env_feature_matrix, ULTIMATE_150
 
 
 class HybridBrain:
@@ -34,6 +40,14 @@ class HybridBrain:
 
         # Canary lot multiplier (reduce risk for unproven models)
         self.canary_lot_mult = float(os.environ.get("CANARY_LOT_MULT", "0.25"))
+
+        # Decision ring buffer (last 100 decisions)
+        self._decision_history: deque = deque(maxlen=100)
+
+        # Decision JSONL log
+        _base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self._decision_log_path = os.path.join(_base, "logs", "decisions.jsonl")
+        os.makedirs(os.path.dirname(self._decision_log_path), exist_ok=True)
 
         # Device
         try:
@@ -54,6 +68,14 @@ class HybridBrain:
 
         self._load_ppo_from_registry()
         self._load_lstm()
+
+        # Track which model slot is active for decision trace
+        if self._is_canary:
+            self._model_version = "canary"
+        elif self.ppo_model is not None:
+            self._model_version = "champion"
+        else:
+            self._model_version = "fallback"
 
         logger.success(f"HybridBrain initialized on {self.device.upper()} | canary={self._is_canary}")
 
@@ -78,9 +100,9 @@ class HybridBrain:
                     logger.success(f"PPO loaded from registry: {active_dir}")
 
                     if os.path.exists(vec_path):
-                        # Build a dummy env for VecNormalize
+                        # Build a dummy env matching the trained model's obs/action spaces
                         from drl.trading_env import TradingEnv
-                        dummy = DummyVecEnv([lambda: TradingEnv()])
+                        dummy = DummyVecEnv([lambda: TradingEnv(feature_version=ULTIMATE_150)])
                         self.vec_env = VecNormalize.load(vec_path, dummy)
                         self.vec_env.training = False
                         self.vec_env.norm_reward = False
@@ -104,7 +126,7 @@ class HybridBrain:
 
                     if os.path.exists(vec_path):
                         from drl.trading_env import TradingEnv
-                        dummy = DummyVecEnv([lambda: TradingEnv()])
+                        dummy = DummyVecEnv([lambda: TradingEnv(feature_version=ULTIMATE_150)])
                         self.vec_env = VecNormalize.load(vec_path, dummy)
                         self.vec_env.training = False
                         self.vec_env.norm_reward = False
@@ -132,15 +154,45 @@ class HybridBrain:
             df: DataFrame with columns [open, high, low, close, volume]
 
         Returns:
-            dict with keys: action, exposure, confidence, volatility, reason
+            dict with full decision trace including model info, PPO/LSTM
+            details, risk/scaling state, and final action.
         """
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
         result = {
             "action": "HOLD",
             "exposure": 0.0,
+            "symbol": symbol,
+            "timestamp": timestamp,
+
+            # Model info
+            "model_version": self._model_version,
+            "is_canary": self._is_canary,
+
+            # PPO details (populated in step 3)
+            "ppo_raw_action": [],
+            "ppo_primary_action": 0.0,
+
+            # LSTM details (populated in step 1)
+            "lstm_regime": "UNKNOWN",
+            "lstm_confidence": 0.0,
+            "lstm_top_indicators": [],
+            "lstm_top_feature_groups": [],
+
+            # Risk/scaling (populated in steps 4-5)
+            "vol_scale": 1.0,
+            "canary_scale": 1.0,
+            "pre_threshold_exposure": 0.0,
+
+            # Risk engine state
+            "risk_can_trade": self.risk.can_trade(),
+            "risk_daily_trades": self.risk.daily_trades,
+            "risk_dd_pct": round(self.risk.current_dd, 4),
+
+            # Final
             "confidence": 0.0,
             "volatility": "UNKNOWN",
             "reason": "no_signal",
-            "symbol": symbol,
         }
 
         # ── Step 1: LSTM Volatility Classification ──
@@ -155,6 +207,11 @@ class HybridBrain:
                 lstm_result = self.lstm_brain.predict(df_with_sym, production=True)
                 lstm_signal = lstm_result.get("signal", "LOW_VOLATILITY")
                 lstm_confidence = lstm_result.get("confidence", 0.0)
+
+                result["lstm_regime"] = lstm_signal
+                result["lstm_confidence"] = round(float(lstm_confidence), 4)
+                result["lstm_top_indicators"] = lstm_result.get("top_indicators", [])
+                result["lstm_top_feature_groups"] = lstm_result.get("top_feature_groups", [])
                 result["volatility"] = lstm_signal
                 result["confidence"] = lstm_confidence
             except Exception as e:
@@ -166,10 +223,12 @@ class HybridBrain:
             result["action"] = "HOLD"
             result["reason"] = f"deadzone (low_vol conf={lstm_confidence:.2%})"
             logger.debug(f"{symbol}: DEADZONE — low volatility, holding")
+            self._record_decision(result)
             return result
 
         # ── Step 3: PPO Position Sizing ──
         ppo_action = 0.0
+        ppo_raw_action = []
         if self.ppo_model is not None and len(df) >= 100:
             try:
                 obs = self._build_observation(df)
@@ -179,9 +238,16 @@ class HybridBrain:
                         obs = self.vec_env.normalize_obs(obs)
 
                     action, _ = self.ppo_model.predict(obs, deterministic=True)
-                    ppo_action = float(action[0]) if hasattr(action, '__len__') else float(action)
+                    # 6-dim action: [position_sizing, stop_loss, take_profit,
+                    #                hold_threshold, confidence_weight, risk_mult]
+                    # Use action[0] (position sizing) as the primary exposure signal
+                    ppo_raw_action = [round(float(a), 6) for a in action.flatten()]
+                    ppo_action = float(action[0])
             except Exception as e:
                 logger.warning(f"PPO prediction failed: {e}")
+
+        result["ppo_raw_action"] = ppo_raw_action
+        result["ppo_primary_action"] = round(float(ppo_action), 6)
 
         # ── Step 4: Volatility-Scaled Exposure ──
         # Scale PPO action by volatility regime
@@ -193,12 +259,18 @@ class HybridBrain:
         else:
             vol_scale = 0.3  # Unknown or low → conservative
 
+        result["vol_scale"] = vol_scale
         exposure = ppo_action * vol_scale
 
         # ── Step 5: Canary Risk Scaling ──
+        canary_scale = 1.0
         if self._is_canary:
-            exposure *= self.canary_lot_mult
-            result["reason"] = f"canary_scaled (×{self.canary_lot_mult})"
+            canary_scale = self.canary_lot_mult
+            exposure *= canary_scale
+            result["reason"] = f"canary_scaled (x{self.canary_lot_mult})"
+
+        result["canary_scale"] = canary_scale
+        result["pre_threshold_exposure"] = round(float(exposure), 6)
 
         # ── Step 6: Determine Action ──
         if abs(exposure) < 0.05:
@@ -220,35 +292,64 @@ class HybridBrain:
             f"conf={lstm_confidence:.2%} | canary={self._is_canary}"
         )
 
+        self._record_decision(result)
         return result
+
+    # ── Decision history & logging helpers ──────────────────────────
+
+    def _record_decision(self, decision: dict):
+        """Append decision to ring buffer, JSONL log, and API cache."""
+        self._decision_history.append(decision)
+
+        try:
+            with open(self._decision_log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(decision, default=str) + "\n")
+        except Exception as e:
+            logger.warning(f"Failed to write decision log: {e}")
+
+        # Feed into the API server decision cache for dashboard access
+        try:
+            from Python.api_server import cache_decision
+            symbol = decision.get("symbol", "UNKNOWN")
+            cache_decision(symbol, decision)
+        except Exception:
+            pass  # API server may not be running
+
+    @property
+    def decision_history(self) -> list[dict]:
+        """Return a copy of the recent decision ring buffer."""
+        return list(self._decision_history)
 
     def _build_observation(self, df: pd.DataFrame) -> np.ndarray | None:
         """
-        Build the observation vector matching TradingEnv format:
-        [window_size * 5 OHLCV features] + [3 portfolio state features]
+        Build the observation vector matching TradingEnv ULTIMATE_150 format:
+        [window_size * 164 features] + [3 portfolio state features] = (16403,)
         """
         try:
             window_size = 100
-            cols = ["open", "high", "low", "close", "volume"]
 
-            for c in cols:
+            for c in ["open", "high", "low", "close", "volume"]:
                 if c not in df.columns:
                     logger.error(f"Missing column '{c}' in data for observation")
                     return None
 
-            data = df[cols].values.astype(np.float32)
+            # Ensure the DataFrame has a DatetimeIndex or 'time' column
+            # so _normalize_ohlcv can produce time-based features.
+            feed_df = df.copy()
+            if "time" not in feed_df.columns and not isinstance(feed_df.index, pd.DatetimeIndex):
+                # Synthesize a DatetimeIndex so time-based features are non-zero
+                feed_df.index = pd.date_range(
+                    end=pd.Timestamp.utcnow(), periods=len(feed_df), freq="5min", tz="UTC"
+                )
 
-            if len(data) < window_size:
-                logger.warning(f"Not enough data for observation: {len(data)} < {window_size}")
+            # Build the full 164-feature matrix via the feature pipeline
+            feature_matrix = build_env_feature_matrix(feed_df, feature_version=ULTIMATE_150)
+
+            if len(feature_matrix) < window_size:
+                logger.warning(f"Not enough data for observation: {len(feature_matrix)} < {window_size}")
                 return None
 
-            window = data[-window_size:].copy()
-
-            # Normalize OHLC by last close (same as TradingEnv._get_obs)
-            last_close = float(window[-1, 3]) + 1e-12
-            window[:, 0:4] = (window[:, 0:4] / last_close) - 1.0
-            window[:, 4] = np.log1p(np.maximum(window[:, 4], 0.0))
-
+            window = feature_matrix[-window_size:]
             obs_window = window.flatten()
 
             # Portfolio state: [equity_ratio, position, avg_return]
