@@ -25,7 +25,12 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 try:
     import torch
-    DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
+    if torch.cuda.is_available():
+        DEVICE = "cuda"
+    elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        DEVICE = "mps"
+    else:
+        DEVICE = "cpu"
 except Exception:
     DEVICE = "cpu"
 

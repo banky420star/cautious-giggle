@@ -47,7 +47,7 @@ def run_walk_forward_evaluation(symbol: str = "EURUSD", period: str = "300d"):
 
     # 3. Reconstruct environment with normalization
     def _make_env():
-        return TradingEnv(df, initial_balance=10000.0)
+        return TradingEnv(df_pd, initial_balance=10000.0)
         
     env = DummyVecEnv([_make_env])
     if os.path.exists(vec_path):

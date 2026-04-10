@@ -81,7 +81,7 @@ def run_ppo_backtest(symbol: str, model_path: str, vecnorm_path: str, period: st
         steps += 1
         if max_steps and steps >= max_steps:
             break
-        if bool(done):
+        if bool(done[0] if hasattr(done, '__len__') else done):
             break
 
     equity = np.array(equities, dtype=np.float64)

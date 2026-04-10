@@ -1,0 +1,20 @@
+trading:
+  symbols: ["EURUSD", "GBPUSD", "XAUUSD"]
+  timeframe: "M5"
+  risk_percent: 1.0
+  max_drawdown: 10.0
+  confidence_threshold: 0.85
+  magic_number: 505
+
+telegram:
+  token: "${TELEGRAM_BOT_TOKEN}"
+  chat_id: "${TELEGRAM_CHAT_ID}"
+
+risk:
+  max_daily_loss: 500
+  max_daily_trades: 20
+  max_lots: 1.0
+
+drl:
+  total_timesteps: 100000
+  model_path: "models/ppo_trading.zip"

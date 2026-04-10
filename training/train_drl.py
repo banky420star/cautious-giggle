@@ -20,7 +20,7 @@ from drl.lstm_feature_extractor import LSTMFeatureExtractor
 from analysis.gradient_flow_analyzer import LSTMGradientDiagnostics
 
 # Local log path for Windows/Mac compatibility
-LOG_DIR = os.path.join(os.getcwd(), "logs")
+LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "ppo_training.log"), rotation="10 MB", level="INFO")
 

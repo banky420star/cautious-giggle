@@ -1,12 +1,43 @@
+# Python
 __pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
 venv/
-*.pyc
-.DS_Store
-control.xlsx
-*.log
-models/
-*.zip
+
+# Models & training artifacts
+models/registry/
+models/best_eval_models/
+models/*.zip
+models/*.pkl
+models/*.pt
+*.pth
+
+# Logs
 logs/
+
+# Environment / secrets
 .env
-*.pt
-config.yaml
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Tensorboard
+runs/
+/tmp/logs/
+
+# Data cache
+*.parquet
+*.feather

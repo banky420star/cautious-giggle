@@ -28,4 +28,4 @@ EXPOSE 9090
 HEALTHCHECK --interval=30s --timeout=5s \
     CMD python -c "import socket; s=socket.create_connection(('127.0.0.1',9090),2); s.close()" || exit 1
 
-CMD ["python", "-m", "Python.Server_AGI", "--production"]
+CMD ["python", "-m", "Python.Server_AGI", "--live"]
