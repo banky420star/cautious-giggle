@@ -1,0 +1,191 @@
+trading:
+  symbols:
+  - XAUUSDm
+  - BTCUSDm
+  - EURUSDm
+  - GBPUSDm
+  - USDJPYm
+  - USDCHFm
+  - AUDUSDm
+  - USDCADm
+  - NZDUSDm
+  - EURJPYm
+  timeframe: M5
+  risk_percent: 1.0
+  max_drawdown: 10.0
+  confidence_threshold: 0.5
+  magic_number: 505
+  entry_deviation: 20
+  sl_points: 250
+  tp_points: 450
+  max_spread_bps: 25.0
+  max_slippage_bps: 8.0
+  severe_slippage_multiple: 2.0
+  symbol_profiles:
+    BTCUSDm:
+      entry_deviation: 60
+      sl_points: 2200
+      tp_points: 3600
+      max_spread_bps: 60.0
+    XAUUSDm:
+      entry_deviation: 40
+      sl_points: 700
+      tp_points: 1200
+      max_spread_bps: 35.0
+    EURUSDm:
+      entry_deviation: 20
+      sl_points: 180
+      tp_points: 320
+      max_spread_bps: 18.0
+    GBPUSDm:
+      entry_deviation: 22
+      sl_points: 220
+      tp_points: 380
+      max_spread_bps: 22.0
+    USDJPYm:
+      entry_deviation: 20
+      sl_points: 220
+      tp_points: 380
+      max_spread_bps: 22.0
+    USDCHFm:
+      entry_deviation: 20
+      sl_points: 180
+      tp_points: 320
+      max_spread_bps: 20.0
+    AUDUSDm:
+      entry_deviation: 20
+      sl_points: 180
+      tp_points: 320
+      max_spread_bps: 20.0
+    USDCADm:
+      entry_deviation: 20
+      sl_points: 190
+      tp_points: 340
+      max_spread_bps: 22.0
+    NZDUSDm:
+      entry_deviation: 20
+      sl_points: 200
+      tp_points: 360
+      max_spread_bps: 22.0
+    EURJPYm:
+      entry_deviation: 22
+      sl_points: 240
+      tp_points: 420
+      max_spread_bps: 24.0
+risk:
+  max_daily_loss: 80
+  max_daily_trades: 500
+  max_daily_trades_per_symbol: 50
+  max_daily_losing_trades_per_symbol: 10
+  max_lots: 1.0
+  max_symbol_exposure: 0.35
+  max_usd_block: 0.75
+  max_metals_exposure: 0.35
+  max_crypto_exposure: 0.3
+  max_open_positions: 6
+  max_positions_per_symbol: 3
+  max_total_exposure: 1.2
+  min_abs_exposure: 0.08
+  min_equity_to_balance_ratio: 0.85
+  min_free_margin_ratio: 0.45
+  max_drawdown_pct_guard: 8.0
+  history_kill_cooldown_sec: 43200
+  supervisor:
+    enabled: true
+    max_daily_loss: 80
+    max_drawdown_pct: 8.0
+    max_symbol_exposure: 0.35
+    max_total_exposure: 1.2
+    max_open_positions: 6
+    max_positions_per_symbol: 3
+    min_trade_interval_sec: 45
+    max_spread_bps: 25.0
+telegram:
+    token: REDACTED
+  chat_id: '5269989414'
+event_intel:
+  enabled: true
+  poll_sec: 60
+  pre_event_min: 60
+  post_event_min: 30
+  news_hold_min: 20
+  max_events: 200
+training:
+  lstm_epochs: 20
+  per_symbol: true
+  lstm_period: 90d
+  lstm_interval: M5
+  lstm_candles: 100000
+  feature_version: ultimate_150
+  data_source: mt5
+drl:
+  total_timesteps: 500000
+  eval_period: 120d
+  model_path: models/ppo_trading.zip
+  ppo_blend: 0.35
+  feature_version: ultimate_150
+  data_source: mt5
+  optuna_trials: 0
+  optuna_timesteps: 10000
+  per_symbol: true
+  period: 90d
+  interval: M5
+  candles_per_symbol: 100000
+  ensemble:
+    enabled: false
+    min_votes: 2
+    agreement_threshold: 0.5
+  reward:
+    version: v3_trade_memory
+    weights:
+      growth: 8.0
+      payoff: 2.0
+      sharpe_bonus: 1.0
+      drawdown_penalty: 3.0
+      cost_penalty: 5.0
+      churn_penalty: 0.5
+      memory_expectancy_bonus: 0.5
+      loss_streak_penalty: 0.4
+  dreamer:
+    enabled: true
+    train_in_cycle: true
+    steps: 5000
+    window: 64
+    feature_version: ultimate_150
+    blend: 0.15
+    symbols: []
+mt5:
+    login: REDACTED
+    password: REDACTED
+  server: ENV:MT5_SERVER
+evaluation:
+  min_profit_factor: 1.2
+  min_expected_payoff: 0.0
+  min_recovery_factor: 1.2
+  min_sharpe: 0.2
+  max_drawdown: 0.12
+  score_margin: 0.2
+  min_symbol_profit_factor: 1.1
+  min_symbol_sharpe: 0.1
+  require_stress_pass: true
+  stress_min_profit_factor: 0.95
+  stress_max_drawdown: 0.15
+  stress:
+    spread_mult: 1.8
+    commission_mult: 1.5
+registry:
+  ensemble:
+    history_limit: 3
+  canary_policy:
+    default:
+      min_trades: 30
+      min_realized_pnl: 0.0
+      max_drawdown: 0.12
+      min_runtime_minutes: 45
+    per_symbol:
+      EURUSDm:
+        max_drawdown: 0.15
+        min_trades: 40
+      BTCUSDm:
+        max_drawdown: 0.08
+        min_trades: 60

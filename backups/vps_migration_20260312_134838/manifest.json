@@ -1,0 +1,49 @@
+{
+  "created_utc": "2026-03-12T13:48:38.377277+00:00",
+  "git_branch": "main",
+  "git_commit": "12d99a1457dd0b07d2cc9cf187e400df19e6ecb7",
+  "artifacts": [
+    {
+      "source": "cautious-giggle\\logs",
+      "archive": "logs.tar.gz",
+      "size_bytes": 128540510,
+      "sha256": "316ab4de74889952c4d4aa8c5ec6751b310faa94bbe98d76b4fcaac0842fbd92",
+      "parts": [
+        {
+          "file": "logs.tar.gz.part01",
+          "size_bytes": 99614720,
+          "sha256": "c3bc11532fd311be7c2248b601c3391b789c14323c2bff041bef53331ab8ec79"
+        },
+        {
+          "file": "logs.tar.gz.part02",
+          "size_bytes": 28925790,
+          "sha256": "d7911a2300144dae2b7bba6c871a1ddad36a669740b93aa76cc39b671cc4f1cf"
+        }
+      ]
+    },
+    {
+      "source": "cautious-giggle\\models",
+      "archive": "models.tar.gz",
+      "size_bytes": 128246658,
+      "sha256": "b671d3918def133611d6bffda84ca1d11b8d6fce8de5e51edba22685bb42e309",
+      "parts": [
+        {
+          "file": "models.tar.gz.part01",
+          "size_bytes": 99614720,
+          "sha256": "e6acf7470b418ba8785c472f1390206f20bdd72fad701e9f789edc4df611d24e"
+        },
+        {
+          "file": "models.tar.gz.part02",
+          "size_bytes": 28631938,
+          "sha256": "539a23fb36741d9422358f2f3a749a4941c61eb0bdc25d585d82b182ed3633d4"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "config.yaml is redacted before being committed to GitHub",
+    "tracked code is already preserved by git history; this backup adds runtime state"
+  ],
+  "config_redacted": true,
+  "config_redacted_sha256": "e74c62de5d5b5254abe355d252792efacee5be62caa3d8d57f9e9cf725384a19"
+}

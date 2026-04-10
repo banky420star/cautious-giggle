@@ -1,0 +1,10 @@
+{
+  "symbols": [
+    "BTCUSDm"
+  ],
+  "feature_version": "ultimate_150",
+  "steps": 5000,
+  "window": 64,
+  "period": "90d",
+  "interval": "M30"
+}

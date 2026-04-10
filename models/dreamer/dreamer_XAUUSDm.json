@@ -1,0 +1,9 @@
+{
+  "symbol": "XAUUSDm",
+  "feature_version": "ultimate_150",
+  "window_size": 64,
+  "obs_dim": 10497,
+  "steps": 5000,
+  "period": "90d",
+  "interval": "M5"
+}
