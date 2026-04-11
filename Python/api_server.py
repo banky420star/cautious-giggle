@@ -125,6 +125,24 @@ def _safe_brain(attr: str, default=None):
     return default
 
 
+def _read_training_progress():
+    """Read per-trainer progress files."""
+    result = {}
+    for key in ("lstm", "ppo", "dreamer"):
+        path = os.path.join(ROOT, "logs", f"{key}_progress.json")
+        try:
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if time.time() - data.get("updated_at", 0) < 600:
+                    result[key] = data
+                    continue
+        except Exception:
+            pass
+        result[key] = {}
+    return result
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. GET /api/status — Full system status
 # ═══════════════════════════════════════════════════════════════════════════
@@ -134,6 +152,10 @@ def api_status():
     cfg = _read_config()
     symbols = cfg.get("trading", {}).get("symbols", ["EURUSD"])
     active = _read_active_registry()
+    progress = _read_training_progress()
+    lstm_p = progress.get("lstm", {})
+    ppo_p = progress.get("ppo", {})
+    dreamer_p = progress.get("dreamer", {})
     live = _read_live_state()
     incidents = _read_incidents()
 
@@ -220,15 +242,43 @@ def api_status():
         },
         "training": {
             "cycle_running": False,
-            "lstm_running": False,
-            "drl_running": False,
-            "dreamer_running": False,
+            "lstm_running": bool(lstm_p.get("running")),
+            "drl_running": bool(ppo_p.get("running")),
+            "dreamer_running": bool(dreamer_p.get("running")),
             "configured_symbols": symbols,
+            "lstm_symbol": lstm_p.get("symbol", ""),
+            "lstm_epoch": lstm_p.get("epoch", 0),
+            "lstm_epochs_total": lstm_p.get("epochs_total", 0),
+            "drl_symbol": ppo_p.get("symbol", ""),
+            "drl_timesteps": ppo_p.get("total_timesteps", 0),
             "visual": {
-                "lstm": {"state": "idle"},
-                "ppo": {"state": "idle"},
-                "dreamer": {"state": "idle"},
-                "active_label": "Idle",
+                "lstm": {
+                    "state": "training" if lstm_p.get("running") else "idle",
+                    "current_symbol": lstm_p.get("symbol", ""),
+                    "loss": lstm_p.get("loss", 0),
+                    "val_loss": 0,
+                    "memory_strength": (lstm_p.get("accuracy", 0) / 100) if lstm_p.get("accuracy") else 0,
+                },
+                "ppo": {
+                    "state": "training" if ppo_p.get("running") else "idle",
+                    "current_symbol": ppo_p.get("symbol", ""),
+                    "current_timesteps": ppo_p.get("current_timesteps", 0),
+                    "target_timesteps": ppo_p.get("total_timesteps", 0),
+                    "progress_pct": ppo_p.get("progress_pct", 0),
+                },
+                "dreamer": {
+                    "state": "training" if dreamer_p.get("running") else "idle",
+                    "current_symbol": dreamer_p.get("symbol", ""),
+                    "steps": dreamer_p.get("step", 0),
+                    "progress_pct": dreamer_p.get("progress_pct", 0),
+                    "window": dreamer_p.get("window", 64),
+                },
+                "active_label": (
+                    "LSTM Training" if lstm_p.get("running")
+                    else "PPO Training" if ppo_p.get("running")
+                    else "Dreamer Training" if dreamer_p.get("running")
+                    else "Idle"
+                ),
             },
             "symbol_stage_rows": [],
             "symbol_lane_rows": lane_rows,

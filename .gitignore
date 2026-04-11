@@ -25,6 +25,14 @@ logs/
 .env
 .env.*
 
+# Node
+node_modules/
+package-lock.json
+
+# Runtime state
+live_state.json
+live_incidents.json
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,5 +1,8 @@
 import { advanceMockSystem, createInitialSystem } from "./mockSystem";
 
+const HISTORY_MAX = 120;
+const _historyBuffer = { equity: [], pnl: [], confidence: [] };
+
 function deepMerge(base, patch) {
   if (!base || typeof base !== "object" || Array.isArray(base)) return patch;
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) return patch;
@@ -52,6 +55,24 @@ function mapProcesses(status) {
 }
 
 function mapLanes(status, baseFeatureVersion) {
+  // Backend sends symbol_lane_rows as an array inside training
+  const laneRows = status?.training?.symbol_lane_rows || [];
+  if (laneRows.length) {
+    return laneRows.map((row) => ({
+      symbol: row.symbol,
+      side: String(row.side || row.position_side || "flat").toLowerCase(),
+      champion: row.champion || "unknown",
+      reason: row.reason || row.decision?.regime || "runtime lane",
+      confidence: Number(row.confidence || row.decision?.confidence || 0),
+      exposure: Number(row.exposure || 0),
+      pnl: Number(row.pnl || 0),
+      status: row.status || "watching",
+      canTrade: row.canTrade !== false,
+      featureVersion: baseFeatureVersion,
+    }));
+  }
+
+  // Fallback: symbol_cards object (legacy format)
   const cards = status?.symbol_cards || {};
   const cardRows = Object.entries(cards).map(([symbol, card]) => ({
     symbol,
@@ -65,9 +86,9 @@ function mapLanes(status, baseFeatureVersion) {
     canTrade: card.can_trade !== false,
     featureVersion: card.feature_version || baseFeatureVersion,
   }));
-
   if (cardRows.length) return cardRows;
 
+  // Fallback: derive from positions
   return (status?.account?.positions || []).map((position) => ({
     symbol: position.symbol,
     side: String(position.type || "flat").toLowerCase(),
@@ -104,15 +125,27 @@ export function mapStatusToProductShell(status, current = createInitialSystem())
   const lstm = visual.lstm || {};
   const incidents = (status?.incidents || []).slice(0, 10).map((incident) => ({
     level: normalizeLevel(incident.severity),
-    title: incident.symbol || incident.event || "incident",
-    message: incident.summary || incident.reason || JSON.stringify(incident.payload || {}),
+    title: incident.symbol || incident.type || incident.event || "incident",
+    message: incident.message || incident.summary || incident.reason || JSON.stringify(incident.payload || {}),
   }));
   const timeline = [
     ...(status?.logs?.audit || []).slice(-3).map((line) => ({ level: "info", text: line })),
     ...(status?.logs?.ppo || []).slice(-2).map((line) => ({ level: "info", text: line })),
   ].slice(0, 8);
 
-  return deepMerge(current, {
+  const equity = Number(status?.account?.equity || 0);
+  const floatingPnl = Number(status?.account?.profit || 0);
+  const lanes = mapLanes(status, featureVersion);
+  const topLaneConfidence = lanes.length ? Math.max(...lanes.map((l) => Number(l.confidence || 0))) : 0;
+
+  _historyBuffer.equity.push(equity);
+  _historyBuffer.pnl.push(floatingPnl);
+  _historyBuffer.confidence.push(topLaneConfidence);
+  if (_historyBuffer.equity.length > HISTORY_MAX) _historyBuffer.equity.shift();
+  if (_historyBuffer.pnl.length > HISTORY_MAX) _historyBuffer.pnl.shift();
+  if (_historyBuffer.confidence.length > HISTORY_MAX) _historyBuffer.confidence.shift();
+
+  const merged = deepMerge(current, {
     meta: {
       appName: "Cautious Giggle",
       featureVersion,
@@ -129,14 +162,14 @@ export function mapStatusToProductShell(status, current = createInitialSystem())
     orchestrator: {
       loopStatus: status?.state || "live",
       owner: training?.cycle_running ? "champion_cycle" : "runtime",
-      currentPhase: visual.active_key || current.orchestrator.currentPhase,
+      currentPhase: visual.active_key || visual.active_label || current.orchestrator.currentPhase,
       cycleProgress: Number(((ppo.progress_pct || 0) / 100).toFixed(2)),
       nextAction: training?.cycle_running ? "run_cycle" : "runtime_watch",
       queueDepth: Number(training?.pipeline_summary?.training_active_symbols || 0),
     },
     training: {
       featureVersion,
-      activePhase: visual.active_key || current.training.activePhase,
+      activePhase: visual.active_key || visual.active_label || current.training.activePhase,
       lstm: {
         currentSymbol: training?.lstm_symbol || lstm.current_symbol || current.training.lstm.currentSymbol,
         epoch: Number(training?.lstm_epoch || 0),
@@ -193,7 +226,15 @@ export function mapStatusToProductShell(status, current = createInitialSystem())
         ready: Boolean(status?.canary_gate?.ready),
         reason: status?.canary_gate?.reason || current.registry.gate.reason,
       },
-      lineage: (status?.registry?.champion_history || []).slice(0, 5).map((row) => ({
+      candidates: Object.entries(activeModels?.symbols || {}).map(([sym, info]) => ({
+        id: info.champion || info.canary || sym,
+        symbol: sym,
+        verdict: info.canary ? "canary" : info.champion ? "champion" : "testing",
+        sharpe: 0,
+        drawdown: 0,
+        featureVersion: featureVersion,
+      })),
+      lineage: (status?.registry?.champion_history || activeModels?.champion_history || []).slice(0, 5).map((row) => ({
         id: row.path || "unknown",
         from: row.previous || "unknown",
         when: row.recorded_at || "unknown",
@@ -201,24 +242,39 @@ export function mapStatusToProductShell(status, current = createInitialSystem())
       })),
     },
     trading: {
+      mode: (status?.mode || "DRY-RUN").toLowerCase() === "live" ? "active" : "armed",
       account: {
-        connected: Boolean(status?.account?.connected),
+        connected: Boolean(status?.account?.connected ?? (status?.account?.balance > 0)),
         balance: Number(status?.account?.balance || 0),
-        equity: Number(status?.account?.equity || 0),
+        equity,
         freeMargin: Number(status?.account?.free_margin || 0),
-        floatingPnl: Number(status?.account?.profit || 0),
+        floatingPnl,
         realizedToday: Number(status?.account?.realized_today || 0),
         openPositions: Number(status?.account?.open_positions || 0),
       },
-      lanes: mapLanes(status, featureVersion),
+      lanes,
+      tradeHistory: (status?._trades || []).slice(0, 20).map((t, i) => ({
+        id: String(t.ticket || `T-${i}`),
+        symbol: t.symbol || "UNKNOWN",
+        type: t.action_type || t.side?.toLowerCase() || "trade",
+        pnl: Number(t.profit || 0),
+        duration: t.hold_minutes ? `${Math.floor(t.hold_minutes / 60)}h ${t.hold_minutes % 60}m` : "unknown",
+        reason: t.comment || "executed by champion model",
+        timestamp: t.close_time || t.open_time || "recent",
+        model: t.model || "champion",
+      })),
       risk: {
-        canTrade: !Boolean(status?.risk?.halt),
-        drawdownPct: Number(status?.account?.drawdown_pct || current.trading.risk.drawdownPct),
+        canTrade: status?.risk?.can_trade !== false && !Boolean(status?.risk?.halt),
+        drawdownPct: Number(status?.risk?.current_dd || status?.account?.drawdown_pct || current.trading.risk.drawdownPct),
         dailyLossPct: Number(status?.risk?.daily_loss_pct || current.trading.risk.dailyLossPct),
-        maxDailyLossPct: Number(status?.risk?.max_daily_loss_pct || current.trading.risk.maxDailyLossPct),
+        maxDailyLossPct: Number(status?.risk?.max_daily_loss || status?.risk?.max_daily_loss_pct || current.trading.risk.maxDailyLossPct),
         sizeCap: Number(status?.risk?.size_cap || current.trading.risk.sizeCap),
         killSwitchArmed: true,
       },
+    },
+    selfImprove: {
+      loopHealth: status?.state === "online" ? "stable" : "degraded",
+      lastImprovementAction: `Runtime: ${status?.mode || "DRY-RUN"} mode, ${Number(status?.risk?.daily_trades || 0)} trades today`,
     },
     controls: {
       runtimeStatus: status?.server?.running ? "running" : "stopped",
@@ -229,6 +285,15 @@ export function mapStatusToProductShell(status, current = createInitialSystem())
     incidents,
     timeline,
   });
+
+  merged._history = {
+    equity: [..._historyBuffer.equity],
+    pnl: [..._historyBuffer.pnl],
+    confidence: [..._historyBuffer.confidence],
+  };
+  merged.__tick = (current.__tick || 0) + 1;
+
+  return merged;
 }
 
 export function createSystemAdapter({
@@ -254,10 +319,16 @@ export function createSystemAdapter({
         let cancelled = false;
         async function tick() {
           try {
-            const response = await fetch(statusUrl, { cache: "no-store" });
-            if (!response.ok) throw new Error(`status fetch failed: ${response.status}`);
-            const json = await response.json();
-            if (!cancelled) onPatch(json);
+            const [statusRes, tradesRes] = await Promise.all([
+              fetch(statusUrl, { cache: "no-store" }),
+              fetch("/api/trades?limit=20", { cache: "no-store" }).catch(() => null),
+            ]);
+            if (!statusRes.ok) throw new Error(`status fetch failed: ${statusRes.status}`);
+            const statusJson = await statusRes.json();
+            if (tradesRes && tradesRes.ok) {
+              statusJson._trades = await tradesRes.json().catch(() => []);
+            }
+            if (!cancelled) onPatch(statusJson);
           } catch (error) {
             if (!cancelled && onError) onError(error instanceof Error ? error : new Error("poll failed"));
           }

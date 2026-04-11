@@ -1,6 +1,7 @@
 import sys, os
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from training.progress_writer import update_training_progress
 
 import polars as pl
 import pandas as pd
@@ -48,6 +49,27 @@ class EvalCallbackSaveVec(EvalCallback):
 
         return cont
 
+
+class ProgressWriterCallback:
+    """Write PPO training progress for API consumption."""
+    def __init__(self, total_timesteps, symbols, interval=5000):
+        self.total_ts = total_timesteps
+        self.symbols = symbols
+        self.interval = interval
+        self.num_timesteps = 0
+
+    def _on_step(self):
+        if self.num_timesteps % self.interval < 16:
+            update_training_progress("ppo", {
+                "running": True,
+                "symbol": ",".join(self.symbols) if isinstance(self.symbols, list) else str(self.symbols),
+                "current_timesteps": self.num_timesteps,
+                "total_timesteps": self.total_ts,
+                "progress_pct": round(self.num_timesteps / max(self.total_ts, 1) * 100, 1),
+            })
+        return True
+
+
 def make_env(df, seed: int = 0):
     def _init():
         set_random_seed(seed)
@@ -58,9 +80,9 @@ def make_env(df, seed: int = 0):
             if "time" in pdf.columns:
                 pdf["time"] = pd.to_datetime(pdf["time"])
                 pdf = pdf.sort_values("time").set_index("time")
-            env = TradingEnv(pdf, initial_balance=10000.0)
+            env = TradingEnv(pdf, initial_balance=10000.0, feature_version="ultimate_150")
         else:
-            env = TradingEnv(df, initial_balance=10000.0)
+            env = TradingEnv(df, initial_balance=10000.0, feature_version="ultimate_150")
             
         env = Monitor(env)
         return env
@@ -185,12 +207,31 @@ def train_drl():
     
     # ── Train ──
     logger.info("Starting Stable Training Protocol (Single Stage)")
+    progress_cb = ProgressWriterCallback(total_timesteps, symbols)
+
+    from stable_baselines3.common.callbacks import BaseCallback as _SB3Base
+    class _SB3ProgressBridge(_SB3Base):
+        def __init__(self, writer):
+            super().__init__()
+            self.writer = writer
+        def _on_step(self):
+            self.writer.num_timesteps = self.num_timesteps
+            return self.writer._on_step()
+
     model.learn(
         total_timesteps=total_timesteps,
-        callback=[eval_callback, grad_callback],
+        callback=[eval_callback, grad_callback, _SB3ProgressBridge(progress_cb)],
         progress_bar=True
     )
-    
+    update_training_progress("ppo", {
+        "running": False,
+        "symbol": ",".join(symbols) if isinstance(symbols, list) else str(symbols),
+        "current_timesteps": total_timesteps,
+        "total_timesteps": total_timesteps,
+        "progress_pct": 100.0,
+        "completed": True,
+    })
+
     # Save into registry as candidate using EXACTLY the best evaluation model
     logger.info("Building new PPO candidate via ModelRegistry using best_model.zip...")
     try:

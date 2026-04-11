@@ -2,6 +2,8 @@ import argparse
 import json
 import os
 import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from training.progress_writer import update_training_progress
 
 import numpy as np
 import yaml
@@ -195,7 +197,24 @@ def _train_symbol(symbol: str, args, period: str, interval: str, candles: int, f
         obs = env.reset() if done else next_obs
         if done:
             h, z = None, None
+        if step % 500 == 0 or step == args.steps - 1:
+            update_training_progress("dreamer", {
+                "running": True,
+                "symbol": symbol,
+                "step": step + 1,
+                "steps_total": args.steps,
+                "progress_pct": round((step + 1) / max(args.steps, 1) * 100, 1),
+                "window": args.window,
+            })
 
+    update_training_progress("dreamer", {
+        "running": False,
+        "symbol": symbol,
+        "step": args.steps,
+        "steps_total": args.steps,
+        "progress_pct": 100.0,
+        "completed": True,
+    })
     out_dir = os.path.join(PROJECT_ROOT, "models", "dreamer")
     os.makedirs(out_dir, exist_ok=True)
     model_path = os.path.join(out_dir, f"dreamer_{symbol}.pt")
