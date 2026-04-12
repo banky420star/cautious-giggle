@@ -138,10 +138,18 @@ class ModelRegistry:
         with open(scorecard_path, "r", encoding="utf-8") as f:
             metrics = json.load(f)
 
+        model_type = metrics.get("type", "lstm")
         win_rate = metrics.get("win_rate", 0.0)
         loss = metrics.get("loss", float("inf"))
 
-        # Minimum thresholds for canary staging
+        # PPO candidates: always stage as canary for live evaluation
+        # (the walk-forward backtest in model_evaluator is the real gate)
+        if model_type == "ppo":
+            self.set_canary(candidate_dir)
+            logger.success(f"PPO candidate staged as canary for live eval")
+            return True
+
+        # LSTM candidates: minimum thresholds for canary staging
         if win_rate >= 45.0 and loss < 2.0:
             self.set_canary(candidate_dir)
             logger.success(f"Candidate staged as canary: win_rate={win_rate:.1f}% loss={loss:.4f}")

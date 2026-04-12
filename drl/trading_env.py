@@ -22,7 +22,7 @@ class TradingEnv(gym.Env):
         df=None,
         initial_balance: float = 10000.0,
         commission_rate: float = 0.0002,
-        spread_bps: float = 2.0,
+        spread_bps: float = 10.0,
         max_drawdown: float = 0.15,
         window_size: int = 100,
         max_leverage: float = 1.0,
@@ -39,19 +39,19 @@ class TradingEnv(gym.Env):
         self.window_size = int(window_size)
         self.max_leverage = float(max_leverage)
         self.feature_version = str(feature_version or ENGINEERED_V2)
-        self.action_version = "multi_trade_v1"
+        self.action_version = "direction_only_v2"
         self.trade_memory = trade_memory or {}
 
         w = reward_weights or {}
         self.reward_weights = {
-            "growth": float(w.get("growth", 8.0)),
+            "growth": float(w.get("growth", 5.0)),
             "payoff": float(w.get("payoff", 2.0)),
-            "sharpe_bonus": float(w.get("sharpe_bonus", 1.0)),
-            "drawdown_penalty": float(w.get("drawdown_penalty", 3.0)),
-            "cost_penalty": float(w.get("cost_penalty", 5.0)),
-            "churn_penalty": float(w.get("churn_penalty", 0.5)),
+            "sharpe_bonus": float(w.get("sharpe_bonus", 1.5)),
+            "drawdown_penalty": float(w.get("drawdown_penalty", 2.0)),
+            "cost_penalty": float(w.get("cost_penalty", 1.0)),
+            "churn_penalty": float(w.get("churn_penalty", 0.3)),
             "memory_expectancy_bonus": float(w.get("memory_expectancy_bonus", 0.5)),
-            "loss_streak_penalty": float(w.get("loss_streak_penalty", 0.4)),
+            "loss_streak_penalty": float(w.get("loss_streak_penalty", 0.2)),
         }
 
         os.makedirs(os.path.join(os.getcwd(), "logs"), exist_ok=True)
@@ -71,7 +71,7 @@ class TradingEnv(gym.Env):
 
         self.n_features = feature_count_for_version(self.feature_version)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(1,), dtype=np.float32)
-        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(6,), dtype=np.float32)
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
         self._update_observation_space()
 
         if df is not None:

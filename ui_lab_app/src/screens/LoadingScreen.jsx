@@ -4,7 +4,8 @@ import { Activity, Shield, Cpu, Network, Zap } from "lucide-react";
 export default function LoadingScreen({ onComplete }) {
   const [progress, setProgress] = useState(0);
   const [step, setStep] = useState(0);
-  
+  const [apiReady, setApiReady] = useState(false);
+
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -18,35 +19,62 @@ export default function LoadingScreen({ onComplete }) {
     { label: "Connecting to live symbol lanes...", icon: Zap }
   ];
 
+  // Poll backend until /api/status responds OK
   useEffect(() => {
-    const totalTime = 4000;
+    let cancelled = false;
+    async function checkApi() {
+      while (!cancelled) {
+        try {
+          const res = await fetch("/api/status", { cache: "no-store" });
+          if (res.ok) {
+            if (!cancelled) setApiReady(true);
+            return;
+          }
+        } catch (_) {
+          // backend not up yet
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+    checkApi();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Animate progress bar: reaches ~80% in 4s, then waits for API
+  useEffect(() => {
     const interval = 40;
     let current = 0;
 
     const timer = setInterval(() => {
       current += interval;
-      // Use easing for smoother progress feel
-      const normalizedTime = current / totalTime;
-      // simple ease-out quad
-      const easedProgress = Math.min(100, (1 - (1 - normalizedTime) * (1 - normalizedTime)) * 100);
-      
-      setProgress(easedProgress);
 
-      if (easedProgress > 85) setStep(4);
-      else if (easedProgress > 65) setStep(3);
-      else if (easedProgress > 40) setStep(2);
-      else if (easedProgress > 15) setStep(1);
+      let target;
+      if (apiReady) {
+        // API ready — race to 100%
+        target = Math.min(100, progress + 3);
+      } else {
+        // Slow ease-out that caps at 80%
+        const normalizedTime = current / 5000;
+        target = Math.min(80, (1 - (1 - normalizedTime) * (1 - normalizedTime)) * 80);
+      }
 
-      if (current >= totalTime) {
+      setProgress(target);
+
+      if (target > 85) setStep(4);
+      else if (target > 65) setStep(3);
+      else if (target > 40) setStep(2);
+      else if (target > 15) setStep(1);
+
+      if (target >= 100) {
         clearInterval(timer);
         setTimeout(() => {
           if (onCompleteRef.current) onCompleteRef.current();
-        }, 400); // small pause before transition
+        }, 400);
       }
     }, interval);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [apiReady, progress]);
 
   const CurrentIcon = steps[step].icon;
 
@@ -66,7 +94,7 @@ export default function LoadingScreen({ onComplete }) {
             </svg>
           </div>
         </div>
-        
+
         <h1 className="brand-title">CAUTIOUS GIGGLE</h1>
         <div className="brand-subtitle">AUTONOMOUS TRADING PIPELINE</div>
 
@@ -75,7 +103,7 @@ export default function LoadingScreen({ onComplete }) {
             <CurrentIcon size={16} className="loading-step-icon" />
             <span className="loading-step-text">{steps[step].label}</span>
           </div>
-          
+
           <div className="global-progress-bar">
             <div className="global-progress-fill" style={{ width: `${progress}%` }}>
               <div className="global-progress-glow"></div>

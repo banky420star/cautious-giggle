@@ -80,9 +80,9 @@ def make_env(df, seed: int = 0):
             if "time" in pdf.columns:
                 pdf["time"] = pd.to_datetime(pdf["time"])
                 pdf = pdf.sort_values("time").set_index("time")
-            env = TradingEnv(pdf, initial_balance=10000.0, feature_version="ultimate_150")
+            env = TradingEnv(pdf, initial_balance=10000.0, feature_version="engineered_v2")
         else:
-            env = TradingEnv(df, initial_balance=10000.0, feature_version="ultimate_150")
+            env = TradingEnv(df, initial_balance=10000.0, feature_version="engineered_v2")
             
         env = Monitor(env)
         return env
@@ -157,11 +157,17 @@ def train_drl():
     eval_env.training = False
     eval_env.norm_reward = False
 
-    # Hybrid LSTM-PPO policy
+    # LSTM-PPO policy (trained from scratch, no SmartAGI dependency)
     policy_kwargs = dict(
         features_extractor_class=LSTMFeatureExtractor,
-        features_extractor_kwargs=dict(features_dim=256),
-        net_arch=[512, 256],
+        features_extractor_kwargs=dict(
+            features_dim=256,
+            window_size=100,
+            portfolio_feature_count=3,
+            lstm_hidden=128,
+            lstm_layers=2,
+        ),
+        net_arch=[256, 128],
         activation_fn=torch.nn.ReLU
     )
     

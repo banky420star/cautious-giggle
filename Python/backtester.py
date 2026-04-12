@@ -21,7 +21,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "backtester.log"), rotation="10 MB", level="INFO")
 
 
-def _make_env(df_pd: pd.DataFrame, initial_balance: float = 10000.0, feature_version: str = "ultimate_150"):
+def _make_env(df_pd: pd.DataFrame, initial_balance: float = 10000.0, feature_version: str = "engineered_v2"):
     def _init():
         return TradingEnv(df_pd, initial_balance=initial_balance, feature_version=feature_version)
     return DummyVecEnv([_init])

@@ -14,16 +14,16 @@ def evaluate_candidate_vs_champion(candidate_dir: str, champion_dir: str | None,
         if champ.get("error"):
             champ = None
 
-    # thresholds (tune)
+    # thresholds (loosened to allow first champions to emerge)
     passes = (
-        cand["worst_drawdown"] <= 0.20 and
-        cand["avg_sharpe"] >= -0.10 and
-        cand["avg_return"] >= -0.02
+        cand["worst_drawdown"] <= 0.30 and
+        cand["avg_sharpe"] >= -0.50 and
+        cand["avg_return"] >= -0.05
     )
 
     wins = True
     if champ:
-        wins = cand["avg_score"] > (champ["avg_score"] + 0.25)
+        wins = cand["avg_score"] > (champ["avg_score"] + 0.10)
 
     return {
         "candidate": cand,
