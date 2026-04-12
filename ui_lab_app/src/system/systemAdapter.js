@@ -326,7 +326,8 @@ export function createSystemAdapter({
             if (!statusRes.ok) throw new Error(`status fetch failed: ${statusRes.status}`);
             const statusJson = await statusRes.json();
             if (tradesRes && tradesRes.ok) {
-              statusJson._trades = await tradesRes.json().catch(() => []);
+              const tradesBody = await tradesRes.json().catch(() => []);
+              statusJson._trades = Array.isArray(tradesBody) ? tradesBody : (tradesBody?.trades || []);
             }
             if (!cancelled) onPatch(statusJson);
           } catch (error) {

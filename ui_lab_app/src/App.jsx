@@ -11,6 +11,27 @@ import StrategiesScreen from "./screens/StrategiesScreen";
 import { createInitialSystem } from "./system/mockSystem";
 import { createSystemAdapter, mapStatusToProductShell } from "./system/systemAdapter";
 
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, color: "#ff6b6b", background: "#0a0f14", minHeight: "100vh", fontFamily: "monospace" }}>
+          <h2>UI Crash Caught</h2>
+          <pre style={{ whiteSpace: "pre-wrap", color: "#ccc" }}>{this.state.error.message}</pre>
+          <pre style={{ whiteSpace: "pre-wrap", color: "#888", fontSize: 12 }}>{this.state.error.stack}</pre>
+          <button onClick={() => { this.setState({ error: null }); window.location.reload(); }}
+            style={{ marginTop: 20, padding: "8px 16px", background: "#62d6ff", color: "#000", border: "none", cursor: "pointer" }}>
+            Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function transportFromEnv() {
   const raw = String(import.meta.env.VITE_SYSTEM_TRANSPORT || "poll").toLowerCase().trim();
   return raw === "mock" || raw === "ws" ? raw : "poll";
@@ -151,6 +172,7 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="app-shell">
       <div className="workspace-layout">
         <SideNav
@@ -225,5 +247,6 @@ export default function App() {
         <SupportRail system={system} selectedSymbol={selectedSymbol} />
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
