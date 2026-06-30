@@ -42,7 +42,7 @@ drl:
   per_symbol: true
   period: 90d
   interval: M5
-  candles_per_symbol: 100000
+  candles_per_symbol: 25000
   eval_period: 120d
   model_path: models/ppo_trading.zip
   feature_version: ultimate_150
@@ -79,7 +79,7 @@ training:
   per_symbol: true
   lstm_period: 90d
   lstm_interval: M5
-  lstm_candles: 100000
+  lstm_candles: 25000
   feature_version: ultimate_150
   data_source: mt5
 
@@ -119,7 +119,7 @@ data:
 cycle:
   skip_completed_training: false
   parallel_symbols: true
-  max_parallel_symbols: 2
+  max_parallel_symbols: 1
 
 mt5:
   login: 298410020
