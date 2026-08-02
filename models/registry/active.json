@@ -2,13 +2,6 @@
   "champion": null,
   "canary": null,
   "symbols": {
-    "EURUSDm": {
-      "champion": null,
-      "canary": null,
-      "canary_policy": {},
-      "canary_state": {},
-      "champion_history": []
-    },
     "XAUUSDm": {
       "champion": null,
       "canary": null,
