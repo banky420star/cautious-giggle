@@ -1,4 +1,5 @@
-import os
+import math
+import time
 
 from loguru import logger
 from Python.mt5_compat import mt5
@@ -16,43 +17,98 @@ LANE_MAGIC_OFFSET = {
     "unknown": 900,
 }
 
+# Every magic this bot emits for a symbol lies in [base, base + MAGIC_SPAN).
+MAGIC_SPAN = 1000
+
+# MT5 trade server return codes (numeric so they work with the compat stub).
+RET_REQUOTE = 10004
+RET_REJECT = 10006
+RET_PLACED = 10008
+RET_DONE = 10009
+RET_DONE_PARTIAL = 10010
+RET_MARKET_CLOSED = 10018
+RET_NO_MONEY = 10019
+RET_PRICE_CHANGED = 10020
+RET_PRICE_OFF = 10021
+RET_NO_CHANGES = 10025
+RET_INVALID_FILL = 10030
+RET_CONNECTION = 10031
+
+SUCCESS_RETCODES = {RET_DONE, RET_PLACED, RET_DONE_PARTIAL}
+# Retry immediately with a fresh tick.
+RETRY_RETCODES = {RET_REQUOTE, RET_PRICE_CHANGED, RET_PRICE_OFF}
+# Environmental conditions: never count toward the error halt.
+BENIGN_RETCODES = RETRY_RETCODES | {RET_MARKET_CLOSED, RET_NO_CHANGES, RET_CONNECTION}
+
+# symbol_info().filling_mode is a bitmask (SYMBOL_FILLING_FOK=1, SYMBOL_FILLING_IOC=2),
+# not an ORDER_FILLING_* enum value.
+_SYMBOL_FILLING_FOK = 1
+_SYMBOL_FILLING_IOC = 2
+
+_MAX_SEND_ATTEMPTS = 3
+_ATR_CACHE_TTL_SEC = 30.0
+
 
 class MT5Executor:
     def __init__(self, risk):
         self.risk = risk
+        self._atr_cache = {}
 
+    # ------------------------------------------------------------------ helpers
     def _symbol_info(self, symbol):
         return mt5.symbol_info(symbol)
 
     def _symbol_tick(self, symbol):
-        return mt5.symbol_info_tick(symbol)
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            return None
+        try:
+            if float(tick.bid) <= 0.0 or float(tick.ask) <= 0.0 or not math.isfinite(float(tick.bid)):
+                return None
+        except Exception:
+            return None
+        return tick
 
     def get_tick(self, symbol):
         return self._symbol_tick(symbol)
 
-    def get_mid_price(self, symbol):
-        tick = self._symbol_tick(symbol)
-        if tick is None:
-            return None
-        return float((tick.bid + tick.ask) / 2.0)
+    def _profile(self, symbol) -> dict:
+        try:
+            return self.risk.get_symbol_profile(symbol) or {}
+        except Exception:
+            return {}
+
+    def _record_error(self):
+        fn = getattr(self.risk, "record_error", None)
+        if callable(fn):
+            fn()
+
+    def _record_success(self):
+        fn = getattr(self.risk, "record_success", None)
+        if callable(fn):
+            fn()
+
+    def _can_open(self, symbol) -> bool:
+        fn = getattr(self.risk, "can_open", None) or getattr(self.risk, "can_trade", None)
+        return bool(fn(symbol)) if callable(fn) else True
 
     def _symbol_magic_base(self, symbol: str) -> int:
-        profile = {}
-        try:
-            profile = self.risk.get_symbol_profile(symbol) or {}
-        except Exception:
-            profile = {}
-        if "magic_base" in profile:
-            try:
-                return int(profile.get("magic_base"))
-            except Exception:
-                pass
-        if "magic" in profile:
-            try:
-                return int(profile.get("magic"))
-            except Exception:
-                pass
+        profile = self._profile(symbol)
+        for key in ("magic_base", "magic"):
+            if key in profile:
+                try:
+                    return int(profile.get(key))
+                except Exception:
+                    pass
         return int(MAGIC_BY_SYMBOL.get(str(symbol), 59000))
+
+    def _is_own_position(self, p) -> bool:
+        magic = getattr(p, "magic", None)
+        if magic is None:
+            # Test doubles / brokers that do not report magic: assume ours.
+            return True
+        base = self._symbol_magic_base(getattr(p, "symbol", ""))
+        return 0 <= int(magic) - base < MAGIC_SPAN
 
     def _lane_for_order(self, order_meta: dict | None) -> str:
         lane = str((order_meta or {}).get("lane", "unknown") or "unknown").strip().lower()
@@ -99,12 +155,16 @@ class MT5Executor:
 
     def _log_order_send(self, symbol: str, request_action: str, request: dict, result, order_meta: dict | None):
         meta = order_meta or {}
+        executed_volume = getattr(result, "volume", None) if result is not None else None
         payload = {
             "action": str(request_action),
             "request_action": str(request_action),
-            "side": str(meta.get("order_type") or request.get("type") or ""),
+            "side": "buy" if request.get("type") == mt5.ORDER_TYPE_BUY else ("sell" if "type" in request else ""),
             "lots": float(request.get("volume", 0.0) or 0.0),
-            "executed_lots": float(request.get("volume", 0.0) or 0.0),
+            "executed_lots": float(executed_volume if executed_volume else 0.0),
+            "price": request.get("price"),
+            "sl": request.get("sl"),
+            "tp": request.get("tp"),
             "target": float(meta.get("exposure", 0.0) or 0.0),
             "ppo": float(meta.get("ppo_target", 0.0) or 0.0),
             "dreamer": float(meta.get("dreamer_target", 0.0) or 0.0),
@@ -114,18 +174,22 @@ class MT5Executor:
             "retcode": getattr(result, "retcode", None) if result is not None else None,
             "ticket": self._result_ticket(result),
         }
+        if result is None:
+            try:
+                payload["last_error"] = str(mt5.last_error())
+            except Exception:
+                payload["last_error"] = "unknown"
         logger.info(
-            "ORDER_SEND {} | action={} side={} lots={:.2f} target={:.4f} ppo={:.4f} dreamer={:.4f} agi={:.4f} magic={} comment={} retcode={} ticket={}",
+            "ORDER_SEND {} | action={} side={} lots={:.2f} price={} sl={} tp={} target={:.4f} magic={} retcode={} ticket={}",
             symbol,
             payload["action"],
             payload["side"],
             payload["lots"],
+            payload["price"],
+            payload["sl"],
+            payload["tp"],
             payload["target"],
-            payload["ppo"],
-            payload["dreamer"],
-            payload["agi"],
             payload["magic"],
-            payload["comment"],
             payload["retcode"],
             payload["ticket"],
         )
@@ -134,19 +198,45 @@ class MT5Executor:
     def _select_filling_mode(self, symbol):
         info = self._symbol_info(symbol)
         if info is None:
-            return mt5.ORDER_FILLING_RETURN
-
-        fm = int(getattr(info, "filling_mode", mt5.ORDER_FILLING_RETURN))
-
-        # Some brokers expose bitmask-like values (e.g. 3 => FOK/IOC allowed).
-        if fm == 3:
             return mt5.ORDER_FILLING_IOC
+        try:
+            fm = int(getattr(info, "filling_mode", 0) or 0)
+        except Exception:
+            fm = 0
+        if fm & _SYMBOL_FILLING_FOK:
+            return mt5.ORDER_FILLING_FOK
+        if fm & _SYMBOL_FILLING_IOC:
+            return mt5.ORDER_FILLING_IOC
+        # Neither FOK nor IOC allowed => exchange/instant execution with RETURN.
+        return mt5.ORDER_FILLING_RETURN
 
-        if fm in (mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_RETURN):
-            return fm
+    def normalize_volume(self, symbol, volume: float) -> float:
+        """Floor volume to the symbol's volume_step and clamp to [volume_min, volume_max].
 
-        # Safe fallback for market execution when RETURN is unsupported.
-        return mt5.ORDER_FILLING_IOC
+        Returns 0.0 when the volume is below volume_min.
+        """
+        vol = abs(float(volume))
+        info = self._symbol_info(symbol)
+        step = float(getattr(info, "volume_step", 0.0) or 0.0) if info is not None else 0.0
+        vmin = float(getattr(info, "volume_min", 0.0) or 0.0) if info is not None else 0.0
+        vmax = float(getattr(info, "volume_max", 0.0) or 0.0) if info is not None else 0.0
+        if step <= 0.0:
+            step = 0.01
+        if vmin <= 0.0:
+            vmin = step
+        decimals = max(0, int(round(-math.log10(step)))) if step < 1 else 0
+        vol = math.floor(vol / step + 1e-9) * step
+        if vmax > 0.0:
+            vol = min(vol, vmax)
+        vol = round(vol, decimals)
+        if vol + 1e-12 < vmin:
+            return 0.0
+        return vol
+
+    def _volume_step(self, symbol) -> float:
+        info = self._symbol_info(symbol)
+        step = float(getattr(info, "volume_step", 0.0) or 0.0) if info is not None else 0.0
+        return step if step > 0.0 else 0.01
 
     def _min_stop_distance(self, symbol):
         info = self._symbol_info(symbol)
@@ -174,171 +264,269 @@ class MT5Executor:
         new_tp = float(tp) if tp else None
 
         if order_type == mt5.ORDER_TYPE_BUY:
-            # Buy SL must stay below bid, TP must stay above ask.
             max_sl = bid - min_dist
             min_tp = ask + min_dist
-
             if new_sl is not None:
-                if new_sl >= max_sl:
-                    new_sl = max_sl
-                new_sl = round(new_sl, digits)
+                new_sl = round(min(new_sl, max_sl), digits)
                 if new_sl <= 0:
                     new_sl = None
-
             if new_tp is not None:
-                if new_tp <= min_tp:
-                    new_tp = min_tp
-                new_tp = round(new_tp, digits)
+                new_tp = round(max(new_tp, min_tp), digits)
         else:
-            # Sell SL must stay above ask, TP must stay below bid.
             min_sl = ask + min_dist
             max_tp = bid - min_dist
-
             if new_sl is not None:
-                if new_sl <= min_sl:
-                    new_sl = min_sl
-                new_sl = round(new_sl, digits)
-
+                new_sl = round(max(new_sl, min_sl), digits)
             if new_tp is not None:
-                if new_tp >= max_tp:
-                    new_tp = max_tp
-                new_tp = round(new_tp, digits)
+                new_tp = round(min(new_tp, max_tp), digits)
                 if new_tp <= 0:
                     new_tp = None
 
         return new_sl, new_tp
 
+    # --------------------------------------------------------------- positions
     def get_positions(self, symbol):
         positions = mt5.positions_get(symbol=symbol)
         longs = []
         shorts = []
         if positions:
             for p in positions:
+                if not self._is_own_position(p):
+                    continue
                 if p.type == mt5.ORDER_TYPE_BUY:
                     longs.append(p)
                 else:
                     shorts.append(p)
         return longs, shorts
 
+    # ---------------------------------------------------------------- sizing
+    def risk_capped_lots(self, symbol, requested_lots: float, sl_points: int | None = None) -> float:
+        """Cap a lot size so that hitting the stop loses at most risk_percent of equity.
+
+        Uses symbol tick_value/tick_size. Returns requested_lots unchanged if the risk
+        engine has no risk_percent or broker data is unavailable.
+        """
+        risk_pct = float(getattr(self.risk, "risk_percent", 0.0) or 0.0)
+        if risk_pct <= 0.0 or requested_lots <= 0.0:
+            return requested_lots
+        try:
+            acc = mt5.account_info()
+            info = self._symbol_info(symbol)
+            if acc is None or info is None:
+                return requested_lots
+            equity = float(acc.equity)
+            point = float(info.point) if info.point else 0.0
+            tick_size = float(getattr(info, "trade_tick_size", 0.0) or point)
+            tick_value = float(getattr(info, "trade_tick_value_loss", 0.0) or getattr(info, "trade_tick_value", 0.0) or 0.0)
+            if sl_points is None:
+                sl_points, _ = self._dynamic_points(symbol)
+            sl_dist = float(sl_points) * point
+            if equity <= 0 or tick_size <= 0 or tick_value <= 0 or sl_dist <= 0:
+                return requested_lots
+            loss_per_lot = sl_dist / tick_size * tick_value
+            max_lots = equity * risk_pct / 100.0 / loss_per_lot
+            return min(requested_lots, max_lots)
+        except Exception as exc:
+            logger.warning(f"risk_capped_lots({symbol}) failed: {exc}")
+            return requested_lots
+
+    # ------------------------------------------------------------- reconcile
     def reconcile_exposure(self, symbol, target_exposure, max_lots, order_meta=None, execution_context=None):
-        if not self.risk.can_trade(symbol):
-            return {"request_action": "blocked", "executed": False}
+        """Move the bot's net position in `symbol` to target_exposure * max_lots.
 
+        Reductions and closes are always allowed (even when the risk engine has halted
+        new trading); opening or increasing risk requires risk.can_open/can_trade.
+        A trade is recorded only when an order actually executed.
+        """
         longs, shorts = self.get_positions(symbol)
+        long_lots = sum(float(p.volume) for p in longs)
+        short_lots = sum(float(p.volume) for p in shorts)
 
-        long_lots = sum(p.volume for p in longs)
-        short_lots = sum(p.volume for p in shorts)
+        raw_target = float(target_exposure) * float(max_lots)
+        target_abs = self.normalize_volume(symbol, self.risk_capped_lots(symbol, abs(raw_target)))
+        target_lots = math.copysign(target_abs, raw_target) if target_abs > 0 else 0.0
+        step = self._volume_step(symbol)
 
-        target_lots = round(float(target_exposure) * float(max_lots), 2)
-        result_meta = {
-            "request_action": "noop",
-            "executed": False,
-            "target_lots": float(target_lots),
-        }
-        if abs(target_lots) < 0.01:
-            if long_lots > 0:
-                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
-            if short_lots > 0:
-                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
-            return result_meta
+        result_meta = {"request_action": "noop", "executed": False, "target_lots": float(target_lots)}
+        executed_any = False
 
         if target_lots > 0:
-            if short_lots > 0:
-                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
-                short_lots = 0.0
-            if long_lots > target_lots + 0.01:
-                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
-                long_lots = 0.0
-            add_lots = round(target_lots - long_lots, 2)
-            if add_lots >= 0.01:
-                result_meta = self.open_position(
-                    symbol,
-                    mt5.ORDER_TYPE_BUY,
-                    add_lots,
-                    order_meta=order_meta,
-                    execution_context=execution_context,
-                )
+            same, opposite, have, want, side = longs, shorts, long_lots, target_lots, mt5.ORDER_TYPE_BUY
+        elif target_lots < 0:
+            same, opposite, have, want, side = shorts, longs, short_lots, -target_lots, mt5.ORDER_TYPE_SELL
         else:
-            desired_short_lots = abs(target_lots)
-            if long_lots > 0:
-                result_meta = self.close_positions(longs, order_meta=order_meta, execution_context=execution_context)
-                long_lots = 0.0
-            if short_lots > desired_short_lots + 0.01:
-                result_meta = self.close_positions(shorts, order_meta=order_meta, execution_context=execution_context)
-                short_lots = 0.0
-            add_lots = round(desired_short_lots - short_lots, 2)
-            if add_lots >= 0.01:
-                result_meta = self.open_position(
-                    symbol,
-                    mt5.ORDER_TYPE_SELL,
-                    add_lots,
-                    order_meta=order_meta,
-                    execution_context=execution_context,
-                )
+            same, opposite, have, want, side = [], longs + shorts, 0.0, 0.0, None
 
-        self.risk.record_trade(symbol)
+        # 1) Remove opposite-side (or all, when flattening) exposure first.
+        if opposite:
+            close_meta = self.close_positions(opposite, order_meta=order_meta, execution_context=execution_context)
+            result_meta = close_meta
+            if close_meta.get("executed"):
+                executed_any = True
+            if not close_meta.get("all_closed", close_meta.get("executed", False)):
+                # Never open the other side while the old side is still on (hedge risk).
+                result_meta["request_action"] = "close_failed"
+                result_meta["target_lots"] = float(target_lots)
+                if executed_any:
+                    self._record_trade(symbol)
+                return result_meta
+
+        if side is None:
+            if executed_any:
+                self._record_trade(symbol)
+            result_meta["target_lots"] = float(target_lots)
+            return result_meta
+
+        # 2) Same side too large: partial close of the excess.
+        excess = have - want
+        if excess >= step - 1e-9:
+            reduce_meta = self.reduce_positions(symbol, same, excess, order_meta=order_meta, execution_context=execution_context)
+            result_meta = reduce_meta
+            if reduce_meta.get("executed"):
+                executed_any = True
+        # 3) Same side too small: add, gated on the risk engine.
+        elif want - have >= step - 1e-9:
+            add_lots = self.normalize_volume(symbol, want - have)
+            if add_lots > 0:
+                if not self._can_open(symbol):
+                    result_meta = {"request_action": "blocked", "executed": False}
+                else:
+                    result_meta = self.open_position(
+                        symbol, side, add_lots, order_meta=order_meta, execution_context=execution_context
+                    )
+                    if result_meta.get("executed"):
+                        executed_any = True
+
+        if executed_any:
+            self._record_trade(symbol)
+        result_meta["target_lots"] = float(target_lots)
         return result_meta
 
-    def close_positions(self, positions, order_meta=None, execution_context=None):
-        last_meta = {"request_action": "close", "executed": False}
-        for p in positions:
-            tick = self._symbol_tick(p.symbol)
-            if tick is None:
-                self.risk.record_error()
-                continue
+    def _record_trade(self, symbol):
+        fn = getattr(self.risk, "record_trade", None)
+        if callable(fn):
+            fn(symbol)
 
-            close_type = mt5.ORDER_TYPE_SELL if p.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
-            close_price = tick.bid if close_type == mt5.ORDER_TYPE_SELL else tick.ask
-
-            request = {
-                "action": mt5.TRADE_ACTION_DEAL,
-                "symbol": p.symbol,
-                "volume": p.volume,
-                "type": close_type,
-                "position": p.ticket,
-                "price": close_price,
-                "deviation": 20,
-                "type_time": mt5.ORDER_TIME_GTC,
-                "type_filling": self._select_filling_mode(p.symbol),
-            }
-            request["magic"] = self._magic_for_order(p.symbol, order_meta, request_kind="close")
-            request["comment"] = self._order_comment(p.symbol, order_meta, request_kind="close")
+    # ---------------------------------------------------------------- sending
+    def _send_with_retry(self, symbol, request: dict, refresh_price):
+        """order_send with retry on requote/price-changed. Returns (result, success)."""
+        result = None
+        for _ in range(_MAX_SEND_ATTEMPTS):
             result = mt5.order_send(request)
-            last_meta = self._log_order_send(p.symbol, "close", request, result, order_meta)
-            last_meta["executed"] = bool(result is not None and result.retcode == mt5.TRADE_RETCODE_DONE)
-            if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
-                self.risk.record_error()
+            retcode = getattr(result, "retcode", None) if result is not None else None
+            if retcode in SUCCESS_RETCODES:
+                return result, True
+            if retcode in RETRY_RETCODES and refresh_price is not None:
+                tick = self._symbol_tick(symbol)
+                if tick is None:
+                    break
+                request["price"] = refresh_price(tick)
+                continue
+            break
+        return result, False
+
+    def _account_failure(self, result):
+        retcode = getattr(result, "retcode", None) if result is not None else None
+        if retcode in BENIGN_RETCODES:
+            return
+        self._record_error()
+
+    def _close_one(self, p, volume, order_meta=None):
+        close_type = mt5.ORDER_TYPE_SELL if p.type == mt5.ORDER_TYPE_BUY else mt5.ORDER_TYPE_BUY
+        tick = self._symbol_tick(p.symbol)
+        if tick is None:
+            return {"request_action": "close", "executed": False, "reason": "no_tick"}
+
+        def _price(t):
+            return t.bid if close_type == mt5.ORDER_TYPE_SELL else t.ask
+
+        deviation = int(self._profile(p.symbol).get("entry_deviation", 20))
+        request = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": p.symbol,
+            "volume": float(volume),
+            "type": close_type,
+            "position": p.ticket,
+            "price": _price(tick),
+            "deviation": deviation,
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self._select_filling_mode(p.symbol),
+            "magic": self._magic_for_order(p.symbol, order_meta, request_kind="close"),
+            "comment": self._order_comment(p.symbol, order_meta, request_kind="close"),
+        }
+        result, ok = self._send_with_retry(p.symbol, request, _price)
+        meta = self._log_order_send(p.symbol, "close", request, result, order_meta)
+        meta["executed"] = ok
+        if ok:
+            self._record_success()
+        else:
+            self._account_failure(result)
+        return meta
+
+    def close_positions(self, positions, order_meta=None, execution_context=None):
+        last_meta = {"request_action": "close", "executed": False, "all_closed": True}
+        any_ok = False
+        all_ok = True
+        for p in positions:
+            meta = self._close_one(p, p.volume, order_meta=order_meta)
+            any_ok = any_ok or bool(meta.get("executed"))
+            all_ok = all_ok and bool(meta.get("executed"))
+            last_meta = meta
+        last_meta["executed"] = any_ok
+        last_meta["all_closed"] = all_ok
         return last_meta
 
+    def reduce_positions(self, symbol, positions, excess_lots, order_meta=None, execution_context=None):
+        """Partially close `excess_lots` from `positions`, oldest first."""
+        remaining = float(excess_lots)
+        last_meta = {"request_action": "reduce", "executed": False}
+        any_ok = False
+        for p in sorted(positions, key=lambda x: getattr(x, "time", 0)):
+            if remaining <= 1e-9:
+                break
+            vol = self.normalize_volume(symbol, min(float(p.volume), remaining))
+            if vol <= 0:
+                break
+            meta = self._close_one(p, vol, order_meta=order_meta)
+            meta["request_action"] = "reduce"
+            last_meta = meta
+            if meta.get("executed"):
+                any_ok = True
+                remaining -= vol
+            else:
+                break
+        last_meta["executed"] = any_ok
+        return last_meta
+
+    # ------------------------------------------------------------- SL / TP
     def _atr_points(self, symbol, bars=120, period=14):
-        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 0, bars)
+        cached = self._atr_cache.get(symbol)
+        now = time.monotonic()
+        if cached is not None and now - cached[0] < _ATR_CACHE_TTL_SEC:
+            return cached[1]
+
+        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 1, bars)
         info = self._symbol_info(symbol)
         if rates is None or len(rates) < period + 2 or info is None:
             return None
 
         point = float(info.point) if info.point else 0.0001
-        highs = [float(r[2]) for r in rates]
-        lows = [float(r[3]) for r in rates]
-        closes = [float(r[4]) for r in rates]
-
         trs = []
-        for i in range(1, len(rates)):
-            tr = max(
-                highs[i] - lows[i],
-                abs(highs[i] - closes[i - 1]),
-                abs(lows[i] - closes[i - 1]),
-            )
-            trs.append(tr)
-
+        prev_close = float(rates[0][4])
+        for r in rates[1:]:
+            high, low, close = float(r[2]), float(r[3]), float(r[4])
+            trs.append(max(high - low, abs(high - prev_close), abs(low - prev_close)))
+            prev_close = close
         if len(trs) < period:
             return None
 
         atr = sum(trs[-period:]) / float(period)
         atr_points = int(max(1, round(atr / max(point, 1e-12))))
+        self._atr_cache[symbol] = (now, atr_points)
         return atr_points
 
     def _dynamic_points(self, symbol):
-        profile = self.risk.get_symbol_profile(symbol)
+        profile = self._profile(symbol)
         base_sl = int(profile.get("sl_points", 250))
         base_tp = int(profile.get("tp_points", 450))
 
@@ -353,20 +541,17 @@ class MT5Executor:
     def _get_sl_tp(self, symbol, order_type, entry_price):
         info = self._symbol_info(symbol)
         tick = self._symbol_tick(symbol)
+        deviation = int(self._profile(symbol).get("entry_deviation", 20))
         if info is None or tick is None:
-            return None, None, 20
+            return None, None, deviation
 
         point = float(info.point) if info.point else 0.0001
         digits = int(info.digits) if info.digits is not None else 5
         _, min_pts = self._min_stop_distance(symbol)
-        deviation = int(self.risk.get_symbol_profile(symbol).get("entry_deviation", 20))
 
         dyn_sl, dyn_tp = self._dynamic_points(symbol)
-        sl_points = max(int(dyn_sl), min_pts)
-        tp_points = max(int(dyn_tp), min_pts)
-
-        sl_dist = sl_points * point
-        tp_dist = tp_points * point
+        sl_dist = max(int(dyn_sl), min_pts) * point
+        tp_dist = max(int(dyn_tp), min_pts) * point
 
         if order_type == mt5.ORDER_TYPE_BUY:
             sl = round(entry_price - sl_dist, digits)
@@ -381,10 +566,16 @@ class MT5Executor:
     def open_position(self, symbol, order_type, volume, order_meta=None, execution_context=None):
         tick = self._symbol_tick(symbol)
         if tick is None:
-            self.risk.record_error()
-            return {"request_action": "open", "executed": False}
+            return {"request_action": "open", "executed": False, "reason": "no_tick"}
 
-        price = tick.ask if order_type == mt5.ORDER_TYPE_BUY else tick.bid
+        volume = self.normalize_volume(symbol, volume)
+        if volume <= 0:
+            return {"request_action": "open", "executed": False, "reason": "below_volume_min"}
+
+        def _price(t):
+            return t.ask if order_type == mt5.ORDER_TYPE_BUY else t.bid
+
+        price = _price(tick)
         sl, tp, deviation = self._get_sl_tp(symbol, order_type, price)
 
         request = {
@@ -396,24 +587,25 @@ class MT5Executor:
             "deviation": deviation,
             "type_time": mt5.ORDER_TIME_GTC,
             "type_filling": self._select_filling_mode(symbol),
+            "magic": self._magic_for_order(symbol, order_meta, request_kind="open"),
+            "comment": self._order_comment(symbol, order_meta, request_kind="open"),
         }
-        request["magic"] = self._magic_for_order(symbol, order_meta, request_kind="open")
-        request["comment"] = self._order_comment(symbol, order_meta, request_kind="open")
-
         if sl is not None:
             request["sl"] = sl
         if tp is not None:
             request["tp"] = tp
 
-        result = mt5.order_send(request)
+        result, ok = self._send_with_retry(symbol, request, _price)
         meta = self._log_order_send(symbol, "open", request, result, order_meta)
-        meta["executed"] = bool(result is not None and result.retcode == mt5.TRADE_RETCODE_DONE)
-        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
-            self.risk.record_error()
+        meta["executed"] = ok
+        if ok:
+            self._record_success()
+        else:
+            self._account_failure(result)
         return meta
 
     def manage_open_positions(self, symbol):
-        positions = mt5.positions_get(symbol=symbol)
+        positions = [p for p in (mt5.positions_get(symbol=symbol) or []) if self._is_own_position(p)]
         info = self._symbol_info(symbol)
         tick = self._symbol_tick(symbol)
         if not positions or info is None or tick is None:
@@ -421,69 +613,58 @@ class MT5Executor:
 
         point = float(info.point) if info.point else 0.0001
         digits = int(info.digits) if info.digits is not None else 5
-        profile = self.risk.get_symbol_profile(symbol)
+        profile = self._profile(symbol)
 
         dyn_sl, dyn_tp = self._dynamic_points(symbol)
         breakeven_trigger = int(profile.get("breakeven_points", max(25, dyn_sl // 3)))
         trailing_trigger = int(profile.get("trailing_trigger_points", max(40, dyn_sl // 2)))
         trailing_step = int(profile.get("trailing_step_points", max(10, dyn_sl // 8)))
+        # Only move SL when it improves by at least this much (avoids modify spam).
+        min_move = max(1, trailing_step // 4) * point
 
         for p in positions:
-            current_price = tick.bid if p.type == mt5.ORDER_TYPE_BUY else tick.ask
-            profit_points = (
-                (current_price - p.price_open) / point
-                if p.type == mt5.ORDER_TYPE_BUY
-                else (p.price_open - current_price) / point
-            )
+            is_buy = p.type == mt5.ORDER_TYPE_BUY
+            current_price = tick.bid if is_buy else tick.ask
+            profit_points = (current_price - p.price_open) / point if is_buy else (p.price_open - current_price) / point
 
-            new_sl = float(p.sl) if p.sl else None
-            new_tp = float(p.tp) if p.tp else None
+            cur_sl = float(p.sl) if p.sl else None
+            cur_tp = float(p.tp) if p.tp else None
+            new_sl = cur_sl
+            new_tp = cur_tp
 
-            # Add TP if missing
             if new_tp is None:
                 tp_dist = dyn_tp * point
-                new_tp = (
-                    p.price_open + tp_dist
-                    if p.type == mt5.ORDER_TYPE_BUY
-                    else p.price_open - tp_dist
-                )
+                new_tp = p.price_open + tp_dist if is_buy else p.price_open - tp_dist
 
-            # Break-even promotion
+            def _better(candidate, existing):
+                if existing is None:
+                    return True
+                return candidate > existing + min_move if is_buy else candidate < existing - min_move
+
             if profit_points >= breakeven_trigger:
                 be_buffer = 5 * point
-                be_sl = (
-                    p.price_open + be_buffer
-                    if p.type == mt5.ORDER_TYPE_BUY
-                    else p.price_open - be_buffer
-                )
-                if (p.type == mt5.ORDER_TYPE_BUY and (new_sl is None or be_sl > new_sl)) or (
-                    p.type == mt5.ORDER_TYPE_SELL and (new_sl is None or be_sl < new_sl)
-                ):
+                be_sl = p.price_open + be_buffer if is_buy else p.price_open - be_buffer
+                if _better(be_sl, new_sl):
                     new_sl = be_sl
 
-            # Trailing after trigger
             if profit_points >= trailing_trigger:
                 trail_dist = trailing_step * point
-                trail_sl = (
-                    current_price - trail_dist
-                    if p.type == mt5.ORDER_TYPE_BUY
-                    else current_price + trail_dist
-                )
-                if (p.type == mt5.ORDER_TYPE_BUY and (new_sl is None or trail_sl > new_sl)) or (
-                    p.type == mt5.ORDER_TYPE_SELL and (new_sl is None or trail_sl < new_sl)
-                ):
+                trail_sl = current_price - trail_dist if is_buy else current_price + trail_dist
+                if _better(trail_sl, new_sl):
                     new_sl = trail_sl
 
-            new_sl, new_tp = self._sanitize_sl_tp(symbol, p.type, new_sl, new_tp, tick)
+            if new_sl == cur_sl and new_tp == cur_tp:
+                continue
 
+            new_sl, new_tp = self._sanitize_sl_tp(symbol, p.type, new_sl, new_tp, tick)
             if new_sl is not None:
                 new_sl = round(new_sl, digits)
             if new_tp is not None:
                 new_tp = round(new_tp, digits)
 
-            sl_changed = (new_sl is not None) and (p.sl is None or abs(float(new_sl) - float(p.sl)) > (0.5 * point))
-            tp_changed = (new_tp is not None) and (p.tp is None or abs(float(new_tp) - float(p.tp)) > (0.5 * point))
-
+            sl_changed = new_sl is not None and (cur_sl is None or abs(new_sl - cur_sl) > 0.5 * point)
+            # Only (re)set TP when it is missing; never fight a broker-adjusted TP each cycle.
+            tp_changed = new_tp is not None and cur_tp is None
             if not sl_changed and not tp_changed:
                 continue
 
@@ -491,16 +672,14 @@ class MT5Executor:
                 "action": mt5.TRADE_ACTION_SLTP,
                 "symbol": symbol,
                 "position": p.ticket,
+                "sl": new_sl if new_sl is not None else (cur_sl or 0.0),
+                "tp": new_tp if new_tp is not None else (cur_tp or 0.0),
+                "magic": self._magic_for_order(symbol, None, request_kind="manage"),
+                "comment": self._order_comment(symbol, None, request_kind="manage"),
             }
-            if new_sl is not None:
-                req["sl"] = new_sl
-            if new_tp is not None:
-                req["tp"] = new_tp
-            req["magic"] = self._magic_for_order(symbol, None, request_kind="manage")
-            req["comment"] = self._order_comment(symbol, None, request_kind="manage")
-
             result = mt5.order_send(req)
             self._log_order_send(symbol, "manage", req, result, {"symbol": symbol})
-            if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
-                self.risk.record_error()
-
+            retcode = getattr(result, "retcode", None) if result is not None else None
+            if retcode in SUCCESS_RETCODES or retcode == RET_NO_CHANGES:
+                continue
+            self._account_failure(result)

@@ -37,17 +37,19 @@ logger.add(SERVER_LOG, rotation="10 MB", level="INFO")
 
 SYMBOL_EXECUTION_PROFILES = {
     "BTCUSDm": {
-        "ppo_weight": 0.65,
-        "dreamer_weight": 0.25,
-        "agi_weight": 0.10,
+        # Dreamer is not evaluated by any promotion gate, so it gets no live weight
+        # by default. Override per symbol via trading.symbol_profiles.<sym>.dreamer_weight.
+        "ppo_weight": 0.70,
+        "dreamer_weight": 0.0,
+        "agi_weight": 0.30,
         "min_trade_threshold": 0.18,
         "max_abs_target": 1.00,
         "cooldown_sec": 30,
     },
     "XAUUSDm": {
-        "ppo_weight": 0.50,
-        "dreamer_weight": 0.20,
-        "agi_weight": 0.30,
+        "ppo_weight": 0.60,
+        "dreamer_weight": 0.0,
+        "agi_weight": 0.40,
         "min_trade_threshold": 0.12,
         "max_abs_target": 0.75,
         "cooldown_sec": 45,
@@ -364,6 +366,36 @@ def _init_mt5(cfg):
     return mt5.initialize()
 
 
+def _ensure_symbols_selected(symbols) -> None:
+    for sym in symbols:
+        try:
+            if not mt5.symbol_select(str(sym), True):
+                logger.warning(f"symbol_select({sym}) failed: {mt5.last_error()}")
+        except Exception as exc:
+            logger.warning(f"symbol_select({sym}) raised: {exc}")
+
+
+def _ensure_mt5_connected(cfg, symbols) -> bool:
+    """Re-initialize the MT5 terminal link if it dropped. Returns True when connected."""
+    try:
+        if mt5.terminal_info() is not None and mt5.account_info() is not None:
+            return True
+    except Exception:
+        pass
+    logger.warning("MT5 connection lost; re-initializing")
+    try:
+        mt5.shutdown()
+    except Exception:
+        pass
+    try:
+        if _init_mt5(cfg):
+            _ensure_symbols_selected(symbols)
+            return True
+    except Exception as exc:
+        logger.warning(f"MT5 re-init failed: {exc}")
+    return False
+
+
 def _to_mt5_timeframe(tf: str):
     mapping = {
         "M1": mt5.TIMEFRAME_M1,
@@ -401,6 +433,17 @@ def _symbol_profile(symbol: str, cfg: dict | None = None) -> dict:
     return base
 
 
+def _risk_scalar(agi_meta: dict | None) -> float:
+    """risk_scalar from the AGI meta; a legitimate 0.0 (full block) must stay 0.0."""
+    value = (agi_meta or {}).get("risk_scalar")
+    if value is None:
+        return 1.0
+    try:
+        return max(0.0, float(value))
+    except Exception:
+        return 1.0
+
+
 def _blend_symbol_decision(
     symbol: str,
     agi_meta: dict | None,
@@ -414,15 +457,22 @@ def _blend_symbol_decision(
     dreamer_target = float((dreamer_meta or {}).get("target", 0.0) or 0.0)
 
     agi_conf = float((agi_meta or {}).get("confidence", 0.0) or 0.0)
-    agi_risk = float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0)
+    agi_risk = _risk_scalar(agi_meta)
     agi_bias = float((agi_meta or {}).get("trend_bias", 0.0) or 0.0)
 
-    # Redistribute weights from absent models to AGI so the 150-feature
-    # LSTM signal can drive real decisions before a PPO champion is promoted.
-    # When both PPO and Dreamer are present, weights are used as configured.
+    trading_cfg = (cfg or {}).get("trading", {}) if isinstance(cfg, dict) else {}
+    conf_threshold = float(trading_cfg.get("confidence_threshold", 0.0) or 0.0)
+    if agi_conf < conf_threshold or bool((agi_meta or {}).get("trade_blocked", False)):
+        agi_bias = 0.0
+
+    # A missing model contributes 0 with its weight kept (exposure shrinks) rather than
+    # handing its weight to the LSTM, which made targets swing whenever PPO abstained.
+    # Set trading.redistribute_missing_weight: true to restore the old behaviour.
     ppo_w = float(profile["ppo_weight"]) if ppo_meta is not None else 0.0
     dreamer_w = float(profile["dreamer_weight"]) if dreamer_meta is not None else 0.0
-    agi_w = max(float(profile["agi_weight"]), 1.0 - ppo_w - dreamer_w)
+    agi_w = float(profile["agi_weight"])
+    if bool(trading_cfg.get("redistribute_missing_weight", False)):
+        agi_w = max(agi_w, 1.0 - ppo_w - dreamer_w)
 
     raw = ppo_w * ppo_target + dreamer_w * dreamer_target + agi_w * agi_bias
 
@@ -472,10 +522,29 @@ def _low_volatility_memory_base(trade_memory: dict | None) -> float:
     return 1.0
 
 
-def _fetch_symbol_df(symbol: str, timeframe, bars=220):
-    rates = mt5.copy_rates_from_pos(symbol, timeframe, 0, bars)
+_TF_SECONDS = {1: 60, 5: 300, 15: 900, 30: 1800, 60: 3600, 240: 14400, 1440: 86400}
+
+
+def _fetch_symbol_df(symbol: str, timeframe, bars=None):
+    """Closed bars only (start_pos=1); None if the feed is missing or stale.
+
+    Enough history is fetched for the H4/D1 features of ultimate_150 to be meaningful.
+    """
+    bars = int(bars or os.environ.get("AGI_LIVE_BARS", "1000"))
+    rates = mt5.copy_rates_from_pos(symbol, timeframe, 1, bars)
     if rates is None or len(rates) < 80:
         return None
+    try:
+        tf_sec = _TF_SECONDS.get(int(timeframe), 300)
+        tick = mt5.symbol_info_tick(symbol)
+        now_server = int(getattr(tick, "time", 0) or 0)
+        last_bar = int(rates[-1]["time"])
+        # Last closed bar must be within ~2 bars of the broker's latest tick time.
+        if now_server > 0 and now_server - last_bar > 3 * tf_sec:
+            logger.warning(f"{symbol}: stale bars (last closed bar {now_server - last_bar}s old); skipping")
+            return None
+    except Exception:
+        pass
 
     df = pd.DataFrame(rates)
     if df.empty:
@@ -514,6 +583,9 @@ def _account_snapshot():
         "equity": None if info is None else float(info.equity),
         "free_margin": None if info is None else float(info.margin_free),
         "pnl_today": float(pnl_today),
+        "realized_today": float(pnl_today),
+        # Realized + floating: what the daily-loss guard should compare against.
+        "pnl_today_incl_floating": float(pnl_today + floating),
         "floating": float(floating),
         "open_positions": len(positions),
     }
@@ -553,8 +625,10 @@ def _tick_spread_bps(symbol: str) -> float | None:
         return None
 
 
-def _position_exposure_state(symbol: str, max_lots: float) -> tuple[float, float, int, int]:
+def _position_exposure_state(symbol: str, max_lots: float, executor=None) -> tuple[float, float, int, int]:
     positions = mt5.positions_get() or []
+    if executor is not None and hasattr(executor, "_is_own_position"):
+        positions = [p for p in positions if executor._is_own_position(p)]
     symbol_positions = [p for p in positions if str(getattr(p, "symbol", "")) == str(symbol)]
     current_symbol_exposure = 0.0
     total_exposure = 0.0
@@ -677,6 +751,7 @@ def main(live=False):
     symbols = resolve_trading_symbols(cfg, env_keys=("AGI_RUNTIME_SYMBOLS",), fallback=DEFAULT_TRADING_SYMBOLS)
     timeframe = _to_mt5_timeframe(trading_cfg.get("timeframe", "M5"))
     max_lots = float(cfg.get("risk", {}).get("max_lots", 1.0))
+    _ensure_symbols_selected(symbols)
 
     token, chat_id = _load_telegram_cfg(cfg)
     alerter = runtime["TelegramAlerter"](token, chat_id)
@@ -717,16 +792,27 @@ def main(live=False):
     last_closed_by_symbol = {}
     trade_learning_by_symbol = {}
 
+    reconnect_backoff = 5.0
     while True:
         now = time.time()
 
+        if not _ensure_mt5_connected(cfg, symbols):
+            alerter.alert(f"MT5 disconnected; retrying in {int(reconnect_backoff)}s")
+            time.sleep(reconnect_backoff)
+            reconnect_backoff = min(300.0, reconnect_backoff * 2)
+            continue
+        reconnect_backoff = 5.0
+
+        # Fresh account state every loop: the daily-loss guard must not run on a
+        # snapshot that is up to a heartbeat interval old.
+        snap = _account_snapshot()
+        if snap.get("equity") is not None:
+            risk.update_equity(float(snap["equity"]))
+        guard_snap = dict(snap)
+        guard_snap["pnl_today"] = float(snap.get("pnl_today_incl_floating", snap.get("pnl_today", 0.0)))
+
         if now - last_heartbeat >= max(15, heartbeat_sec):
             uptime = int(now - start_time)
-            acc = mt5.account_info()
-            if acc:
-                risk.update_equity(float(acc.equity))
-
-            snap = _account_snapshot()
             tr_state = _training_state()
             models = _read_active_models()
             event_state = {}
@@ -839,7 +925,7 @@ def main(live=False):
                         symbol,
                         regime,
                         float((agi_meta or {}).get("confidence", 0.0) or 0.0),
-                        float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
+                        _risk_scalar(agi_meta),
                         float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
                         float((ppo_meta or {}).get("target", 0.0) or 0.0),
                         float((dreamer_meta or {}).get("target", 0.0) or 0.0),
@@ -853,7 +939,7 @@ def main(live=False):
                         "symbol": symbol,
                         "regime": regime,
                         "confidence": conf,
-                        "risk_scalar": float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
+                        "risk_scalar": _risk_scalar(agi_meta),
                         "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
                         "ppo_exposure": float((ppo_meta or {}).get("target", 0.0) or 0.0),
                         "dreamer_exposure": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
@@ -872,7 +958,7 @@ def main(live=False):
                 sym_state["signal"] = regime
                 sym_state["regime"] = regime
                 sym_state["confidence"] = conf
-                sym_state["risk_scalar"] = float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0)
+                sym_state["risk_scalar"] = _risk_scalar(agi_meta)
                 sym_state["trend_bias"] = float((agi_meta or {}).get("trend_bias", 0.0) or 0.0)
                 sym_state["ppo_exposure"] = float((ppo_meta or {}).get("target", 0.0) or 0.0)
                 sym_state["dreamer_exposure"] = float((dreamer_meta or {}).get("target", 0.0) or 0.0)
@@ -881,14 +967,14 @@ def main(live=False):
 
                 action_meta = ppo_meta or brain.get_last_action_meta(symbol=symbol)
                 current_symbol_exposure, total_exposure, symbol_positions, total_positions = _position_exposure_state(
-                    symbol, max_lots
+                    symbol, max_lots, executor
                 )
                 supervisor_decision = supervisor.allow_trade(
                     symbol=symbol,
                     target_exposure=float(exposure),
                     confidence=conf,
                     spread_bps=_tick_spread_bps(symbol),
-                    snapshot=snap,
+                    snapshot=guard_snap,
                     symbol_positions=symbol_positions,
                     total_positions=total_positions,
                     current_symbol_exposure=current_symbol_exposure,
@@ -915,11 +1001,14 @@ def main(live=False):
                             "ppo_target": float((ppo_meta or {}).get("target", 0.0) or 0.0),
                             "dreamer_target": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
                             "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
-                            "agi_risk_scalar": float((agi_meta or {}).get("risk_scalar", 1.0) or 1.0),
+                            "agi_risk_scalar": _risk_scalar(agi_meta),
                         },
                     )
-                    if order_meta:
+                    if order_meta and order_meta.get("executed"):
                         supervisor.mark_trade(symbol)
+                    elif order_meta:
+                        # Nothing was sent (noop/blocked): no cooldown, no trade alert.
+                        order_meta = None
                 else:
                     order_meta = None
                     _append_audit(

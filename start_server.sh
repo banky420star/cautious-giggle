@@ -3,7 +3,7 @@
 # Network Config
 export AGI_HOST="0.0.0.0"
 export AGI_PORT="9090"
-export AGI_TOKEN="fuckyou2/"
+: "${AGI_TOKEN:?Set AGI_TOKEN in your environment (do not hardcode it here)}"
 
 # Autonomy & Polling
 export AGI_AUTONOMY_AUTO_CANARY="true"
@@ -19,7 +19,7 @@ export AGI_DZ_EURUSD="0.18"
 export AGI_DZ_GBPUSD="0.20"
 export AGI_DZ_XAUUSD="0.22"
 
-echo "🚀 Starting Grok AGI Server on Port $AGI_PORT with Token '$AGI_TOKEN' in LIVE mode..."
+echo "🚀 Starting Grok AGI Server on Port $AGI_PORT in LIVE mode..."
 
 # If you prefer to use your python venv, uncomment the next line:
 # source venv/bin/activate

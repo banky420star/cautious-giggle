@@ -1,3 +1,4 @@
+import functools
 import numpy as np
 import pandas as pd
 
@@ -79,6 +80,7 @@ def build_env_feature_matrix(df: pd.DataFrame, feature_version: str = ENGINEERED
     return _build_engineered_env_matrix(df)
 
 
+@functools.lru_cache(maxsize=None)
 def feature_count_for_version(feature_version: str) -> int:
     version = normalize_feature_version(feature_version, default=ENGINEERED_V2)
     if version == ULTIMATE_150:
@@ -325,13 +327,29 @@ def _build_ultimate_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
                 .agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
                 .ffill()
             )
-            htf = htf.reindex(out.index, method="ffill")
-            htf_ma = htf["close"].rolling(8, min_periods=1).mean()
-            htf_std = htf["close"].rolling(8, min_periods=1).std().fillna(0.0)
-            htf_delta = htf["close"].diff().fillna(0.0)
-            htf_gain = htf_delta.clip(lower=0).rolling(8, min_periods=1).mean()
-            htf_loss = (-htf_delta.clip(upper=0)).rolling(8, min_periods=1).mean()
-            htf_rs = htf_gain / (htf_loss + eps)
+            # Stats are computed on completed higher-timeframe bars, then shifted one bucket
+            # so a 5-minute bar only sees buckets that had fully closed before it opened.
+            # (Previously the in-progress bucket's final close/high/low/volume leaked
+            # into every bar inside it -- lookahead bias.)
+            htf_close = htf["close"]
+            htf_delta_b = htf_close.diff().fillna(0.0)
+            htf_stats = pd.DataFrame(
+                {
+                    "high": htf["high"],
+                    "low": htf["low"],
+                    "close": htf_close,
+                    "volume": htf["volume"],
+                    "ma": htf_close.rolling(8, min_periods=1).mean(),
+                    "std": htf_close.rolling(8, min_periods=1).std().fillna(0.0),
+                    "gain": htf_delta_b.clip(lower=0).rolling(8, min_periods=1).mean(),
+                    "loss": (-htf_delta_b.clip(upper=0)).rolling(8, min_periods=1).mean(),
+                }
+            ).shift(1)
+            htf = htf_stats.reindex(out.index, method="ffill").fillna(0.0)
+            htf["close"] = htf["close"].where(htf["close"] != 0.0, close)
+            htf_ma = htf["ma"].where(htf["ma"] != 0.0, close)
+            htf_std = htf["std"]
+            htf_rs = htf["gain"] / (htf["loss"] + eps)
             htf_rsi = (100.0 - (100.0 / (1.0 + htf_rs))).fillna(50.0)
             feats[f"{label}_close_rel"] = htf["close"] / (close + eps) - 1.0
             feats[f"{label}_range_rel"] = (htf["high"] - htf["low"]) / (close.abs() + eps)

@@ -70,6 +70,9 @@ class TradingEnv(gym.Env):
 
         os.makedirs(os.path.join(os.getcwd(), "logs"), exist_ok=True)
         self.profit_log_path = os.path.join(os.getcwd(), "logs", "profitability.jsonl")
+        # Writing a JSON line on every step dominated training time; sample instead.
+        # AGI_ENV_PROFIT_LOG_EVERY=0 disables the log entirely.
+        self.profit_log_every = max(0, int(os.environ.get("AGI_ENV_PROFIT_LOG_EVERY", "500") or 0))
         self.breakeven_trigger_pct = float(os.environ.get("AGI_BREAKEVEN_TRIGGER_PCT", "0.002"))
         self.trailing_trigger_pct = float(os.environ.get("AGI_TRAILING_TRIGGER_PCT", "0.003"))
         self.trailing_distance_pct = float(os.environ.get("AGI_TRAILING_DISTANCE_PCT", "0.002"))
@@ -268,91 +271,6 @@ class TradingEnv(gym.Env):
         c = pdf["close"].to_numpy(dtype=np.float64)
         v = pdf["volume"].to_numpy(dtype=np.float64)
         return o, h, l, c, v, dates
-
-    def _build_feature_matrix(self, o, h, l, c, v, dates):
-        eps = 1e-12
-        range_ = np.maximum(h - l, eps)
-
-        close_shift1 = self._shift(c, 1)
-        close_shift5 = self._shift(c, 5)
-        close_shift20 = self._shift(c, 20)
-
-        log_ret1 = np.log(np.maximum(c, eps) / np.maximum(close_shift1, eps))
-        log_ret5 = np.log(np.maximum(c, eps) / np.maximum(close_shift5, eps))
-        log_ret20 = np.log(np.maximum(c, eps) / np.maximum(close_shift20, eps))
-
-        body_ratio = (c - o) / range_
-        upper_wick = (h - np.maximum(o, c)) / range_
-        lower_wick = (np.minimum(o, c) - l) / range_
-        range_ratio = self._safe_div(h - l, c)
-
-        rv_20 = self._rolling_std(log_ret1, 20)
-        vol_ma20 = self._rolling_mean(np.maximum(v, 0.0), 20)
-        rel_volume = self._safe_div(np.maximum(v, 0.0), vol_ma20)
-        spread_est_bps = self._safe_div(h - l, c) * 10000.0
-
-        ma50 = self._rolling_mean(c, 50)
-        htf_trend = self._safe_div(c, ma50) - 1.0
-
-        hour_sin = np.zeros_like(c)
-        hour_cos = np.zeros_like(c)
-        dow_sin = np.zeros_like(c)
-        dow_cos = np.zeros_like(c)
-        if dates is not None:
-            dt = pd.to_datetime(dates, utc=True, errors="coerce")
-            if isinstance(dt, pd.DatetimeIndex):
-                hour = dt.hour.astype(np.float64)
-                dow = dt.dayofweek.astype(np.float64)
-            else:
-                hour = dt.dt.hour.to_numpy(dtype=np.float64)
-                dow = dt.dt.dayofweek.to_numpy(dtype=np.float64)
-            hour_sin = np.sin(2.0 * np.pi * hour / 24.0)
-            hour_cos = np.cos(2.0 * np.pi * hour / 24.0)
-            dow_sin = np.sin(2.0 * np.pi * dow / 7.0)
-            dow_cos = np.cos(2.0 * np.pi * dow / 7.0)
-
-        valid_rv = rv_20[np.isfinite(rv_20)]
-        if len(valid_rv) > 10:
-            q1 = np.quantile(valid_rv, 0.33)
-            q2 = np.quantile(valid_rv, 0.66)
-            vol_bucket = np.where(rv_20 <= q1, 0.0, np.where(rv_20 <= q2, 0.5, 1.0))
-        else:
-            vol_bucket = np.zeros_like(c)
-
-        close_rel = self._safe_div(c, close_shift1) - 1.0
-        open_rel = self._safe_div(o, c) - 1.0
-        high_rel = self._safe_div(h, c) - 1.0
-        low_rel = self._safe_div(l, c) - 1.0
-        log_vol = np.log1p(np.maximum(v, 0.0))
-
-        mat = np.column_stack(
-            [
-                open_rel,
-                high_rel,
-                low_rel,
-                close_rel,
-                log_vol,
-                log_ret1,
-                log_ret5,
-                log_ret20,
-                body_ratio,
-                upper_wick,
-                lower_wick,
-                range_ratio,
-                rv_20,
-                rel_volume,
-                spread_est_bps,
-                hour_sin,
-                hour_cos,
-                dow_sin,
-                dow_cos,
-                htf_trend,
-                vol_bucket,
-            ]
-        )
-
-        mat = np.nan_to_num(mat, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
-        return mat
 
     def _set_data(self, df):
         o, h, l, c, v, dates = self._extract_arrays(df)
@@ -574,6 +492,8 @@ class TradingEnv(gym.Env):
         }
 
     def _log_profit_snapshot(self, current_price: float, info: dict):
+        if self.profit_log_every <= 0 or int(self.current_step) % self.profit_log_every != 0:
+            return
         payload = {
             "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "equity": float(self.equity),
@@ -596,6 +516,12 @@ class TradingEnv(gym.Env):
 
     def _process_action(self, action_meta: dict, current_price: float):
         if self.open_trade and self.open_trade.get("is_open"):
+            return
+
+        # A dead-zoned action (target 0) means "stay flat". Previously sign(0) or 1.0
+        # turned every flat action into a long, so the agent could never sit out.
+        if abs(float(action_meta.get("target", 0.0) or 0.0)) <= 0.0:
+            self.position = 0.0
             return
 
         direction = float(np.sign(action_meta.get("direction", 0.0)) or 1.0)

@@ -1,6 +1,6 @@
 $env:AGI_HOST = "0.0.0.0"
 $env:AGI_PORT = "9090"
-$env:AGI_TOKEN = "fuckyou2/"
+if (-not $env:AGI_TOKEN) { throw "Set AGI_TOKEN in your environment (do not hardcode it here)" }
 
 $env:AGI_AUTONOMY_AUTO_CANARY = "true"
 $env:AGI_PNL_POLL = "true"

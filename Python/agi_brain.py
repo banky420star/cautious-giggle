@@ -139,17 +139,20 @@ class SmartAGI:
         model = AGIModel(input_dim=len(feature_columns)).to(self.device)
         scaler = MinMaxScaler()
         scaler_loaded = False
+        model_loaded = False
+        model.eval()  # never run inference with dropout active
 
         if os.path.exists(model_path):
             try:
                 state = torch.load(model_path, map_location=self.device, weights_only=True)
                 model.load_state_dict(state)
                 model.eval()
+                model_loaded = True
                 logger.success(f"AGI Brain loaded {label} model on {self.device.upper()}")
             except Exception as exc:
-                logger.warning(f"{label} model load failed ({exc}); using fresh weights")
+                logger.warning(f"{label} model load failed ({exc}); live predictions will HOLD")
         else:
-            logger.warning(f"no trained {label} model found at {model_path}; using fresh weights")
+            logger.warning(f"no trained {label} model found at {model_path}; live predictions will HOLD")
 
         if os.path.exists(scaler_path):
             import joblib
@@ -165,6 +168,7 @@ class SmartAGI:
             "model": model,
             "scaler": scaler,
             "scaler_loaded": scaler_loaded,
+            "model_loaded": model_loaded,
             "feature_columns": feature_columns,
             "feature_version": feature_version,
         }
@@ -267,10 +271,32 @@ class SmartAGI:
             }
 
         bundle_columns = [str(col) for col in bundle.get("feature_columns", FEATURE_COLUMNS)]
+        scaler = bundle["scaler"]
+        usable = (
+            bool(bundle.get("model_loaded", True))
+            and bool(bundle.get("scaler_loaded"))
+            and set(bundle_columns).issubset(set(available_columns))
+            and hasattr(scaler, "n_features_in_")
+            and int(scaler.n_features_in_) == len(bundle_columns)
+        )
+        if production and not usable:
+            # Fail closed: an untrained model or a scaler fit on the live window would
+            # produce confident-looking noise that gets traded.
+            return {
+                "signal": "HOLD",
+                "regime": "HOLD",
+                "direction": "HOLD",
+                "confidence": 0.0,
+                "risk_scalar": _direction_to_risk_scalar("HOLD"),
+                "trend_bias": 0.0,
+                "trade_blocked": True,
+                "symbol": symbol,
+                "feature_version": feature_version,
+                "reason": "lstm_artifacts_unusable",
+            }
+
         use_columns = bundle_columns if set(bundle_columns).issubset(set(available_columns)) else available_columns
         features = feat_df[use_columns].astype(float).values
-
-        scaler = bundle["scaler"]
         if bundle["scaler_loaded"] and hasattr(scaler, "n_features_in_") and int(scaler.n_features_in_) == features.shape[1]:
             data = scaler.transform(features)
         else:

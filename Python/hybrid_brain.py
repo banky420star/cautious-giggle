@@ -427,11 +427,27 @@ class HybridBrain:
             portfolio_feature_count=portfolio_feature_count,
             feature_version=feature_version,
         )
-        obs, _ = env.reset()
-        obs = np.asarray(obs, dtype=np.float32).reshape(-1)
+        env.reset()
+        # reset() positions the env at the *start* of the data; live inference must use
+        # the most recent window of closed bars.
+        env.current_step = int(len(env.feature_data))
+        env.position = self._live_position_fraction(bundle.get("_symbol") or meta.get("symbol"))
+        obs = np.asarray(env._get_obs(), dtype=np.float32).reshape(-1)
         if obs_dim is not None and obs.shape[0] != obs_dim:
             return None
         return obs
+
+    def _live_position_fraction(self, symbol) -> float:
+        """Current net bot position in units of max_lots (what the env calls `position`)."""
+        if not symbol or self.executor is None:
+            return 0.0
+        try:
+            longs, shorts = self.executor.get_positions(str(symbol))
+            net = sum(float(p.volume) for p in longs) - sum(float(p.volume) for p in shorts)
+            max_lots = float(getattr(self.risk, "max_lots", 1.0) or 1.0)
+            return float(np.clip(net / max_lots, -1.0, 1.0))
+        except Exception:
+            return 0.0
 
     def _normalize_obs_safe(self, bundle: dict, obs: np.ndarray) -> Optional[np.ndarray]:
         if bundle.get("_vecnorm_failed"):
@@ -450,6 +466,7 @@ class HybridBrain:
             return None
 
     def _predict_bundle_action(self, symbol: str, df, bundle: dict) -> Optional[dict]:
+        bundle.setdefault("_symbol", str(symbol))
         obs = self._build_ppo_observation(df, bundle)
         if obs is None:
             return None
@@ -621,8 +638,8 @@ class HybridBrain:
         return float(np.clip(mixed, -1.0, 1.0))
 
     def live_trade(self, symbol, exposure, max_lots, action_meta=None, execution_context=None):
-        if not self.risk.can_trade(symbol):
-            return
+        # Risk gating of *new* exposure happens inside the executor; closes and
+        # reductions must always be able to go through.
         meta = action_meta or self.get_last_action_meta()
         tick = self.executor.get_tick(symbol)
         order_meta = translate_trade_action(symbol, meta, exposure, max_lots, tick) if meta else None
@@ -655,4 +672,15 @@ class HybridBrain:
         )
         if isinstance(execution_meta, dict):
             order_meta.update(execution_meta)
+            # Report what was actually sent, not the PPO's notional TP/SL/size.
+            if execution_meta.get("price") is not None:
+                order_meta["entry_price"] = execution_meta.get("price")
+            if execution_meta.get("sl") is not None:
+                order_meta["sl_price"] = execution_meta.get("sl")
+            if execution_meta.get("tp") is not None:
+                order_meta["tp_price"] = execution_meta.get("tp")
+            if execution_meta.get("lots"):
+                order_meta["volume_lots"] = execution_meta.get("lots")
+            if execution_meta.get("side"):
+                order_meta["order_type"] = str(execution_meta.get("side")).upper()
         return order_meta

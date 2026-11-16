@@ -141,61 +141,6 @@ def _build_alerter(project_root: str):
     return TelegramAlerter(token, str(chat_id))
 
 
-class EvalCallbackSaveVec(EvalCallback):
-    def __init__(self, *args, vec_env=None, vec_save_path=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.vec_env = vec_env
-        self.vec_save_path = vec_save_path
-
-    def _on_step(self) -> bool:
-        old_best = self.best_mean_reward if self.best_mean_reward is not None else -np.inf
-        cont = super()._on_step()
-        if self.best_mean_reward is not None and self.best_mean_reward > old_best:
-            if self.vec_env is not None and self.vec_save_path:
-                os.makedirs(os.path.dirname(self.vec_save_path), exist_ok=True)
-                self.vec_env.save(self.vec_save_path)
-                logger.success(f"Saved VecNormalize with new best model -> {self.vec_save_path}")
-        return cont
-
-
-class PPOProgressCallback(BaseCallback):
-    def __init__(self, total_timesteps: int, symbols: list[str], log_interval: int = 1_000):
-        super().__init__()
-        self.total_timesteps = max(1, int(total_timesteps))
-        self.symbols = list(symbols)
-        self.log_interval = max(1_000, int(log_interval))
-        self._start_step = 0
-        self._last_log_step = 0
-        self._start_time = None
-
-    def _on_training_start(self) -> None:
-        self._start_step = int(getattr(self.model, "num_timesteps", 0) or 0)
-        self._last_log_step = 0
-        self._start_time = time.time()
-        logger.info(
-            f"PPO progress | symbols={self.symbols} | step=0/{self.total_timesteps:,} | pct=0.00 | elapsed_s=0 | eta_s=unknown"
-        )
-
-    def _on_step(self) -> bool:
-        current_total = int(getattr(self.model, "num_timesteps", 0) or 0)
-        current = max(0, current_total - self._start_step)
-        if current <= 0:
-            return True
-        if current - self._last_log_step < self.log_interval and current < self.total_timesteps:
-            return True
-
-        elapsed = max(0.001, time.time() - (self._start_time or time.time()))
-        pct = min(100.0, (current / self.total_timesteps) * 100.0)
-        rate = current / elapsed if elapsed > 0 else 0.0
-        remaining = max(0, self.total_timesteps - current)
-        eta = int(remaining / rate) if rate > 0 else None
-        logger.info(
-            f"PPO progress | symbols={self.symbols} | step={current:,}/{self.total_timesteps:,} | pct={pct:.2f} | elapsed_s={int(elapsed)} | eta_s={eta if eta is not None else 'unknown'}"
-        )
-        self._last_log_step = current
-        return True
-
-
 def _resolve_inline_eval_freq(total_timesteps: int) -> int | None:
     if str(os.environ.get("AGI_DRL_DISABLE_INLINE_EVAL", "")).lower() == "true":
         return None

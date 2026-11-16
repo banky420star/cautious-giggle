@@ -16,3 +16,5 @@ config.yaml
 !logs/
 logs/*
 !logs/server.log
+
+backups/

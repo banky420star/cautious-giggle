@@ -19,6 +19,9 @@ class RiskEngine:
         self.max_daily_trades_per_symbol = int(risk_cfg.get("max_daily_trades_per_symbol", 50))
         self.max_daily_losing_trades_per_symbol = int(risk_cfg.get("max_daily_losing_trades_per_symbol", 10))
         self.max_lots = float(risk_cfg.get("max_lots", 1.0))
+        # Max % of equity lost if a position's stop is hit (0 disables the cap).
+        self.risk_percent = float(trading_cfg.get("risk_percent", 0.0) or 0.0)
+        self.max_consecutive_errors = int(risk_cfg.get("max_consecutive_errors", 3))
 
         # Default symbol profile used when a symbol-specific profile does not exist.
         self.default_symbol_profile = {
@@ -90,9 +93,17 @@ class RiskEngine:
 
     def record_error(self):
         self.error_count += 1
-        if self.error_count >= 3:
+        if self.error_count >= self.max_consecutive_errors:
             self.halt = True
             self.error_halt = True  # Requires manual restart to clear
+
+    def record_success(self):
+        """A successful order resets the consecutive-error counter."""
+        self.error_count = 0
+
+    def can_open(self, symbol=None):
+        """Whether new risk may be opened. Closing/reducing is never gated by this."""
+        return self.can_trade(symbol)
 
     def can_trade(self, symbol=None):
         self.maybe_roll_day()

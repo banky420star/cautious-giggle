@@ -113,7 +113,11 @@ class RiskSupervisor:
         if not self.enabled:
             return RiskDecision(True, "disabled")
 
-        if abs(float(target_exposure)) <= abs(float(current_symbol_exposure)):
+        target = float(target_exposure)
+        current = float(current_symbol_exposure)
+        # Pure reduction (same side, smaller or flat) is always allowed. A sign flip is a
+        # new entry and must pass every check below.
+        if target == 0.0 or (target * current > 0.0 and abs(target) <= abs(current)):
             return RiskDecision(True, "risk_reduction")
 
         symbol_profile = self._symbol_profile(symbol)
