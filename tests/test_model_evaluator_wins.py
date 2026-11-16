@@ -2,9 +2,10 @@
 
 
 def test_candidate_must_win_multiple_metrics(monkeypatch):
-    def fake_run_multi(symbols, model_dir, period="120d", interval="5m", reward_weights=None):
+    def fake_run_multi(symbols, model_dir, period="120d", interval="5m", reward_weights=None, holdout_start=None):
         if model_dir == "candidate":
             return {
+                "baseline_avg_return": 0.01,
                 "avg_score": 10.5,
                 "avg_return": 0.02,
                 "worst_drawdown": 0.09,
@@ -39,6 +40,7 @@ def test_candidate_must_win_multiple_metrics(monkeypatch):
 
     monkeypatch.setattr("Python.model_evaluator.run_multi", fake_run_multi)
     monkeypatch.setattr("Python.model_evaluator.os.path.isdir", lambda _: True)
+    monkeypatch.setattr("Python.model_evaluator._candidate_holdout_start", lambda _d: "2026-10-01T00:00:00+00:00")
 
     gates = {
         "max_drawdown": 0.10,

@@ -251,6 +251,57 @@ def get_mt5_equity(default_balance: float = 10000.0, cfg: dict | None = None) ->
     return float(default_balance)
 
 
+# Exness-like per-symbol costs in basis points of notional (one side). Override with
+# drl.env.costs.<SYMBOL>.{spread_bps,commission_bps,slippage_bps} in config.yaml.
+DEFAULT_SYMBOL_COSTS = {
+    "BTCUSDm": {"spread_bps": 2.5, "commission_bps": 0.0, "slippage_bps": 1.0},
+    "XAUUSDm": {"spread_bps": 1.0, "commission_bps": 0.0, "slippage_bps": 0.5},
+}
+
+
+def resolve_env_kwargs(cfg: dict, symbol: str | None, training: bool = True) -> dict:
+    """TradingEnv kwargs shared by training, validation, backtest (stored in metadata)."""
+    drl_cfg = (cfg or {}).get("drl", {}) if isinstance(cfg, dict) else {}
+    env_cfg = drl_cfg.get("env", {}) if isinstance(drl_cfg.get("env", {}), dict) else {}
+    costs = dict(DEFAULT_SYMBOL_COSTS.get(str(symbol), {"spread_bps": 2.0, "commission_bps": 2.0, "slippage_bps": 1.0}))
+    sym_costs = (env_cfg.get("costs", {}) or {}).get(str(symbol), {}) if symbol else {}
+    if isinstance(sym_costs, dict):
+        costs.update({k: float(v) for k, v in sym_costs.items()})
+    kwargs = {
+        "execution_mode": str(env_cfg.get("execution_mode", "target")),
+        "spread_bps": float(costs["spread_bps"]),
+        "commission_rate": float(costs["commission_bps"]) / 10000.0,
+        "slippage_bps": float(costs["slippage_bps"]),
+        "sl_atr_mult": float(env_cfg.get("sl_atr_mult", 1.4)),
+        "tp_atr_mult": float(env_cfg.get("tp_atr_mult", 2.2)),
+        "min_rebalance": float(env_cfg.get("min_rebalance", 0.05)),
+        "window_size": int(env_cfg.get("window_size", 100)),
+    }
+    if training:
+        kwargs["random_start"] = bool(env_cfg.get("random_start", True))
+        kwargs["episode_length"] = int(env_cfg.get("episode_length", 2048))
+    return kwargs
+
+
+def chronological_split(df: pd.DataFrame, cfg: dict | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Split by time into train / validation / test. The test slice is never seen in
+    training or model selection; its start time is recorded as the holdout boundary."""
+    drl_cfg = (cfg or {}).get("drl", {}) if isinstance(cfg, dict) else {}
+    split = drl_cfg.get("split", {}) if isinstance(drl_cfg.get("split", {}), dict) else {}
+    val_frac = float(split.get("val", 0.15))
+    test_frac = float(split.get("test", 0.15))
+    n = len(df)
+    n_test = int(n * test_frac)
+    n_val = int(n * val_frac)
+    n_train = n - n_val - n_test
+    if n_train <= 0:
+        raise ValueError(f"not enough rows ({n}) for split val={val_frac} test={test_frac}")
+    train = df.iloc[:n_train].reset_index(drop=True)
+    val = df.iloc[n_train : n_train + n_val].reset_index(drop=True)
+    test = df.iloc[n_train + n_val :].reset_index(drop=True)
+    return train, val, test
+
+
 def make_env(
     df,
     seed: int,
@@ -260,6 +311,7 @@ def make_env(
     feature_version: str = ULTIMATE_150,
     action_config: dict | None = None,
     symbol: str | None = None,
+    env_kwargs: dict | None = None,
 ):
     _require_training_stack()
 
@@ -280,7 +332,9 @@ def make_env(
             feature_version=feature_version,
             action_config=action_config,
             symbol=symbol,
+            **(env_kwargs or {}),
         )
+        env.reset(seed=seed)
         return Monitor(env)
 
     return _init
@@ -510,6 +564,7 @@ def _stage_candidate(
     data_source,
     src_model_path: str | None = None,
     src_vec_path: str | None = None,
+    extra_meta: dict | None = None,
 ):
     from Python.model_registry import ModelRegistry
 
@@ -553,6 +608,10 @@ def _stage_candidate(
         "source": "EvalCallback best_model.zip + matching VecNormalize",
         "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
+    if extra_meta:
+        meta.update(extra_meta)
+        if "env_kwargs" in extra_meta:
+            meta["window_size"] = int(extra_meta["env_kwargs"].get("window_size", 100))
 
     with open(os.path.join(candidate_path, "scorecard.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
@@ -654,7 +713,17 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     if df_pd.empty:
         raise RuntimeError("No valid training data found")
 
-    df = pl.from_pandas(df_pd)
+    train_pd, val_pd, test_pd = chronological_split(df_pd, cfg)
+    split_meta = {
+        "split_rows": {"train": len(train_pd), "val": len(val_pd), "test": len(test_pd)},
+        "holdout_start": str(test_pd["time"].iloc[0]) if "time" in test_pd.columns and len(test_pd) else None,
+        "val_start": str(val_pd["time"].iloc[0]) if "time" in val_pd.columns and len(val_pd) else None,
+    }
+    logger.info(f"Chronological split | {split_meta}")
+    env_kwargs = resolve_env_kwargs(cfg, symbol_hint, training=True)
+    eval_env_kwargs = resolve_env_kwargs(cfg, symbol_hint, training=False)
+    df = pl.from_pandas(train_pd)
+    df_val = pl.from_pandas(val_pd)
     n_envs = 4
 
     env = DummyVecEnv(
@@ -668,6 +737,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
                 feature_version=feature_version,
                 action_config=action_cfg,
                 symbol=symbol_hint,
+                env_kwargs=env_kwargs,
             )
             for i in range(n_envs)
         ]
@@ -696,7 +766,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         eval_env = DummyVecEnv(
             [
                 make_env(
-                    df,
+                    df_val,
                     99,
                     initial_balance=initial_balance,
                     reward_weights=reward_weights,
@@ -704,6 +774,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
                     feature_version=feature_version,
                     action_config=action_cfg,
                     symbol=symbol_hint,
+                    env_kwargs=eval_env_kwargs,
                 )
             ]
         )
@@ -750,14 +821,15 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         "forward": eval_cfg.get("forward_windows", []),
     }
 
+    # Prefer the checkpoint that scored best on the *validation* slice; fall back to
+    # the final weights only when no validation checkpoint exists.
     stage_model = latest_model
     stage_vec = latest_vec
-    if not _is_vecnorm_compatible(stage_vec, feature_version=feature_version):
-        best_model = os.path.join(best_dir, "best_model.zip")
-        best_vec = os.path.join(best_dir, "vec_normalize.pkl")
-        if os.path.exists(best_model) and os.path.exists(best_vec) and _is_vecnorm_compatible(best_vec, feature_version=feature_version):
-            stage_model = best_model
-            stage_vec = best_vec
+    best_model = os.path.join(best_dir, "best_model.zip")
+    best_vec = os.path.join(best_dir, "vec_normalize.pkl")
+    if eval_callback is not None and os.path.exists(best_model) and os.path.exists(best_vec) and _is_vecnorm_compatible(best_vec, feature_version=feature_version):
+        stage_model = best_model
+        stage_vec = best_vec
 
     candidate_path = _stage_candidate(
         symbols,
@@ -773,6 +845,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         data_source=data_source,
         src_model_path=stage_model,
         src_vec_path=stage_vec,
+        extra_meta={**split_meta, "env_kwargs": eval_env_kwargs, "best_val_reward": best_score},
     )
     if alerter is not None:
         try:

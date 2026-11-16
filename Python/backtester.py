@@ -87,6 +87,8 @@ def _make_env(
     reward_weights: dict | None = None,
     portfolio_feature_count: int | None = None,
     feature_version: str = ENGINEERED_V2,
+    env_kwargs: dict | None = None,
+    action_config: dict | None = None,
 ):
     _require_rl_stack()
 
@@ -97,9 +99,86 @@ def _make_env(
             reward_weights=reward_weights,
             portfolio_feature_count=portfolio_feature_count,
             feature_version=feature_version,
+            action_config=action_config,
+            **(env_kwargs or {}),
         )
 
     return DummyVecEnv([_init])
+
+
+# M5 bars per year for annualising Sharpe (BTC trades 24/7, gold ~24/5; use 24/5).
+_BARS_PER_YEAR = {"1m": 252 * 1440, "5m": 252 * 288, "15m": 252 * 96, "30m": 252 * 48, "1h": 252 * 24, "4h": 252 * 6}
+
+
+def _annualized_sharpe(rets: np.ndarray, interval: str) -> float:
+    rets = np.asarray(rets, dtype=np.float64)
+    if rets.size < 2:
+        return 0.0
+    sd = float(np.std(rets))
+    if sd <= 1e-12:
+        return 0.0
+    return float(np.mean(rets) / sd * np.sqrt(_BARS_PER_YEAR.get(str(interval), 252 * 288)))
+
+
+def _equity_stats(equity: np.ndarray, interval: str) -> dict:
+    equity = np.asarray(equity, dtype=np.float64)
+    rets = np.diff(equity) / (equity[:-1] + 1e-12) if equity.size > 1 else np.zeros(1)
+    peak = np.maximum.accumulate(equity)
+    return {
+        "total_return": float(equity[-1] / (equity[0] + 1e-12) - 1.0),
+        "sharpe": _annualized_sharpe(rets, interval),
+        "max_drawdown": float(np.max((peak - equity) / (peak + 1e-12))),
+    }
+
+
+def run_baselines(df: pd.DataFrame, interval: str, cost_bps: float, fast: int = 20, slow: int = 100) -> dict:
+    """Simple strategies on the same bars and costs. A model must beat these to matter.
+
+    ma_cross: long when EMA(fast) > EMA(slow), short otherwise, decided on the closed
+    bar and held over the next bar. buy_hold: long the whole window.
+    """
+    close = pd.to_numeric(df["close"], errors="coerce").to_numpy(dtype=np.float64)
+    if close.size < slow + 10:
+        return {}
+    bar_ret = np.diff(close) / (close[:-1] + 1e-12)
+    ema_f = pd.Series(close).ewm(span=fast, adjust=False).mean().to_numpy()
+    ema_s = pd.Series(close).ewm(span=slow, adjust=False).mean().to_numpy()
+    pos = np.where(ema_f > ema_s, 1.0, -1.0)[:-1]
+    pos[:slow] = 0.0
+    turnover = np.abs(np.diff(np.concatenate([[0.0], pos])))
+    net = pos * bar_ret - turnover * cost_bps / 10000.0
+    ma_eq = 10000.0 * np.cumprod(1.0 + net)
+    bh_eq = 10000.0 * np.cumprod(1.0 + bar_ret)
+    bh_eq[0] -= 10000.0 * cost_bps / 10000.0
+    return {
+        "ma_cross": _equity_stats(np.concatenate([[10000.0], ma_eq]), interval),
+        "buy_hold": _equity_stats(np.concatenate([[10000.0], bh_eq]), interval),
+    }
+
+
+def _load_model_meta(model_dir: str) -> dict:
+    for name in ("metadata.json", "scorecard.json"):
+        path = os.path.join(model_dir, name)
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f) or {}
+            except Exception:
+                return {}
+    return {}
+
+
+def _holdout_slice(df: pd.DataFrame, holdout_start: str | None) -> pd.DataFrame:
+    """Keep only bars at/after the model's training holdout boundary (out-of-sample)."""
+    if not holdout_start or "time" not in df.columns:
+        return df
+    try:
+        t = pd.to_datetime(df["time"], utc=True, errors="coerce")
+        cut = pd.to_datetime(holdout_start, utc=True)
+        out = df.loc[t >= cut].reset_index(drop=True)
+        return out
+    except Exception:
+        return df
 
 
 
@@ -112,19 +191,26 @@ def run_ppo_backtest(
     initial_balance: float = 10000.0,
     max_steps: int | None = None,
     reward_weights: dict | None = None,
+    override_holdout_start: str | None = None,
 ) -> dict | None:
-    metadata_path = os.path.join(model_dir := os.path.dirname(model_path), "metadata.json")
-    feature_version = ENGINEERED_V2
-    if os.path.exists(metadata_path):
-        try:
-            with open(metadata_path, "r", encoding="utf-8") as f:
-                meta = json.load(f) or {}
-            feature_version = str(meta.get("feature_set_version", ENGINEERED_V2) or ENGINEERED_V2)
-        except Exception:
-            feature_version = ENGINEERED_V2
+    model_dir = os.path.dirname(model_path)
+    meta = _load_model_meta(model_dir)
+    feature_version = str(meta.get("feature_set_version", ENGINEERED_V2) or ENGINEERED_V2)
+    env_kwargs = dict(meta.get("env_kwargs") or {})
+    env_kwargs.pop("random_start", None)
+    env_kwargs.pop("episode_length", None)
+    action_config = meta.get("action_config") if isinstance(meta.get("action_config"), dict) else None
     df = fetch_training_data(symbol, period=period, interval=interval, strict=True, require_fresh=True)
     if df is None or df.empty or len(df) < 400:
         raise RuntimeError(f"Insufficient data for {symbol} (len={0 if df is None else len(df)})")
+    holdout_start = override_holdout_start or meta.get("holdout_start")
+    full_len = len(df)
+    df = _holdout_slice(df, holdout_start)
+    if len(df) < 400:
+        raise RuntimeError(
+            f"Insufficient out-of-sample data for {symbol}: {len(df)} bars after holdout_start={holdout_start} "
+            f"(fetched {full_len}); fetch a longer period"
+        )
 
     if not os.path.exists(model_path):
         raise RuntimeError(f"Missing model file: {model_path}")
@@ -147,6 +233,8 @@ def run_ppo_backtest(
         reward_weights=reward_weights,
         portfolio_feature_count=portfolio_feature_count,
         feature_version=feature_version,
+        env_kwargs=env_kwargs,
+        action_config=action_config,
     )
     if not os.path.exists(vecnorm_path):
         raise RuntimeError(f"Missing vecnorm file: {vecnorm_path}")
@@ -202,8 +290,7 @@ def run_ppo_backtest(
         raise RuntimeError(f"Insufficient backtest steps for {symbol}: {len(equity)}")
 
     rets = np.array(step_rets, dtype=np.float64) if step_rets else np.zeros(1)
-    vol = float(np.std(rets) + 1e-12)
-    sharpe = float(np.mean(rets) / vol) if vol > 0 else 0.0
+    sharpe = _annualized_sharpe(rets, interval)
 
     peak = np.maximum.accumulate(equity)
     dd = (peak - equity) / (peak + 1e-12)
@@ -215,6 +302,10 @@ def run_ppo_backtest(
     turnover = float(np.mean(np.abs(np.diff(pos_arr)))) if len(pos_arr) > 2 else 0.0
 
     score = (total_return * 100.0) - (max_dd * 100.0 * 1.8) + (sharpe * 6.0) - (turnover * 2.0)
+    cost_bps = float(env_kwargs.get("spread_bps", 2.0)) + float(env_kwargs.get("slippage_bps", 0.0)) + float(
+        env_kwargs.get("commission_rate", 0.0002)
+    ) * 10000.0
+    baselines = run_baselines(df, interval, cost_bps)
 
     n = max(1, steps)
     result = {
@@ -231,6 +322,9 @@ def run_ppo_backtest(
         "final_equity": float(equity[-1]),
         "score": float(score),
         "reward_component_avg": {k: float(v / n) for k, v in reward_component_sums.items()},
+        "holdout_start": holdout_start,
+        "out_of_sample": bool(holdout_start),
+        "baselines": baselines,
     }
 
     logger.info(
@@ -246,6 +340,7 @@ def run_multi(
     period: str = "120d",
     interval: str = "5m",
     reward_weights: dict | None = None,
+    holdout_start: str | None = None,
 ) -> dict:
     model_path = os.path.join(model_dir, "ppo_trading.zip")
     vec_path = os.path.join(model_dir, "vec_normalize.pkl")
@@ -262,6 +357,7 @@ def run_multi(
                 period=period,
                 interval=tf,
                 reward_weights=reward_weights,
+                override_holdout_start=holdout_start,
             )
             if r:
                 per_symbol.append(r)
@@ -278,7 +374,14 @@ def run_multi(
     dds = [x["max_drawdown"] for x in per_symbol]
     sharpes = [x["sharpe"] for x in per_symbol]
 
+    def _avg_baseline(name, key):
+        vals = [float(x.get("baselines", {}).get(name, {}).get(key)) for x in per_symbol if x.get("baselines", {}).get(name)]
+        return float(np.mean(vals)) if vals else None
+
     agg = {
+        "baseline_avg_return": _avg_baseline("ma_cross", "total_return"),
+        "baseline_avg_sharpe": _avg_baseline("ma_cross", "sharpe"),
+        "buy_hold_avg_return": _avg_baseline("buy_hold", "total_return"),
         "symbols": [x["symbol"] for x in per_symbol],
         "period": period,
         "interval": tf,

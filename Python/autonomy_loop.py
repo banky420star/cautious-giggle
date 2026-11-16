@@ -24,16 +24,18 @@ class AutonomyLoop:
         self.interval_sec = int(os.environ.get("AGI_AUTONOMY_INTERVAL_SEC", str(3600)))
         self.train_every_sec = int(os.environ.get("AGI_AUTONOMY_TRAIN_EVERY_SEC", "0"))
         self.train_on_start = os.environ.get("AGI_AUTONOMY_TRAIN_ON_START", "false").lower() == "true"
-        self.enable_train = os.environ.get("AGI_AUTONOMY_TRAIN", "true").lower() == "true"
+        # Training belongs in the offline pipeline (tools/champion_cycle.py run on a schedule),
+        # not inside the live trading process. Opt in explicitly with AGI_AUTONOMY_TRAIN=true.
+        self.enable_train = os.environ.get("AGI_AUTONOMY_TRAIN", "false").lower() == "true"
         self.enable_auto_canary = os.environ.get("AGI_AUTONOMY_AUTO_CANARY", "true").lower() == "true"
 
-        self.canary_min_trades = int(os.environ.get("CANARY_MIN_TRADES", "10"))
+        self.canary_min_trades = int(os.environ.get("CANARY_MIN_TRADES", "30"))
         self.canary_max_loss = float(os.environ.get("CANARY_MAX_LOSS", "75"))
         self.canary_max_dd = float(os.environ.get("CANARY_MAX_DD", "0.12"))
         self.min_score_delta = float(os.environ.get("AGI_GATE_MIN_SCORE_DELTA", "0.25"))
-        self.max_eval_dd = float(os.environ.get("AGI_GATE_MAX_EVAL_DD", "0.20"))
-        self.min_eval_sharpe = float(os.environ.get("AGI_GATE_MIN_EVAL_SHARPE", "-0.10"))
-        self.min_eval_return = float(os.environ.get("AGI_GATE_MIN_EVAL_RETURN", "-0.02"))
+        self.max_eval_dd = float(os.environ.get("AGI_GATE_MAX_EVAL_DD", "0.10"))
+        self.min_eval_sharpe = float(os.environ.get("AGI_GATE_MIN_EVAL_SHARPE", "0.50"))
+        self.min_eval_return = float(os.environ.get("AGI_GATE_MIN_EVAL_RETURN", "0.0"))
         self.require_walkforward = os.environ.get("AGI_GATE_REQUIRE_WALKFORWARD", "false").lower() == "true"
         self.require_papertrade = os.environ.get("AGI_GATE_REQUIRE_PAPERTRADE", "false").lower() == "true"
         self.min_paper_trades = int(os.environ.get("AGI_GATE_MIN_PAPER_TRADES", "20"))
@@ -291,18 +293,18 @@ class AutonomyLoop:
 
             lstm_env = os.environ.copy()
             lstm_env["AGI_LSTM_SYMBOLS"] = str(symbol)
-            subprocess.check_call([sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT, env=lstm_env)
+            await asyncio.to_thread(subprocess.check_call, [sys.executable, "training/train_lstm.py"], cwd=PROJECT_ROOT, env=lstm_env)
             self._notify(f"LSTM training finished {symbol}")
 
             if self._dreamer_train_enabled():
                 dreamer_env = os.environ.copy()
                 dreamer_env["AGI_DREAMER_SYMBOL"] = str(symbol)
-                subprocess.check_call([sys.executable, "training/train_dreamer.py"], cwd=PROJECT_ROOT, env=dreamer_env)
+                await asyncio.to_thread(subprocess.check_call, [sys.executable, "training/train_dreamer.py"], cwd=PROJECT_ROOT, env=dreamer_env)
                 self._notify(f"Dreamer training finished {symbol}")
 
             drl_env = os.environ.copy()
             drl_env["AGI_DRL_SYMBOL"] = str(symbol)
-            subprocess.check_call([sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT, env=drl_env)
+            await asyncio.to_thread(subprocess.check_call, [sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT, env=drl_env)
 
             cand = self._latest_candidate_dir(symbol=symbol)
             if cand:

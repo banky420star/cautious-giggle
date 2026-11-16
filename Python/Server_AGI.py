@@ -562,6 +562,16 @@ def _fetch_symbol_df(symbol: str, timeframe, bars=None):
     return out
 
 
+def _last_closed_bar_time(symbol: str, timeframe) -> int | None:
+    try:
+        rates = mt5.copy_rates_from_pos(symbol, timeframe, 1, 1)
+        if rates is None or len(rates) == 0:
+            return None
+        return int(rates[-1]["time"])
+    except Exception:
+        return None
+
+
 def _account_snapshot():
     info = mt5.account_info()
     positions = mt5.positions_get() or []
@@ -793,6 +803,10 @@ def main(live=False):
     trade_learning_by_symbol = {}
 
     reconnect_backoff = 5.0
+    # Decisions are made once per closed bar. Between bars only stops are managed;
+    # recomputing an identical decision every loop added nothing but churn risk.
+    last_decided_bar = {}
+    every_loop = os.environ.get("AGI_DECIDE_EVERY_LOOP", "false").lower() == "true"
     while True:
         now = time.time()
 
@@ -905,9 +919,15 @@ def main(live=False):
 
         for symbol in symbols:
             try:
+                bar_time = _last_closed_bar_time(symbol, timeframe)
+                if not every_loop and bar_time is not None and last_decided_bar.get(symbol) == bar_time:
+                    executor.manage_open_positions(symbol)
+                    continue
                 df = _fetch_symbol_df(symbol, timeframe)
                 if df is None or df.empty:
                     continue
+                if bar_time is not None:
+                    last_decided_bar[symbol] = bar_time
 
                 agi_meta = agi.predict(df, production=True)
                 conf = float((agi_meta or {}).get("confidence", 0.0) or 0.0)
@@ -987,6 +1007,9 @@ def main(live=False):
                     "current_symbol_exposure": float(current_symbol_exposure),
                     "total_exposure": float(total_exposure),
                 }
+                if supervisor_decision.allowed and getattr(supervisor_decision, "target", None) is not None:
+                    exposure = float(supervisor_decision.target)
+                    sym_state["risk_supervisor"]["capped_target"] = exposure
                 if supervisor_decision.allowed:
                     order_meta = brain.live_trade(
                         symbol,

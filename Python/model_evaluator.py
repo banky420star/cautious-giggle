@@ -8,10 +8,14 @@ def run_multi(*args, **kwargs):
 
 
 def _default_gates():
+    # Sharpe is annualised; returns are over the out-of-sample holdout window, after costs.
     return {
         "max_drawdown": 0.10,
-        "min_sharpe": 0.30,
-        "min_return": 0.015,
+        "min_sharpe": 0.50,
+        "min_return": 0.0,
+        "baseline_margin": 0.0,     # candidate avg_return must exceed MA-cross baseline by this
+        "require_beat_baseline": True,
+        "require_out_of_sample": True,
         "score_margin": 0.30,
         "min_steps_per_symbol": 600,
         "min_pass_rate": 0.80,
@@ -32,6 +36,22 @@ def _merge_gates(gates: dict | None):
     return g
 
 
+def _candidate_holdout_start(candidate_dir: str) -> str | None:
+    try:
+        from Python.backtester import _load_model_meta
+
+        return _load_model_meta(candidate_dir).get("holdout_start")
+    except Exception:
+        return None
+
+
+def _call_run_multi(symbols, model_dir, period, interval, reward_weights, holdout_start):
+    kwargs = {"period": period, "interval": interval, "reward_weights": reward_weights}
+    if holdout_start:
+        kwargs["holdout_start"] = holdout_start
+    return run_multi(symbols, model_dir, **kwargs)
+
+
 def _evaluate_once(
     candidate_dir: str,
     champion_dir: str | None,
@@ -39,14 +59,17 @@ def _evaluate_once(
     period: str,
     interval: str,
     reward_weights: dict | None,
+    holdout_start: str | None = None,
 ):
-    cand = run_multi(symbols, candidate_dir, period=period, interval=interval, reward_weights=reward_weights)
+    # Both models are scored on the *candidate's* unseen holdout window, so the
+    # candidate never gets credit for data it trained on.
+    cand = _call_run_multi(symbols, candidate_dir, period, interval, reward_weights, holdout_start)
     if cand.get("error"):
         return {"error": cand["error"], "candidate": cand, "champion": None}
 
     champ = None
     if champion_dir and os.path.isdir(champion_dir):
-        champ = run_multi(symbols, champion_dir, period=period, interval=interval, reward_weights=reward_weights)
+        champ = _call_run_multi(symbols, champion_dir, period, interval, reward_weights, holdout_start)
         if champ.get("error"):
             champ = None
 
@@ -63,8 +86,16 @@ def evaluate_candidate_vs_champion(
     gates: dict | None = None,
 ) -> dict:
     g = _merge_gates(gates)
+    holdout_start = _candidate_holdout_start(candidate_dir)
+    if g.get("require_out_of_sample") and not holdout_start:
+        return {
+            "wins": False,
+            "passes_thresholds": False,
+            "error": "candidate has no holdout_start (trained without a chronological split); retrain",
+            "gates": g,
+        }
 
-    main = _evaluate_once(candidate_dir, champion_dir, symbols, period, interval, reward_weights)
+    main = _evaluate_once(candidate_dir, champion_dir, symbols, period, interval, reward_weights, holdout_start)
     if main.get("error"):
         return {"wins": False, "passes_thresholds": False, "error": main["error"], "gates": g}
 
@@ -107,6 +138,13 @@ def evaluate_candidate_vs_champion(
         and float(cand.get("avg_return", -999.0)) >= float(g["min_return"])
         and pass_rate >= float(g["min_pass_rate"])
     )
+    baseline_ret = cand.get("baseline_avg_return")
+    beats_baseline = True
+    if g.get("require_beat_baseline"):
+        beats_baseline = baseline_ret is not None and float(cand.get("avg_return", -999.0)) > float(baseline_ret) + float(
+            g.get("baseline_margin", 0.0)
+        )
+    base_passes = bool(base_passes and beats_baseline)
 
     wins = True
     margin = float(g["score_margin"])
@@ -130,6 +168,9 @@ def evaluate_candidate_vs_champion(
         wins = all(win_checks.values())
 
     forward_windows = [str(x) for x in (g.get("forward_windows") or []) if str(x).strip()]
+    if holdout_start:
+        # Trailing windows all collapse onto the same holdout slice; they add no information.
+        forward_windows = []
     forward_results = []
     if forward_windows:
         wf_wins = 0
@@ -167,6 +208,9 @@ def evaluate_candidate_vs_champion(
         "win_checks": win_checks,
         "per_symbol_gates": per_symbol,
         "pass_rate": float(pass_rate),
+        "beats_baseline": bool(beats_baseline),
+        "baseline_avg_return": baseline_ret,
+        "holdout_start": holdout_start,
         "forward_windows": forward_results,
         "ts": time.time(),
     }

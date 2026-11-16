@@ -11,6 +11,8 @@ from dataclasses import dataclass
 class RiskDecision:
     allowed: bool
     reason: str
+    # When set, trade this (capped) target instead of the requested one.
+    target: float | None = None
 
 
 class RiskSupervisor:
@@ -143,13 +145,22 @@ class RiskSupervisor:
         if symbol_positions >= max_positions_per_symbol and abs(target_exposure) > abs(current_symbol_exposure):
             return RiskDecision(False, f"max_positions_per_symbol {symbol_positions} >= {max_positions_per_symbol}")
 
-        projected_symbol_exposure = max(abs(current_symbol_exposure), abs(target_exposure))
-        if projected_symbol_exposure > max_symbol_exposure:
-            return RiskDecision(False, f"symbol_exposure {projected_symbol_exposure:.3f} > {max_symbol_exposure:.3f}")
-
-        projected_total_exposure = total_exposure - abs(current_symbol_exposure) + abs(target_exposure)
-        if projected_total_exposure > self.max_total_exposure:
-            return RiskDecision(False, f"total_exposure {projected_total_exposure:.3f} > {self.max_total_exposure:.3f}")
+        # Exposure limits scale the target down instead of rejecting it, so a strong
+        # signal still trades at the largest size the limits allow.
+        capped = float(target_exposure)
+        cap_reasons = []
+        if abs(capped) > max_symbol_exposure:
+            capped = max_symbol_exposure if capped > 0 else -max_symbol_exposure
+            cap_reasons.append(f"symbol_cap {max_symbol_exposure:.3f}")
+        other_exposure = max(0.0, float(total_exposure) - abs(float(current_symbol_exposure)))
+        room = max(0.0, self.max_total_exposure - other_exposure)
+        if abs(capped) > room:
+            capped = room if capped > 0 else -room
+            cap_reasons.append(f"total_cap room={room:.3f}")
+        if abs(capped) < 1e-9:
+            return RiskDecision(False, f"no_exposure_room total={total_exposure:.3f} max={self.max_total_exposure:.3f}")
+        if capped * float(current_symbol_exposure) > 0 and abs(capped) <= abs(float(current_symbol_exposure)):
+            return RiskDecision(True, "capped_to_current " + ",".join(cap_reasons), target=capped)
 
         if spread_bps is not None and float(spread_bps) > max_spread_bps:
             return RiskDecision(False, f"spread_bps {float(spread_bps):.2f} > {max_spread_bps:.2f}")
@@ -164,4 +175,6 @@ class RiskSupervisor:
             if elapsed < min_trade_interval_sec:
                 return RiskDecision(False, f"cooldown {elapsed:.0f}s < {min_trade_interval_sec}s")
 
+        if cap_reasons:
+            return RiskDecision(True, "capped " + ",".join(cap_reasons), target=capped)
         return RiskDecision(True, "ok")

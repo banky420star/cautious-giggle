@@ -47,9 +47,22 @@ drl:
   data_source: mt5
   optuna_trials: 0
   optuna_timesteps: 10000
+  split:            # chronological train / validation / test
+    val: 0.15
+    test: 0.15
+  env:
+    execution_mode: target   # live-parity: hold a target position, ATR SL/TP intrabar
+    random_start: true
+    episode_length: 2048
+    min_rebalance: 0.05
+    sl_atr_mult: 1.4
+    tp_atr_mult: 2.2
+    # costs:                 # per-side bps; defaults are Exness-standard-like
+    #   BTCUSDm: {spread_bps: 2.5, commission_bps: 0.0, slippage_bps: 1.0}
+    #   XAUUSDm: {spread_bps: 1.0, commission_bps: 0.0, slippage_bps: 0.5}
   dreamer:
-    enabled: true
-    train_in_cycle: true
+    enabled: false          # not evaluated by any promotion gate; keep off until it is
+    train_in_cycle: false
     steps: 5000
     window: 64
     feature_version: ultimate_150
@@ -78,19 +91,21 @@ training:
   feature_version: ultimate_150
   data_source: mt5
 evaluation:
-  max_drawdown: 0.1
-  min_sharpe: 0.3
-  min_return: 0.015
+  # Scored on each candidate's out-of-sample holdout (last 15% of its data, after costs).
+  # Sharpe is annualised. A candidate must also beat the EMA(20/100) cross baseline.
+  max_drawdown: 0.10
+  min_sharpe: 0.5
+  min_return: 0.0
+  require_beat_baseline: true
+  baseline_margin: 0.0
+  require_out_of_sample: true
   score_margin: 0.3
   min_steps_per_symbol: 600
-  min_pass_rate: 0.8
+  min_pass_rate: 1.0
   return_margin: 0.0
   sharpe_margin: 0.05
   drawdown_margin: 0.0
-  forward_windows:
-  - 60d
-  - 90d
-  - 120d
+  forward_windows: []
   min_forward_win_rate: 0.67
 registry:
   ensemble:

@@ -61,7 +61,8 @@ def test_projected_total_exposure_short_positions():
     current and target exposures.
 
     total_exposure=0.6, current=-0.3, target=-0.5
-    projected = 0.6 - abs(-0.3) + abs(-0.5) = 0.8  >  max_total=0.7 → blocked
+    projected = 0.6 - abs(-0.3) + abs(-0.5) = 0.8  >  max_total=0.7 → capped
+    to the room left: 0.7 - (0.6 - 0.3) = 0.4, keeping the short sign.
     """
     sup = _make_supervisor(
         extra_risk={"max_total_exposure": 0.7},
@@ -75,8 +76,9 @@ def test_projected_total_exposure_short_positions():
         target_exposure=-0.5,
         total_exposure=0.6,
     )
-    assert not decision.allowed
-    assert "total_exposure" in decision.reason
+    assert decision.allowed
+    assert "total_cap" in decision.reason
+    assert decision.target == pytest.approx(-0.4)
 
 
 def test_projected_total_exposure_long_positions():
@@ -84,7 +86,8 @@ def test_projected_total_exposure_long_positions():
     Long-position exposure fix: projected_total correctly computed for longs.
 
     total=0.6, current=0.1, target=0.4
-    projected = 0.6 - 0.1 + 0.4 = 0.9  >  max_total=0.85 → blocked
+    projected = 0.6 - 0.1 + 0.4 = 0.9  >  max_total=0.85 → capped to
+    0.85 - (0.6 - 0.1) = 0.35.
     """
     sup = _make_supervisor(
         extra_risk={"max_total_exposure": 0.85},
@@ -97,8 +100,9 @@ def test_projected_total_exposure_long_positions():
         target_exposure=0.4,
         total_exposure=0.6,
     )
-    assert not decision.allowed
-    assert "total_exposure" in decision.reason
+    assert decision.allowed
+    assert "total_cap" in decision.reason
+    assert decision.target == pytest.approx(0.35)
 
 
 # ---------------------------------------------------------------------------

@@ -333,3 +333,119 @@ def test_ppo_live_observation_uses_latest_window():
     oldest = np.asarray(env.feature_data[:30], dtype=np.float32).reshape(-1)
     assert np.allclose(obs[: latest.size], latest)
     assert not np.allclose(obs[: oldest.size], oldest)
+
+
+# ================================================================ redesign (round 2)
+def test_target_mode_holds_position_and_charges_costs():
+    from drl.trading_env import TradingEnv
+
+    df = _ohlcv(600)
+    env = TradingEnv(df=df, window_size=30, feature_version="ultimate_150", execution_mode="target",
+                     spread_bps=2.0, commission_rate=0.0, slippage_bps=0.0, sl_atr_mult=1e6, tp_atr_mult=1e6)
+    env.reset()
+    long_action = np.array([1.0, 1.0, -1, 0, 0, 0], dtype=np.float32)  # direction 1, size 1
+    _, _, _, _, info = env.step(long_action)
+    assert info["position"] == pytest.approx(1.0)
+    assert info["cost"] == pytest.approx(10000.0 * 2.0 / 10000.0, rel=1e-6)
+    _, _, _, _, info2 = env.step(long_action)
+    assert info2["cost"] == 0.0  # holding costs nothing
+    flat = np.array([0.0, -1.0, -1, 0, 0, 0], dtype=np.float32)
+    _, _, _, _, info3 = env.step(flat)
+    assert info3["position"] == 0.0
+
+
+def test_target_mode_stop_loss_hits_intrabar():
+    from drl.trading_env import TradingEnv
+
+    n = 300
+    c = np.full(n, 100.0)
+    df = pd.DataFrame({"time": pd.date_range("2026-01-01", periods=n, freq="5min", tz="UTC"),
+                       "open": c, "high": c + 0.1, "low": c - 0.1, "close": c, "volume": np.full(n, 100.0)})
+    env = TradingEnv(df=df, window_size=30, feature_version="ultimate_150", execution_mode="target",
+                     spread_bps=0.0, commission_rate=0.0, slippage_bps=0.0, sl_atr_mult=1.0, tp_atr_mult=50.0)
+    env.reset()
+    t = env.current_step
+    env.lows[t] = 99.0  # crash through the stop during the next bar
+    _, _, _, _, info = env.step(np.array([1.0, 1.0, -1, 0, 0, 0], dtype=np.float32))
+    assert info["exit_reason"] == "sl"
+    assert info["position"] == 0.0
+    # lost ~ATR (0.2) on 100, not the full 1.0 drop
+    assert 10000 * (1 - 0.003) < info["equity"] < 10000
+
+
+def test_random_start_varies_episode_start():
+    from drl.trading_env import TradingEnv
+
+    env = TradingEnv(df=_ohlcv(3000), window_size=30, feature_version="ultimate_150",
+                     execution_mode="target", random_start=True, episode_length=200)
+    starts = {env.reset(seed=s) and env.episode_start for s in range(8)}
+    assert len(starts) > 1
+
+
+def test_chronological_split_is_ordered_and_disjoint():
+    from training.train_drl import chronological_split
+
+    df = _ohlcv(1000)
+    tr, va, te = chronological_split(df, {"drl": {"split": {"val": 0.15, "test": 0.15}}})
+    assert len(tr) + len(va) + len(te) == 1000
+    assert tr["time"].max() < va["time"].min() < te["time"].min()
+
+
+def test_baselines_computed_with_costs():
+    from Python.backtester import run_baselines
+
+    df = _ohlcv(2000)
+    free = run_baselines(df, "5m", cost_bps=0.0)
+    costly = run_baselines(df, "5m", cost_bps=5.0)
+    assert set(free) == {"ma_cross", "buy_hold"}
+    assert costly["ma_cross"]["total_return"] < free["ma_cross"]["total_return"]
+
+
+def test_holdout_slice_keeps_only_unseen_bars():
+    from Python.backtester import _holdout_slice
+
+    df = _ohlcv(1000)
+    cut = str(df["time"].iloc[800])
+    out = _holdout_slice(df, cut)
+    assert len(out) == 200
+    assert out["time"].min() == df["time"].iloc[800]
+
+
+def _fake_multi(cand_ret, baseline_ret):
+    def _run(symbols, model_dir, period="120d", interval="5m", reward_weights=None, holdout_start=None):
+        row = {"symbol": symbols[0], "score": 5.0, "max_drawdown": 0.05, "sharpe": 1.2,
+               "total_return": cand_ret, "steps": 900}
+        return {"avg_score": 5.0, "avg_return": cand_ret, "worst_drawdown": 0.05, "avg_sharpe": 1.2,
+                "baseline_avg_return": baseline_ret, "per_symbol": [row]}
+    return _run
+
+
+def test_evaluator_requires_holdout(monkeypatch):
+    from Python import model_evaluator as me
+
+    monkeypatch.setattr(me, "run_multi", _fake_multi(0.05, 0.0))
+    monkeypatch.setattr(me, "_candidate_holdout_start", lambda _d: None)
+    rep = me.evaluate_candidate_vs_champion("cand", None, ["BTCUSDm"])
+    assert rep["passes_thresholds"] is False
+    assert "holdout" in rep["error"]
+
+
+def test_evaluator_requires_beating_baseline(monkeypatch):
+    from Python import model_evaluator as me
+
+    monkeypatch.setattr(me, "_candidate_holdout_start", lambda _d: "2026-10-01")
+    monkeypatch.setattr(me, "run_multi", _fake_multi(0.02, 0.03))
+    assert me.evaluate_candidate_vs_champion("cand", None, ["BTCUSDm"])["passes_thresholds"] is False
+    monkeypatch.setattr(me, "run_multi", _fake_multi(0.04, 0.03))
+    assert me.evaluate_candidate_vs_champion("cand", None, ["BTCUSDm"])["passes_thresholds"] is True
+
+
+def test_supervisor_caps_instead_of_rejecting():
+    s = RiskSupervisor({"risk": {"supervisor": {"enabled": True, "max_symbol_exposure": 0.35, "max_total_exposure": 1.2}}})
+    s.halt_until = None
+    s.last_trade_at_by_symbol.clear()
+    d = s.allow_trade(symbol="BTCUSDm", target_exposure=0.9, confidence=0.9, spread_bps=1.0,
+                      snapshot={"pnl_today": 0.0}, symbol_positions=0, total_positions=0,
+                      current_symbol_exposure=0.0, total_exposure=0.0, drawdown_pct=0.0)
+    assert d.allowed
+    assert d.target == pytest.approx(0.35)

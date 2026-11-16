@@ -32,8 +32,26 @@ class TradingEnv(gym.Env):
         feature_version: str = ENGINEERED_V2,
         action_config: dict | None = None,
         symbol: str | None = None,
+        execution_mode: str = "trade",
+        slippage_bps: float = 1.0,
+        random_start: bool = False,
+        episode_length: int | None = None,
+        sl_atr_mult: float = 1.4,
+        tp_atr_mult: float = 2.2,
+        min_rebalance: float = 0.05,
     ):
         super().__init__()
+        # "target": live-parity mode. Each step the action is a target position that is
+        # held until changed, exactly like Server_AGI -> MT5Executor.reconcile_exposure,
+        # with executor-style ATR stop-loss / take-profit checked against bar high/low.
+        # "trade": legacy fire-and-wait mode (kept so old checkpoints can be replayed).
+        self.execution_mode = str(execution_mode or "trade").lower()
+        self.slippage_bps = float(slippage_bps)
+        self.random_start = bool(random_start)
+        self.episode_length = int(episode_length) if episode_length else None
+        self.sl_atr_mult = float(sl_atr_mult)
+        self.tp_atr_mult = float(tp_atr_mult)
+        self.min_rebalance = float(min_rebalance)
         self.initial_balance = float(initial_balance)
         self.commission_rate = float(commission_rate)
         self.spread_bps = float(spread_bps)
@@ -275,6 +293,7 @@ class TradingEnv(gym.Env):
     def _set_data(self, df):
         o, h, l, c, v, dates = self._extract_arrays(df)
         self.prices = c.astype(np.float64)
+        self._set_bar_arrays(h, l, c)
         base = pd.DataFrame(
             {
                 "time": dates if dates is not None else pd.RangeIndex(len(c)),
@@ -301,6 +320,7 @@ class TradingEnv(gym.Env):
         dates = pd.date_range("2026-01-01", periods=n, freq="5min", tz="UTC")
 
         self.prices = price.astype(np.float64)
+        self._set_bar_arrays(h, l, price)
         base = pd.DataFrame(
             {
                 "time": dates,
@@ -316,9 +336,23 @@ class TradingEnv(gym.Env):
         self._update_observation_space()
         self.reset()
 
+    def _set_bar_arrays(self, h, l, c):
+        self.highs = np.asarray(h, dtype=np.float64)
+        self.lows = np.asarray(l, dtype=np.float64)
+        c = np.asarray(c, dtype=np.float64)
+        prev_c = np.concatenate([[c[0]], c[:-1]])
+        tr = np.maximum(self.highs - self.lows, np.maximum(np.abs(self.highs - prev_c), np.abs(self.lows - prev_c)))
+        # ATR(14) known at the close of each bar (no future data).
+        self.atr = pd.Series(tr).rolling(14, min_periods=1).mean().to_numpy(dtype=np.float64)
+
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
         self.current_step = self.window_size
+        last_start = len(self.prices) - 2 - (self.episode_length or 0)
+        if self.random_start and last_start > self.window_size:
+            self.current_step = int(self.np_random.integers(self.window_size, last_start + 1))
+        self.episode_start = int(self.current_step)
+        self.target_trade = None  # target-mode position bookkeeping (entry/sl/tp)
         self.equity = self.initial_balance
         self.position = 0.0
         self.last_action = {"direction": 0.0, "size": 0.0, "target": 0.0, "legacy": False}
@@ -329,6 +363,8 @@ class TradingEnv(gym.Env):
         return self._get_obs(), {}
 
     def step(self, action: np.ndarray):
+        if self.execution_mode == "target":
+            return self._step_target(action)
         action_meta = self.decode_action(
             action,
             max_leverage=self.max_leverage,
@@ -450,6 +486,113 @@ class TradingEnv(gym.Env):
         self._log_profit_snapshot(current_price, info)
 
         self.current_step += 1
+        return self._get_obs(), reward, terminated, truncated, info
+
+    # ------------------------------------------------------------ target mode
+    def _cost_rate(self) -> float:
+        return self.commission_rate + (self.spread_bps + self.slippage_bps) / 10000.0
+
+    def _step_target(self, action):
+        """Live-parity step.
+
+        At the close of bar t-1 (the last bar in the observation) the agent picks a
+        target. It is filled at that close (+costs). During bar t the position earns the
+        bar's return unless the ATR stop/TP is touched by the bar's high/low, in which
+        case it exits at the stop/TP price. This is how MT5Executor behaves live.
+        """
+        action_meta = self.decode_action(
+            action,
+            max_leverage=self.max_leverage,
+            min_direction_abs=float(self.action_config.get("min_direction_abs", 0.03)),
+            min_size_abs=float(self.action_config.get("min_size_abs", 0.03)),
+            min_target_abs=float(self.action_config.get("min_target_abs", 0.03)),
+        )
+        t = self.current_step
+        fill_price = float(self.prices[t - 1])
+        prev_equity = float(self.equity)
+        prev_position = float(self.position)
+        target = float(np.clip(action_meta.get("target", 0.0) or 0.0, -self.max_leverage, self.max_leverage))
+
+        # Rebalance only on a meaningful change (live: volume step + min threshold).
+        new_position = prev_position
+        if target == 0.0 or np.sign(target) != np.sign(prev_position) or abs(target - prev_position) >= self.min_rebalance:
+            new_position = target
+        delta = new_position - prev_position
+        total_cost = abs(delta) * prev_equity * self._cost_rate()
+        self.equity -= total_cost
+        if delta != 0.0:
+            if new_position == 0.0:
+                self.target_trade = None
+            elif self.target_trade is None or np.sign(new_position) != np.sign(prev_position):
+                atr = float(self.atr[t - 1])
+                d = float(np.sign(new_position))
+                self.target_trade = {
+                    "entry": fill_price,
+                    "sl": fill_price - d * self.sl_atr_mult * atr,
+                    "tp": fill_price + d * self.tp_atr_mult * atr,
+                }
+        self.position = new_position
+
+        # Mark to market over bar t, with intrabar stop / take-profit.
+        exit_reason = None
+        exit_price = float(self.prices[t])
+        if self.position != 0.0 and self.target_trade is not None:
+            hi, lo = float(self.highs[t]), float(self.lows[t])
+            sl, tp = self.target_trade["sl"], self.target_trade["tp"]
+            if self.position > 0:
+                if lo <= sl:
+                    exit_reason, exit_price = "sl", sl
+                elif hi >= tp:
+                    exit_reason, exit_price = "tp", tp
+            else:
+                if hi >= sl:
+                    exit_reason, exit_price = "sl", sl
+                elif lo <= tp:
+                    exit_reason, exit_price = "tp", tp
+        bar_ret = (exit_price - fill_price) / (fill_price + 1e-12)
+        self.equity += self.position * self.equity * bar_ret
+        if exit_reason is not None:
+            exit_cost = abs(self.position) * self.equity * self._cost_rate()
+            self.equity -= exit_cost
+            total_cost += exit_cost
+            self.position = 0.0
+            self.target_trade = None
+
+        self.last_action = action_meta
+        self.peak_equity = max(self.peak_equity, self.equity)
+        self.equity_curve.append(float(self.equity))
+        drawdown = (self.peak_equity - self.equity) / (self.peak_equity + 1e-12)
+        step_ret = (self.equity - prev_equity) / (prev_equity + 1e-12)
+        self.recent_returns = np.roll(self.recent_returns, -1)
+        self.recent_returns[-1] = step_ret
+
+        # Reward = log growth of equity (costs included) minus a penalty for drawdown
+        # beyond 5%. No windowed-Sharpe bonus: it dominated PnL and rewarded variance.
+        log_ret = float(np.log(max(self.equity, 1e-9) / max(prev_equity, 1e-9)))
+        dd_pen = max(0.0, drawdown - 0.05)
+        rw = self.reward_weights
+        reward = 100.0 * log_ret - rw["drawdown_penalty"] * 0.1 * dd_pen
+        reward = float(np.clip(reward, -5.0, 5.0))
+
+        self.current_step += 1
+        terminated = bool(drawdown > self.max_drawdown or self.equity <= 0)
+        end = len(self.prices) - 1
+        if self.episode_length:
+            end = min(end, self.episode_start + self.episode_length)
+        truncated = bool(self.current_step >= end)
+
+        info = {
+            "equity": float(self.equity),
+            "position": float(self.position),
+            "drawdown": float(drawdown),
+            "cost": float(total_cost),
+            "exit_reason": exit_reason,
+            "feature_version": self.feature_version,
+            "execution_mode": self.execution_mode,
+            "reward_components": {"growth": log_ret, "drawdown_penalty": dd_pen, "cost_penalty": total_cost / (prev_equity + 1e-12)},
+        }
+        if self.profit_log_every > 0 and self.current_step % self.profit_log_every == 0:
+            self._log_profit_snapshot(exit_price, {"trade_state": {"target_trade": self.target_trade}, "profitability": {"equity_curve": list(self.equity_curve[-5:])}})
         return self._get_obs(), reward, terminated, truncated, info
 
     def _get_obs(self):
