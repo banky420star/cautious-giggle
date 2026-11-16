@@ -226,3 +226,19 @@ def test_sltp_modify_creates_then_patches(shim):
     assert p.sl == 95.0 and p.tp == 110.0
     shim.order_send({"action": shim.TRADE_ACTION_SLTP, "symbol": "BTCUSDm", "position": pid, "sl": 99.0, "tp": 110.0})
     assert [c[0] for c in shim.client.calls].count("modify_order") == 1
+
+
+def test_exness_generated_128_hex_private_key():
+    from cryptography.hazmat.primitives import serialization
+
+    key = Ed25519PrivateKey.generate()
+    seed = key.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())
+    pub = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    k = ex.load_ed25519_private_key((seed + pub).hex())
+    assert k.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw) == pub
+
+
+def test_empty_body_hash_matches_official_docs():
+    key = Ed25519PrivateKey.generate()
+    h = ex.build_signed_headers("k", key, "GET", "/v1/x", "", "", 1)
+    assert json.loads(_b64url_decode(h["EXN-DATA"]))["body_hash"] == "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU"

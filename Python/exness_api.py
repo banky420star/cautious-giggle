@@ -8,17 +8,18 @@ executor, risk and data code runs unchanged:
     AGI_BROKER_BACKEND=exness_api python Python/Server_AGI.py --live
 
 Credentials (env vars, or the ``exness_api:`` section of config.yaml):
-    EXNESS_API_KEY        API key id from the Exness Personal Area -> API page
-    EXNESS_PRIVATE_KEY    Ed25519 private key: 32-byte seed as hex / base64 / base64url,
-                          or PEM; or EXNESS_PRIVATE_KEY_FILE=/path/to/key
+    EXNESS_API_KEY        key id (exnsk-...) from Personal Area -> Key Management
+    EXNESS_PRIVATE_KEY    Ed25519 private key: the 128-hex-char key Exness generates, or a
+                          PKCS#8 PEM if you registered your own public key;
+                          or EXNESS_PRIVATE_KEY_FILE=/path/to/key
     EXNESS_ACCOUNT_ID     trading account id the key is allowed to trade
-    EXNESS_BASE_URL       default https://api.exness.com
+    EXNESS_BASE_URL       Gateway host shown in Key Management's DNS widget (required)
 
 Only Exness API-enabled trading accounts work (not standard MetaTrader accounts), and
 the API has no magic numbers: use a dedicated account for the bot.
 
-The request signing and endpoint shapes follow the published API as implemented by the
-community SDK github.com/realm-dev/ExnessSDK. Run ``python -m Python.exness_api check``
+Signing and endpoints follow the official Exness API Developer Portal
+(https://www.exness-api.com). Run ``python -m Python.exness_api check``
 against your account before trading: it exercises every read endpoint the bot uses.
 """
 from __future__ import annotations
@@ -41,13 +42,17 @@ from urllib.parse import quote
 import numpy as np
 import requests
 
-DEFAULT_BASE_URL = "https://api.exness.com"
+# The Gateway host is shown in the DNS widget of Key Management (Personal Area). Exness says
+# not to guess hosts, so EXNESS_BASE_URL is required.
+DEFAULT_BASE_URL = ""
 _TIMESTAMP_SAFETY_MS = 1000  # server accepts 0 <= server_now - ts <= 3000 ms
 
 # --------------------------------------------------------------------------- errors
 # Exness API error code -> closest MT5 trade retcode (so MT5Executor logic applies).
 _ERROR_TO_RETCODE = {
     1: 10024,     # SYSTEM_RATE_LIMIT -> TOO_MANY_REQUESTS
+    1003: 10024,  # AUTH_RATE_LIMIT
+    3015: 10024,  # REQUEST_RATE_LIMIT
     2: 10031,     # SYSTEM_TEMPORARY_UNAVAILABLE -> CONNECTION
     3: 10011,     # SYSTEM_INTERNAL_ERROR -> ERROR
     2002: 10044,  # ACCOUNT_CLOSE_ONLY -> CLOSE_ONLY
@@ -108,7 +113,7 @@ def load_ed25519_private_key(material: str):
             raise ValueError("PEM key is not Ed25519")
         return key
     raw = None
-    if len(material) == 64:
+    if len(material) in (64, 128):  # Exness-generated keys are 128 hex chars (seed || public key)
         try:
             raw = bytes.fromhex(material)
         except ValueError:
@@ -195,6 +200,8 @@ class ExnessClient:
                 return resp.json() if resp.text else None
             try:
                 err = resp.json()
+                if isinstance(err.get("error"), dict):
+                    err = err["error"]
                 code, msg = int(err.get("code", resp.status_code)), str(err.get("error_message", resp.reason))
             except Exception:
                 code, msg = resp.status_code, resp.reason
@@ -218,7 +225,7 @@ class ExnessClient:
 
     # Endpoints
     def account_details(self):
-        return self.request("GET", f"/v1/configuration/accounts/{self.account_id}/account")
+        return self.trading("GET", f"/v1/configuration/accounts/{self.account_id}/account")
 
     def instruments(self):
         return (self.trading("GET", f"/v1/configuration/accounts/{self.account_id}/instruments") or {}).get("instruments") or []
@@ -227,7 +234,7 @@ class ExnessClient:
         return self.trading("GET", f"/v1/configuration/accounts/{self.account_id}/instruments/{quote(instrument, safe='')}/conditions")
 
     def limits(self):
-        return self.request("GET", f"/v1/configuration/accounts/{self.account_id}/limits")
+        return self.trading("GET", f"/v1/configuration/accounts/{self.account_id}/limits")
 
     def snapshot(self):
         return self.trading("GET", f"/v1/trading/accounts/{self.account_id}/snapshot") or {}
@@ -256,7 +263,8 @@ class ExnessClient:
         return self.trading("GET", f"/v1/trading/accounts/{self.account_id}/operations/{operation_id}")
 
     def deals(self, frm: str | None = None, to: str | None = None, cursor: str | None = None, limit: int | None = None):
-        q = {"from": frm, "to": to, "cursor": cursor, "limit": limit}
+        limit = max(1, min(200, int(limit or 200)))
+        q = {"cursor": cursor, "limit": limit} if cursor else {"from": frm, "to": to, "limit": limit}
         return self.trading("GET", f"/v1/history/accounts/{self.account_id}/deals", query=q) or {}
 
 
@@ -591,7 +599,7 @@ class ExnessMT5:
         deals, cursor = [], None
         try:
             for _ in range(50):
-                page = self._call(self.client.deals, _iso(_to_dt(date_from)), _iso(_to_dt(date_to)), cursor, 500)
+                page = self._call(self.client.deals, _iso(_to_dt(date_from)), _iso(_to_dt(date_to)), cursor, 200)
                 for item in page.get("items") or []:
                     d = item.get("deal") or {}
                     inst = str(d.get("instrument") or "")
@@ -664,9 +672,6 @@ class ExnessMT5:
                     "volume": self._fmt_volume(symbol, req["volume"]),
                     "comment": str(req.get("comment", ""))[:31],
                 }
-                info = self.symbol_info(symbol)
-                if req.get("deviation") and info is not None:
-                    body["deviation"] = f"{int(req['deviation']) * info.point:.{info.digits}f}"
                 sl, tp = self._fmt_price(symbol, req.get("sl")), self._fmt_price(symbol, req.get("tp"))
                 if sl:
                     body["stop_loss_price"] = sl
@@ -729,6 +734,7 @@ def client_from_env() -> ExnessClient:
         with open(os.path.expanduser(str(key_file)), "r", encoding="utf-8") as f:
             key_material = f.read()
     missing = [n for n, v in (("EXNESS_API_KEY", api_key), ("EXNESS_ACCOUNT_ID", account_id),
+                              ("EXNESS_BASE_URL (Gateway host from Key Management)", base_url),
                               ("EXNESS_PRIVATE_KEY(_FILE)", key_material)) if not v]
     if missing:
         raise RuntimeError(f"missing Exness API credentials: {', '.join(missing)}")

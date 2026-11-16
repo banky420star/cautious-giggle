@@ -11,11 +11,19 @@ MT5-compatible interface, so the executor, risk engine and data code run unchang
      position on the account counts as the bot's.
    - Start on demo if one is offered.
 2. Complete full verification (proof of identity and proof of address).
-3. In **Personal Area → API**, create an API key and save the Ed25519 private key:
+3. In **Personal Area → Key Management**, create an API key:
+   - Pick the bot's trading account.
+   - Give it trading permissions.
+   - Set an expiry date, and restrict it to your IP if you can.
+   - Let Exness generate the key pair.
+4. Save what Key Management gives you:
+   - the **key ID** (`exnsk-...`)
+   - the **private key** (128 hex characters, shown once)
+   - the **Gateway host**, from the DNS widget
    ```bash
    mkdir -p ~/.exness && chmod 700 ~/.exness
-   # save the private key as ~/.exness/api_private_key.pem, then:
-   chmod 600 ~/.exness/api_private_key.pem
+   pbpaste > ~/.exness/api_private_key   # with the private key on the clipboard
+   chmod 600 ~/.exness/api_private_key
    ```
 
 ## 2. Install
@@ -29,7 +37,8 @@ Put the credentials in your shell profile, not in `config.yaml`:
 ```bash
 export EXNESS_ACCOUNT_ID=...
 export EXNESS_API_KEY=...
-export EXNESS_PRIVATE_KEY_FILE=~/.exness/api_private_key.pem
+export EXNESS_PRIVATE_KEY_FILE=~/.exness/api_private_key
+export EXNESS_BASE_URL=https://<gateway host from Key Management>
 ```
 
 ## 3. Check the connection (read-only, places no orders)
@@ -73,7 +82,6 @@ AGI_BROKER_BACKEND=exness_api python Python/Server_AGI.py
 - **Orders are asynchronous.** The adapter waits for each operation to be confirmed
   (up to 8 s) and maps Exness error codes to MT5 retcodes, so the executor's retry and
   halt rules still apply.
-- **Unverified API details.** The endpoint shapes follow the published API as
-  implemented by the community SDK `realm-dev/ExnessSDK`. The official developer
-  portal could not be read from here. `check` exists to confirm the details against
-  your account before any order is sent.
+- **API reference:** the official Exness API Developer Portal, https://www.exness-api.com.
+  The client was checked against its signing and Trader API pages. No demo sandbox is
+  documented, so run `check` (read-only) first, then trade the minimum volume.
