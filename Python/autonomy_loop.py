@@ -414,7 +414,7 @@ class AutonomyLoop:
 
         realized = 0.0
         try:
-            import MetaTrader5 as mt5
+            from Python.mt5_compat import mt5
             import pytz
 
             if mt5 is not None and mt5.initialize():

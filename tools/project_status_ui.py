@@ -23,7 +23,10 @@ except Exception:
     yaml = None
 
 try:
-    import MetaTrader5 as mt5
+    from Python.mt5_compat import MT5_AVAILABLE, mt5
+
+    if not MT5_AVAILABLE:
+        mt5 = None
 except Exception:
     mt5 = None
 

@@ -5,7 +5,10 @@ import os
 from collections import defaultdict
 
 try:
-    import MetaTrader5 as mt5
+    from Python.mt5_compat import MT5_AVAILABLE, mt5
+
+    if not MT5_AVAILABLE:
+        mt5 = None
 except Exception:
     mt5 = None
 

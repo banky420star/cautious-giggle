@@ -233,7 +233,7 @@ def get_mt5_equity(default_balance: float = 10000.0, cfg: dict | None = None) ->
     server = os.environ.get("MT5_SERVER", mt5_cfg.get("server", ""))
 
     try:
-        import MetaTrader5 as mt5
+        from Python.mt5_compat import mt5
 
         if login and password and server:
             connected = mt5.initialize(login=login, password=password, server=server)

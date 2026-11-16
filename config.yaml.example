@@ -1,3 +1,20 @@
+# Broker backend:
+#   mt5        - MetaTrader5 terminal + Python package (Windows only)
+#   exness_api - Exness Public Trader API over HTTPS (macOS / Linux / Windows)
+broker:
+  backend: exness_api
+
+exness_api:
+  # Create the key in the Exness Personal Area -> API (needs full verification and an
+  # API-enabled Exness trading account; standard MetaTrader accounts cannot connect).
+  # Use a DEDICATED account for the bot: the API has no magic numbers, so every open
+  # position on the account is treated as the bot's.
+  account_id: ${EXNESS_ACCOUNT_ID}
+  api_key: ${EXNESS_API_KEY}
+  private_key_file: ~/.exness/api_private_key.pem   # or EXNESS_PRIVATE_KEY env var
+  base_url: https://api.exness.com
+  symbol_map: {}            # e.g. {BTCUSDm: BTCUSD}; auto-detected from the account's instruments
+
 trading:
   symbols: &id001
   - BTCUSDm
@@ -44,7 +61,7 @@ drl:
   eval_period: 120d
   model_path: models/ppo_trading.zip
   feature_version: ultimate_150
-  data_source: mt5
+  data_source: auto   # broker history first (MT5 or Exness API), Dukascopy if short
   optuna_trials: 0
   optuna_timesteps: 10000
   split:            # chronological train / validation / test
@@ -90,7 +107,7 @@ training:
   lstm_interval: M5
   lstm_candles: 100000
   feature_version: ultimate_150
-  data_source: mt5
+  data_source: auto   # broker history first (MT5 or Exness API), Dukascopy if short
 evaluation:
   # Scored on each candidate's out-of-sample holdout (last 15% of its data, after costs).
   # Sharpe is annualised. A candidate must also beat the EMA(20/100) cross baseline.
@@ -125,6 +142,6 @@ registry:
         max_drawdown: 0.08
         min_trades: 60
 data:
-  source: mt5
+  source: auto        # mt5 = broker backend | dukascopy = free history, no account | auto = broker then Dukascopy
 cycle:
   skip_completed_training: false

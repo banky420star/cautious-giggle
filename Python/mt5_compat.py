@@ -1,7 +1,34 @@
 from __future__ import annotations
 
+import os
+
+
+def _configured_backend() -> str:
+    """'mt5' (MetaTrader5 terminal, Windows) or 'exness_api' (Exness Public Trader API,
+    any OS). Set with AGI_BROKER_BACKEND or broker.backend in config.yaml."""
+    env = os.environ.get("AGI_BROKER_BACKEND", "").strip().lower()
+    if env:
+        return env
+    try:
+        import yaml
+
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        return str(((cfg.get("broker") or {}).get("backend")) or "mt5").strip().lower()
+    except Exception:
+        return "mt5"
+
+
+BROKER_BACKEND = _configured_backend()
+
 try:
-    import MetaTrader5 as mt5
+    if BROKER_BACKEND == "exness_api":
+        from Python.exness_api import ExnessMT5, symbol_map_from_cfg
+
+        mt5 = ExnessMT5(symbol_map=symbol_map_from_cfg())
+    else:
+        import MetaTrader5 as mt5
     MT5_AVAILABLE = True
     MT5_IMPORT_ERROR = None
 except Exception as exc:

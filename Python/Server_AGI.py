@@ -5,18 +5,7 @@ import os
 import subprocess
 import time
 
-try:
-    import MetaTrader5 as mt5
-except Exception as exc:
-    _MT5_IMPORT_ERROR = exc
-
-    class _MissingMetaTrader5:
-        def __getattr__(self, name):
-            raise RuntimeError(
-                "MetaTrader5 is required for live runtime operations and is unavailable in this environment."
-            ) from _MT5_IMPORT_ERROR
-
-    mt5 = _MissingMetaTrader5()
+from Python.mt5_compat import mt5  # MetaTrader5 terminal or Exness API backend
 
 import pandas as pd
 from loguru import logger

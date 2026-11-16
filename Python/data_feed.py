@@ -272,22 +272,35 @@ def _dukascopy_interval(interval: str) -> str:
     return mapping.get(_normalize_interval(interval), "5min")
 
 
+def _dukascopy_instrument(symbol: str) -> str:
+    base = str(symbol).replace("/", "").replace("-", "").upper()
+    if base.endswith("M") and len(base) == 7:  # Exness 'm' suffix (XAUUSDm -> XAUUSD)
+        base = base[:-1]
+    return f"{base[:3]}-{base[3:6]}" if len(base) >= 6 else base
+
+
 def _download_dukascopy(symbol: str, period: str, interval: str) -> pd.DataFrame:
     try:
-        from dukascopy_python import fetch
+        import dukascopy_python as dk
     except Exception as exc:
         raise RuntimeError(f"dukascopy_python is not installed: {exc}")
 
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=_period_days(period))
-    instrument = str(symbol).replace("/", "").upper().replace("M", "")
-    df = fetch(
-        instrument=instrument,
-        interval=_dukascopy_interval(interval),
-        offer_side="bid",
-        start=start,
-        end=end,
-    )
+    if hasattr(dk, "fetch_candles"):  # dukascopy-python >= 6
+        unit_map = {"m": dk.TimeUnit.MINUTE, "h": dk.TimeUnit.HOUR, "d": dk.TimeUnit.DAY}
+        iv = _normalize_interval(interval)
+        n, unit = int(iv[:-1] or 1), unit_map.get(iv[-1], dk.TimeUnit.MINUTE)
+        candles = dk.fetch_candles(_dukascopy_instrument(symbol), n, unit, dk.OfferSide.BID, start, end)
+        df = dk.to_dataframe(candles)
+    else:  # legacy API
+        df = dk.fetch(
+            instrument=str(symbol).replace("/", "").upper().replace("M", ""),
+            interval=_dukascopy_interval(interval),
+            offer_side="bid",
+            start=start,
+            end=end,
+        )
     if df is None or len(df) == 0:
         raise RuntimeError(f"empty Dukascopy payload for {symbol}")
     return _dukascopy_to_frame(pd.DataFrame(df), symbol)
