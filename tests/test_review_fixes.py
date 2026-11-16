@@ -449,3 +449,74 @@ def test_supervisor_caps_instead_of_rejecting():
                       current_symbol_exposure=0.0, total_exposure=0.0, drawdown_pct=0.0)
     assert d.allowed
     assert d.target == pytest.approx(0.35)
+
+
+def test_lstm_labels_come_from_raw_prices():
+    from Python.feature_pipeline import build_lstm_feature_frame
+    from training.train_lstm import _raw_label_matrix, create_sequences
+
+    df = _ohlcv(3000)
+    fdf, _ = build_lstm_feature_frame(df, feature_version="ultimate_150")
+    raw = _raw_label_matrix(df, fdf)
+    assert np.allclose(raw[:, 0], df["close"].to_numpy())
+    _, y = create_sequences(np.zeros((len(fdf), 3)), 0, 1, 2, 60, label_data=raw)
+    counts = np.bincount(y, minlength=3)
+    assert counts[1] > 0 and counts[2] > 0  # not degenerate all-HOLD
+
+
+def test_target_mode_gap_through_stop_fills_at_open():
+    from drl.trading_env import TradingEnv
+
+    n = 300
+    c = np.full(n, 100.0)
+    df = pd.DataFrame({"time": pd.date_range("2026-01-01", periods=n, freq="5min", tz="UTC"),
+                       "open": c, "high": c + 0.1, "low": c - 0.1, "close": c, "volume": np.full(n, 100.0)})
+    env = TradingEnv(df=df, window_size=30, feature_version="ultimate_150", execution_mode="target",
+                     spread_bps=0.0, commission_rate=0.0, slippage_bps=0.0, sl_atr_mult=1.0, tp_atr_mult=50.0)
+    env.reset()
+    t = env.current_step
+    env.opens[t], env.lows[t], env.highs[t] = 98.0, 97.5, 98.2  # gaps 2.0 below a ~0.2 stop
+    _, _, _, _, info = env.step(np.array([1.0, 1.0, -1, 0, 0, 0], dtype=np.float32))
+    assert info["exit_reason"] == "sl"
+    assert info["equity"] == pytest.approx(10000 * 0.98, rel=1e-6)
+
+
+def test_target_mode_portfolio_state_only_exposes_position():
+    from drl.trading_env import TradingEnv
+
+    env = TradingEnv(df=_ohlcv(400), window_size=30, feature_version="ultimate_150", execution_mode="target",
+                     trade_memory={"win_rate": 80.0, "expectancy": 5.0, "trades": 10, "losses": 2})
+    env.reset()
+    env.position = 0.4
+    env.equity = 12345.0
+    assert env._build_portfolio_state() == [1.0, 0.4, 0.0]
+
+
+def test_evaluator_champion_failure_blocks_promotion(monkeypatch):
+    from Python import model_evaluator as me
+
+    def _run(symbols, model_dir, period="120d", interval="5m", reward_weights=None, holdout_start=None):
+        if model_dir == "champ":
+            return {"error": "obs shape mismatch"}
+        return _fake_multi(0.05, 0.0)(symbols, model_dir)
+
+    monkeypatch.setattr(me, "_candidate_holdout_start", lambda _d: "2026-10-01")
+    monkeypatch.setattr(me, "run_multi", _run)
+    monkeypatch.setattr(me.os.path, "isdir", lambda _p: True)
+    rep = me.evaluate_candidate_vs_champion("cand", "champ", ["BTCUSDm"])
+    assert rep["wins"] is False
+    assert rep["champion_eval_failed"] is True
+
+
+def test_evaluator_baseline_uses_best_of_buy_hold_and_ma(monkeypatch):
+    from Python import model_evaluator as me
+
+    def _run(symbols, model_dir, period="120d", interval="5m", reward_weights=None, holdout_start=None):
+        out = _fake_multi(0.04, 0.0)(symbols, model_dir)
+        out["per_symbol"][0]["baselines"] = {"ma_cross": {"total_return": 0.01}, "buy_hold": {"total_return": 0.06}}
+        return out
+
+    monkeypatch.setattr(me, "_candidate_holdout_start", lambda _d: "2026-10-01")
+    monkeypatch.setattr(me, "run_multi", _run)
+    rep = me.evaluate_candidate_vs_champion("cand", None, ["BTCUSDm"])
+    assert rep["beats_baseline"] is False

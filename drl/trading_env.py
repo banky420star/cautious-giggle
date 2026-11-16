@@ -39,6 +39,7 @@ class TradingEnv(gym.Env):
         sl_atr_mult: float = 1.4,
         tp_atr_mult: float = 2.2,
         min_rebalance: float = 0.05,
+        start_index: int | None = None,
     ):
         super().__init__()
         # "target": live-parity mode. Each step the action is a target position that is
@@ -52,6 +53,8 @@ class TradingEnv(gym.Env):
         self.sl_atr_mult = float(sl_atr_mult)
         self.tp_atr_mult = float(tp_atr_mult)
         self.min_rebalance = float(min_rebalance)
+        # Backtests compute features on a longer history (warm-up) and start here.
+        self.start_index = int(start_index) if start_index else None
         self.initial_balance = float(initial_balance)
         self.commission_rate = float(commission_rate)
         self.spread_bps = float(spread_bps)
@@ -294,6 +297,7 @@ class TradingEnv(gym.Env):
         o, h, l, c, v, dates = self._extract_arrays(df)
         self.prices = c.astype(np.float64)
         self._set_bar_arrays(h, l, c)
+        self.opens = np.asarray(o, dtype=np.float64)
         base = pd.DataFrame(
             {
                 "time": dates if dates is not None else pd.RangeIndex(len(c)),
@@ -321,6 +325,7 @@ class TradingEnv(gym.Env):
 
         self.prices = price.astype(np.float64)
         self._set_bar_arrays(h, l, price)
+        self.opens = np.asarray(o, dtype=np.float64)
         base = pd.DataFrame(
             {
                 "time": dates,
@@ -347,7 +352,7 @@ class TradingEnv(gym.Env):
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
-        self.current_step = self.window_size
+        self.current_step = max(self.window_size, self.start_index or 0)
         last_start = len(self.prices) - 2 - (self.episode_length or 0)
         if self.random_start and last_start > self.window_size:
             self.current_step = int(self.np_random.integers(self.window_size, last_start + 1))
@@ -492,6 +497,25 @@ class TradingEnv(gym.Env):
     def _cost_rate(self) -> float:
         return self.commission_rate + (self.spread_bps + self.slippage_bps) / 10000.0
 
+    def _manage_target_stops(self, close_price: float):
+        """Mirror MT5Executor.manage_open_positions: breakeven at 1/3 of the stop
+        distance in profit, then trail at 1/8 of the stop distance after 1/2."""
+        tt = self.target_trade
+        d = 1.0 if self.position > 0 else -1.0
+        sl_dist = abs(tt["entry"] - tt.get("initial_sl", tt["sl"]))
+        tt.setdefault("initial_sl", tt["sl"])
+        if sl_dist <= 0:
+            return
+        profit = (close_price - tt["entry"]) * d
+        new_sl = tt["sl"]
+        if profit >= sl_dist / 3.0:
+            be = tt["entry"] + d * 0.0001 * tt["entry"]
+            new_sl = max(new_sl, be) if d > 0 else min(new_sl, be)
+        if profit >= sl_dist / 2.0:
+            trail = close_price - d * sl_dist / 8.0
+            new_sl = max(new_sl, trail) if d > 0 else min(new_sl, trail)
+        tt["sl"] = new_sl
+
     def _step_target(self, action):
         """Live-parity step.
 
@@ -538,19 +562,23 @@ class TradingEnv(gym.Env):
         exit_price = float(self.prices[t])
         if self.position != 0.0 and self.target_trade is not None:
             hi, lo = float(self.highs[t]), float(self.lows[t])
+            op = float(self.opens[t]) if getattr(self, "opens", None) is not None else fill_price
             sl, tp = self.target_trade["sl"], self.target_trade["tp"]
+            # A gap through the stop fills at the open, not at the stop price.
             if self.position > 0:
                 if lo <= sl:
-                    exit_reason, exit_price = "sl", sl
+                    exit_reason, exit_price = "sl", min(op, sl)
                 elif hi >= tp:
-                    exit_reason, exit_price = "tp", tp
+                    exit_reason, exit_price = "tp", max(op, tp) if op >= tp else tp
             else:
                 if hi >= sl:
-                    exit_reason, exit_price = "sl", sl
+                    exit_reason, exit_price = "sl", max(op, sl)
                 elif lo <= tp:
-                    exit_reason, exit_price = "tp", tp
+                    exit_reason, exit_price = "tp", min(op, tp) if op <= tp else tp
         bar_ret = (exit_price - fill_price) / (fill_price + 1e-12)
         self.equity += self.position * self.equity * bar_ret
+        if exit_reason is None and self.position != 0.0 and self.target_trade is not None:
+            self._manage_target_stops(float(self.prices[t]))
         if exit_reason is not None:
             exit_cost = abs(self.position) * self.equity * self._cost_rate()
             self.equity -= exit_cost
@@ -602,6 +630,13 @@ class TradingEnv(gym.Env):
         return np.concatenate([obs_window, portfolio_state]).astype(np.float32)
 
     def _build_portfolio_state(self) -> list[float]:
+        if self.execution_mode == "target":
+            # Only the current position is observable identically in training, backtest
+            # and live; equity ratio / recent returns / trade memory are held neutral.
+            base = [1.0, self.position, 0.0, 0.0, 0.0, 0.0]
+            if self.portfolio_feature_count <= 0:
+                return []
+            return base[: min(self.portfolio_feature_count, len(base))]
         base = [
             self.equity / self.initial_balance,
             self.position,

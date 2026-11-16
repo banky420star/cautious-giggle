@@ -3,6 +3,7 @@ import os
 import sys
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import yaml
@@ -64,19 +65,34 @@ def _build_alerter():
     return TelegramAlerter(token, str(chat_id))
 
 
-def create_sequences(data: np.ndarray, close_col: int, atr_col: int, rsi_col: int, seq_len: int = 60):
+def create_sequences(
+    data: np.ndarray,
+    close_col: int,
+    atr_col: int,
+    rsi_col: int,
+    seq_len: int = 60,
+    label_data: np.ndarray | None = None,
+):
+    """X = scaled feature windows; y computed from *raw* (unscaled) prices.
+
+    Labels used to be computed on MinMax-scaled columns, which made the return and ATR
+    thresholds meaningless. Pass the unscaled matrix as label_data.
+    """
+    raw = data if label_data is None else label_data
     X, y = [], []
     for i in range(seq_len, len(data) - 1):
         X.append(data[i - seq_len : i])
 
-        prev_close = data[i - 1, close_col]
-        next_close = data[i, close_col]
+        prev_close = raw[i - 1, close_col]
+        next_close = raw[i, close_col]
         future_ret = (next_close - prev_close) / (abs(prev_close) + 1e-8)
 
-        atr_norm = abs(data[i, atr_col] / (abs(next_close) + 1e-8))
-        rsi = data[i, rsi_col]
+        # ATR known at the last bar of the window (no lookahead in the threshold).
+        atr_norm = abs(raw[i - 1, atr_col] / (abs(prev_close) + 1e-8))
+        rsi = raw[i - 1, rsi_col]
 
-        up_thr = max(0.0007, atr_norm * 0.35)
+        # Volatility-relative threshold with a floor around round-trip cost (~1.5 bps).
+        up_thr = max(0.00015, atr_norm * 0.35)
         dn_thr = -up_thr
 
         if future_ret > up_thr and rsi > 52:
@@ -87,6 +103,33 @@ def create_sequences(data: np.ndarray, close_col: int, atr_col: int, rsi_col: in
             y.append(0)
 
     return np.array(X), np.array(y)
+
+
+def _raw_label_matrix(raw_df: pd.DataFrame, fdf: pd.DataFrame) -> np.ndarray:
+    """[close, ATR14, RSI14(0-100)] from raw OHLC, row-aligned with the feature frame.
+
+    The ultimate_150 feature set has no raw close/atr_14/rsi_14 columns, so labels must
+    come from the price data itself (previously they silently used feature column 0).
+    """
+    src = raw_df.copy()
+    if "time" in src.columns:
+        src["time"] = pd.to_datetime(src["time"], utc=True, errors="coerce")
+        src = src.set_index("time")
+    close = pd.to_numeric(src["close"], errors="coerce")
+    high = pd.to_numeric(src["high"], errors="coerce")
+    low = pd.to_numeric(src["low"], errors="coerce")
+    prev = close.shift(1).fillna(close)
+    tr = pd.concat([high - low, (high - prev).abs(), (low - prev).abs()], axis=1).max(axis=1)
+    atr = tr.rolling(14, min_periods=1).mean()
+    delta = close.diff().fillna(0.0)
+    gain = delta.clip(lower=0).rolling(14, min_periods=1).mean()
+    loss = (-delta.clip(upper=0)).rolling(14, min_periods=1).mean()
+    rsi = (100.0 - 100.0 / (1.0 + gain / (loss + 1e-12))).fillna(50.0)
+    lab = pd.DataFrame({"close": close, "atr": atr, "rsi": rsi})
+    if len(lab) == len(fdf):
+        return lab.to_numpy(dtype=np.float64)
+    idx = pd.to_datetime(fdf.index, utc=True, errors="coerce") if isinstance(fdf.index, pd.DatetimeIndex) else fdf.index
+    return lab.reindex(idx).ffill().to_numpy(dtype=np.float64)
 
 
 def _train_one_symbol(
@@ -140,14 +183,20 @@ def _train_one_symbol(
         return None
 
     feat = fdf[feature_columns].values.astype(np.float32)
+    # Chronological split: the scaler is fit on the training rows only, and the last
+    # val_frac of the data is used to select the checkpoint.
+    val_frac = float(os.environ.get("AGI_LSTM_VAL_FRAC", "0.2"))
+    n_train_rows = int(len(feat) * (1.0 - val_frac))
     scaler = MinMaxScaler()
-    feat_scaled = scaler.fit_transform(feat)
+    scaler.fit(feat[:n_train_rows])
+    feat_scaled = scaler.transform(feat)
 
-    close_col = feature_columns.index("close") if "close" in feature_columns else 0
-    atr_col = feature_columns.index("atr_14") if "atr_14" in feature_columns else close_col
-    rsi_col = feature_columns.index("rsi_14") if "rsi_14" in feature_columns else close_col
-
-    X, y = create_sequences(feat_scaled, close_col, atr_col, rsi_col, seq_len=seq_len)
+    label_raw = _raw_label_matrix(df, fdf)
+    X, y = create_sequences(feat_scaled, 0, 1, 2, seq_len=seq_len, label_data=label_raw)
+    # Sequence k's label is bar k+seq_len; it belongs to train if that bar is a train row.
+    split_idx = max(1, min(len(X) - 1, n_train_rows - seq_len))
+    X_val, y_val = X[split_idx:], y[split_idx:]
+    X, y = X[:split_idx], y[:split_idx]
     if len(X) == 0:
         logger.warning(f"no sequences for {symbol}")
         if alerter is not None:
@@ -159,10 +208,18 @@ def _train_one_symbol(
 
     model = AGIModel(input_dim=len(feature_columns)).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = nn.CrossEntropyLoss()
 
     X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
     y_tensor = torch.tensor(y, dtype=torch.long).to(device)
+    Xv_tensor = torch.tensor(X_val, dtype=torch.float32).to(device)
+    yv_tensor = torch.tensor(y_val, dtype=torch.long).to(device)
+    # Class-weighted loss: HOLD dominates, and an unweighted model learns to always say HOLD.
+    counts = np.bincount(y, minlength=3).astype(np.float64)
+    weights = torch.tensor(counts.sum() / (3.0 * np.maximum(counts, 1.0)), dtype=torch.float32).to(device)
+    criterion = nn.CrossEntropyLoss(weight=weights)
+    best_val_loss = float("inf")
+    best_state = None
+    val_acc = 0.0
 
     batch_size = 64
     n_batches = max(1, len(X_tensor) // batch_size)
@@ -199,7 +256,22 @@ def _train_one_symbol(
 
         last_loss = epoch_loss / max(1, n_batches)
         acc = (correct / max(1, total)) * 100.0
-        logger.info(f"{symbol} | epoch {epoch + 1}/{epochs} | loss {last_loss:.4f} | acc {acc:.2f}%")
+        model.eval()
+        with torch.no_grad():
+            v_logits = model(Xv_tensor) if len(Xv_tensor) else None
+            if v_logits is not None:
+                v_loss = float(criterion(v_logits, yv_tensor).item())
+                v_acc = float((v_logits.argmax(dim=1) == yv_tensor).float().mean().item()) * 100.0
+            else:
+                v_loss, v_acc = last_loss, acc
+        model.train()
+        if v_loss < best_val_loss:
+            best_val_loss = v_loss
+            val_acc = v_acc
+            best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+        logger.info(
+            f"{symbol} | epoch {epoch + 1}/{epochs} | loss {last_loss:.4f} | acc {acc:.2f}% | val_loss {v_loss:.4f} | val_acc {v_acc:.2f}%"
+        )
         if alerter is not None and ((epoch + 1) == 1 or (epoch + 1) % 5 == 0 or (epoch + 1) == epochs):
             try:
                 alerter.training(
@@ -215,7 +287,10 @@ def _train_one_symbol(
     scaler_path = os.path.join(out_dir, f"lstm_scaler_{safe}.pkl")
     meta_path = os.path.join(out_dir, f"lstm_{safe}.meta.json")
 
+    if best_state is not None:
+        model.load_state_dict(best_state)
     torch.save(model.state_dict(), model_path)
+    majority_val_acc = float(np.bincount(y_val, minlength=3).max() / max(1, len(y_val)) * 100.0) if len(y_val) else 0.0
 
     import joblib
 
@@ -229,6 +304,12 @@ def _train_one_symbol(
                 "seq_len": int(seq_len),
                 "epochs": int(epochs),
                 "samples": int(len(X)),
+                "val_samples": int(len(X_val)),
+                "val_loss": float(best_val_loss),
+                "val_acc": float(val_acc),
+                "val_majority_acc": majority_val_acc,
+                "scaler_fit": "train_rows_only",
+                "labels": "raw_prices_v2",
             },
             f,
             indent=2,
@@ -244,7 +325,8 @@ def _train_one_symbol(
         "model_path": model_path,
         "scaler_path": scaler_path,
         "meta_path": meta_path,
-        "loss": last_loss,
+        "loss": float(best_val_loss),
+        "train_loss": last_loss,
         "samples": int(len(X)),
     }
 

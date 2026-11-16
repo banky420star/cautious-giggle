@@ -926,8 +926,10 @@ def main(live=False):
                 df = _fetch_symbol_df(symbol, timeframe)
                 if df is None or df.empty:
                     continue
-                if bar_time is not None:
-                    last_decided_bar[symbol] = bar_time
+                # The bar is only marked decided once the decision has *settled*
+                # (executed, deliberate no-op, or a persistent block). Failed orders and
+                # transient blocks (spread spike, cooldown) are retried next loop.
+                bar_settled = False
 
                 agi_meta = agi.predict(df, production=True)
                 conf = float((agi_meta or {}).get("confidence", 0.0) or 0.0)
@@ -1027,6 +1029,8 @@ def main(live=False):
                             "agi_risk_scalar": _risk_scalar(agi_meta),
                         },
                     )
+                    req_action = str((order_meta or {}).get("request_action", "") or "")
+                    bar_settled = bool(order_meta and (order_meta.get("executed") or req_action in ("noop", "blocked")))
                     if order_meta and order_meta.get("executed"):
                         supervisor.mark_trade(symbol)
                     elif order_meta:
@@ -1034,6 +1038,7 @@ def main(live=False):
                         order_meta = None
                 else:
                     order_meta = None
+                    bar_settled = not str(supervisor_decision.reason).startswith(("spread_bps", "cooldown"))
                     _append_audit(
                         "risk_supervisor_block",
                         {
@@ -1044,6 +1049,8 @@ def main(live=False):
                             "signal": regime,
                         },
                     )
+                if bar_settled and bar_time is not None:
+                    last_decided_bar[symbol] = bar_time
                 executor.manage_open_positions(symbol)
                 if order_meta:
                     tp_outcome_usd, sl_outcome_usd = _expected_usd(

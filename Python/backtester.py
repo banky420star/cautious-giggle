@@ -205,12 +205,22 @@ def run_ppo_backtest(
         raise RuntimeError(f"Insufficient data for {symbol} (len={0 if df is None else len(df)})")
     holdout_start = override_holdout_start or meta.get("holdout_start")
     full_len = len(df)
-    df = _holdout_slice(df, holdout_start)
-    if len(df) < 400:
+    oos = _holdout_slice(df, holdout_start)
+    if len(oos) < 400:
         raise RuntimeError(
-            f"Insufficient out-of-sample data for {symbol}: {len(df)} bars after holdout_start={holdout_start} "
+            f"Insufficient out-of-sample data for {symbol}: {len(oos)} bars after holdout_start={holdout_start} "
             f"(fetched {full_len}); fetch a longer period"
         )
+    if holdout_start and len(oos) == full_len:
+        logger.warning(
+            f"{symbol}: fetched data starts after holdout_start={holdout_start}; evaluating a partial holdout "
+            "with no feature warm-up. Increase the evaluation period."
+        )
+    # Features are computed on the full fetch (warm-up history), the episode starts at
+    # the first out-of-sample bar.
+    start_index = full_len - len(oos)
+    if start_index > 0:
+        env_kwargs["start_index"] = int(start_index)
 
     if not os.path.exists(model_path):
         raise RuntimeError(f"Missing model file: {model_path}")
@@ -305,7 +315,7 @@ def run_ppo_backtest(
     cost_bps = float(env_kwargs.get("spread_bps", 2.0)) + float(env_kwargs.get("slippage_bps", 0.0)) + float(
         env_kwargs.get("commission_rate", 0.0002)
     ) * 10000.0
-    baselines = run_baselines(df, interval, cost_bps)
+    baselines = run_baselines(oos, interval, cost_bps)
 
     n = max(1, steps)
     result = {

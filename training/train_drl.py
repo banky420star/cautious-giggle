@@ -275,7 +275,8 @@ def resolve_env_kwargs(cfg: dict, symbol: str | None, training: bool = True) -> 
         "sl_atr_mult": float(env_cfg.get("sl_atr_mult", 1.4)),
         "tp_atr_mult": float(env_cfg.get("tp_atr_mult", 2.2)),
         "min_rebalance": float(env_cfg.get("min_rebalance", 0.05)),
-        "window_size": int(env_cfg.get("window_size", 100)),
+        # Fixed: the policy feature extractors reshape observations as 100-bar windows.
+        "window_size": 100,
     }
     if training:
         kwargs["random_start"] = bool(env_cfg.get("random_start", True))
@@ -720,6 +721,11 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         "val_start": str(val_pd["time"].iloc[0]) if "time" in val_pd.columns and len(val_pd) else None,
     }
     logger.info(f"Chronological split | {split_meta}")
+    if symbol_hint is None:
+        logger.warning(
+            "Multi-symbol PPO candidate: generic costs are used for every symbol. "
+            "Prefer per-symbol training (drl.per_symbol: true) so costs match each instrument."
+        )
     env_kwargs = resolve_env_kwargs(cfg, symbol_hint, training=True)
     eval_env_kwargs = resolve_env_kwargs(cfg, symbol_hint, training=False)
     df = pl.from_pandas(train_pd)

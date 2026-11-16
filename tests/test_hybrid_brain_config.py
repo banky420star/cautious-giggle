@@ -7,13 +7,14 @@ class _Dummy:
 
 def test_hybrid_brain_reads_dreamer_config(monkeypatch):
     monkeypatch.delenv("AGI_DREAMER_ENABLED", raising=False)
+    monkeypatch.delenv("AGI_DREAMER_LIVE", raising=False)
     monkeypatch.delenv("AGI_DREAMER_BLEND", raising=False)
     monkeypatch.setattr(
         HybridBrain,
         "_load_cfg",
         lambda self: {
             "trading": {"symbols": ["EURUSDm", "XAUUSDm"]},
-            "drl": {"dreamer": {"enabled": True, "blend": 0.22, "symbols": ["XAUUSDm"]}},
+            "drl": {"dreamer": {"enabled": True, "live": True, "blend": 0.22, "symbols": ["XAUUSDm"]}},
         },
     )
     monkeypatch.setattr(HybridBrain, "_load_ppo_from_registry", lambda self: None)
@@ -129,3 +130,18 @@ def test_symbol_ppo_min_abs_prefers_symbol_override():
 
     assert brain._symbol_ppo_min_abs("BTCUSDm") == 0.015
     assert brain._symbol_ppo_min_abs("XAUUSDm") == 0.03
+
+
+def test_dreamer_training_enabled_does_not_go_live(monkeypatch):
+    monkeypatch.delenv("AGI_DREAMER_LIVE", raising=False)
+    monkeypatch.setattr(
+        HybridBrain,
+        "_load_cfg",
+        lambda self: {"trading": {"symbols": ["XAUUSDm"]}, "drl": {"dreamer": {"enabled": True, "train_in_cycle": True}}},
+    )
+    monkeypatch.setattr(HybridBrain, "_load_ppo_from_registry", lambda self: None)
+    monkeypatch.setattr(HybridBrain, "_load_dreamer_policies", lambda self: None)
+    monkeypatch.setattr(HybridBrain, "_start_autonomy_if_enabled", lambda self: None)
+
+    brain = HybridBrain(_Dummy(), _Dummy())
+    assert brain.dreamer_enabled is False

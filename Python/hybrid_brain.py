@@ -60,7 +60,10 @@ class HybridBrain:
             except Exception:
                 return float(default)
 
-        self.dreamer_enabled = _cfg_bool("AGI_DREAMER_ENABLED", dreamer_cfg.get("enabled"), default=False)
+        # Dreamer is a training-phase research tool. Its policies only load into the live
+        # runtime when drl.dreamer.live is true (AGI_DREAMER_LIVE=true); drl.dreamer.enabled
+        # + train_in_cycle control experimental training only.
+        self.dreamer_enabled = _cfg_bool("AGI_DREAMER_LIVE", dreamer_cfg.get("live"), default=False)
         self.dreamer_blend = _cfg_float("AGI_DREAMER_BLEND", dreamer_cfg.get("blend"), default=0.15)
         self.active_symbols = resolve_trading_symbols(cfg, env_keys=("AGI_RUNTIME_SYMBOLS",), fallback=DEFAULT_TRADING_SYMBOLS)
         configured_dreamer_symbols = dreamer_cfg.get("symbols", []) if isinstance(dreamer_cfg.get("symbols", []), (list, tuple)) else []
@@ -426,6 +429,9 @@ class HybridBrain:
             window_size=inferred_window,
             portfolio_feature_count=portfolio_feature_count,
             feature_version=feature_version,
+            # Same observation semantics as training (target-mode models see neutral
+            # equity/return/memory slots and the real position).
+            execution_mode=str((meta.get("env_kwargs") or {}).get("execution_mode", "trade")),
         )
         env.reset()
         # reset() positions the env at the *start* of the data; live inference must use

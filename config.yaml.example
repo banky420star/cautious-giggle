@@ -60,9 +60,10 @@ drl:
     # costs:                 # per-side bps; defaults are Exness-standard-like
     #   BTCUSDm: {spread_bps: 2.5, commission_bps: 0.0, slippage_bps: 1.0}
     #   XAUUSDm: {spread_bps: 1.0, commission_bps: 0.0, slippage_bps: 0.5}
-  dreamer:
-    enabled: false          # not evaluated by any promotion gate; keep off until it is
-    train_in_cycle: false
+  dreamer:                  # DreamerV3: experimental trading ideas in the training phase
+    enabled: true           # allow Dreamer training runs
+    train_in_cycle: true    # train alongside PPO in champion_cycle (research output only)
+    live: false             # never loaded into live trading unless explicitly set true
     steps: 5000
     window: 64
     feature_version: ultimate_150

@@ -138,12 +138,21 @@ def evaluate_candidate_vs_champion(
         and float(cand.get("avg_return", -999.0)) >= float(g["min_return"])
         and pass_rate >= float(g["min_pass_rate"])
     )
+    # Every symbol must beat the better of the MA-cross and buy&hold baselines.
     baseline_ret = cand.get("baseline_avg_return")
     beats_baseline = True
+    baseline_checks = []
     if g.get("require_beat_baseline"):
-        beats_baseline = baseline_ret is not None and float(cand.get("avg_return", -999.0)) > float(baseline_ret) + float(
-            g.get("baseline_margin", 0.0)
-        )
+        margin_b = float(g.get("baseline_margin", 0.0))
+        rows = cand.get("per_symbol", []) or []
+        for row in rows:
+            bl = row.get("baselines") or {}
+            refs = [float(v.get("total_return")) for v in bl.values() if isinstance(v, dict) and v.get("total_return") is not None]
+            if not refs and baseline_ret is not None:
+                refs = [float(baseline_ret)]
+            ok = bool(refs) and float(row.get("total_return", -999.0)) > max(refs) + margin_b
+            baseline_checks.append({"symbol": row.get("symbol"), "best_baseline": max(refs) if refs else None, "ok": ok})
+        beats_baseline = bool(baseline_checks) and all(c["ok"] for c in baseline_checks)
     base_passes = bool(base_passes and beats_baseline)
 
     wins = True
@@ -154,6 +163,11 @@ def evaluate_candidate_vs_champion(
         "sharpe": True,
         "drawdown": True,
     }
+    champion_missing = bool(champion_dir and os.path.isdir(champion_dir) and not champ)
+    if champion_missing:
+        # A champion exists but could not be scored: never promote blind.
+        wins = False
+        win_checks = {k: False for k in win_checks}
     if champ:
         win_checks["score"] = float(cand.get("avg_score", 0.0)) > (float(champ.get("avg_score", 0.0)) + margin)
         win_checks["return"] = float(cand.get("avg_return", -999.0)) >= (
@@ -209,6 +223,8 @@ def evaluate_candidate_vs_champion(
         "per_symbol_gates": per_symbol,
         "pass_rate": float(pass_rate),
         "beats_baseline": bool(beats_baseline),
+        "baseline_checks": baseline_checks,
+        "champion_eval_failed": champion_missing,
         "baseline_avg_return": baseline_ret,
         "holdout_start": holdout_start,
         "forward_windows": forward_results,
