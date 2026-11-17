@@ -29,6 +29,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import threading
 import time
@@ -165,6 +166,46 @@ class ExnessClient:
         self.session = session or requests.Session()
         self.clock_offset_ms = 0
         self._lock = threading.Lock()
+        # Rate limiting: global per-account limit plus per-endpoint limits (from GET .../limits).
+        self._global_limit = (15, 1.0)
+        self._method_limits: list[tuple[str, "re.Pattern", int, float]] = []
+        self._history: dict[str, list[float]] = {}
+
+    def load_limits(self) -> None:
+        """Pace requests by the limits Exness publishes for this account (never hardcode them)."""
+        data = (self.trading("GET", f"/v1/configuration/accounts/{self.account_id}/limits") or {}).get("limits") or {}
+        rest = data.get("rest") or {}
+        g = rest.get("global_account_rate") or {}
+        if g.get("limit"):
+            self._global_limit = (int(g["limit"]), float(g.get("window_seconds") or 1))
+        out = []
+        for m in rest.get("methods") or []:
+            rl = m.get("rate_limit") or {}
+            if not (rl.get("limit") and m.get("path")):
+                continue
+            pattern = "^" + re.sub(r"\\{[^}]+\\}", "[^/]+", re.escape(str(m["path"]))) + "$"
+            out.append((str(m.get("http_method", "GET")).upper(), re.compile(pattern), int(rl["limit"]),
+                        float(rl.get("window_seconds") or 1)))
+        self._method_limits = out
+
+    def _pace(self, method: str, path: str) -> None:
+        buckets = [("*", self._global_limit[0], self._global_limit[1])]
+        for m, rx, lim, win in self._method_limits:
+            if m == method.upper() and rx.match(path):
+                buckets.append((f"{m} {rx.pattern}", lim, win))
+        while True:
+            now = time.monotonic()
+            wait = 0.0
+            for key, lim, win in buckets:
+                hist = [t for t in self._history.get(key, []) if now - t < win]
+                self._history[key] = hist
+                if len(hist) >= lim:
+                    wait = max(wait, win - (now - hist[0]) + 0.02)
+            if wait <= 0:
+                for key, _, _ in buckets:
+                    self._history[key].append(now)
+                return
+            time.sleep(wait)
 
     def _qs(self, query: dict | None) -> str:
         if not query:
@@ -188,13 +229,14 @@ class ExnessClient:
         path_q = path + self._qs(query)
         url = (base or self.base_url) + path_q
         last_exc = None
-        for attempt in range(2):
+        for attempt in range(3):
+            with self._lock:
+                self._pace(method, path)
             ts = int(time.time() * 1000) + self.clock_offset_ms - _TIMESTAMP_SAFETY_MS
             headers = {"Content-Type": "application/json"}
             headers.update(build_signed_headers(self.api_key, self.private_key, method, path_q, body_str,
                                                 idempotency_key, ts))
-            with self._lock:
-                resp = self.session.request(method, url, data=body_str or None, headers=headers, timeout=self.timeout)
+            resp = self.session.request(method, url, data=body_str or None, headers=headers, timeout=self.timeout)
             self._update_clock(resp)
             if resp.ok:
                 return resp.json() if resp.text else None
@@ -208,6 +250,10 @@ class ExnessClient:
             last_exc = ExnessApiError(code, msg, resp.status_code)
             # One retry after re-syncing the clock on auth/timestamp failures.
             if attempt == 0 and (code in (1000, 1001) or "timestamp" in msg.lower()):
+                continue
+            # Rate limited despite pacing (shared limits / other clients): back off once.
+            if attempt < 2 and (code in (1, 1003, 3015) or resp.status_code == 429):
+                time.sleep(1.0 + attempt)
                 continue
             raise last_exc
         raise last_exc
@@ -354,6 +400,10 @@ class ExnessMT5:
             except ExnessApiError as exc:
                 if exc.http_status not in (404, 405):
                     raise
+            try:
+                self.client.load_limits()
+            except Exception:
+                pass  # fall back to the default global pace
             self._instruments = list(self.client.instruments())
             self._connected = True
             self._last_error = (0, "ok")
