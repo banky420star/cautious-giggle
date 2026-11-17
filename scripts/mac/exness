@@ -1,5 +1,7 @@
 #!/bin/zsh
-# exness            start everything (bot + training if needed) and open the dashboard
+# exness            start everything (bot + training if needed), open the web + terminal dashboards
+# exness web        open the web dashboard window only
+# exness pro        detailed terminal view
 # exness stop       stop the bot (open trades keep their SL/TP at Exness)
 # exness train      run a fresh training cycle, then reload the bot
 # exness status     one-line status
@@ -45,12 +47,15 @@ case "${1:-start}" in
     else
       echo "✓ models loaded"
     fi
-    echo "opening dashboard (Ctrl-C closes it; the bot keeps running)…"
+    echo "opening the web dashboard window…"
+    scripts/mac/web.sh
+    echo "opening terminal dashboard (Ctrl-C closes it; the bot keeps running)…"
     sleep 1
     if [ "${2:-}" = "pro" ]; then exec .venv/bin/python tools/monitor_tui.py; fi
     exec .venv/bin/python tools/simple_tui.py
     ;;
   pro)    exec .venv/bin/python tools/monitor_tui.py ;;
+  web)    scripts/mac/web.sh ;;
   stop)   scripts/mac/stop_bot.sh ;;
   train)  if training_running; then echo "training already running"; else start_training; fi ;;
   status)

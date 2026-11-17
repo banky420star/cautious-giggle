@@ -1,0 +1,389 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
+import {
+  Activity, ArrowDownRight, ArrowUpRight, Brain, CircleDollarSign, Clock, GraduationCap, Lightbulb, Pause,
+  Receipt, ShieldCheck, Target, TrendingUp, Trophy, Wallet, Zap,
+} from "lucide-react";
+
+const fmtMoney = (v, sign = false) => {
+  if (v == null || Number.isNaN(v)) return "—";
+  const s = Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (!sign) return `$${s}`;
+  return `${v >= 0 ? "+" : "−"}$${s}`;
+};
+const fmtPx = (v) => (v == null ? "—" : v.toLocaleString(undefined, {
+  minimumFractionDigits: v > 1000 ? 2 : 3, maximumFractionDigits: v > 1000 ? 2 : 3 }));
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+function useApi(intervalMs = 2000) {
+  const [data, setData] = useState(null);
+  const [err, setErr] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const r = await fetch("/api/state", { cache: "no-store" });
+        const j = await r.json();
+        if (!alive) return;
+        if (j.error) setErr(j.error); else { setData(j); setErr(null); }
+      } catch (e) { if (alive) setErr("Can't reach the dashboard server"); }
+    };
+    tick();
+    const id = setInterval(tick, intervalMs);
+    return () => { alive = false; clearInterval(id); };
+  }, [intervalMs]);
+  return [data, err];
+}
+
+function AnimatedNumber({ value, format }) {
+  const [shown, setShown] = useState(value ?? 0);
+  const from = useRef(value ?? 0);
+  useEffect(() => {
+    if (value == null) return;
+    const start = performance.now();
+    const a = from.current;
+    let raf;
+    const step = (t) => {
+      const k = Math.min(1, (t - start) / 700);
+      const e = 1 - Math.pow(1 - k, 3);
+      const v = a + (value - a) * e;
+      setShown(v);
+      if (k < 1) raf = requestAnimationFrame(step); else from.current = value;
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{format(shown)}</>;
+}
+
+function Countdown({ seconds }) {
+  const [s, setS] = useState(seconds);
+  useEffect(() => setS(seconds), [seconds]);
+  useEffect(() => { const id = setInterval(() => setS((x) => (x > 0 ? x - 1 : 299)), 1000); return () => clearInterval(id); }, []);
+  const frac = 1 - s / 300;
+  const r = 9, c = 2 * Math.PI * r;
+  return (
+    <div className="countdown" title="The bot re-checks the market every 5 minutes">
+      <svg width="24" height="24" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r={r} className="ring-bg" />
+        <circle cx="12" cy="12" r={r} className="ring-fg" strokeDasharray={c} strokeDashoffset={c * (1 - frac)} />
+      </svg>
+      <span>Next check <b>{Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}</b></span>
+    </div>
+  );
+}
+
+function Header({ d }) {
+  const bot = d?.bot || {};
+  return (
+    <header className="header">
+      <div className="brand">
+        <img src="/icon.svg" alt="" className="logo" />
+        <div>
+          <div className="brand-name">Cautious Giggle</div>
+          <div className="brand-sub">Exness demo · Bitcoin & Gold · 5-minute bars</div>
+        </div>
+      </div>
+      <div className="header-right">
+        {bot.learning_mode && (
+          <span className="pill violet" title="Demo only: trades more often so the models learn faster">
+            <GraduationCap size={14} /> Learning mode
+          </span>
+        )}
+        <span className={`pill ${bot.running ? "green" : "red"}`}>
+          <span className={`dot ${bot.running ? "pulse" : ""}`} /> {bot.running ? "Bot running" : "Bot stopped"}
+        </span>
+        {d && <Countdown seconds={bot.next_check_s} />}
+      </div>
+    </header>
+  );
+}
+
+function Kpi({ icon: Icon, label, children, sub, tone }) {
+  return (
+    <div className="card kpi">
+      <div className="kpi-label"><Icon size={15} /> {label}</div>
+      <div className={`kpi-value ${tone || ""}`}>{children}</div>
+      {sub && <div className="kpi-sub">{sub}</div>}
+    </div>
+  );
+}
+
+const RANGES = [["1H", 3600e3], ["6H", 6 * 3600e3], ["1D", 86400e3], ["1W", 7 * 86400e3], ["All", Infinity]];
+
+function EquityChart({ series, equity }) {
+  const [range, setRange] = useState("1D");
+  const data = useMemo(() => {
+    const ms = RANGES.find((r) => r[0] === range)[1];
+    const now = Date.now();
+    const pts = (series || []).filter((p) => now - p.t <= ms);
+    return pts.length >= 2 ? pts : (series || []).slice(-2);
+  }, [series, range]);
+  const first = data[0]?.equity, last = data[data.length - 1]?.equity;
+  const chg = first != null && last != null ? last - first : 0;
+  const up = chg >= 0;
+  const vals = data.map((p) => p.equity);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = Math.max((hi - lo) * 0.15, 0.5);
+  return (
+    <div className="card chart-card">
+      <div className="card-head">
+        <div>
+          <div className="card-title"><TrendingUp size={16} /> Equity</div>
+          <div className="chart-big">
+            <AnimatedNumber value={equity} format={(v) => fmtMoney(v)} />
+            <span className={`chg ${up ? "pos" : "neg"}`}>
+              {up ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+              {fmtMoney(chg, true)} ({first ? ((chg / first) * 100).toFixed(2) : "0.00"}%) · {range}
+            </span>
+          </div>
+        </div>
+        <div className="tabs">
+          {RANGES.map(([k]) => (
+            <button key={k} className={k === range ? "active" : ""} onClick={() => setRange(k)}>{k}</button>
+          ))}
+        </div>
+      </div>
+      <div className="chart-wrap">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="eqfill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={up ? "#34d399" : "#f87171"} stopOpacity={0.35} />
+                <stop offset="100%" stopColor={up ? "#34d399" : "#f87171"} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+            <XAxis dataKey="t" type="number" domain={["dataMin", "dataMax"]} tickFormatter={fmtTime}
+                   stroke="#5b6475" fontSize={11} tickLine={false} axisLine={false} minTickGap={50} />
+            <YAxis domain={[lo - pad, hi + pad]} tickFormatter={(v) => `$${v.toFixed(0)}`} stroke="#5b6475"
+                   fontSize={11} tickLine={false} axisLine={false} width={52} />
+            <Tooltip content={<EqTip />} cursor={{ stroke: "rgba(255,255,255,0.2)" }} />
+            <Area type="monotone" dataKey="balance" stroke="#64748b" strokeDasharray="4 4" fill="none"
+                  strokeWidth={1.2} isAnimationActive={false} dot={false} />
+            <Area type="monotone" dataKey="equity" stroke={up ? "#34d399" : "#f87171"} fill="url(#eqfill)"
+                  strokeWidth={2.2} isAnimationActive animationDuration={600} dot={false} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="legend"><span className="lg eq" /> equity (incl. open trades) <span className="lg bal" /> balance (closed trades)</div>
+    </div>
+  );
+}
+
+function EqTip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload;
+  return (
+    <div className="tip">
+      <div className="tip-t">{new Date(p.t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
+      <div>Equity <b>{fmtMoney(p.equity)}</b></div>
+      <div className="muted">Balance {fmtMoney(p.balance)}</div>
+    </div>
+  );
+}
+
+function SignalMeter({ value, threshold }) {
+  const clamp = (x) => Math.max(-1, Math.min(1, x));
+  const pos = (x) => `${((clamp(x) + 1) / 2) * 100}%`;
+  const strong = Math.abs(value) >= threshold;
+  const left = value >= 0 ? 50 : ((clamp(value) + 1) / 2) * 100;
+  const width = Math.abs(clamp(value)) * 50;
+  return (
+    <div className="meter">
+      <div className="meter-labels"><span className="neg">SELL</span><span className="muted">signal strength</span><span className="pos">BUY</span></div>
+      <div className="meter-track">
+        <div className="zone sell" style={{ width: pos(-threshold) }} />
+        <div className="zone buy" style={{ left: pos(threshold), right: 0 }} />
+        <div className={`meter-fill ${value >= 0 ? "pos" : "neg"} ${strong ? "strong" : ""}`}
+             style={{ left: `${left}%`, width: `${width}%` }} />
+        <div className="thr" style={{ left: pos(-threshold) }} />
+        <div className="thr" style={{ left: pos(threshold) }} />
+        <div className="mid" />
+        <div className={`needle ${strong ? "glow" : ""}`} style={{ left: pos(value) }} />
+      </div>
+      <div className="meter-foot">
+        <span>now <b className={value >= 0 ? "pos" : "neg"}>{value >= 0 ? "+" : ""}{value.toFixed(2)}</b></span>
+        <span className="muted">trades past the gold lines (±{threshold.toFixed(2)})</span>
+      </div>
+    </div>
+  );
+}
+
+function usePriceFlash(price) {
+  const prev = useRef(price);
+  const [flash, setFlash] = useState("");
+  useEffect(() => {
+    if (price != null && prev.current != null && price !== prev.current) {
+      setFlash(price > prev.current ? "flash-up" : "flash-down");
+      const id = setTimeout(() => setFlash(""), 900);
+      prev.current = price;
+      return () => clearTimeout(id);
+    }
+    prev.current = price;
+  }, [price]);
+  return flash;
+}
+
+function SymbolCard({ s }) {
+  const flash = usePriceFlash(s.bid);
+  const bars = (s.bars || []).map((v, i) => ({ i, v }));
+  if (s.bid != null) bars.push({ i: bars.length, v: s.bid });
+  const p = s.position;
+  const up = bars.length > 1 && bars[bars.length - 1].v >= bars[0].v;
+  const vals = bars.map((b) => b.v).concat(p ? [p.entry, p.sl, p.tp].filter(Boolean) : []);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  return (
+    <div className={`card symbol ${p ? (p.side === "BUY" ? "in-long" : "in-short") : ""}`}>
+      <div className="sym-head">
+        <div>
+          <div className="sym-name">{s.name}</div>
+          <div className={`sym-price ${flash}`}>${fmtPx(s.bid)}</div>
+        </div>
+        {p ? (
+          <div className={`status ${p.side === "BUY" ? "long" : "short"}`}>
+            {p.side === "BUY" ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+            In a {p.side === "BUY" ? "buy" : "sell"} trade
+            <span className={`status-pnl ${p.pnl >= 0 ? "pos" : "neg"}`}>{fmtMoney(p.pnl, true)}</span>
+          </div>
+        ) : (
+          <div className="status idle"><Pause size={14} /> Waiting</div>
+        )}
+      </div>
+      <p className="why">{s.why}</p>
+      <SignalMeter value={s.signal} threshold={s.threshold} />
+      <div className="spark">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={bars} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+            <YAxis hide domain={[lo, hi]} />
+            {p && <ReferenceLine y={p.entry} stroke="#facc15" strokeDasharray="3 3" label={{ value: "entry", fill: "#facc15", fontSize: 10, position: "insideRight" }} />}
+            {p && p.sl > 0 && <ReferenceLine y={p.sl} stroke="#f87171" strokeDasharray="3 3" label={{ value: "stop", fill: "#f87171", fontSize: 10, position: "insideRight" }} />}
+            {p && p.tp > 0 && <ReferenceLine y={p.tp} stroke="#34d399" strokeDasharray="3 3" label={{ value: "target", fill: "#34d399", fontSize: 10, position: "insideRight" }} />}
+            <Line type="monotone" dataKey="v" stroke={up ? "#34d399" : "#f87171"} strokeWidth={1.8} dot={false} isAnimationActive={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="sym-foot">
+        <span title="indicator votes across 5m, 15m, 1h and 4h"><ArrowUpRight size={13} className="pos" /> {s.up} up</span>
+        <span><ArrowDownRight size={13} className="neg" /> {s.down} down</span>
+        <span title="indicators with a poor recent record are ignored"><ShieldCheck size={13} /> {s.voters - s.ignored} of {s.voters} trusted</span>
+        <span className="muted">last 12h</span>
+      </div>
+    </div>
+  );
+}
+
+function Learning({ d }) {
+  const t = d.training || {};
+  const pct = Math.round((t.progress || 0) * 100);
+  return (
+    <div className="card learning">
+      <div className="card-title"><Brain size={16} /> Is it getting smarter?</div>
+      <div className="learned">
+        {d.symbols.map((s) => (
+          <div key={s.symbol} className="learned-row">
+            <div className="learned-sym">{s.name}</div>
+            <div>
+              {s.trusts.length > 0 && <div><span className="tag pos">trusts</span> {s.trusts.join(" · ")}</div>}
+              {s.ignores.length > 0 && <div><span className="tag neg">ignores</span> {s.ignores.join(" · ")}</div>}
+              {!s.trusts.length && !s.ignores.length && <div className="muted">building its track record…</div>}
+            </div>
+          </div>
+        ))}
+        <div className="muted small">Every 5-minute bar, each indicator is scored on whether it was right. Proven ones get more say; wrong ones get ignored.</div>
+      </div>
+      <div className="divider" />
+      <div className="train-head">
+        <span><GraduationCap size={15} /> Brain training</span>
+        <span className="muted">{t.running ? `${pct}% of this cycle` : "idle"}</span>
+      </div>
+      <div className="progress"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+      <div className="stages">
+        {(t.stages || []).map((st, i) => <span key={i} className={`stage ${st.status}`}>{st.label}</span>)}
+      </div>
+      {t.current ? (
+        <div className="mission">
+          <div className="mission-title">Now: {t.current.name} · {t.current.symbol}</div>
+          <div className="mrow"><span className="mlabel">Learning</span>{t.current.learn}</div>
+          <div className="mrow"><span className="mlabel">Goal</span>{t.current.goal}</div>
+          <div className="mrow"><span className="mlabel">Tested by</span>{t.current.test}</div>
+          {t.next && <div className="muted small">Next up: {t.next}. New models trade only after passing an exam on data they've never seen.</div>}
+        </div>
+      ) : (
+        <div className="muted small">No training running. Run <code>exness train</code> to start a learning cycle.</div>
+      )}
+    </div>
+  );
+}
+
+function Trades({ trades }) {
+  return (
+    <div className="card trades">
+      <div className="card-title"><Receipt size={16} /> Today's trades</div>
+      {!trades.length && <div className="muted small">No trades yet today.</div>}
+      <div className="trade-list">
+        {trades.map((t, i) => (
+          <div key={i} className="trade">
+            <div className={`trade-ic ${t.closing ? (t.pnl > 0 ? "win" : "loss") : t.side === "BUY" ? "buy" : "sell"}`}>
+              {t.closing ? (t.pnl > 0 ? <Trophy size={14} /> : <Target size={14} />) : t.side === "BUY" ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+            </div>
+            <div className="trade-body">
+              <div>{t.closing ? `Closed ${t.symbol}` : `${t.side === "BUY" ? "Bought" : "Sold"} ${t.volume.toFixed(2)} ${t.symbol}`}</div>
+              <div className="muted small">{fmtTime(t.t)} · ${fmtPx(t.price)}</div>
+            </div>
+            {t.closing && <div className={`trade-pnl ${t.pnl > 0 ? "pos" : "neg"}`}>{fmtMoney(t.pnl, true)}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [d, err] = useApi(2000);
+  if (!d) {
+    return (
+      <div className="app"><Header d={null} />
+        <div className="loading"><Activity className="spin" /> {err || "Connecting to the bot…"}</div>
+      </div>
+    );
+  }
+  const a = d.account, st = d.stats;
+  const winRate = st.closed ? Math.round((st.wins / st.closed) * 100) : null;
+  const lossUsed = a.daily_loss_limit ? Math.max(0, Math.min(1, -a.today / a.daily_loss_limit)) : 0;
+  const open = d.symbols.filter((s) => s.position).length;
+  return (
+    <div className="app">
+      <Header d={d} />
+      {err && <div className="banner">{err} · showing last known data</div>}
+      <section className="kpis">
+        <Kpi icon={Wallet} label="Equity" sub={`balance ${fmtMoney(a.balance)}`}>
+          <AnimatedNumber value={a.equity} format={(v) => fmtMoney(v)} />
+        </Kpi>
+        <Kpi icon={CircleDollarSign} label="Today" tone={a.today >= 0 ? "pos" : "neg"}
+             sub={<span>{a.today_pct >= 0 ? "+" : ""}{a.today_pct.toFixed(2)}% · loss limit used {Math.round(lossUsed * 100)}%
+               <span className="mini-bar"><span style={{ width: `${lossUsed * 100}%` }} /></span></span>}>
+          <AnimatedNumber value={a.today} format={(v) => fmtMoney(v, true)} />
+        </Kpi>
+        <Kpi icon={Trophy} label="Win rate today" sub={`${st.wins} won · ${st.losses} lost · ${fmtMoney(st.pnl_closed, true)}`}>
+          {winRate == null ? "—" : `${winRate}%`}
+        </Kpi>
+        <Kpi icon={Zap} label="Open trades" sub={`floating ${fmtMoney(a.floating, true)}`}>{open}</Kpi>
+      </section>
+      <section className="main">
+        <EquityChart series={d.equity} equity={a.equity} />
+        <div className="symbols">{d.symbols.map((s) => <SymbolCard key={s.symbol} s={s} />)}</div>
+      </section>
+      <section className="bottom">
+        <Learning d={d} />
+        <Trades trades={d.trades} />
+      </section>
+      <footer className="footer">
+        <Lightbulb size={14} /> <b>{d.tip.term}:</b> {d.tip.text}
+        <span className="muted right"><Clock size={12} /> updated {new Date(d.ts * 1000).toLocaleTimeString()}</span>
+      </footer>
+    </div>
+  );
+}

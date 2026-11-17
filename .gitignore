@@ -22,3 +22,5 @@ backups/
 config.windows-mt5.yaml
 .venv/
 data/exness_cache/
+web/node_modules/
+web/dist/

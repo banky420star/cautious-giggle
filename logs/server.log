@@ -147,3 +147,14 @@
 2026-11-17 06:13:06.883 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - XAUUSDm: using minimum lot 0.01 (stop risk 1.02% <= ceiling 2.0%)
 2026-11-17 06:13:06.955 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=open side=sell lots=0.01 price=3869.935 sl=3875.032 tp=3861.925 target=-0.1089 magic=52900 retcode=10009 ticket=380933345300713472
 2026-11-17 06:13:07.019 +02:00 | INFO     | __main__:main:1227 - ACTION XAUUSDm | req=open side=SELL volume=0.01 target=-0.1089 ppo=0.0000 dreamer=0.0000 agi=0.0000 magic=52900 comment=AGI|XAU|UN|O|P000000|P+00 ticket=380933345300713472 retcode=10009 TP=3861.925 SL=3875.032
+2026-11-17 06:15:14.028 +02:00 | INFO     | __main__:main:1099 - DECISION BTCUSDm | regime=BUY conf=0.6673 risk=0.9000 agi_bias=0.6673 ppo=0.0000 dreamer=0.0000 raw=-0.2086 final=-0.1878
+2026-11-17 06:15:15.127 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - BTCUSDm: using minimum lot 0.01 (stop risk 0.40% <= ceiling 2.0%)
+2026-11-17 06:15:18.513 +02:00 | INFO     | __main__:main:1099 - DECISION XAUUSDm | regime=HOLD conf=0.6915 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.1132 final=-0.0906
+2026-11-17 06:15:20.050 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - XAUUSDm: using minimum lot 0.01 (stop risk 0.99% <= ceiling 2.0%)
+2026-11-17 06:16:59.959 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=manage side= lots=0.00 price=None sl=3868.061 tp=3861.925 target=0.0000 magic=52920 retcode=10009 ticket=380934319851442176
+2026-11-17 06:18:14.909 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=manage side= lots=0.00 price=None sl=3867.322 tp=3861.925 target=0.0000 magic=52920 retcode=10009 ticket=380934636911464448
+2026-11-17 06:20:12.751 +02:00 | INFO     | __main__:main:1099 - DECISION BTCUSDm | regime=BUY conf=0.6604 risk=0.9000 agi_bias=0.6604 ppo=0.0000 dreamer=0.0000 raw=-0.2377 final=-0.2140
+2026-11-17 06:20:15.092 +02:00 | INFO     | __main__:main:1099 - DECISION XAUUSDm | regime=SELL conf=0.7074 risk=0.9000 agi_bias=-0.7074 ppo=0.0000 dreamer=0.0000 raw=-0.1532 final=-0.1379
+2026-11-17 06:20:15.895 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - XAUUSDm: using minimum lot 0.01 (stop risk 0.94% <= ceiling 2.0%)
+2026-11-17 06:20:16.542 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=open side=sell lots=0.01 price=3867.6910000000003 sl=3872.378 tp=3860.326 target=-0.1379 magic=52900 retcode=10009 ticket=380935147073048576
+2026-11-17 06:20:16.561 +02:00 | INFO     | __main__:main:1227 - ACTION XAUUSDm | req=open side=SELL volume=0.01 target=-0.1379 ppo=0.0000 dreamer=0.0000 agi=-0.7074 magic=52900 comment=AGI|XAU|UN|O|P000000|P+00 ticket=380935147073048576 retcode=10009 TP=3860.326 SL=3872.378
