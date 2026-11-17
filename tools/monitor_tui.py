@@ -269,6 +269,7 @@ class Logs:
 
     def __init__(self):
         self.last_signal, self.last_block, self.last_memory = {}, {}, {}
+        self.last_council = {}
         self.events: list[dict] = []
         self.equity: list[float] = []
         self.last_snapshot = None
@@ -310,6 +311,8 @@ class Logs:
                 self.last_signal[sym] = r
             elif ev == "model_memory" and sym:
                 self.last_memory[sym] = r
+            elif ev == "council" and sym:
+                self.last_council[sym] = r
             elif ev == "risk_supervisor_block" and sym:
                 self.last_block[sym] = r
                 self.events.append(r)
@@ -394,24 +397,23 @@ def explain(prog: dict, tr: dict, reg: dict, symbols: list[str], alive: bool, lo
     if live and prog.get("kind") == "lstm":
         sym, ep, eps = _nm(prog.get("symbol")), int(prog.get("epoch", 0)), int(prog.get("epochs", 1))
         say(f"📚 Teaching the LSTM to read {sym} charts.", "bold")
-        say(f"It looks at the last 60 five-minute bars and guesses whether the next bar goes UP, DOWN or stays FLAT. "
-            f"It is on pass {ep} of up to {eps} through ~{int(prog.get('train_samples', 0)):,} past examples.")
+        say(f"Reads the last 60 bars × 150 indicators and predicts UP / DOWN / FLAT for the next bar. "
+            f"Pass {ep} of up to {eps} over {int(prog.get('train_samples', 0)):,} past examples.")
         if prog.get("phase") == "validating" or int(prog.get("batch", 0)) >= int(prog.get("n_batches", 1)):
             say("🔍 Pass finished; now testing it on recent bars it was NOT trained on (the honest score).", "cyan")
         hist = prog.get("history") or []
         base = prog.get("majority_val_acc")
         if base is not None:
             cp = prog.get("val_class_pct") or {}
-            say(f"Yardstick: always guessing the most common outcome would score {base:.1f}% "
-                f"(flat {cp.get('hold', 0):.0f}% · up {cp.get('up', 0):.0f}% · down {cp.get('down', 0):.0f}% of test bars).", "dim")
+            say(f"Yardstick: always saying FLAT scores {base:.0f}% (test bars: flat {cp.get('hold', 0):.0f}% · "
+                f"up {cp.get('up', 0):.0f}% · down {cp.get('down', 0):.0f}%).", "dim")
         if hist:
             h = hist[-1]
             va = float(h.get("val_acc", 0))
-            say(f"On bars it has never seen it got {va:.1f}% right after the last pass.")
+            say(f"Unseen bars right after last pass: {va:.1f}%.")
             if base is not None and va < base:
-                say("That is below the yardstick on purpose: it is trained to call the rarer UP/DOWN moves instead of "
-                    "always saying FLAT, so raw accuracy undersells it. Watch whether val_loss keeps falling; the "
-                    "real verdict is the trading exam after training.", "dim")
+                say("Below the yardstick on purpose: it hunts the rarer UP/DOWN moves. Judge it by falling val_loss "
+                    "and the trading exam.", "dim")
             if len(hist) >= 2:
                 prev = hist[-2]
                 tl, vl = float(h["loss"]) - float(prev["loss"]), float(h["val_loss"]) - float(prev["val_loss"])
@@ -428,7 +430,7 @@ def explain(prog: dict, tr: dict, reg: dict, symbols: list[str], alive: bool, lo
                 say(f"Best version so far: pass {best[-1]['epoch']} ({float(best[-1]['val_acc']):.1f}% on unseen bars).", "dim")
         else:
             say("First pass in progress: early numbers are noisy.", "dim")
-        say("Note: the LSTM is only a helper; the PPO trader below makes most of the decision.", "dim")
+        say("The LSTM is a helper; the PPO trader and the indicator council carry most of the decision.", "dim")
     elif live and prog.get("kind") == "ppo":
         st, tot = int(prog.get("step", 0)), max(1, int(prog.get("total", 1)))
         say(f"🎮 Training the PPO trader for {_nm(prog.get('symbol'))} in a simulator.", "bold")
@@ -450,6 +452,24 @@ def explain(prog: dict, tr: dict, reg: dict, symbols: list[str], alive: bool, lo
             say("⚙️  Preparing: loading price history and building the 150 indicators the models read.", "bold")
     else:
         say("💤 No training running. Type 'exness train' to start a new cycle.", "dim")
+
+    # ---- indicator council in words
+    from Python.indicator_council import STRATEGIES as IND
+    for s in symbols:
+        p = ((logs.last_council.get(s) or {}).get("payload") or {})
+        if not p:
+            continue
+        t = float(p.get("target", 0))
+        ign = [IND.get(k, k) for k in (p.get("ignored") or [])]
+        works = [IND.get(k, k) for k, a in (p.get("assess") or {}).items() if (a or {}).get("verdict") == "works"
+                 and abs(float((p.get("votes") or {}).get(k, 0))) > 0.05]
+        msg = f"📊 {_nm(s)}: {p.get('up', 0)} indicators say up, {p.get('down', 0)} down, {p.get('flat', 0)} no view. "
+        if works:
+            msg += "Trusted here: " + ", ".join(works[:3]) + ". "
+        if ign:
+            msg += "Ignoring " + ", ".join(ign[:3]) + (" …" if len(ign) > 3 else "") + " (poor record in this market). "
+        msg += f"Council: {'BUY' if t > 0.05 else ('SELL' if t < -0.05 else 'no trade')} ({t:+.2f})."
+        say(msg, "green" if t > 0.3 else ("red" if t < -0.3 else ""))
 
     # ---- what happened at the gate
     for line in tail_lines(CYCLE_LOG, 120):
@@ -581,7 +601,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
         else:
             title.append("  flat", style="dim")
         color = "green" if len(closes) > 1 and closes[-1] >= closes[0] else "red"
-        cells.append(Panel(braille_chart(closes, chart_w, 7, marks, color=color), title=title,
+        cells.append(Panel(braille_chart(closes, chart_w, 5, marks, color=color), title=title,
                            subtitle=Text("M5 · last 150 bars + live", style="dim"), box=box.ROUNDED))
     charts.add_row(*cells)
 
@@ -608,7 +628,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
 
     # ---- decisions
     dec = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 1))
-    for c in ("Symbol", "Spr", "Context", "PPO", "LSTM", "Blend", "Supervisor", "Age"):
+    for c in ("Symbol", "Spr", "Context", "Council", "PPO", "LSTM", "Blend", "Supervisor", "Age"):
         dec.add_column(c, justify="left" if c in ("Symbol", "Context", "Supervisor") else "right", no_wrap=True)
     for s in symbols:
         t = broker.ticks.get(s)
@@ -621,10 +641,50 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
             sup = Text("BLOCK " + str((blk.get("payload") or {}).get("reason", ""))[:22], style="yellow")
         else:
             sup = Text("ok", style="green") if sg else Text("waiting", style="dim")
-        dec.add_row(s, spr, ctx, signed(sg.get("ppo_exposure")) if sg else Text("-"),
+        dec.add_row(s, spr, ctx, signed(sg.get("council")) if sg else Text("-"),
+                    signed(sg.get("ppo_exposure")) if sg else Text("-"),
                     signed(sg.get("agi_bias")) if sg else Text("-"),
                     signed(sg.get("exposure")) if sg else Text("-"), sup,
                     age((logs.last_signal.get(s) or {}).get("ts")))
+
+    # ---- indicator council
+    from Python.indicator_council import STRATEGIES as IND
+    ct = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 1))
+    ct.add_column("indicator", no_wrap=True, ratio=3)
+    for s in symbols:
+        ct.add_column(_nm(s), justify="center", no_wrap=True, ratio=2)
+    cvs = {s: ((logs.last_council.get(s) or {}).get("payload") or {}) for s in symbols}
+    for k, desc in IND.items():
+        row = [Text(desc, style="")]
+        for s in symbols:
+            p = cvs[s]
+            v = (p.get("votes") or {}).get(k)
+            a = (p.get("assess") or {}).get(k) or {}
+            if v is None:
+                row.append(Text("·", style="dim"))
+                continue
+            arrow = "▲" if v > 0.05 else ("▼" if v < -0.05 else "─")
+            mult = float(a.get("mult", 1.0))
+            verdict = a.get("verdict", "")
+            vstyle = "green" if v > 0.05 else ("red" if v < -0.05 else "dim")
+            cell = Text(f"{arrow} {v:+.2f} ", style=vstyle)
+            cell.append(f"×{mult:.2f}", style="bold green" if verdict == "works" else
+                        ("strike dim red" if verdict == "doesn't work" else "dim"))
+            row.append(cell)
+        ct.add_row(*row)
+    tot = [Text("COUNCIL VOTE", style="bold")]
+    for s in symbols:
+        p = cvs[s]
+        if p:
+            t = float(p.get("target", 0))
+            tot.append(Text(f"{'BUY' if t > 0.05 else ('SELL' if t < -0.05 else 'NONE')} {t:+.2f}",
+                            style="bold black on green" if t > 0.3 else ("bold white on red" if t < -0.3 else "bold")))
+        else:
+            tot.append(Text("waiting for next bar", style="dim"))
+    ct.add_row(*tot)
+    council_panel = Panel(Group(ct, Text("▲/▼ vote  ×weight from memory · green = has worked here · struck = ignored "
+                                         "(hasn't worked in this market)", style="dim")),
+                          title="Indicator council (12 classic indicators, weighted by track record)", box=box.ROUNDED)
 
     # ---- model memory heatmap
     if time.time() - _mem_cache["t"] > 10:
@@ -771,14 +831,14 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
            Layout(banner, size=1)]
     layout.split_column(
         *top,
-        Layout(charts, size=11),
-        Layout(name="mid", size=13),
+        Layout(charts, size=9),
+        Layout(name="mid", size=10),
         Layout(name="low"),
     )
     layout["mid"].split_row(Layout(acct_panel, ratio=2), Layout(Panel(dec, title="Latest decision per symbol",
                                                                       box=box.ROUNDED), ratio=5))
     layout["low"].split_row(Layout(name="left", ratio=4), Layout(name="right", ratio=5))
-    layout["left"].split_column(Layout(explain_panel, ratio=3), Layout(mem_panel, ratio=2))
+    layout["left"].split_column(Layout(explain_panel, ratio=1), Layout(council_panel, size=19))
     layout["right"].split_column(Layout(models_panel, size=21),
                                  Layout(Panel(ev, title="Trades / risk blocks", box=box.ROUNDED)),
                                  Layout(Panel(logt, title="Server log", box=box.ROUNDED), size=7))

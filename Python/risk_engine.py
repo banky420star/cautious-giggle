@@ -21,6 +21,9 @@ class RiskEngine:
         self.max_lots = float(risk_cfg.get("max_lots", 1.0))
         # Max % of equity lost if a position's stop is hit (0 disables the cap).
         self.risk_percent = float(trading_cfg.get("risk_percent", 0.0) or 0.0)
+        # Small accounts: allow the broker's minimum lot when its stop-out risk stays under this
+        # hard ceiling (% of equity), even if it exceeds risk_percent. 0 disables.
+        self.min_lot_max_risk_percent = float(trading_cfg.get("min_lot_max_risk_percent", 0.0) or 0.0)
         self.max_consecutive_errors = int(risk_cfg.get("max_consecutive_errors", 3))
 
         # Default symbol profile used when a symbol-specific profile does not exist.

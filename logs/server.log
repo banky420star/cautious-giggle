@@ -30,3 +30,48 @@
 2026-11-17 05:20:25.588 +02:00 | INFO     | __main__:main:1004 - DECISION BTCUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
 2026-11-17 05:25:13.168 +02:00 | INFO     | __main__:main:1004 - DECISION BTCUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
 2026-11-17 05:25:14.598 +02:00 | INFO     | __main__:main:1004 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
+2026-11-17 05:30:17.673 +02:00 | INFO     | __main__:main:1004 - DECISION BTCUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
+2026-11-17 05:30:19.895 +02:00 | INFO     | __main__:main:1004 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
+2026-11-17 05:33:50.419 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 05:33:50.572 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 05:33:50.573 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 05:33:50.708 +02:00 | WARNING  | Python.agi_brain:_load_bundle:155 - no trained default model found at /Volumes/AI_DRIVE/cautious-giggle/models/lstm_agi_trained.pt; live predictions will HOLD
+2026-11-17 05:33:50.872 +02:00 | INFO     | __main__:main:809 - indicator council ON
+2026-11-17 05:33:56.579 +02:00 | INFO     | __main__:main:1048 - DECISION BTCUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0569 final=0.0000
+2026-11-17 05:33:58.721 +02:00 | INFO     | __main__:main:1048 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.2822 final=0.2257
+2026-11-17 05:34:56.927 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 05:34:57.064 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 05:34:57.122 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 05:34:57.197 +02:00 | WARNING  | Python.agi_brain:_load_bundle:155 - no trained default model found at /Volumes/AI_DRIVE/cautious-giggle/models/lstm_agi_trained.pt; live predictions will HOLD
+2026-11-17 05:34:57.280 +02:00 | INFO     | __main__:main:809 - indicator council ON
+2026-11-17 05:34:59.386 +02:00 | INFO     | __main__:main:1048 - DECISION BTCUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0569 final=0.0000
+2026-11-17 05:35:01.339 +02:00 | INFO     | __main__:main:1048 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.2822 final=0.2257
+2026-11-17 05:35:23.715 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:151 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 05:35:23.716 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:163 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 05:35:25.355 +02:00 | INFO     | __main__:main:1048 - DECISION BTCUSDm | regime=BUY conf=0.7018 risk=0.9000 agi_bias=0.7018 ppo=0.0000 dreamer=0.0000 raw=0.1893 final=0.0000
+2026-11-17 05:35:28.569 +02:00 | INFO     | __main__:main:1048 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.2629 final=0.2103
+2026-11-17 05:36:25.687 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 05:36:25.845 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 05:36:25.846 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 05:36:27.099 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:151 - AGI Brain loaded default model on MPS
+2026-11-17 05:36:27.102 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:163 - loaded default feature scaler
+2026-11-17 05:36:27.185 +02:00 | INFO     | __main__:main:809 - indicator council ON
+2026-11-17 05:36:28.982 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:151 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 05:36:28.985 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:163 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 05:36:29.509 +02:00 | INFO     | __main__:main:1048 - DECISION BTCUSDm | regime=BUY conf=0.7018 risk=0.9000 agi_bias=0.7018 ppo=0.0000 dreamer=0.0000 raw=0.1893 final=0.0000
+2026-11-17 05:36:32.088 +02:00 | INFO     | __main__:main:1048 - DECISION XAUUSDm | regime=BUY conf=0.6892 risk=0.9000 agi_bias=0.6892 ppo=0.0000 dreamer=0.0000 raw=0.2629 final=0.2366
+2026-11-17 05:36:32.918 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - XAUUSDm: using minimum lot 0.01 (stop risk 1.47% <= ceiling 2.0%)
+2026-11-17 05:36:33.002 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=open side=buy lots=0.01 price=3874.8669999999997 sl=3867.512 tp=3886.425 target=0.2366 magic=52900 retcode=10009 ticket=380924143199064064
+2026-11-17 05:36:33.057 +02:00 | INFO     | __main__:main:1176 - ACTION XAUUSDm | req=open side=BUY volume=0.01 target=0.2366 ppo=0.0000 dreamer=0.0000 agi=0.6892 magic=52900 comment=AGI|XAU|UN|O|P000000|P+00 ticket=380924143199064064 retcode=10009 TP=3886.425 SL=3867.512
+2026-11-17 05:38:03.110 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 05:38:03.233 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 05:38:03.284 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 05:38:04.124 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded default model on MPS
+2026-11-17 05:38:04.126 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded default feature scaler
+2026-11-17 05:38:04.200 +02:00 | INFO     | __main__:main:809 - indicator council ON
+2026-11-17 05:38:07.407 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 05:38:07.408 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 05:38:07.817 +02:00 | INFO     | __main__:main:1048 - DECISION BTCUSDm | regime=BUY conf=0.7018 risk=0.9000 agi_bias=0.7018 ppo=0.0000 dreamer=0.0000 raw=0.1893 final=0.0000
+2026-11-17 05:38:10.191 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for XAUUSDm yet (default model is BTCUSDm); LSTM holds for XAUUSDm
+2026-11-17 05:38:10.274 +02:00 | INFO     | __main__:main:1048 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.2629 final=0.2103
+2026-11-17 05:38:10.409 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - XAUUSDm: using minimum lot 0.01 (stop risk 1.48% <= ceiling 2.0%)

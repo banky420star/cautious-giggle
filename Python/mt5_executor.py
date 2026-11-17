@@ -325,7 +325,14 @@ class MT5Executor:
                 return requested_lots
             loss_per_lot = sl_dist / tick_size * tick_value
             max_lots = equity * risk_pct / 100.0 / loss_per_lot
-            return min(requested_lots, max_lots)
+            capped = min(requested_lots, max_lots)
+            vol_min = float(getattr(info, "volume_min", 0.0) or 0.0)
+            ceiling = float(getattr(self.risk, "min_lot_max_risk_percent", 0.0) or 0.0)
+            if 0 < capped < vol_min and ceiling > 0 and vol_min * loss_per_lot <= equity * ceiling / 100.0:
+                logger.info(f"{symbol}: using minimum lot {vol_min} (stop risk "
+                            f"{vol_min * loss_per_lot / equity * 100:.2f}% <= ceiling {ceiling:.1f}%)")
+                return vol_min
+            return capped
         except Exception as exc:
             logger.warning(f"risk_capped_lots({symbol}) failed: {exc}")
             return requested_lots

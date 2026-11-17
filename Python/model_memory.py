@@ -32,11 +32,19 @@ from dataclasses import dataclass
 
 import numpy as np
 
-MODELS = ("ppo", "lstm", "dreamer", "blend")
+MODELS = ("ppo", "lstm", "dreamer", "council", "blend")
 
 
 def market_context(df) -> dict:
     """Coarse market context from raw OHLC: trend, volatility, session."""
+    try:
+        from Python.indicator_council import context_series
+
+        key = str(context_series(df.tail(1500)).iloc[-1])
+        t, v, sess = key.split("|")
+        return {"trend": t, "vol": v, "session": sess, "key": key}
+    except Exception:
+        pass
     try:
         close = df["close"].astype(float).to_numpy()
         high = df["high"].astype(float).to_numpy()
@@ -208,8 +216,15 @@ class ModelMemory:
                 "n_all": round(o.w, 1), "hit_rate": None if hit is None else round(hit, 3),
                 "verdict": ("works" if mult > 1.1 else ("doesn't work" if mult < 0.9 else "neutral"))}
 
-    def multipliers(self, symbol: str, ctx: str) -> dict:
-        return {m: self.assess(symbol, m, ctx) for m in MODELS}
+    def multipliers(self, symbol: str, ctx: str, names=MODELS) -> dict:
+        return {m: self.assess(symbol, m, ctx) for m in names}
+
+    def bulk_learn(self, symbol: str, model: str, contexts, scores, actives) -> None:
+        """Replay history: feed (context, score, active) rows in time order for one model."""
+        with self._lock:
+            for ctx, x, act in zip(contexts, scores, actives):
+                for c in (ctx, "*"):
+                    self.stats.setdefault(self._key(symbol, model, c), _Stat()).update(float(x), bool(act), self.decay)
 
     def table(self, symbol: str) -> list[dict]:
         """All contexts seen for a symbol, for the dashboard."""

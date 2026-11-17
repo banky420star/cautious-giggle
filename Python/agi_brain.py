@@ -79,6 +79,7 @@ class SmartAGI:
         self.symbol_models = {}
         self._warned_missing_symbol = set()
         self._warned_incompatible_symbol = set()
+        self._warned_default_mismatch = set()
 
         from Python.model_registry import ModelRegistry
 
@@ -122,6 +123,7 @@ class SmartAGI:
     def _load_bundle(self, model_path: str, scaler_path: str, label: str):
         feature_columns = list(FEATURE_COLUMNS)
         feature_version = ULTIMATE_150  # default: same as training
+        trained_symbol = None
         metadata_path = os.path.splitext(model_path)[0] + ".meta.json"
         if os.path.exists(metadata_path):
             try:
@@ -133,6 +135,7 @@ class SmartAGI:
                 if isinstance(cols, list) and cols:
                     feature_columns = [str(col) for col in cols]
                 feature_version = str(metadata.get("feature_version", ULTIMATE_150) or ULTIMATE_150)
+                trained_symbol = metadata.get("symbol")
             except Exception as exc:
                 logger.warning(f"{label} metadata load failed: {exc}")
 
@@ -171,6 +174,7 @@ class SmartAGI:
             "model_loaded": model_loaded,
             "feature_columns": feature_columns,
             "feature_version": feature_version,
+            "trained_symbol": trained_symbol,
         }
 
     def _symbol_artifact_paths(self, symbol: str):
@@ -220,6 +224,17 @@ class SmartAGI:
         except Exception:
             return False
 
+    def _default_for(self, symbol: str):
+        """The default model only stands in for a symbol it was trained on (or a multi-symbol model).
+        A Bitcoin-trained default must not vote on gold: return an unloaded bundle (-> HOLD)."""
+        trained = self.default_bundle.get("trained_symbol")
+        if trained and str(trained) != str(symbol):
+            if symbol not in self._warned_default_mismatch:
+                logger.info(f"no LSTM trained for {symbol} yet (default model is {trained}); LSTM holds for {symbol}")
+                self._warned_default_mismatch.add(symbol)
+            return dict(self.default_bundle, model_loaded=False)
+        return self.default_bundle
+
     def _bundle_for_symbol(self, symbol: str):
         if symbol in self.symbol_models:
             return self.symbol_models[symbol]
@@ -241,12 +256,12 @@ class SmartAGI:
                         f"incompatible per-symbol model for {symbol} (feature shape mismatch); using default model"
                     )
                     self._warned_incompatible_symbol.add(symbol)
-                return self.default_bundle
+                return self._default_for(symbol)
             bundle = self._load_bundle(model_path, scaler_path, f"symbol[{symbol}]")
             self.symbol_models[symbol] = bundle
             return bundle
 
-        return self.default_bundle
+        return self._default_for(symbol)
 
     def predict(self, df: pd.DataFrame, production: bool = False) -> dict:
         self.prediction_count += 1

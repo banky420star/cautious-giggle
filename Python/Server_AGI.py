@@ -11,6 +11,7 @@ import pandas as pd
 from loguru import logger
 
 from Python.model_memory import ModelMemory, market_context
+from Python.indicator_council import STRATEGIES, council_vote, votes as council_votes
 from Python import demo_exploration
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
@@ -33,6 +34,7 @@ SYMBOL_EXECUTION_PROFILES = {
         "ppo_weight": 0.70,
         "dreamer_weight": 0.0,
         "agi_weight": 0.30,
+        "council_weight": 0.35,
         "min_trade_threshold": 0.18,
         "max_abs_target": 1.00,
         "cooldown_sec": 30,
@@ -41,6 +43,7 @@ SYMBOL_EXECUTION_PROFILES = {
         "ppo_weight": 0.60,
         "dreamer_weight": 0.0,
         "agi_weight": 0.40,
+        "council_weight": 0.35,
         "min_trade_threshold": 0.12,
         "max_abs_target": 0.75,
         "cooldown_sec": 45,
@@ -453,6 +456,10 @@ def _risk_scalar(agi_meta: dict | None) -> float:
         return 1.0
 
 
+class _CouncilOff(Exception):
+    pass
+
+
 def _blend_symbol_decision(
     symbol: str,
     agi_meta: dict | None,
@@ -460,6 +467,7 @@ def _blend_symbol_decision(
     dreamer_meta: dict | None,
     cfg: dict | None = None,
     memory_mult: dict | None = None,
+    council_meta: dict | None = None,
 ) -> dict:
     profile = _symbol_profile(symbol, cfg=cfg)
 
@@ -490,7 +498,11 @@ def _blend_symbol_decision(
     dreamer_w *= float((mm.get("dreamer") or {}).get("mult", 1.0))
     agi_w *= float((mm.get("lstm") or {}).get("mult", 1.0))
 
-    raw = ppo_w * ppo_target + dreamer_w * dreamer_target + agi_w * agi_bias
+    council_target = float((council_meta or {}).get("target", 0.0) or 0.0)
+    council_w = float(profile.get("council_weight", 0.0)) if council_meta is not None else 0.0
+    council_w *= float((mm.get("council") or {}).get("mult", 1.0))
+
+    raw = ppo_w * ppo_target + dreamer_w * dreamer_target + agi_w * agi_bias + council_w * council_target
 
     adjusted = raw * agi_risk
     adjusted = _clip(adjusted, -float(profile["max_abs_target"]), float(profile["max_abs_target"]))
@@ -511,6 +523,8 @@ def _blend_symbol_decision(
         "ppo_weight_used": round(ppo_w, 3),
         "dreamer_weight_used": round(dreamer_w, 3),
         "agi_weight_used": round(agi_w, 3),
+        "council_target": council_target,
+        "council_weight_used": round(council_w, 3),
         "profile": profile,
     }
 
@@ -787,6 +801,12 @@ def main(live=False):
     explore_cfg = demo_exploration.settings(cfg)
     explore_demo_ok = bool(explore_cfg["enabled"]) and demo_exploration.account_is_demo(mt5)
     explore_cache: dict = {}
+    council_cfg = ((cfg.get("trading", {}) or {}).get("council", {}) or {})
+    # Council weights are learned from history replay (in-sample), so on a real-money account it
+    # only votes when explicitly allowed.
+    council_allowed = bool(council_cfg.get("enabled", True)) and (
+        demo_exploration.account_is_demo(mt5) or bool(council_cfg.get("allow_live", False)))
+    logger.info(f"indicator council {'ON' if council_allowed else 'OFF'}")
 
     def _exploration_scale(sym: str) -> float:
         """Size scale for symbols running a demo-exploration canary (0 on a live account)."""
@@ -979,8 +999,23 @@ def main(live=False):
                 dreamer_meta = brain.predict_dreamer_action(symbol, df)
                 ctx = market_context(df)
                 mem_mult = model_memory.multipliers(symbol, ctx["key"]) if memory_on else {}
+                council_meta = None
+                ind_votes = {}
+                try:
+                    if not council_allowed:
+                        raise _CouncilOff()
+                    vt = council_votes(df.tail(1500))
+                    ind_votes = {k: float(vt[k].iloc[-1]) for k in STRATEGIES}
+                    ind_assess = model_memory.multipliers(symbol, ctx["key"], names=[f"ind:{k}" for k in STRATEGIES])
+                    council_meta = council_vote(ind_votes, {k: ind_assess.get(f"ind:{k}") for k in STRATEGIES})
+                    council_meta["votes"] = ind_votes
+                    council_meta["assess"] = {k: ind_assess.get(f"ind:{k}") for k in STRATEGIES}
+                except _CouncilOff:
+                    pass
+                except Exception as e:
+                    logger.warning(f"indicator council failed for {symbol}: {e}")
                 decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, cfg=cfg,
-                                                  memory_mult=mem_mult)
+                                                  memory_mult=mem_mult, council_meta=council_meta)
                 explore_scale = _exploration_scale(symbol)
                 if explore_scale != 1.0:
                     decision["target"] = float(decision["target"]) * explore_scale
@@ -994,10 +1029,19 @@ def main(live=False):
                             "lstm": None if agi_meta is None else float(agi_meta.get("trend_bias", 0.0) or 0.0),
                             "dreamer": None if dreamer_meta is None else float(dreamer_meta.get("target", 0.0) or 0.0),
                             "blend": float(exposure),
+                            "council": None if council_meta is None else float(council_meta["target"]),
+                            **{f"ind:{k}": v for k, v in ind_votes.items()},
                         },
                     )
-                    _append_audit("model_memory", {"symbol": symbol, "context": ctx, "scored": scored,
+                    _append_audit("model_memory", {"symbol": symbol, "context": ctx,
+                                                   "scored": [r for r in scored if not str(r.get("model", "")).startswith("ind:")],
                                                    "multipliers": mem_mult, "enabled": memory_on})
+                    if council_meta is not None:
+                        _append_audit("council", {"symbol": symbol, "context": ctx.get("key"),
+                                                  "target": council_meta["target"], "up": council_meta["up"],
+                                                  "down": council_meta["down"], "flat": council_meta["flat"],
+                                                  "ignored": council_meta["ignored"], "votes": council_meta["votes"],
+                                                  "assess": council_meta["assess"]})
                 except Exception as e:
                     logger.warning(f"model memory update failed for {symbol}: {e}")
 
@@ -1023,6 +1067,7 @@ def main(live=False):
                         "confidence": conf,
                         "risk_scalar": _risk_scalar(agi_meta),
                         "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
+                        "council": float(decision.get("council_target", 0.0) or 0.0),
                         "ppo_exposure": float((ppo_meta or {}).get("target", 0.0) or 0.0),
                         "dreamer_exposure": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
                         "raw_target": float(decision["raw_target"]),
