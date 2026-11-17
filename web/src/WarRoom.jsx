@@ -377,7 +377,7 @@ function testCell(t, spread) {
   if (!t || !t.active) return <span className="muted small">{t ? "no calls" : "—"}</span>;
   const good = t.edge_bps > 0;
   return (
-    <span title={`${t.active} calls replayed · following it averaged ${bps(t.follow_bps)} bps per 30 min${spread != null ? ` · spread ${spread.toFixed(2)} bps` : ""}`}>
+    <span title={`${t.active} calls replayed · each trade on it averaged ${bps(t.follow_bps)} bps after the spread${spread != null ? ` (spread ${spread.toFixed(2)} bps)` : ""}`}>
       <b className={good ? "pos" : "neg"}>{pct(t.hit)}</b> <span className="muted small">edge {bps(t.edge_bps)}</span>
     </span>
   );
@@ -393,7 +393,7 @@ export function Models({ data }) {
         <span className={`dot ${data.live ? "on" : "off"}`} /> <b>{data.live ? "Voting live" : data.updated ? `Not voting: last vote ${ago(data.updated)} (bot stopped or broker connection lost)` : "Not voting (bot not running)"}</b>
         <span className="muted small">
           Each model gets a weight (an indicator counts 1). Its live record decides how much it counts: models that keep being right count up to 1.5× more, wrong ones are ignored.
-          {" "}History test: {tst.running ? "running…" : tst.done ? `last ${tst.days} days, scored against the next ${tst.horizon_min} min` : "not run yet"}.
+          {" "}History test: {tst.running ? "running…" : tst.done ? `last ${tst.days} days, scored after costs over the next ${tst.horizon_min} min` : "not run yet"}. All figures are after the spread: above 0 means it paid for itself.
         </span>
       </div>
       <div className="models-grid">
@@ -401,7 +401,7 @@ export function Models({ data }) {
           <div key={m.key} className="card hud model-card">
             <div className="card-head"><b>{m.name}</b><span className="op-tag cyan">weight {m.weight}×</span></div>
             <table className="blt small-t">
-              <thead><tr><th>Market</th><th>Now</th><th className="r">Live hit</th><th className="r">Live edge</th><th>Verdict</th><th>History test</th></tr></thead>
+              <thead><tr><th>Market</th><th>Now</th><th className="r">Live hit</th><th className="r">Live edge (net)</th><th>Verdict</th><th>History test</th></tr></thead>
               <tbody>
                 {m.rows.map((r) => {
                   const [lab, col] = VERDICT_TAG[r.live?.verdict] || ["—", "grey"];
@@ -442,7 +442,7 @@ export function Models({ data }) {
                 );
               })}
             </tbody>
-            <tfoot><tr><td colSpan={5} className="muted small ex">Hit = share of calls that got the next 30 minutes' direction right. Edge = average of (vote × next move) in basis points (1 bp = 0.01%); it must beat the spread to make money after costs.</td></tr></tfoot>
+            <tfoot><tr><td colSpan={5} className="muted small ex">Hit = share of calls that made money after the spread. Edge = average of (vote × next move − spread paid) in basis points (1 bp = 0.01%), so above 0 means profit after costs.</td></tr></tfoot>
           </table>
         </div>
       )}

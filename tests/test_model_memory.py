@@ -38,3 +38,35 @@ def test_market_context_shape():
     df = pd.DataFrame({"open": close, "high": close + 0.1, "low": close - 0.1, "close": close}, index=idx)
     ctx = market_context(df)
     assert ctx["trend"] == "up" and ctx["key"].count("|") == 2
+
+
+def _feed(mem, moves, targets_fn, cost):
+    price, t0 = 100.0, dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+    for i, mv in enumerate(moves):
+        mem.observe("BTCUSDm", t0 + dt.timedelta(minutes=5 * i), price, {"key": "c"}, targets_fn(i), cost_bps=cost)
+        price *= np.exp(mv / 1e4)
+
+
+def test_right_direction_but_smaller_than_spread_scores_negative(tmp_path):
+    # always right about direction, but every move (0.5 bp) is below the 1 bp spread
+    mem = ModelMemory(str(tmp_path / "m.json"), min_samples=30, horizon_bars=1)
+    moves = [0.5] * 400
+    _feed(mem, moves, lambda i: {"ppo": 1.0, "blend": 1.0}, cost=1.0)
+    a = mem.assess("BTCUSDm", "ppo", "*")
+    assert a["edge_bps"] < 0 and a["hit_rate"] == 0.0
+    assert mem.assess("BTCUSDm", "trade", "*")["edge_bps"] < 0
+
+
+def test_scored_over_the_horizon_not_the_next_bar(tmp_path):
+    # moves alternate +3/-1: the next bar is a coin flip for a long, the next 2 bars are always +2
+    moves = [3.0, -1.0] * 300
+    mem2 = ModelMemory(str(tmp_path / "a.json"), min_samples=30, horizon_bars=2)
+    _feed(mem2, moves, lambda i: {"ppo": 1.0}, cost=0.0)
+    assert abs(mem2.assess("BTCUSDm", "ppo", "*")["edge_bps"] - 2.0) < 0.2
+
+
+def test_old_gross_records_are_not_mixed_with_net_ones(tmp_path):
+    import json
+    p = tmp_path / "m.json"
+    p.write_text(json.dumps({"stats": {"BTCUSDm|ppo|*": {"w": 500, "m": 5.0, "s": 30.0}}, "pending": {}}))
+    assert ModelMemory(str(p)).assess("BTCUSDm", "ppo", "*")["n_all"] == 0

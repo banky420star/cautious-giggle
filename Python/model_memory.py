@@ -1,10 +1,15 @@
 """Per-model memory of what works and what doesn't.
 
 Every closed bar, each model's call (target exposure in [-1, 1]) is stored with the
-market context it was made in. On the next closed bar the call is scored against what
-price actually did:
+market context it was made in. `horizon_bars` closed bars later (matched to how long the
+bot's trades are actually held) the call is scored against what price did, AFTER costs:
 
-    score = target * log_return(next bar) * 1e4         (bps earned by following the model)
+    score = target * log_return(next H bars) * 1e4 - |target| * cost_bps
+            (bps earned by following the model, net of the spread paid to do it)
+
+A model that calls direction right but not by more than the spread scores below zero.
+The pseudo-model "trade" scores the bot's own final decision per trade taken
+(sign(target) * move - cost, only when it would hold a position): the entry gate uses it.
 
 Scores are kept as exponentially-decayed statistics per
     symbol x model x context        (context = trend | volatility | session)
@@ -33,6 +38,8 @@ from dataclasses import dataclass
 import numpy as np
 
 MODELS = ("ppo", "lstm", "dreamer", "council", "blend")
+SCORING = "net_of_cost_v2"
+ACTIVE = 0.05  # |target| above this counts as a call (and, for "trade", as holding a position)
 
 
 def market_context(df) -> dict:
@@ -122,8 +129,10 @@ class _Stat:
 
 class ModelMemory:
     def __init__(self, path: str, half_life_bars: float = 1200.0, prior_bars: float = 150.0,
-                 gain: float = 0.6, floor: float = 0.25, cap: float = 1.5, min_samples: float = 60.0):
+                 gain: float = 0.6, floor: float = 0.25, cap: float = 1.5, min_samples: float = 60.0,
+                 horizon_bars: int = 1):
         self.path = path
+        self.horizon = max(1, int(horizon_bars))
         self.decay = 0.5 ** (1.0 / max(1.0, float(half_life_bars)))
         self.prior = float(prior_bars)
         self.gain, self.floor, self.cap, self.min_samples = float(gain), float(floor), float(cap), float(min_samples)
@@ -138,21 +147,25 @@ class ModelMemory:
         path = os.path.join(log_dir, "memory", "model_memory.json")
         return cls(path, half_life_bars=float(mc.get("half_life_bars", 1200)), prior_bars=float(mc.get("prior_bars", 150)),
                    gain=float(mc.get("gain", 0.6)), floor=float(mc.get("floor", 0.25)), cap=float(mc.get("cap", 1.5)),
-                   min_samples=float(mc.get("min_samples", 60)))
+                   min_samples=float(mc.get("min_samples", 60)), horizon_bars=int(mc.get("horizon_bars", 2)))
 
     # ------------------------------------------------------------------ persistence
     def _load(self) -> None:
         try:
             with open(self.path, "r", encoding="utf-8") as f:
                 raw = json.load(f)
+            if raw.get("scoring") != SCORING:
+                # older records were scored before costs over 1 bar: not comparable, start clean
+                self.stats, self.pending = {}, {}
+                return
             self.stats = {k: _Stat.from_dict(v) for k, v in (raw.get("stats") or {}).items()}
-            self.pending = dict(raw.get("pending") or {})
+            self.pending = {s: list(v) for s, v in (raw.get("pending") or {}).items() if isinstance(v, list)}
         except Exception:
             self.stats, self.pending = {}, {}
 
     def save(self) -> None:
         with self._lock:
-            data = {"updated": time.time(), "stats": {k: v.to_dict() for k, v in self.stats.items()},
+            data = {"updated": time.time(), "scoring": SCORING, "horizon_bars": self.horizon, "stats": {k: v.to_dict() for k, v in self.stats.items()},
                     "pending": self.pending}
         try:
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
@@ -168,29 +181,47 @@ class ModelMemory:
     def _key(symbol: str, model: str, ctx: str) -> str:
         return f"{symbol}|{model}|{ctx}"
 
-    def observe(self, symbol: str, bar_time, close: float, context: dict, targets: dict) -> list[dict]:
-        """Score the previous bar's calls for `symbol` against the move to this bar, then store
-        this bar's calls. Returns the scored rows (for logging/UI)."""
+    def observe(self, symbol: str, bar_time, close: float, context: dict, targets: dict,
+                cost_bps: float | None = 0.0) -> list[dict]:
+        """Store this bar's calls (with the round-trip cost of acting on them now), then score
+        the calls made `horizon` bars ago against the move since, net of that cost.
+        Returns the scored rows (for logging/UI)."""
         bar_ts = int(bar_time.timestamp()) if hasattr(bar_time, "timestamp") else int(bar_time or 0)
+        cost = max(0.0, float(cost_bps or 0.0))
         scored = []
         with self._lock:
-            prev = self.pending.get(symbol)
-            if prev and bar_ts > int(prev.get("bar_ts", 0)) and float(prev.get("close", 0)) > 0 and close > 0:
-                ret_bps = math.log(close / float(prev["close"])) * 1e4
+            queue = self.pending.get(symbol) or []
+            if queue and bar_ts <= int(queue[-1].get("bar_ts", 0)):
+                return scored  # same bar seen again
+            for p in queue:
+                p["age"] = int(p.get("age", 0)) + 1
+            keep = []
+            for p in queue:
+                if p["age"] < self.horizon:
+                    keep.append(p)
+                    continue
+                p_close = float(p.get("close", 0) or 0)
                 # Ignore gaps across long closures (weekend) — not something a model can be judged on.
-                if bar_ts - int(prev["bar_ts"]) <= 4 * 3600:
-                    for model, tgt in (prev.get("targets") or {}).items():
-                        if tgt is None:
-                            continue
-                        x = float(tgt) * ret_bps
-                        active = abs(float(tgt)) > 0.05
-                        for ctx in (prev.get("ctx", "na"), "*"):
-                            self.stats.setdefault(self._key(symbol, model, ctx), _Stat()).update(x, active, self.decay)
-                        scored.append({"model": model, "target": float(tgt), "ret_bps": ret_bps, "score": x,
-                                       "ctx": prev.get("ctx")})
-            if not prev or bar_ts > int(prev.get("bar_ts", 0)):
-                self.pending[symbol] = {"bar_ts": bar_ts, "close": float(close), "ctx": context.get("key", "na"),
-                                        "targets": {k: (None if v is None else float(v)) for k, v in targets.items()}}
+                if p_close <= 0 or close <= 0 or bar_ts - int(p["bar_ts"]) > 4 * 3600:
+                    continue
+                ret_bps = math.log(close / p_close) * 1e4
+                c = float(p.get("cost", 0.0) or 0.0)
+                tg = dict(p.get("targets") or {})
+                b = tg.get("blend")
+                # the bot's own decision as a trade: holds a position only when |target| > ACTIVE
+                tg["trade"] = None if b is None or abs(float(b)) <= ACTIVE else float(np.sign(b))
+                for model, tgt in tg.items():
+                    if tgt is None:
+                        continue
+                    x = float(tgt) * ret_bps - abs(float(tgt)) * c
+                    active = abs(float(tgt)) > ACTIVE
+                    for ctx in (p.get("ctx", "na"), "*"):
+                        self.stats.setdefault(self._key(symbol, model, ctx), _Stat()).update(x, active, self.decay)
+                    scored.append({"model": model, "target": float(tgt), "ret_bps": ret_bps, "cost_bps": c,
+                                   "score": x, "ctx": p.get("ctx")})
+            keep.append({"bar_ts": bar_ts, "close": float(close), "ctx": context.get("key", "na"), "cost": cost,
+                         "age": 0, "targets": {k: (None if v is None else float(v)) for k, v in targets.items()}})
+            self.pending[symbol] = keep
         if scored:
             self.save()
         return scored

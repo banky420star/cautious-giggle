@@ -3,14 +3,16 @@
 Read-only: pulls past bars from the broker, replays every voter *causally* (only data up to each bar),
 and scores its call against the move that followed.
 
-  hit rate   share of active calls (|vote| > 0.05) that got the direction right
-  edge       average of (vote x next move) in basis points; > 0 means following it made money before costs
-  cost       the market's current spread in bps: a voter needs edge well above this to pay for itself
+  hit rate   share of active calls (|vote| > 0.05) that made money after paying the spread
+  edge       average of (vote x move - |vote| x spread) in bps: > 0 means following it made money AFTER costs
+  follow     average per trade taken (sign of vote x move - spread), the bot's view of one trade
+  gross      the same edge before costs, for reference
+Horizon = trading.model_memory.horizon_bars (the bot's trades are held ~8 min), same as live scoring.
 
 The news reader is not replayed (old headlines weren't stored with enough history); it is judged live.
 Result: logs/voter_backtest.json (shown in the war room).
 
-    python tools/voter_backtest.py [--days 14] [--kronos-every 6]
+    python tools/voter_backtest.py [--days 14] [--kronos-every 6] [--horizon BARS]
 """
 from __future__ import annotations
 
@@ -30,7 +32,7 @@ sys.path.insert(0, ROOT)
 from Python import external_voters as xv  # noqa: E402
 from Python.indicator_council import council_vote, votes_mtf  # noqa: E402
 
-H = 6  # forward horizon in M5 bars (30 min)
+H = 2  # forward horizon in M5 bars; run() takes it from trading.model_memory.horizon_bars
 
 
 def _rates(mt5, sym, tf, n):
@@ -75,19 +77,45 @@ def ob_vote_series(m15: pd.DataFrame) -> np.ndarray:
     return out
 
 
-def score(v: np.ndarray, fwd: np.ndarray) -> dict:
+def _spread_bps(mt5, sym, last_close):
+    """Live bid/ask spread; falls back to the symbol's quoted spread (points) when there is no tick."""
+    try:
+        mt5.symbol_select(sym, True)
+        tick = mt5.symbol_info_tick(sym)
+        if tick is not None and float(tick.bid) > 0 and float(tick.ask) > float(tick.bid):
+            return (float(tick.ask) - float(tick.bid)) / float(tick.bid) * 1e4
+        info = mt5.symbol_info(sym)
+        if info is not None and float(info.spread or 0) > 0 and last_close > 0:
+            return float(info.spread) * float(info.point) / last_close * 1e4
+    except Exception:
+        pass
+    return None
+
+
+def score(v: np.ndarray, fwd: np.ndarray, cost: float = 0.0) -> dict:
+    """Net of `cost` (bps per round trip, charged in proportion to the position taken)."""
     ok = np.isfinite(v) & np.isfinite(fwd)
     v, fwd = v[ok], fwd[ok]
     act = np.abs(v) > 0.05
     if act.sum() == 0:
-        return {"n": 0, "active": 0, "hit": None, "edge_bps": None, "follow_bps": None}
-    hit = float((np.sign(v[act]) == np.sign(fwd[act])).mean())
-    return {"n": int(len(v)), "active": int(act.sum()), "hit": round(hit, 3),
-            "edge_bps": round(float((v * fwd).mean()), 3),
-            "follow_bps": round(float((np.sign(v[act]) * fwd[act]).mean()), 3)}
+        return {"n": 0, "active": 0, "hit": None, "edge_bps": None, "follow_bps": None, "gross_edge_bps": None}
+    per_trade = np.sign(v[act]) * fwd[act] - cost
+    return {"n": int(len(v)), "active": int(act.sum()), "hit": round(float((per_trade > 0).mean()), 3),
+            "edge_bps": round(float((v * fwd - np.abs(v) * cost).mean()), 3),
+            "follow_bps": round(float(per_trade.mean()), 3),
+            "gross_edge_bps": round(float((v * fwd).mean()), 3), "cost_bps": round(float(cost), 3)}
 
 
-def run(days: int = 14, kronos_every: int = 6, symbols=None, log=print) -> dict:
+def run(days: int = 14, kronos_every: int = 6, symbols=None, log=print, horizon: int | None = None) -> dict:
+    global H
+    if horizon is None:
+        try:
+            import yaml
+            with open(os.path.join(ROOT, "config.yaml"), encoding="utf-8") as fh:
+                horizon = (((yaml.safe_load(fh) or {}).get("trading") or {}).get("model_memory") or {}).get("horizon_bars")
+        except Exception:
+            horizon = None
+    H = max(1, int(horizon or 2))
     from Python.mt5_compat import mt5
     import torch
     torch.set_num_threads(2)
@@ -98,8 +126,8 @@ def run(days: int = 14, kronos_every: int = 6, symbols=None, log=print) -> dict:
     cb = xv._CatBoost(cfg["catboost"])
     w = cfg["weights"]
     n5 = days * 288
-    res = {"t": time.time(), "days": days, "horizon_min": H * 5, "markets": {}, "note":
-           "news reader is judged live only"}
+    res = {"t": time.time(), "days": days, "horizon_min": H * 5, "net_of_cost": True, "markets": {}, "note":
+           "news reader is judged live only; scores are after the market's spread"}
     for sym in symbols:
         t0 = time.time()
         m5 = _rates(mt5, sym, mt5.TIMEFRAME_M5, n5 + 1700)
@@ -109,8 +137,9 @@ def run(days: int = 14, kronos_every: int = 6, symbols=None, log=print) -> dict:
         if m5 is None or m15 is None or len(m5) < 2000:
             log(f"{sym}: not enough history")
             continue
-        tick = mt5.symbol_info_tick(sym)
-        spread_bps = (float(tick.ask) - float(tick.bid)) / float(tick.bid) * 1e4 if tick else None
+        spread_bps = _spread_bps(mt5, sym, float(m5["close"].iloc[-1]))
+        if spread_bps is None:
+            log(f"{sym}: spread unknown, scoring before costs")
         close = m5["close"].to_numpy(float)
         fwd = np.full(len(close), np.nan)
         fwd[:-H] = np.log(close[H:] / close[:-H]) * 1e4
@@ -169,9 +198,10 @@ def run(days: int = 14, kronos_every: int = 6, symbols=None, log=print) -> dict:
                                         **{n: votes[n][k] for n in votes if np.isfinite(votes[n][k])}}, {}, weights=w)["target"]
                           for k in range(len(idx))])
         kmask = np.isfinite(kv)  # compare on the bars where every voter had a say
-        out = {name: score(v, f_idx) for name, v in votes.items()}
-        out["indicators_only"] = score(base[kmask], f_idx[kmask])
-        out["indicators_plus_models"] = score(withm[kmask], f_idx[kmask])
+        cost = float(spread_bps or 0.0)
+        out = {name: score(v, f_idx, cost) for name, v in votes.items()}
+        out["indicators_only"] = score(base[kmask], f_idx[kmask], cost)
+        out["indicators_plus_models"] = score(withm[kmask], f_idx[kmask], cost)
         res["markets"][sym] = {"voters": out, "spread_bps": None if spread_bps is None else round(spread_bps, 2),
                                "bars": int(len(idx)), "from": str(m5["time"].iloc[start]), "to": str(m5["time"].iloc[-1]),
                                "seconds": round(time.time() - t0)}
@@ -189,5 +219,6 @@ if __name__ == "__main__":
     ap.add_argument("--days", type=int, default=14)
     ap.add_argument("--kronos-every", type=int, default=6)
     ap.add_argument("--symbols", nargs="*")
+    ap.add_argument("--horizon", type=int, help="bars ahead to score (default: trading.model_memory.horizon_bars)")
     a = ap.parse_args()
-    run(a.days, a.kronos_every, a.symbols, log=lambda m: print(m, flush=True))
+    run(a.days, a.kronos_every, a.symbols, log=lambda m: print(m, flush=True), horizon=a.horizon)
