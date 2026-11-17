@@ -1,0 +1,62 @@
+#!/bin/zsh
+# exness            start everything (bot + training if needed) and open the dashboard
+# exness stop       stop the bot (open trades keep their SL/TP at Exness)
+# exness train      run a fresh training cycle, then reload the bot
+# exness status     one-line status
+# exness logs       follow the server log
+# exness check      read-only Exness connection check
+ROOT="/Volumes/AI_DRIVE/cautious-giggle"
+if [ ! -d "$ROOT" ]; then echo "AI_DRIVE not mounted ($ROOT missing)"; exit 1; fi
+cd "$ROOT" || exit 1
+[ -f ~/.exness/env ] || { echo "missing ~/.exness/env (Exness API settings)"; exit 1; }
+source ~/.exness/env
+export PYTHONPATH="$ROOT"
+
+bot_running()      { [ -f .tmp/supervisor.pid ] && kill -0 "$(cat .tmp/supervisor.pid)" 2>/dev/null; }
+training_running() { pgrep -f "tools/champion_cycle.py" >/dev/null; }
+watcher_running()  { pgrep -f "after_training.sh" >/dev/null; }
+has_models() {
+  .venv/bin/python - <<'PY' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open("models/registry/active.json"))
+except Exception:
+    sys.exit(1)
+syms = d.get("symbols") or {}
+sys.exit(0 if any((v or {}).get("champion") or (v or {}).get("canary") for v in syms.values()) else 1)
+PY
+}
+start_training() {
+  echo "▶ starting training (BTC then gold); the bot reloads when it finishes"
+  nohup caffeinate -is .venv/bin/python tools/champion_cycle.py > logs/champion_cycle_run.log 2>&1 < /dev/null &
+  disown
+  sleep 1
+  watcher_running || { nohup scripts/mac/after_training.sh > /dev/null 2>&1 < /dev/null & disown; }
+}
+
+case "${1:-start}" in
+  start)
+    if bot_running; then echo "✓ bot already running"; else rm -f .tmp/stop; scripts/mac/start_bot.sh; fi
+    if training_running; then
+      echo "✓ training in progress"
+      watcher_running || { nohup scripts/mac/after_training.sh > /dev/null 2>&1 < /dev/null & disown; }
+    elif ! has_models; then
+      start_training
+    else
+      echo "✓ models loaded"
+    fi
+    echo "opening dashboard (Ctrl-C closes it; the bot keeps running)…"
+    sleep 1
+    exec .venv/bin/python tools/monitor_tui.py
+    ;;
+  stop)   scripts/mac/stop_bot.sh ;;
+  train)  if training_running; then echo "training already running"; else start_training; fi ;;
+  status)
+    bot_running && echo "bot: running" || echo "bot: stopped"
+    training_running && echo "training: running" || echo "training: idle"
+    has_models && echo "models: loaded" || echo "models: none yet"
+    ;;
+  logs)   tail -f logs/server.log ;;
+  check)  exec .venv/bin/python -m Python.exness_api check BTCUSDm XAUUSDm ;;
+  *)      sed -n 2,7p "$0" | sed 's/^# //' ;;
+esac
