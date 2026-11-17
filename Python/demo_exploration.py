@@ -27,6 +27,17 @@ def account_is_demo(mt5) -> bool:
         return False
 
 
+def same_on_live(cfg: dict | None) -> bool:
+    """trading.demo_learning.same_on_live: a real-money account runs exactly like demo."""
+    return bool((((cfg or {}).get("trading") or {}).get("demo_learning") or {}).get("same_on_live", False))
+
+
+def demo_rules_apply(mt5, cfg: dict | None = None) -> bool:
+    """Whether the demo settings (risk, stacking, all markets, learning, council, exploration, news)
+    apply: always on a demo account, and on a live account when same_on_live is set."""
+    return same_on_live(cfg) or account_is_demo(mt5)
+
+
 def mark(candidate_dir: str, report: dict | None = None) -> None:
     with open(os.path.join(candidate_dir, MARKER), "w", encoding="utf-8") as f:
         json.dump({"ts": time.time(), "reason": "failed promotion gates; demo exploration only",

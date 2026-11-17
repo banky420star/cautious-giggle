@@ -128,7 +128,7 @@ def _maybe_demo_explore(reg, cfg, symbol, candidate, champion, report):
         from Python.mt5_compat import mt5
 
         mt5.initialize()
-        if not demo_exploration.account_is_demo(mt5):
+        if not demo_exploration.demo_rules_apply(mt5, cfg):
             logger.info(f"{symbol}: demo exploration skipped (account is not a demo account)")
             return
         demo_exploration.mark(candidate, report)

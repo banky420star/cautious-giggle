@@ -215,7 +215,7 @@ class State:
     def _is_demo(self) -> bool:
         try:
             from Python import demo_exploration
-            return bool(demo_exploration.account_is_demo(self.broker.mt5))
+            return bool(demo_exploration.demo_rules_apply(self.broker.mt5, self.cfg))
         except Exception:
             return False
 
@@ -446,10 +446,23 @@ STATE: State | None = None
 
 
 def _live_rules(cfg: dict) -> list[str]:
-    """What changes on a real-money account (the demo-only overrides switch off)."""
+    """What the bot does on a real-money account."""
+    tr = (cfg or {}).get("trading") or {}
+    dl = tr.get("demo_learning") or {}
+    if dl.get("same_on_live"):
+        r = dl.get("risk") or {}
+        mk = (tr.get("news_trading") or {}).get("symbols") or tr.get("symbols") or []
+        stk = dl.get("stacking") or {}
+        return [
+            "EXACTLY the same as demo: nothing is switched off on real money",
+            f"Risk {float(r.get('risk_percent', 2.5)):g}% of the account per trade, up to {float(r.get('max_lots', 0.2)):g} lots",
+            f"Daily loss stop ${float(r.get('max_daily_loss', 150)):g} (a fixed dollar amount, whatever the live balance is); "
+            f"halts at {float(r.get('max_drawdown_pct', 40)):g}% drawdown",
+            f"All {len(mk)} markets all day, up to {int(stk.get('max_per_symbol', 3))} trades each, max {int(r.get('max_open_positions', 14))} open",
+            "Learning mode (half trade threshold), indicator council, exploration models and news trading all on",
+        ]
     risk = (cfg or {}).get("risk") or {}
     sup = risk.get("supervisor") or {}
-    tr = (cfg or {}).get("trading") or {}
     return [
         f"Risk per trade {float(tr.get('risk_percent', 1.0)):g}% (demo: 2.5%), max {float(risk.get('max_lots', 0.05)):g} lots",
         f"Daily loss stop ${float(risk.get('max_daily_loss', 25)):g}; halts at {float(sup.get('max_drawdown_pct', 8)):g}% drawdown",

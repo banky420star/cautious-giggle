@@ -94,7 +94,7 @@ export function Boot({ d, err, onEnter, onAccount, acctOpen, closeAcct }) {
           <button className={`acct-card live ${live ? "active" : ""}`} onClick={live ? onEnter : onAccount}>
             <span className="ac-tag live">LIVE</span>
             <b>Real money</b>
-            <span className="muted small">{live && d ? `$${d.account.equity.toFixed(2)} · conservative risk` : "set up or switch · confirmation required"}</span>
+            <span className="muted small">{live && d ? `$${d.account.equity.toFixed(2)} · same settings as demo` : "set up or switch · confirmation required"}</span>
           </button>
         </div>
 
@@ -164,7 +164,7 @@ export function AccountSwitch({ open, onClose }) {
                 <div className="saved-row small"><CheckCircle2 size={14} className="pos" /> Live keys saved on this Mac
                   <button className="linkish" disabled={!!busy} onClick={() => setEditing(true)}>change</button></div>
                 <div className="rules">
-                  <div className="rules-h"><ShieldCheck size={14} /> On a real-money account the bot automatically switches to:</div>
+                  <div className="rules-h"><ShieldCheck size={14} /> On your real-money account the bot will run with:</div>
                   <ul>{(info.live_rules || []).map((r) => <li key={r}>{r}</li>)}</ul>
                 </div>
                 {!chk ? (

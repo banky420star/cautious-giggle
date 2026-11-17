@@ -902,12 +902,12 @@ def main(live=False):
     except Exception as exc:
         logger.warning(f"graduation state unreadable: {exc}")
     _dl = ((cfg.get("trading", {}) or {}).get("demo_learning", {}) or {})
-    if bool(_dl.get("enabled")) and bool(_dl.get("trade_all_markets")) and demo_exploration.account_is_demo(mt5):
+    if bool(_dl.get("enabled")) and bool(_dl.get("trade_all_markets")) and demo_exploration.demo_rules_apply(mt5, cfg):
         extra_ = [s_ for s_ in (((cfg.get("trading") or {}).get("news_trading") or {}).get("symbols") or []) if s_ not in symbols]
         if extra_:
             symbols = list(symbols) + extra_
             logger.info(f"demo: every market trades all day: {symbols} (no trained model yet -> indicator council decides)")
-    _stk = dict(_dl.get("stacking") or {}) if bool(_dl.get("enabled")) and demo_exploration.account_is_demo(mt5) else {}
+    _stk = dict(_dl.get("stacking") or {}) if bool(_dl.get("enabled")) and demo_exploration.demo_rules_apply(mt5, cfg) else {}
     stacking = {"enabled": bool(_stk.get("enabled")), "max": int(_stk.get("max_per_symbol", 3)),
                 "cooldown_s": float(_stk.get("cooldown_min", 10)) * 60.0}
     stack_state: dict = {}
@@ -919,7 +919,7 @@ def main(live=False):
     # Demo learning mode may raise the risk limits, on demo accounts only (never carried to real money).
     _lr = (((cfg.get("trading", {}) or {}).get("demo_learning", {}) or {}).get("risk", {}) or {})
     if _lr and bool(((cfg.get("trading", {}) or {}).get("demo_learning", {}) or {}).get("enabled")) \
-            and demo_exploration.account_is_demo(mt5):
+            and demo_exploration.demo_rules_apply(mt5, cfg):
         if "max_lots" in _lr:
             max_lots = float(_lr["max_lots"])
             risk.max_lots = max_lots
@@ -946,18 +946,18 @@ def main(live=False):
 
     model_memory = ModelMemory.from_cfg(cfg, LOG_DIR)
     explore_cfg = demo_exploration.settings(cfg)
-    explore_demo_ok = bool(explore_cfg["enabled"]) and demo_exploration.account_is_demo(mt5)
+    explore_demo_ok = bool(explore_cfg["enabled"]) and demo_exploration.demo_rules_apply(mt5, cfg)
     smart_entry = _smart_entry_settings(cfg)
     pending_entries: dict = {}
     logger.info(f"smart entry {'ON' if smart_entry['enabled'] else 'OFF'} (pullback wait {smart_entry['wait_min']:.0f} min)")
     from Python.news_trader import NewsTrader
     news_trader = NewsTrader(mt5, executor, cfg, logger, _append_audit)
     news_trader.halted = lambda: bool(supervisor.halt_until is not None and supervisor.halt_until > _utc_now())
-    if news_trader.enabled and not demo_exploration.account_is_demo(mt5):
+    if news_trader.enabled and not demo_exploration.demo_rules_apply(mt5, cfg):
         news_trader.enabled = False  # demo only, like the other learning features
     logger.info(f"news trading {'ON' if news_trader.enabled else 'OFF'}")
     learn_cfg = (cfg.get("trading", {}) or {}).get("demo_learning", {}) or {}
-    if bool(learn_cfg.get("enabled", False)) and demo_exploration.account_is_demo(mt5):
+    if bool(learn_cfg.get("enabled", False)) and demo_exploration.demo_rules_apply(mt5, cfg):
         cfg.setdefault("trading", {})["_learning_threshold_scale"] = float(learn_cfg.get("threshold_scale", 0.5))
         logger.info(f"demo learning mode ON: trade threshold x{float(learn_cfg.get('threshold_scale', 0.5)):.2f}")
     else:
@@ -967,8 +967,10 @@ def main(live=False):
     # Council weights are learned from history replay (in-sample), so on a real-money account it
     # only votes when explicitly allowed.
     council_allowed = bool(council_cfg.get("enabled", True)) and (
-        demo_exploration.account_is_demo(mt5) or bool(council_cfg.get("allow_live", False)))
+        demo_exploration.demo_rules_apply(mt5, cfg) or bool(council_cfg.get("allow_live", False)))
     logger.info(f"indicator council {'ON' if council_allowed else 'OFF'}")
+    if demo_exploration.same_on_live(cfg) and not demo_exploration.account_is_demo(mt5):
+        logger.warning("LIVE account running with the DEMO settings (trading.demo_learning.same_on_live)")
 
     def _exploration_scale(sym: str) -> float:
         """Size scale for symbols running a demo-exploration canary (0 on a live account)."""

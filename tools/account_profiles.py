@@ -6,9 +6,9 @@ Secrets never leave this module: status() reports only which settings are presen
 and the connection check returns account type, balance and currency.
 
 Going live requires: a complete live.env, a passing read-only connection check that reports a
-REAL (non-demo) account, and the typed confirmation "GO LIVE". The demo-only settings (learning
-mode, higher risk, stacking, all-markets trading) switch off by themselves on a real account,
-because Server_AGI only applies them when the broker reports a demo account.
+REAL (non-demo) account, and the typed confirmation "GO LIVE". With
+trading.demo_learning.same_on_live (the default) the live account then runs exactly like demo:
+same risk, markets, stacking, learning, council, exploration and news trading.
 """
 from __future__ import annotations
 
