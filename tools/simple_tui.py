@@ -25,7 +25,93 @@ from rich.text import Text  # noqa: E402
 import monitor_tui as m  # noqa: E402
 import warroom as wr  # noqa: E402
 
-NAMES = {"BTCUSDm": "BITCOIN", "XAUUSDm": "GOLD"}
+NAMES = {"BTCUSDm": "BITCOIN", "XAUUSDm": "GOLD", "EURUSDm": "EUR/USD", "USDJPYm": "USD/JPY",
+         "XAGUSDm": "SILVER", "ETHUSDm": "ETHER", "USOILm": "OIL"}
+PLAY = {"fade": "fade the sweep", "breakout": "ride the breakout"}
+PHASE = {"scheduled": ("scheduled", "grey62"), "prep": ("PREP · range marked, normal trades paused", "bold yellow"),
+         "armed": ("ARMED · watching for the sweep", "bold yellow"), "in_trade": ("IN TRADE", "bold green"),
+         "review": ("checking result", "cyan"), "done": ("done", "grey50")}
+
+
+def _json(path, default):
+    import json
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
+def news_panel(frame) -> Panel:
+    st = _json(os.path.join(m.LOG_DIR, "news_state.json"), {})
+    evs = [e for e in st.get("events", []) if e.get("phase") != "done"]
+    body = []
+    if not st.get("enabled"):
+        body.append(Text("News trading is off.", style="dim"))
+    elif not evs:
+        body.append(Text("No big US release in the next 36 h.", style="dim"))
+    groups = {}
+    for e in evs:
+        groups.setdefault((e["t0"], e["title"]), []).append(e)
+    for (t0, title), rows in sorted(groups.items())[:2]:
+        secs = t0 - time.time()
+        when = (f"in {secs / 3600:.1f} h" if secs > 3600 else f"in {secs / 60:.0f} min") if secs > 0 else f"{-secs / 60:.0f} min ago"
+        ph, sty = PHASE.get(rows[0]["phase"], (rows[0]["phase"], ""))
+        live = rows[0]["phase"] in ("prep", "armed", "in_trade")
+        hdr = Text("● " if live and frame % 4 < 2 else "  ", style="bold yellow")
+        hdr.append(title, style="bold")
+        hdr.append(f"  {when}  ", style="bright_cyan")
+        hdr.append(ph, style=sty)
+        body.append(hdr)
+        for e in sorted(rows, key=lambda r: r["sym"]):
+            pretty = {"BTCUSDm": "Bitcoin", "XAUUSDm": "Gold", "EURUSDm": "EUR/USD", "USDJPYm": "USD/JPY",
+                      "XAGUSDm": "Silver", "ETHUSDm": "Ether", "USOILm": "Oil"}.get(e["sym"], e["sym"])
+            ln = Text(f"   {pretty:9s}", style="bold")
+            ln.append(f" {PLAY.get(e.get('plan'), 'stand aside'):18s}", style="green" if e.get("plan") else "dim")
+            w = str(e.get("why") or "")
+            half = "half size" in w or "no history" in w
+            import re as _re
+            mm = _re.search(r"averaged ([+-][0-9.]+R) per trade \(([0-9]+)% wins, ([0-9]+) trades", w)
+            ln.append(f" {mm.group(1)} · {mm.group(2)}% wins · {mm.group(3)} past" if mm else " no track record", style="grey70")
+            if half:
+                ln.append("  half size", style="yellow")
+            if e.get("result"):
+                ln.append("  result: " + ", ".join(f"{k} {'—' if v is None else f'{v:+.2f}R'}" for k, v in e["result"].items()),
+                          style="cyan")
+            body.append(ln)
+    body.append(Text("Before each release: mark the 30-min range (stops sit beyond it), pause normal trades,\n"
+                     "then trade the play that worked before for that market.", style="grey50"))
+    return Panel(Group(*body), title=Text(" 📰 NEWS TRADING ", style="bold"), title_align="left",
+                 box=box.ROUNDED, border_style="yellow" if any(e["phase"] in ("prep", "armed", "in_trade") for e in evs) else "grey50")
+
+
+def feed_panel(height: int) -> Panel:
+    import json
+    items = []
+    try:
+        with open(os.path.join(m.LOG_DIR, "narration.jsonl"), encoding="utf-8") as f:
+            for line in f.readlines()[-40:]:
+                try:
+                    items.append(json.loads(line))
+                except Exception:
+                    pass
+    except OSError:
+        pass
+    body = []
+    tone = {"good": "green", "bad": "red", "info": "bright_cyan"}
+    for it in reversed(items[-max(2, height // 3):]):
+        age = time.time() - float(it.get("t", 0))
+        ago = "just now" if age < 60 else (f"{age / 60:.0f} min ago" if age < 3600 else f"{age / 3600:.0f} h ago")
+        h = Text("▍", style=tone.get(it.get("tone"), "white"))
+        h.append(f"{it.get('title', '')}", style="bold")
+        h.append(f"  {ago}", style="grey50")
+        body.append(h)
+        body.append(Text("  " + str(it.get("text", ""))[:230], style="grey82"))
+    if not body:
+        body.append(Text("Explanations appear here as training rounds finish, signals change and trades close.\n"
+                         "(written by the web dashboard server: run 'exness web' if this stays empty)", style="dim"))
+    return Panel(Group(*body), title=Text(" ✨ WHAT CHANGED & WHY ", style="bold"), title_align="left",
+                 box=box.ROUNDED, border_style="grey50")
 
 
 def nm(s):
@@ -285,8 +371,10 @@ def render(frame, broker, logs, cfg, symbols, width):
         Layout(name="bottom"),
         Layout(foot, size=1),
     )
-    lay["bottom"].split_row(Layout(improvement_panel(frame, broker, logs, symbols, cfg), ratio=3),
-                            Layout(trades_panel(broker), ratio=2))
+    lay["bottom"].split_row(Layout(improvement_panel(frame, broker, logs, symbols, cfg), ratio=2),
+                            Layout(name="right", ratio=3))
+    lay["right"].split_column(Layout(news_panel(frame), size=13), Layout(name="rb"))
+    lay["rb"].split_row(Layout(feed_panel(30), ratio=1), Layout(trades_panel(broker), ratio=1))
     return lay
 
 
