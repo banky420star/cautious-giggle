@@ -20,6 +20,8 @@ ACTION = re.compile(r"ACTION (\S+) \| req=(close|reduce|open) side=(\w+) volume=
 MANAGE = re.compile(r"ORDER_SEND (\S+) \| action=manage .* sl=([\d.]+|None) tp=([\d.]+|None) .* retcode=10009")
 MINLOT = re.compile(r"(\S+): using minimum lot ([\d.]+) \(stop risk ([\d.]+)% <= ceiling ([\d.]+)%\)")
 SIZEBLOCK = re.compile(r"SIZE BLOCK (\S+) \| minimum lot ([\d.]+) would risk ([\d.]+)% of \$([\d.]+) at the stop \(cap ([\d.]+)%\); needs about \$(\d+)")
+SETUPBLOCK = re.compile(r"SETUP BLOCK (\S+) \| (.*)")
+SKIPPED = re.compile(r"ENTRY SKIPPED (\S+) \| the pullback to ([\d.]+) never came in (\d+) min \(now ([\d.]+)\)")
 LOST = re.compile(r"MT5 connection lost")
 HALT = re.compile(r"(risk halt|HALT|halted)[^\n]*", re.I)
 NEWS = re.compile(r"NEWS (\S+) \| (.*)")
@@ -103,6 +105,17 @@ def parse(line: str, names: dict) -> dict | None:
                         f"of the ${float(eq):.2f} account if the stop is hit, over the {float(cap):.0f}% safety cap. "
                         f"It trades this market once the account is about ${int(need):,}.", "tone": "neg", "need": int(need),
                 "risk": float(r)}
+    if m := SETUPBLOCK.search(line):
+        s, why = m.groups()
+        return {"sym": s, "kind": "gate", "title": f"Held back on {nm(s)}: setup has a losing record",
+                "text": f"The signal wanted a trade, but this kind of setup has lost money so far ({why.replace('losing record (', '').rstrip(')')}). "
+                        f"It stays out, and re-tests with the smallest lot every few hours so it can earn its way back.",
+                "tone": "neg"}
+    if m := SKIPPED.search(line):
+        s, lim, mins, now = m.groups()
+        return {"sym": s, "kind": "skip", "title": f"Skipped {nm(s)}: price ran away",
+                "text": f"It waited {mins} min for {_px(lim)} but the price moved on to {_px(now)}. Entering now would mean "
+                        f"chasing, which lost money in testing, so it lets this one go."}
     if LOST.search(line):
         return {"sym": None, "kind": "warn", "title": "Broker connection dropped",
                 "text": "Lost contact with Exness for a moment and reconnected. Open trades keep their stops at the broker.",
@@ -127,7 +140,7 @@ def events(path: str, names: dict, limit: int = 60, max_bytes: int = 600_000) ->
     # collapse identical stop moves fired every loop, and sizing notes repeated within 20 min
     dedup, last_size = [], {}
     for ev in out:
-        if ev["kind"] in ("size", "blocked"):
+        if ev["kind"] in ("size", "blocked", "gate"):
             if ev["t"] and ev["t"] - last_size.get(ev["sym"], 0) < 1200:
                 continue
             last_size[ev["sym"]] = ev["t"] or 0

@@ -10,6 +10,7 @@ import {
 import {
   WarCard, MissionControl, OpsLog, CommandBar, Section, Clocks, Sitrep, NewsAlert, Tour, Glossary, HelpButtons, condition, ago,
   Tape, Blotter, FillAlerts, SoundButton,
+  Setups,
 } from "./WarRoom.jsx";
 import { Boot, AccountSwitch, Logo } from "./Boot.jsx";
 
@@ -333,23 +334,28 @@ export default function App() {
         <Blotter rows={d.blotter} />
       </Section>
 
-      <Section id="sec-markets" no="03" title="MARKETS"
+      <Section id="sec-setups" no="03" title="SETUPS"
+               sub="which kinds of trade have earned normal size, which are still learning on the smallest lot, and which are blocked for losing">
+        <Setups data={d.setups} />
+      </Section>
+
+      <Section id="sec-markets" no="04" title="MARKETS"
                sub="one card per market: the needle is the final verdict, the bars are the voters, the line underneath is the next move">
         <div className="war-grid">{d.symbols.map((s) => <WarCard key={s.symbol} s={s} />)}</div>
       </Section>
 
-      <Section id="sec-ops" no="04" title="OPS LOG & EQUITY" sub="every action with its reason, and how the account has moved">
+      <Section id="sec-ops" no="05" title="OPS LOG & EQUITY" sub="every action with its reason, and how the account has moved">
         <div className="bottom">
           <OpsLog ops={d.ops} feed={d.feed} trades={d.trades} />
           <EquityChart series={d.equity} equity={d.account.equity} />
         </div>
       </Section>
 
-      <Section id="sec-training" no="05" title="TRAINING" sub="each market's AI: which reward style it is practising, and its exam record">
+      <Section id="sec-training" no="06" title="TRAINING" sub="each market's AI: which reward style it is practising, and its exam record">
         <MissionControl rows={d.mission} training={d.training} />
       </Section>
 
-      <Section id="sec-news" no="06" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
+      <Section id="sec-news" no="07" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
         <News news={d.news} />
       </Section>
 

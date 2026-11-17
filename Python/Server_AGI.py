@@ -468,7 +468,8 @@ class _CouncilOff(Exception):
 def _smart_entry_settings(cfg: dict) -> dict:
     se = ((cfg or {}).get("trading", {}) or {}).get("smart_entry", {}) or {}
     return {"enabled": bool(se.get("enabled", False)), "wait_min": float(se.get("wait_minutes", 15)),
-            "pullback_atr": dict(se.get("pullback_atr", {}) or {}), "default_atr": float(se.get("default_pullback_atr", 0.35))}
+            "pullback_atr": dict(se.get("pullback_atr", {}) or {}), "default_atr": float(se.get("default_pullback_atr", 0.35)),
+            "on_timeout": str(se.get("on_timeout", "market")).lower()}
 
 
 def _plan_entry(symbol: str, exposure: float, executor, settings: dict) -> dict | None:
@@ -962,6 +963,12 @@ def main(live=False):
     explore_demo_ok = bool(explore_cfg["enabled"]) and demo_exploration.demo_rules_apply(mt5, cfg)
     smart_entry = _smart_entry_settings(cfg)
     pending_entries: dict = {}
+    entry_skip: dict = {}  # symbol -> (side, until): pullback never came, don't chase that side for a while
+    from Python.setup_gate import SetupGate
+    setup_gate = SetupGate(((cfg.get("trading") or {}).get("setup_gate") or {}))
+    _gate_logged: dict = {}
+    logger.info(f"setup gate {'ON' if setup_gate.enabled else 'OFF'}: unproven setups trade the smallest lot, "
+                f"losing ones are blocked ({len(setup_gate.state['stats'])} scored setups loaded)")
     logger.info(f"smart entry {'ON' if smart_entry['enabled'] else 'OFF'} (pullback wait {smart_entry['wait_min']:.0f} min)")
     from Python.news_trader import NewsTrader
     news_trader = NewsTrader(mt5, executor, cfg, logger, _append_audit)
@@ -1161,6 +1168,11 @@ def main(live=False):
         except Exception as exc:
             logger.warning(f"news step failed: {exc}")
 
+        try:
+            if setup_gate.resolve(mt5):
+                logger.info("setup scorecard updated from closed trades")
+        except Exception as exc:
+            logger.warning(f"setup scorecard update failed: {exc}")
         # ---- smart entry: fill pending pullback entries (or enter at market when the wait runs out)
         for psym, pe in list(pending_entries.items()):
             try:
@@ -1180,10 +1192,18 @@ def main(live=False):
                 if not hit and time.time() < pe["expires"]:
                     continue
                 pending_entries.pop(psym, None)
+                if not hit and smart_entry["on_timeout"] == "skip":
+                    entry_skip[psym] = (pe["side"], time.time() + smart_entry["wait_min"] * 60.0)
+                    _append_audit("entry_cancelled", {"symbol": psym, "reason": "pullback never came; not chasing"})
+                    logger.info(f"ENTRY SKIPPED {psym} | the pullback to {pe['limit']:.5g} never came in "
+                                f"{smart_entry['wait_min']:.0f} min (now {px:.5g}); not chasing the price")
+                    continue
                 om = brain.live_trade(psym, pe["exposure"], pe["max_lots"], action_meta=pe.get("action_meta"),
                                       execution_context=pe.get("ctx"))
                 if om and om.get("executed"):
                     supervisor.mark_trade(psym)
+                    if pe.get("gate"):
+                        setup_gate.record_open(psym, pe["side"], *pe["gate"])
                     om = dict(om)
                     om["entry_mode"] = "pullback" if hit else "timeout_market"
                     om["entry_improvement_bps"] = round((pe["ref"] - px) * pe["side"] / pe["ref"] * 1e4, 2)
@@ -1340,6 +1360,35 @@ def main(live=False):
                 if supervisor_decision.allowed and getattr(supervisor_decision, "target", None) is not None:
                     exposure = float(supervisor_decision.target)
                     sym_state["risk_supervisor"]["capped_target"] = exposure
+                # ---- setup gate: only proven setups trade normal size; losing ones are blocked
+                gate_entry = None
+                lot_cap = None
+                cur_x = float(current_symbol_exposure)
+                if supervisor_decision.allowed and float(exposure) != 0.0 and (
+                        cur_x == 0.0 or (float(exposure) > 0) != (cur_x > 0) or abs(float(exposure)) > abs(cur_x) + 1e-9):
+                    side_ = 1 if float(exposure) > 0 else -1
+                    gkey = setup_gate.key(symbol, side_, conf, float((ppo_meta or {}).get("target", 0.0) or 0.0))
+                    verdict, why = setup_gate.verdict(gkey)
+                    sym_state["setup"] = {"key": gkey, "verdict": verdict, "why": why}
+                    if verdict == "block":
+                        exposure = 0.0 if (cur_x != 0.0 and (cur_x > 0) != (side_ > 0)) else cur_x
+                        if time.time() - _gate_logged.get(gkey, 0) > 900:
+                            _gate_logged[gkey] = time.time()
+                            logger.info(f"SETUP BLOCK {symbol} | {why}")
+                        if pending_entries.pop(symbol, None):
+                            _append_audit("entry_cancelled", {"symbol": symbol, "reason": "setup blocked"})
+                    else:
+                        gate_entry = (gkey, verdict)
+                        if verdict in ("probe", "retest"):
+                            info_ = executor._symbol_info(symbol)
+                            vmin_ = float(getattr(info_, "volume_min", 0.01) or 0.01)
+                            same_ = cur_x != 0.0 and (cur_x > 0) == (side_ > 0)
+                            lot_cap = (abs(cur_x) * float(max_lots) if same_ else 0.0) + vmin_
+                skip_ = entry_skip.get(symbol)
+                if skip_ and skip_[1] > time.time() and float(exposure) != 0.0 and (float(exposure) > 0) == (skip_[0] > 0) \
+                        and gate_entry is not None and pending_entries.get(symbol) is None:
+                    exposure = cur_x if (cur_x == 0.0 or (cur_x > 0) == (skip_[0] > 0)) else 0.0
+                    gate_entry = None
                 pending_now = False
                 if supervisor_decision.allowed and smart_entry["enabled"]:
                     pend = pending_entries.get(symbol)
@@ -1369,7 +1418,8 @@ def main(live=False):
                                 "ppo_target": float((ppo_meta or {}).get("target", 0.0) or 0.0),
                                 "dreamer_target": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
                                 "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
-                                "agi_risk_scalar": _risk_scalar(agi_meta), "stack": stack})
+                                "agi_risk_scalar": _risk_scalar(agi_meta), "stack": stack, "lot_cap": lot_cap})
+                            pend["gate"] = gate_entry
                             pending_now = True
                 news_block = news_trader.blocks_regular(symbol)
                 if news_block:
@@ -1397,8 +1447,12 @@ def main(live=False):
                             "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
                             "agi_risk_scalar": _risk_scalar(agi_meta),
                             "stack": stack,
+                            "lot_cap": lot_cap,
                         },
                     )
+                    if order_meta and order_meta.get("executed") and gate_entry \
+                            and str(order_meta.get("request_action", "")) not in ("close", "reduce"):
+                        setup_gate.record_open(symbol, 1 if float(exposure) > 0 else -1, *gate_entry)
                     req_action = str((order_meta or {}).get("request_action", "") or "")
                     bar_settled = bool(order_meta and (order_meta.get("executed") or req_action in ("noop", "blocked")))
                     if order_meta and order_meta.get("executed"):

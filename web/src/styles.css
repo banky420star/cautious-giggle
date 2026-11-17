@@ -677,3 +677,10 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .war-grid { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
 .slots > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .op-tag.red { color: var(--neg); background: rgba(248,113,113,.12); }
+
+/* setup scorecard */
+.setups .setup-sum { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.setups .setup-sum .muted { flex: 1 1 260px; }
+.setups td.small { max-width: 340px; }
+.op-tag.green { color: var(--green, #34d399); background: rgba(52,211,153,.1); }
+.setups .linkish { margin-top: 8px; }

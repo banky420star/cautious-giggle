@@ -199,6 +199,7 @@ class State:
             "markets": m.market_rows(self.broker),
             "mission": self._mission(),
             "blotter": self._blotter(),
+            "setups": self._setups(),
             "account_mode": ap.active(),
             "ops": ops_log.events(os.path.join(m.LOG_DIR, "server.log"), NAMES, 50),
             "tip": dict(zip(("term", "text"), wr.GLOSSARY[int(time.time() // 12) % len(wr.GLOSSARY)])),
@@ -338,6 +339,27 @@ class State:
             act = f"Inside the ±{thr:.2f} trade line ({abs(final) / thr:.0%} of the way there): not enough edge to pay the spread, so it waits."
         out.append({"k": "Action", "v": final, "text": act})
         return out
+
+    _setups_cache: tuple = (0.0, None)
+
+    def _setups(self) -> dict:
+        """The setup scorecard of the active account: which setups trade normal size, smallest lot, or are blocked."""
+        t, v = self._setups_cache
+        if v is not None and time.time() - t < 10:
+            return v
+        try:
+            from Python.setup_gate import SetupGate
+            c = m._cfg() or {}
+            g = SetupGate(((c.get("trading") or {}).get("setup_gate") or {}),
+                          account_id=ap.env_for(ap.active()).get("EXNESS_ACCOUNT_ID", ""))
+            rows = g.table()
+            v = {"enabled": g.enabled, "rows": rows, "open": len(g.state.get("open") or []),
+                 "min_full": g.min_full, "min_block": g.min_block,
+                 "counts": {k: sum(1 for r in rows if r["verdict"] == k) for k in ("full", "probe", "retest", "block")}}
+        except Exception as exc:
+            v = {"enabled": False, "rows": [], "error": type(exc).__name__}
+        self._setups_cache = (time.time(), v)
+        return v
 
     def _blotter(self) -> list[dict]:
         """Every open trade: where price sits between its stop and its target, in R and in $."""

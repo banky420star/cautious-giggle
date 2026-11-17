@@ -350,8 +350,52 @@ const OPS = {
   plan: ["PLAN", "amber", Clock], entry: ["ENTRY", "green", Crosshair], stack: ["STACK", "cyan", Layers],
   blocked: ["BLOCKED", "red", ShieldAlert], close: ["CLOSE", "grey", Target], reduce: ["TRIM", "grey", Scissors], manage: ["STOP", "violet", ShieldAlert],
   size: ["SIZE", "grey", Ruler], warn: ["ALERT", "red", Wifi], news: ["NEWS", "amber", Newspaper],
-  signal: ["SIGNAL", "cyan", ArrowLeftRight],
+  signal: ["SIGNAL", "cyan", ArrowLeftRight], gate: ["HELD", "red", ShieldAlert], skip: ["SKIP", "grey", Clock],
 };
+
+const VERDICT = {
+  full: ["PROVEN", "green", "normal size"], probe: ["LEARNING", "amber", "smallest lot"],
+  retest: ["RE-TEST", "violet", "one smallest-lot try"], block: ["BLOCKED", "red", "no trades"],
+};
+
+export function Setups({ data }) {
+  const [all, setAll] = useState(false);
+  const rows = data?.rows || [];
+  const c = data?.counts || {};
+  if (!data?.enabled) return <div className="card hud"><div className="muted small">Setup gate is off.</div></div>;
+  const shown = all ? rows : rows.slice(0, 12);
+  return (
+    <div className="card hud setups">
+      <div className="setup-sum">
+        {Object.entries(VERDICT).map(([k, [lab, col, what]]) => (
+          <span key={k} className={`op-tag ${col}`} title={what}>{lab} {c[k] || 0}</span>
+        ))}
+        <span className="muted small">A setup = market · side · session · confidence · what the AI said. Proven after {data.min_full} profitable trades; blocked after {data.min_block} if it loses.</span>
+      </div>
+      {!rows.length ? <div className="muted small">No closed trades scored yet.</div> : (
+        <table className="blt">
+          <thead><tr><th>Setup</th><th className="r">Trades</th><th className="r">Won</th><th className="r">Net</th><th>Status</th><th>Why</th></tr></thead>
+          <tbody>
+            {shown.map((r) => {
+              const [lab, col, what] = VERDICT[r.verdict] || [r.verdict, "grey", ""];
+              return (
+                <tr key={r.key}>
+                  <td><b>{r.label}</b></td>
+                  <td className="r">{r.n}</td>
+                  <td className="r">{r.win}%</td>
+                  <td className={`r ${r.net >= 0 ? "pos" : "neg"}`}>{r.net >= 0 ? "+" : "−"}${Math.abs(r.net).toFixed(2)}</td>
+                  <td><span className={`op-tag ${col}`} title={what}>{lab}</span></td>
+                  <td className="muted small">{r.why}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {rows.length > 12 && <button className="linkish" onClick={() => setAll(!all)}>{all ? "show fewer" : `show all ${rows.length}`}</button>}
+    </div>
+  );
+}
 const LEARN_ICON = { ppo: Cpu, eval: FlaskConical, lstm: Brain, dreamer: Moon, memory: Database };
 
 export function OpsLog({ ops, feed, trades }) {

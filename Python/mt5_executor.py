@@ -365,6 +365,10 @@ class MT5Executor:
         # demo stacking: each stacked trade is sized like a single trade (its own stop, its own risk cap)
         stack = max(1, int((execution_context or {}).get("stack", 1) or 1))
         target_abs = self.normalize_volume(symbol, self.risk_capped_lots(symbol, abs(raw_target)) * stack)
+        # setup gate: an unproven setup may only open the smallest lot (on top of what is already open)
+        lot_cap = (execution_context or {}).get("lot_cap")
+        if lot_cap and target_abs > float(lot_cap):
+            target_abs = self.normalize_volume(symbol, float(lot_cap))
         target_lots = math.copysign(target_abs, raw_target) if target_abs > 0 else 0.0
         step = self._volume_step(symbol)
 
