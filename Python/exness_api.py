@@ -476,18 +476,37 @@ class ExnessMT5:
         fm = 0
         for mode in cond.get("filling_modes") or []:
             fm |= {"fok": 1, "ioc": 2}.get(str(mode).lower(), 0)
+        quote = str(cond.get("quote_currency") or "USD").upper()
+        tick_value = contract * point * self._to_usd(symbol, quote)
         return SimpleNamespace(
             name=str(symbol), digits=digits, point=point,
             volume_min=_f(cond.get("volume_min"), 0.01), volume_max=_f(cond.get("volume_max"), 100.0),
             volume_step=_f(cond.get("volume_step"), 0.01),
             trade_contract_size=contract,
             trade_tick_size=point,
-            # Exact for USD-quoted instruments on USD accounts (XAUUSD, BTCUSD).
-            trade_tick_value=contract * point, trade_tick_value_loss=contract * point,
+            # profit currency converted to USD (account currency), e.g. USDJPY ticks are in yen
+            trade_tick_value=tick_value, trade_tick_value_loss=tick_value,
             trade_stops_level=0, trade_freeze_level=0, filling_mode=fm,
             trade_mode=0 if str(cond.get("trade_mode", "enabled")) != "enabled" else 4,
             currency_profit=str(cond.get("quote_currency") or "USD"),
         )
+
+    def _to_usd(self, symbol, quote: str) -> float:
+        """Multiplier turning one unit of `quote` currency into USD (1.0 when it is USD)."""
+        if quote in ("USD", ""):
+            return 1.0
+        sfx = str(symbol)[6:] if len(str(symbol)) > 6 else ""
+        for pair, invert in ((f"USD{quote}{sfx}", True), (f"{quote}USD{sfx}", False)):
+            try:
+                t = self.symbol_info_tick(pair)
+                if t is not None and float(t.bid) > 0:
+                    mid = (float(t.bid) + float(t.ask)) / 2
+                    return 1.0 / mid if invert else mid
+            except Exception:
+                continue
+        import logging
+        logging.getLogger(__name__).warning(f"{symbol}: no USD conversion for {quote}; tick value left in {quote}")
+        return 1.0
 
     # ---------------------------------------------------------------- prices
     def symbol_info_tick(self, symbol):

@@ -249,7 +249,7 @@ class State:
 
     def _training(self) -> dict:
         prog = m.read_progress()
-        stages = wr.cycle_stages(m.tail_lines(m.CYCLE_LOG, 400), self.symbols)
+        stages = wr.cycle_stages(wr.stage_lines(m.CYCLE_LOG), self.symbols)
         cur = next((r for r in stages if r["status"] == "running"), None)
         summ = wr.training_summary(prog, stages)
         frac = summ["overall"]

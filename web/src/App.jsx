@@ -320,7 +320,7 @@ function Learning({ d }) {
           <div className="muted small">
             {t.stage.step?.toLocaleString()} / {t.stage.total?.toLocaleString()} {t.stage.unit}
             {t.stage.stage_eta_s ? ` · ~${fmtDur(t.stage.stage_eta_s)} left` : ""}
-            {t.stage.phase === "evaluating" ? " · running a quick test on validation data…" : ""}
+            {t.stage.phase === "evaluating" ? " · running a quick test on validation data…" : t.stage.phase === "finishing" ? " · target reached, saving and testing the final model…" : ""}
           </div>
         </div>
       )}
@@ -387,7 +387,8 @@ function Feed({ items }) {
   );
 }
 
-const NAME = { BTCUSDm: "Bitcoin", XAUUSDm: "Gold" };
+const NAME = { BTCUSDm: "Bitcoin", XAUUSDm: "Gold", EURUSDm: "EUR/USD", USDJPYm: "USD/JPY", XAGUSDm: "Silver",
+  ETHUSDm: "Ether", USOILm: "Oil" };
 const PHASE = { scheduled: "scheduled", prep: "PREP · range marked, normal trades paused", armed: "ARMED · watching for the sweep",
   in_trade: "IN TRADE", review: "reviewing result", done: "done" };
 const PLAY = { fade: "Fade the sweep", breakout: "Ride the breakout" };

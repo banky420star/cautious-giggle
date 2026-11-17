@@ -210,7 +210,7 @@ def improvement_panel(frame, broker, logs, symbols, cfg) -> Panel:
     # model training, one line
     tr = m.training_state()
     prog = m.read_progress()
-    stages = wr.cycle_stages(m.tail_lines(m.CYCLE_LOG, 400), symbols)
+    stages = wr.cycle_stages(wr.stage_lines(m.CYCLE_LOG), symbols)
     cur = next((r for r in stages if r["status"] == "running"), None)
     done = sum(1 for r in stages if r["status"] in ("done", "passed"))
     lines.append(Text("BRAIN TRAINING", style="bold cyan"))

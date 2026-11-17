@@ -42,12 +42,13 @@ STOP_BUFFER_ATR = 0.3
 MIN_SAMPLES = 8
 MIN_AVG_R = 0.10
 ALWAYS_TRADE = True   # set from config: take part even without a proven edge (at half size)
-COST = {"XAUUSDm": 0.20, "BTCUSDm": 18.0}   # round-trip cost in price units (spread + slippage)
+COST = {"XAUUSDm": 0.30, "BTCUSDm": 18.0, "EURUSDm": 0.00011, "USDJPYm": 0.013, "USOILm": 0.02,
+        "XAGUSDm": 0.033, "ETHUSDm": 1.4}   # ~1.3x the live spread (BTC/XAU include slippage)   # round-trip cost in price units (spread + slippage)
 
 # which symbols each news topic is traded on
 TOPIC_SYMBOLS = {
     "inflation": ["XAUUSDm", "BTCUSDm"], "fed": ["XAUUSDm", "BTCUSDm"], "jobs": ["XAUUSDm", "BTCUSDm"],
-    "growth": ["XAUUSDm"], "geopolitics": ["XAUUSDm"], "currencies": ["XAUUSDm"], "crypto": ["BTCUSDm"],
+    "growth": ["XAUUSDm"], "geopolitics": ["XAUUSDm"], "currencies": ["XAUUSDm"], "crypto": ["BTCUSDm", "ETHUSDm"],
 }
 GENERIC = "us_release"
 
@@ -336,8 +337,14 @@ class NewsTrader:
                 return p
         return None
 
+    halted = staticmethod(lambda: False)   # set by the bot: True while the risk supervisor halts trading
+
     def _enter(self, ev, en):
         sym = ev["sym"]
+        if self.halted():
+            self.log.info(f"NEWS SKIP {sym} | risk halt active (daily loss / drawdown limit)")
+            ev["phase"] = "review"
+            return
         info = self.mt5.symbol_info(sym)
         point = float(getattr(info, "point", 0.01) or 0.01)
         sl_points = abs(en["entry"] - en["sl"]) / point

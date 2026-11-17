@@ -49,7 +49,7 @@ def release_minutes(t, h, l):
 
 def main(seed: bool):
     pb = {}
-    for sym in ("XAUUSDm", "BTCUSDm"):
+    for sym in ("XAUUSDm", "BTCUSDm", "EURUSDm", "USDJPYm", "USOILm", "XAGUSDm", "ETHUSDm"):
         t, o, h, l, c = load(sym)
         evs = release_minutes(t, h, l)
         print(f"\n{sym}: {len(evs)} release reactions found "

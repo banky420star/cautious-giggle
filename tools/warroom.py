@@ -341,6 +341,24 @@ MISSIONS = {
 }
 
 
+STAGE_KEYS = ("Cycle start", " start | symbol=", " complete | symbol=", "failed", "Evaluate ", "Canary set for",
+              "Candidate blocked for", "Skipping", "PPO inline eval", "Cycle complete", "Cycle done")
+
+
+def stage_lines(path: str, max_bytes: int = 50_000_000) -> list[str]:
+    """Only the stage-marker lines of the cycle log, from the whole file. Reading just the tail
+    misses them once PPO starts printing its long stats tables."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - max_bytes))
+            data = f.read().decode("utf-8", "replace")
+    except OSError:
+        return []
+    return [l for l in data.splitlines() if any(k in l for k in STAGE_KEYS)]
+
+
 def cycle_stages(lines: list[str], symbols: list[str]) -> list[dict]:
     """Ordered roadmap of the champion cycle with status from its log."""
     st = []
@@ -484,7 +502,7 @@ def _progress_lines(frame: int, prog: dict, spark) -> list[Text]:
             out.append(Text("  " + verdict, style="green" if stale == 0 else "yellow"))
     elif k in ("ppo", "dreamer"):
         st, tot = int(prog.get("step", 0)), max(1, int(prog.get("total", 1)))
-        frac = st / tot
+        frac = min(1.0, st / tot)
         eta = el / frac - el if frac > 0.01 else None
         t = Text(f" {'practice steps' if k == 'ppo' else 'imagination steps'} {st:,}/{tot:,} ")
         t.append_text(_bar(frac, 26, frame=frame))
@@ -581,8 +599,16 @@ def training_summary(prog: dict, stages: list[dict]) -> dict:
             stage_frac = ((ep - 1) + b / nb) / eps
         if stage_frac is None and total:
             stage_frac = step / total
-        if stage_frac and stage_frac > 0.01:
+        if stage_frac is not None and stage_frac >= 1.0:
+            # PPO trains in whole 4,096-step batches, so it overshoots the target slightly,
+            # then saves and evaluates: show 100% and "finishing up" instead of 102%
+            stage_frac, step = 1.0, total
+            if live:
+                prog = dict(prog, phase="finishing")
+        if stage_frac and 0.01 < stage_frac < 1.0:
             eta = el / stage_frac - el
+        elif stage_frac == 1.0:
+            eta = 0
     w = [STAGE_MINUTES.get(r["kind"], 10) for r in stages]
     done_w = sum(wi for wi, r in zip(w, stages) if r["status"] in ("done", "passed", "failed"))
     cur_w = STAGE_MINUTES.get(cur["kind"], 10) * (stage_frac or 0) if cur else 0

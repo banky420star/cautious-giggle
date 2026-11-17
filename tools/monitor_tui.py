@@ -1012,7 +1012,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
                             Layout(wr.pipeline(frame, logs, cfg, symbols, width), ratio=4))
     layout["low"].split_row(Layout(name="left", ratio=4), Layout(name="right", ratio=5))
     layout["left"].split_column(Layout(brief_panel, ratio=1), Layout(council_panel, size=19))
-    train_panel = wr.training_panel(frame, prog, bool(tr.get("running")), tail_lines(CYCLE_LOG, 400), symbols,
+    train_panel = wr.training_panel(frame, prog, bool(tr.get("running")), wr.stage_lines(CYCLE_LOG), symbols,
                                     cfg, sparkline)
     layout["right"].split_column(Layout(train_panel, size=26),
                                  Layout(Panel(ev, title="Trades / risk blocks", box=box.ROUNDED,

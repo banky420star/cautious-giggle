@@ -890,6 +890,7 @@ def main(live=False):
     logger.info(f"smart entry {'ON' if smart_entry['enabled'] else 'OFF'} (pullback wait {smart_entry['wait_min']:.0f} min)")
     from Python.news_trader import NewsTrader
     news_trader = NewsTrader(mt5, executor, cfg, logger, _append_audit)
+    news_trader.halted = lambda: bool(supervisor.halt_until is not None and supervisor.halt_until > _utc_now())
     if news_trader.enabled and not demo_exploration.account_is_demo(mt5):
         news_trader.enabled = False  # demo only, like the other learning features
     logger.info(f"news trading {'ON' if news_trader.enabled else 'OFF'}")

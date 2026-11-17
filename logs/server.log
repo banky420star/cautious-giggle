@@ -327,3 +327,33 @@
 2026-11-17 07:21:11.816 +02:00 | INFO     | __main__:main:1283 - ENTRY PLAN XAUUSDm | waiting up to 15 min for 3878.9 (now 3879.8, 0.25 ATR pullback)
 2026-11-17 07:21:18.034 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.06 price=64983.880000000005 sl=65103.58 tp=64795.78 target=-0.3303 magic=51900 retcode=10009 ticket=380950500620636160
 2026-11-17 07:21:18.060 +02:00 | INFO     | __main__:main:1114 - ENTRY BTCUSDm | pullback after 11s | sell 0.06 @ 64983.880000000005 vs 64934.3 at signal (+7.64 bps better)
+2026-11-17 07:21:46.656 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64959.49 tp=64795.78 target=0.0000 magic=51920 retcode=10009 ticket=380950623312416768
+2026-11-17 07:25:03.201 +02:00 | INFO     | __main__:main:1191 - DECISION XAUUSDm | regime=BUY conf=0.6835 risk=0.9000 agi_bias=0.6835 ppo=0.0000 dreamer=0.0000 raw=0.2193 final=0.1974
+2026-11-17 07:25:11.466 +02:00 | INFO     | __main__:main:1191 - DECISION BTCUSDm | regime=BUY conf=0.5894 risk=0.9000 agi_bias=0.5894 ppo=0.0000 dreamer=0.0000 raw=-0.3215 final=-0.2894
+2026-11-17 07:25:12.375 +02:00 | INFO     | __main__:main:1283 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64976 (now 64930, 0.50 ATR pullback)
+2026-11-17 07:30:06.645 +02:00 | INFO     | __main__:main:1191 - DECISION BTCUSDm | regime=BUY conf=0.6793 risk=0.9000 agi_bias=0.6793 ppo=0.0000 dreamer=0.0000 raw=-0.1879 final=-0.1691
+2026-11-17 07:30:10.196 +02:00 | INFO     | __main__:main:1191 - DECISION XAUUSDm | regime=BUY conf=0.6951 risk=0.9000 agi_bias=0.6951 ppo=0.0000 dreamer=0.0000 raw=0.4316 final=0.3884
+2026-11-17 07:32:18.626 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 07:32:18.755 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 07:32:18.837 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 07:32:18.838 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 07:32:18.919 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 07:32:18.919 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 07:32:19.447 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded default model on MPS
+2026-11-17 07:32:19.449 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded default feature scaler
+2026-11-17 07:32:19.466 +02:00 | INFO     | __main__:main:876 - demo learning risk: 2.5% per trade (min-lot ceiling 4.0%), max_lots 0.2, daily loss stop $150, drawdown halt 40.0%
+2026-11-17 07:32:19.635 +02:00 | INFO     | __main__:main:890 - smart entry ON (pullback wait 15 min)
+2026-11-17 07:32:19.660 +02:00 | INFO     | __main__:main:896 - news trading ON
+2026-11-17 07:32:19.676 +02:00 | INFO     | __main__:main:900 - demo learning mode ON: trade threshold x0.50
+2026-11-17 07:32:20.430 +02:00 | WARNING  | Python.backtester:run_ppo_backtest:215 - BTCUSDm: fetched data starts after holdout_start=2026-11-03 16:50:00+00:00; evaluating a partial holdout with no feature warm-up. Increase the evaluation period.
+2026-11-17 07:32:20.673 +02:00 | INFO     | __main__:main:909 - indicator council ON
+2026-11-17 07:32:20.899 +02:00 | ERROR    | Python.backtester:run_multi:377 - BACKTEST_FAIL BTCUSDm: only 0-dimensional arrays can be converted to Python scalars
+2026-11-17 07:32:20.900 +02:00 | WARNING  | Python.autonomy_loop:_maybe_set_canary:360 - Autonomy evaluator error: No valid backtests
+2026-11-17 07:32:27.531 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 07:32:27.532 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 07:32:29.150 +02:00 | INFO     | __main__:main:1192 - DECISION BTCUSDm | regime=BUY conf=0.6793 risk=0.9000 agi_bias=0.6793 ppo=0.0000 dreamer=0.0000 raw=-0.1893 final=-0.1704
+2026-11-17 07:32:29.837 +02:00 | INFO     | __main__:main:1284 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64970 (now 64923, 0.50 ATR pullback)
+2026-11-17 07:32:32.811 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[XAUUSDm] model on MPS
+2026-11-17 07:32:32.812 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[XAUUSDm] feature scaler
+2026-11-17 07:32:37.085 +02:00 | INFO     | __main__:main:1192 - DECISION XAUUSDm | regime=BUY conf=0.6951 risk=0.9000 agi_bias=0.6951 ppo=0.0000 dreamer=0.0000 raw=0.4347 final=0.3912
+2026-11-17 07:32:38.047 +02:00 | INFO     | __main__:main:1284 - ENTRY PLAN XAUUSDm | waiting up to 15 min for 3881.7 (now 3882.5, 0.25 ATR pullback)
