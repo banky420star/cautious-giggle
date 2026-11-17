@@ -139,7 +139,8 @@ def run(days: int = 14, kronos_every: int = 6, symbols=None, log=print, horizon:
             continue
         spread_bps = _spread_bps(mt5, sym, float(m5["close"].iloc[-1]))
         if spread_bps is None:
-            log(f"{sym}: spread unknown, scoring before costs")
+            log(f"{sym}: spread unknown, skipped (every result here is after costs)")
+            continue
         close = m5["close"].to_numpy(float)
         fwd = np.full(len(close), np.nan)
         fwd[:-H] = np.log(close[H:] / close[:-H]) * 1e4

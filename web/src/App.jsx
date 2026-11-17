@@ -13,6 +13,7 @@ import {
   Setups, Models, SectionNav, BackToTop,
 } from "./WarRoom.jsx";
 import { Boot, AccountSwitch, Logo } from "./Boot.jsx";
+import { RiskReactor, DayStory, MarketRadar, SetupMap } from "./Visuals.jsx";
 
 const fmtMoney = (v, sign = false) => {
   if (v == null || Number.isNaN(v)) return "—";
@@ -49,11 +50,17 @@ function AnimatedNumber({ value, format }) {
   const [shown, setShown] = useState(value ?? 0);
   const [flash, setFlash] = useState(null);
   const from = useRef(value ?? 0);
+  const lastFlash = useRef({ t: 0, v: value ?? 0 });
   useEffect(() => {
     if (value == null) return;
-    if (Math.abs(value - from.current) > 1e-9) {
+    // flash only on a real move (≥ $0.50 or 0.05%), at most every 3 s — not on every 2-second poll
+    const lf = lastFlash.current;
+    const move = value - lf.v;
+    if (Math.abs(move) >= Math.max(0.5, Math.abs(lf.v) * 0.0005) && performance.now() - lf.t > 3000) {
+      const dir = move > 0 ? "up" : "down";
+      lastFlash.current = { t: performance.now(), v: value };
       setFlash(null);
-      requestAnimationFrame(() => setFlash(value > from.current ? "up" : "down"));
+      requestAnimationFrame(() => setFlash(dir));
     }
     const start = performance.now();
     const a = from.current;
@@ -268,8 +275,17 @@ const store = {
 function Header({ d, explain, setExplain, onTour, onGloss, onAccount, sound, setSound, onLogout }) {
   const bot = d?.bot || {};
   const c = d ? condition(d) : null;
+  const ref = useRef(null);
+  useEffect(() => {
+    // the sticky menu sits under the header, whatever height the header wraps to
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return undefined;
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty("--hud-h", `${el.offsetHeight}px`));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <header className="header hud">
+    <header className="header hud" ref={ref}>
       <div className="brand">
         <Logo size={40} />
         <div>
@@ -303,9 +319,10 @@ function navItems(d) {
   const blot = (d.blotter?.rows || d.blotter || []);
   const nPos = Array.isArray(blot) ? blot.length : 0;
   const blocked = (d.setups?.rows || []).filter((r) => r.verdict === "block").length;
-  const nextNews = (d.news?.plan || []).filter((e) => e.t0 > Date.now() / 1000).length;
+  const nextNews = new Set((d.news?.plan || []).filter((e) => e.t0 > Date.now() / 1000).map((e) => `${e.t0}|${e.title}`)).size;
   return [
-    { id: "sec-command", label: "Overview", Icon: Gauge },
+    { id: "sec-glance", label: "At a glance", Icon: Sparkles },
+    { id: "sec-command", label: "Account", Icon: Gauge },
     { id: "sec-positions", label: "Positions", Icon: Wallet, badge: nPos || null, tone: "cyan" },
     { id: "sec-setups", label: "Setups", Icon: ListChecks, badge: blocked ? `${blocked} blocked` : null, tone: "red" },
     { id: "sec-models", label: "Your models", Icon: Brain, badge: d.models ? (d.models.live ? "live" : "off") : null, tone: d.models?.live ? "green" : "red" },
@@ -348,6 +365,15 @@ export default function App() {
       <NewsAlert d={d} />
       <Sitrep d={d} />
 
+      <Section id="sec-glance" no="00" title="AT A GLANCE"
+               sub="the whole situation in three pictures: how safe the account is, how today went, and which markets are close to a trade">
+        <div className="glance-top">
+          <RiskReactor d={d} />
+          <DayStory d={d} />
+        </div>
+        <MarketRadar d={d} />
+      </Section>
+
       <Section id="sec-command" no="01" title="COMMAND" sub="the account at a glance and the safety limits">
         <CommandBar d={d} Animated={AnimatedNumber} />
       </Section>
@@ -359,6 +385,7 @@ export default function App() {
 
       <Section id="sec-setups" no="03" title="SETUPS"
                sub="which kinds of trade have earned normal size, which are still learning on the smallest lot, and which are blocked for losing">
+        <SetupMap data={d.setups} />
         <Setups data={d.setups} />
       </Section>
 

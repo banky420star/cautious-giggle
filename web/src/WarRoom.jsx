@@ -68,17 +68,28 @@ export function Section({ id, no, title, sub, right, children }) {
 /* sticky menu: jump to a section; the one on screen lights up */
 export function SectionNav({ items }) {
   const [active, setActive] = useState(items[0]?.id);
+  const ids = items.map((i) => i.id).join();
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return undefined;
-    const vis = new Map();
-    const io = new IntersectionObserver((es) => {
-      es.forEach((e) => vis.set(e.target.id, e.isIntersecting ? e.intersectionRatio : 0));
-      const best = items.map((i) => [i.id, vis.get(i.id) || 0]).sort((a, b) => b[1] - a[1])[0];
-      if (best && best[1] > 0) setActive(best[0]);
-    }, { rootMargin: "-90px 0px -45% 0px", threshold: [0, 0.1, 0.3, 0.6] });
-    items.forEach((i) => { const el = document.getElementById(i.id); if (el) io.observe(el); });
-    return () => io.disconnect();
-  }, [items.map((i) => i.id).join()]);
+    // the section on screen = the last one whose top has passed the bottom of the sticky menu
+    let raf = 0;
+    const pick = () => {
+      raf = 0;
+      const nav = document.querySelector(".secnav");
+      const line = (nav ? nav.getBoundingClientRect().bottom : 130) + 8;
+      let cur = items[0]?.id;
+      for (const { id } of items) {
+        const el = document.getElementById(id);
+        if (el && el.getBoundingClientRect().top <= line) cur = id;
+      }
+      if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 4) cur = items[items.length - 1]?.id;
+      setActive(cur);
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(pick); };
+    pick();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); cancelAnimationFrame(raf); };
+  }, [ids]);
   const go = (id) => {
     const el = document.getElementById(id);
     if (!el) return;

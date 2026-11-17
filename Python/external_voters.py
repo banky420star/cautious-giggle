@@ -396,7 +396,7 @@ class _NewsLLM:
         # a schema, not "json": with plain json mode the model echoes the headlines and runs out of tokens
         schema = {"type": "object", "properties": {"score": {"type": "number", "minimum": -1, "maximum": 1}}, "required": ["score"]}
         body = json.dumps({"model": self.cfg["model"], "prompt": prompt, "stream": False, "format": schema,
-                           "think": False, "options": {"temperature": 0, "num_predict": 40}}).encode()
+                           "think": False, "options": {"temperature": 0, "num_predict": 64}}).encode()
         req = urllib.request.Request(self.cfg["url"].rstrip("/") + "/api/generate", data=body,
                                      headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=120) as r:

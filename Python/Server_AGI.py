@@ -1001,6 +1001,13 @@ def main(live=False):
     _cg = ((cfg.get("trading") or {}).get("cost_gate") or {})
     cost_gate = {"enabled": bool(_cg.get("enabled", True)), "margin_bps": float(_cg.get("margin_bps", 0.2)),
                  "extra_cost_bps": float(_cg.get("extra_cost_bps", 0.0))}
+    last_spread: dict = {}  # last good spread per market: a missing tick must not be scored as zero cost
+
+    def _cost_blocked(sym: str):
+        """(blocked, assessment): the market's own signal-follow record, net of spread, is not paying."""
+        a = model_memory.assess(sym, "trade", "*")
+        proven = a["n_all"] >= model_memory.min_samples
+        return (cost_gate["enabled"] and proven and a["edge_bps"] <= cost_gate["margin_bps"]), a
     _gate_logged: dict = {}
     logger.info(f"setup gate {'ON' if setup_gate.enabled else 'OFF'}: unproven setups trade the smallest lot, "
                 f"losing ones are blocked ({len(setup_gate.state['stats'])} scored setups loaded)")
@@ -1225,6 +1232,10 @@ def main(live=False):
                     pending_entries.pop(psym, None)
                     _append_audit("entry_cancelled", {"symbol": psym, "reason": news_trader.blocks_regular(psym)})
                     continue
+                if _cost_blocked(psym)[0]:
+                    pending_entries.pop(psym, None)
+                    _append_audit("entry_cancelled", {"symbol": psym, "reason": "cost gate"})
+                    continue
                 tk = mt5.symbol_info_tick(psym)
                 if tk is None:
                     continue
@@ -1310,6 +1321,9 @@ def main(live=False):
                     decision["exploration_scale"] = explore_scale
                 exposure = float(decision["target"])
                 spread_now = _tick_spread_bps(symbol)
+                if spread_now is not None:
+                    last_spread[symbol] = spread_now
+                cost_spread = spread_now if spread_now is not None else last_spread.get(symbol)
                 try:
                     scored = model_memory.observe(
                         symbol, pd.Timestamp(df["time"].iloc[-1]).tz_localize("UTC") if "time" in df.columns else df.index[-1],
@@ -1322,7 +1336,7 @@ def main(live=False):
                             "council": None if council_meta is None else float(council_meta["target"]),
                             **{f"ind:{k}": v for k, v in ind_votes.items()},
                         },
-                        cost_bps=None if spread_now is None else spread_now + cost_gate["extra_cost_bps"],
+                        cost_bps=None if cost_spread is None else cost_spread + cost_gate["extra_cost_bps"],
                     )
                     _append_audit("model_memory", {"symbol": symbol, "context": ctx,
                                                    "scored": [r for r in scored if not str(r.get("model", "")).startswith("ind:")],
@@ -1413,9 +1427,10 @@ def main(live=False):
                 # ---- cost gate: open or add only while the bot's own trades in this market have
                 # earned more than their spread (scored over the real holding time); closes always pass
                 cur_x = float(current_symbol_exposure)
+                held_by_gate = False  # a gate said "no more risk here": keep the open position exactly as it is
                 if cost_gate["enabled"] and supervisor_decision.allowed and float(exposure) != 0.0 and (
                         cur_x == 0.0 or (float(exposure) > 0) != (cur_x > 0) or abs(float(exposure)) > abs(cur_x) + 1e-9):
-                    tr_ = model_memory.assess(symbol, "trade", "*")
+                    _, tr_ = _cost_blocked(symbol)
                     proven_ = tr_["n_all"] >= model_memory.min_samples
                     sym_state["cost_gate"] = {"net_edge_bps": tr_["edge_bps"], "n": tr_["n_all"], "spread_bps": spread_now,
                                               "margin_bps": cost_gate["margin_bps"],
@@ -1423,6 +1438,7 @@ def main(live=False):
                                                           "pass" if tr_["edge_bps"] > cost_gate["margin_bps"] else "block")}
                     if proven_ and tr_["edge_bps"] <= cost_gate["margin_bps"]:
                         exposure = 0.0 if (cur_x != 0.0 and (cur_x > 0) != (float(exposure) > 0)) else cur_x
+                        held_by_gate = True
                         if time.time() - _gate_logged.get(f"cost:{symbol}", 0) > 900:
                             _gate_logged[f"cost:{symbol}"] = time.time()
                             logger.info(f"COST BLOCK {symbol} | trades net {tr_['edge_bps']:+.2f} bps after spread "
@@ -1441,6 +1457,7 @@ def main(live=False):
                     sym_state["setup"] = {"key": gkey, "verdict": verdict, "why": why}
                     if verdict == "block":
                         exposure = 0.0 if (cur_x != 0.0 and (cur_x > 0) != (side_ > 0)) else cur_x
+                        held_by_gate = True
                         if time.time() - _gate_logged.get(gkey, 0) > 900:
                             _gate_logged[gkey] = time.time()
                             logger.info(f"SETUP BLOCK {symbol} | {why}")
@@ -1458,8 +1475,12 @@ def main(live=False):
                         and gate_entry is not None and pending_entries.get(symbol) is None:
                     exposure = cur_x if (cur_x == 0.0 or (cur_x > 0) == (skip_[0] > 0)) else 0.0
                     gate_entry = None
+                # Holding: sending cur_x to the executor would re-size it (add with stacking, trim as equity falls)
+                hold_only = held_by_gate and float(exposure) != 0.0 and abs(float(exposure) - cur_x) < 1e-12
+                if hold_only and pending_entries.pop(symbol, None):
+                    _append_audit("entry_cancelled", {"symbol": symbol, "reason": "gate: hold only"})
                 pending_now = False
-                if supervisor_decision.allowed and smart_entry["enabled"]:
+                if supervisor_decision.allowed and smart_entry["enabled"] and not hold_only:
                     pend = pending_entries.get(symbol)
                     cur_lots = abs(float(current_symbol_exposure)) * float(max_lots)
                     want_lots = executor.normalize_volume(
@@ -1495,6 +1516,9 @@ def main(live=False):
                     if pending_entries.pop(symbol, None):
                         _append_audit("entry_cancelled", {"symbol": symbol, "reason": news_block})
                     sym_state["news_block"] = news_block
+                    order_meta = None
+                    bar_settled = True
+                elif hold_only:
                     order_meta = None
                     bar_settled = True
                 elif pending_now:

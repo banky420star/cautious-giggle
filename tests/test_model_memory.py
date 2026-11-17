@@ -70,3 +70,20 @@ def test_old_gross_records_are_not_mixed_with_net_ones(tmp_path):
     p = tmp_path / "m.json"
     p.write_text(json.dumps({"stats": {"BTCUSDm|ppo|*": {"w": 500, "m": 5.0, "s": 30.0}}, "pending": {}}))
     assert ModelMemory(str(p)).assess("BTCUSDm", "ppo", "*")["n_all"] == 0
+
+
+def test_gap_longer_than_horizon_is_dropped_not_scored(tmp_path):
+    mem = ModelMemory(str(tmp_path / "m.json"), min_samples=1, horizon_bars=2)
+    t0 = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+    mem.observe("BTCUSDm", t0, 100.0, {"key": "c"}, {"ppo": 1.0}, cost_bps=0.0)
+    # outage: next bar seen 45 min later -> the 10-min call can't be judged on a 45-min move
+    rows = mem.observe("BTCUSDm", t0 + dt.timedelta(minutes=45), 110.0, {"key": "c"}, {"ppo": 1.0}, cost_bps=0.0)
+    assert rows == [] and mem.assess("BTCUSDm", "ppo", "*")["n_all"] == 0
+
+
+def test_unknown_cost_is_never_scored_as_free(tmp_path):
+    mem = ModelMemory(str(tmp_path / "m.json"), min_samples=1, horizon_bars=1)
+    t0 = dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+    mem.observe("BTCUSDm", t0, 100.0, {"key": "c"}, {"ppo": 1.0}, cost_bps=None)
+    rows = mem.observe("BTCUSDm", t0 + dt.timedelta(minutes=5), 101.0, {"key": "c"}, {"ppo": 1.0}, cost_bps=1.0)
+    assert rows == []

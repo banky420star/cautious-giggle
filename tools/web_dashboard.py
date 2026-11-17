@@ -60,7 +60,7 @@ class State:
             with open(EQ_FILE, "r", encoding="utf-8") as f:
                 for line in f:
                     p = line.strip().split(",")
-                    if len(p) == 3:
+                    if len(p) == 3 and float(p[1]) > 0:  # 0 = broker link was down, not a real value
                         self.equity.append((float(p[0]), float(p[1]), float(p[2])))
         except FileNotFoundError:
             pass
@@ -86,7 +86,7 @@ class State:
     def _sampler(self):
         while True:
             acc = self.broker.account
-            if acc is not None:
+            if acc is not None and float(acc.equity or 0) > 0:
                 row = (time.time(), float(acc.equity), float(acc.balance))
                 with self.lock:
                     self.equity.append(row)

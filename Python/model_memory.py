@@ -130,9 +130,10 @@ class _Stat:
 class ModelMemory:
     def __init__(self, path: str, half_life_bars: float = 1200.0, prior_bars: float = 150.0,
                  gain: float = 0.6, floor: float = 0.25, cap: float = 1.5, min_samples: float = 60.0,
-                 horizon_bars: int = 1):
+                 horizon_bars: int = 1, bar_seconds: int = 300):
         self.path = path
         self.horizon = max(1, int(horizon_bars))
+        self.bar_s = max(1, int(bar_seconds))
         self.decay = 0.5 ** (1.0 / max(1.0, float(half_life_bars)))
         self.prior = float(prior_bars)
         self.gain, self.floor, self.cap, self.min_samples = float(gain), float(floor), float(cap), float(min_samples)
@@ -187,25 +188,25 @@ class ModelMemory:
         the calls made `horizon` bars ago against the move since, net of that cost.
         Returns the scored rows (for logging/UI)."""
         bar_ts = int(bar_time.timestamp()) if hasattr(bar_time, "timestamp") else int(bar_time or 0)
-        cost = max(0.0, float(cost_bps or 0.0))
+        # unknown cost (no tick) -> the call is stored but never scored: scoring it at 0 would flatter it
+        cost = None if cost_bps is None else max(0.0, float(cost_bps))
         scored = []
         with self._lock:
             queue = self.pending.get(symbol) or []
             if queue and bar_ts <= int(queue[-1].get("bar_ts", 0)):
                 return scored  # same bar seen again
-            for p in queue:
-                p["age"] = int(p.get("age", 0)) + 1
             keep = []
             for p in queue:
-                if p["age"] < self.horizon:
+                # age in real bars, so an outage or restart can't stretch a 2-bar score into an hour
+                age = (bar_ts - int(p["bar_ts"])) // self.bar_s
+                if age < self.horizon:
                     keep.append(p)
                     continue
                 p_close = float(p.get("close", 0) or 0)
-                # Ignore gaps across long closures (weekend) — not something a model can be judged on.
-                if p_close <= 0 or close <= 0 or bar_ts - int(p["bar_ts"]) > 4 * 3600:
-                    continue
+                if age > self.horizon or p_close <= 0 or close <= 0 or p.get("cost") is None:
+                    continue  # missed its scoring bar (gap) or cost unknown: drop, don't guess
                 ret_bps = math.log(close / p_close) * 1e4
-                c = float(p.get("cost", 0.0) or 0.0)
+                c = float(p["cost"])
                 tg = dict(p.get("targets") or {})
                 b = tg.get("blend")
                 # the bot's own decision as a trade: holds a position only when |target| > ACTIVE
@@ -220,7 +221,7 @@ class ModelMemory:
                     scored.append({"model": model, "target": float(tgt), "ret_bps": ret_bps, "cost_bps": c,
                                    "score": x, "ctx": p.get("ctx")})
             keep.append({"bar_ts": bar_ts, "close": float(close), "ctx": context.get("key", "na"), "cost": cost,
-                         "age": 0, "targets": {k: (None if v is None else float(v)) for k, v in targets.items()}})
+                         "targets": {k: (None if v is None else float(v)) for k, v in targets.items()}})
             self.pending[symbol] = keep
         if scored:
             self.save()

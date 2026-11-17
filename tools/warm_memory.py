@@ -49,7 +49,21 @@ def _live_spread_bps(sym):
     return None
 
 
+def _bot_running() -> bool:
+    try:
+        with open(os.path.join(ROOT, ".tmp", "server_agi.lock"), encoding="utf-8") as f:
+            pid = int(f.read().strip())
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 def main():
+    if _bot_running():
+        print("The trading bot is running: it would overwrite this warm-up with its own copy. "
+              "Stop it first (scripts/mac/stop_bot.sh), then run this again.")
+        sys.exit(1)
     cfg = load_project_config(ROOT)
     mem = ModelMemory.from_cfg(cfg, os.path.join(ROOT, "logs"))
     h = mem.horizon
