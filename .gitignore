@@ -24,3 +24,4 @@ config.windows-mt5.yaml
 data/exness_cache/
 web/node_modules/
 web/dist/
+.venv.usb/

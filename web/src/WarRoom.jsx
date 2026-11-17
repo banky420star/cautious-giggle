@@ -338,16 +338,8 @@ export function WarCard({ s }) {
         <div className="w-grad"><GraduationCap size={13} /> AI {s.grad.label}</div>
       )}
 
-      <div className="w-spark" title="Last ~12 hours of 5-minute prices. Dashed lines: entry (gold), stop (red), target (green).">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={bars} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-            <YAxis hide domain={[lo, hi]} />
-            {p && <ReferenceLine y={p.entry} stroke="#facc15" strokeDasharray="3 3" />}
-            {p && p.sl > 0 && <ReferenceLine y={p.sl} stroke="#f87171" strokeDasharray="3 3" />}
-            {p && p.tp > 0 && <ReferenceLine y={p.tp} stroke="#34d399" strokeDasharray="3 3" />}
-            <Line type="monotone" dataKey="v" stroke={up ? "#34d399" : "#f87171"} strokeWidth={1.6} dot={false} isAnimationActive={false} />
-          </LineChart>
-        </ResponsiveContainer>
+      <div className="w-candles" title="Last 7 hours of 5-minute candles. Dashed: entry (gold), stop (red), target (green), price now (white).">
+        <Candles candles={s.candles} position={p} bid={s.bid} />
       </div>
     </div>
   );
@@ -506,18 +498,20 @@ const TOUR = [
     text: "This dashboard runs a trading bot on your Exness demo account. Every 5 minutes it checks 7 markets, decides whether to buy, sell or wait, and explains each move. It's practice money: the risk settings are deliberately aggressive so the AI learns faster." },
   { id: "sec-command", title: "01 · Command",
     text: "The account at a glance. Equity is what the account is worth now. LOSS STOP is the safety brake: when today's loss hits the limit, no new trades until tomorrow. The colour badge at the top (GREEN / AMBER / RED) sums it up." },
-  { id: "sec-markets", title: "02 · Markets: reading a card",
+  { id: "sec-positions", title: "02 · Positions",
+    text: "Every open trade in one blotter. The rail shows where the price sits between the stop-loss (red, left) and the target (green, right); the gold tick is the entry. R is profit in units of the risk taken: −1R means stopped out." },
+  { id: "sec-markets", title: "03 · Markets: reading a card",
     text: "The needle is the bot's final verdict for that market, from SELL (left) to BUY (right). It only trades when the needle passes a gold line. The dots on the dial and the bars beside it show each voter: the LSTM pattern reader, the PPO trader and the indicator council. The line under the dial says what it will do next." },
   { id: "sec-markets", title: "Trade slots",
     text: "Each market can hold up to 3 trades. The 2nd and 3rd are only added while the open ones are already in profit and the signal still agrees, each with its own stop-loss." },
-  { id: "sec-ops", title: "03 · Ops log",
+  { id: "sec-ops", title: "04 · Ops log",
     text: "Every action as it happens, in plain English: planned entries (it waits for a small pullback to get a better price), fills, stacks, stop moves, trims and closes, and why each one happened." },
-  { id: "sec-training", title: "04 · Training",
+  { id: "sec-training", title: "05 · Training",
     text: "Each market gets its own AI. A new model only trades after passing an exam on data it has never seen. If it fails, it retrains with a different reward scenario (patient, hunter, steady…), so it tries a different style, not just more of the same." },
-  { id: "sec-news", title: "05 · News",
+  { id: "sec-news", title: "06 · News",
     text: "Before big US releases the bot marks the price range, pauses normal entries, and trades the reaction with the play that has worked before for that market." },
   { id: null, title: "You're set",
-    text: "Turn EXPLAIN off in the top bar for a compact view once you know your way around. The ? button replays this tour, and GLOSSARY explains every term." },
+    text: "Turn SOUND on to hear a chime on every fill, stack and close. Turn EXPLAIN off in the top bar for a compact view once you know your way around. The ? button replays this tour, and GLOSSARY explains every term." },
 ];
 
 export function Tour({ open, onClose }) {
@@ -589,5 +583,164 @@ export function HelpButtons({ explain, setExplain, onTour, onGloss }) {
       <button className="icon-btn" onClick={onGloss} title="Glossary"><BookOpen size={16} /></button>
       <button className="icon-btn" onClick={onTour} title="Replay the tour"><HelpCircle size={16} /></button>
     </div>
+  );
+}
+
+/* ================================================================ ticker tape */
+export function Tape({ symbols }) {
+  const items = (symbols || []).map((s) => {
+    const pnl = (s.trades || []).reduce((a, t) => a + t.pnl, 0);
+    const sig = clamp(s.signal);
+    return (
+      <span key={s.symbol} className="tp-item">
+        <b>{s.name.toUpperCase()}</b>
+        <span className="tp-px">{fmtPx(s.bid)}</span>
+        {s.chg_pct != null && <span className={s.chg_pct >= 0 ? "pos" : "neg"}>{s.chg_pct >= 0 ? "▲" : "▼"}{Math.abs(s.chg_pct).toFixed(2)}%</span>}
+        <span className={`tp-sig ${Math.abs(sig) >= s.threshold ? (sig > 0 ? "pos" : "neg") : "muted"}`}>
+          SIG {sig >= 0 ? "+" : ""}{sig.toFixed(2)}
+        </span>
+        {(s.trades || []).length > 0 && <span className={`tp-pos ${pnl >= 0 ? "pos" : "neg"}`}>{s.trades.length}× {s.position?.side} {money(pnl)}</span>}
+      </span>
+    );
+  });
+  return (
+    <div className="tape" title="Live prices · 24h change · signal (coloured once it is past the trade line) · open trades">
+      <div className="tape-track">{items}{items}</div>
+    </div>
+  );
+}
+
+/* ================================================================ candlesticks */
+export function Candles({ candles, position, bid, height = 70 }) {
+  const cs = candles || [];
+  if (cs.length < 2) return <div className="w-spark" />;
+  const levels = position ? [position.entry, position.sl, position.tp].filter(Boolean) : [];
+  const lo = Math.min(...cs.map((c) => c[3]), ...levels, bid ?? Infinity);
+  const hi = Math.max(...cs.map((c) => c[2]), ...levels, bid ?? -Infinity);
+  const W = cs.length * 6, H = height, pad = 3;
+  const y = (v) => pad + (hi === lo ? H / 2 : ((hi - v) / (hi - lo)) * (H - 2 * pad));
+  const line = (v, cls) => <line x1="0" x2={W} y1={y(v)} y2={y(v)} className={cls} vectorEffect="non-scaling-stroke" />;
+  return (
+    <svg className="candles" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height }}
+         aria-label="5-minute candles, last 7 hours">
+      {cs.map((c, i) => {
+        const [, o, h, l, cl] = c;
+        const up = cl >= o;
+        const x = i * 6 + 3;
+        return (
+          <g key={c[0]} className={up ? "cu" : "cd"}>
+            <line x1={x} x2={x} y1={y(h)} y2={y(l)} vectorEffect="non-scaling-stroke" />
+            <rect x={x - 2} width="4" y={Math.min(y(o), y(cl))} height={Math.max(0.8, Math.abs(y(o) - y(cl)))} />
+          </g>
+        );
+      })}
+      {position && line(position.entry, "lv entry")}
+      {position && position.sl > 0 && line(position.sl, "lv sl")}
+      {position && position.tp > 0 && line(position.tp, "lv tp")}
+      {bid != null && line(bid, "lv now")}
+    </svg>
+  );
+}
+
+/* ================================================================ positions blotter */
+const held = (t) => {
+  if (!t) return "";
+  const s = Math.max(0, Date.now() / 1000 - t);
+  return s < 3600 ? `${Math.floor(s / 60)}m` : `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+};
+export function Blotter({ rows }) {
+  const tot = (rows || []).reduce((a, r) => a + r.pnl, 0);
+  return (
+    <div className="card hud blotter">
+      {!rows?.length ? (
+        <div className="muted small">No open trades. When the bot enters, each trade appears here with its stop, target and live distance to both.</div>
+      ) : (
+        <table className="blt">
+          <thead>
+            <tr><th>Market</th><th>Side</th><th className="r">Lots</th><th className="r">Entry</th><th className="r">Now</th>
+              <th className="rail-h"><span className="neg">STOP</span><span className="muted">where price is</span><span className="pos">TARGET</span></th>
+              <th className="r">R</th><th className="r">P&amp;L</th><th className="r">Held</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.ticket} className={r.pnl >= 0 ? "win" : "lose"}>
+                <td><b>{r.name}</b></td>
+                <td><span className={`side ${r.side === "BUY" ? "long" : "short"}`}>{r.side}</span></td>
+                <td className="r">{r.volume}</td>
+                <td className="r">{fmtPx(r.entry)}</td>
+                <td className="r">{fmtPx(r.now)}</td>
+                <td>
+                  {r.progress != null ? (
+                    <div className="rail" title={`stop ${fmtPx(r.sl)} (${r.dist_sl_pct?.toFixed(2)}% away) · target ${fmtPx(r.tp)} (${r.dist_tp_pct?.toFixed(2)}% away)`}>
+                      <span className="rail-fill" style={{ width: `${r.progress * 100}%` }} />
+                      {r.entry_pos != null && <i className="rail-entry" style={{ left: `${r.entry_pos * 100}%` }} />}
+                      <b className="rail-now" style={{ left: `${r.progress * 100}%` }} />
+                      <span className="rail-l">{fmtPx(r.sl)}</span><span className="rail-r">{fmtPx(r.tp)}</span>
+                    </div>
+                  ) : <span className="muted small">no stop/target</span>}
+                </td>
+                <td className={`r ${r.r >= 0 ? "pos" : "neg"}`}>{r.r == null ? "—" : `${r.r >= 0 ? "+" : ""}${r.r.toFixed(2)}R`}</td>
+                <td className={`r ${r.pnl >= 0 ? "pos" : "neg"}`}><b>{money(r.pnl)}</b></td>
+                <td className="r muted">{held(r.opened)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot><tr><td colSpan={7} className="muted small ex">R = profit measured in units of the risk taken (−1R = stopped out, +1.6R ≈ target). Gold tick on the rail = entry.</td>
+            <td className={`r ${tot >= 0 ? "pos" : "neg"}`}><b>{money(tot)}</b></td><td /></tr></tfoot>
+        </table>
+      )}
+    </div>
+  );
+}
+
+/* ================================================================ fill alerts (toast + chime) */
+let audioCtx = null;
+function chime(kind) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const notes = kind === "close" ? [660, 440] : kind === "stack" ? [520, 660, 880] : [440, 660];
+    notes.forEach((f, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "triangle"; o.frequency.value = f;
+      const t = audioCtx.currentTime + i * 0.11;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+      o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t + 0.2);
+    });
+  } catch { /* audio unavailable */ }
+}
+
+export function FillAlerts({ ops, sound }) {
+  const seen = useRef(null);
+  const [toasts, setToasts] = useState([]);
+  useEffect(() => {
+    const evs = (ops || []).filter((e) => ["entry", "close", "stack"].includes(e.kind));
+    const key = (e) => `${e.t}|${e.title}`;
+    if (seen.current === null) { seen.current = new Set(evs.map(key)); return; }   // don't replay history on load
+    const fresh = evs.filter((e) => !seen.current.has(key(e)));
+    if (!fresh.length) return;
+    fresh.forEach((e) => seen.current.add(key(e)));
+    if (sound) chime(fresh[0].kind);
+    const add = fresh.slice(0, 3).map((e) => ({ id: key(e) + Math.random(), ...e }));
+    setToasts((t) => [...add, ...t].slice(0, 4));
+    add.forEach((a) => setTimeout(() => setToasts((t) => t.filter((x) => x.id !== a.id)), 9000));
+  }, [ops, sound]);
+  return (
+    <div className="toasts">
+      {toasts.map((t) => (
+        <div key={t.id} className={`toast ${t.kind}`}>
+          <span className="toast-k">{t.kind === "entry" ? "FILLED" : t.kind === "close" ? "CLOSED" : "STACKED"}</span>
+          <b>{t.title}</b>
+          <span className="muted small">{t.text}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SoundButton({ on, set }) {
+  return (
+    <button className={`toggle ${on ? "on" : ""}`} onClick={() => { set(!on); if (!on) chime("entry"); }} title="Chime when a trade is filled, stacked or closed">
+      <i /> SOUND
+    </button>
   );
 }

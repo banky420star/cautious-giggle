@@ -208,6 +208,7 @@ class Broker:
     def __init__(self, symbols, extra=None):
         self.extra = [x for x in (extra or []) if x not in symbols]
         self.extra_ticks, self.day_open = {}, {}
+        self.ohlc = {}
         from Python.mt5_compat import BROKER_BACKEND, MT5_AVAILABLE, mt5
 
         self.symbols = symbols
@@ -267,6 +268,8 @@ class Broker:
                     r = self.mt5.copy_rates_from_pos(s, tf, 1, 150)
                     if r is not None and len(r):
                         self.bars[s] = [float(x) for x in r["close"]]
+                        self.ohlc[s] = [[int(t), float(o), float(h), float(lo), float(c)] for t, o, h, lo, c in
+                                        zip(r["time"], r["open"], r["high"], r["low"], r["close"])]
                 self._t["bars"] = now
             if self.extra and now - self._t.get("xtick", 0) >= 10:
                 for s in self.extra:

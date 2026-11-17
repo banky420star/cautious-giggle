@@ -198,6 +198,7 @@ class State:
             "news": self._news_snapshot(),
             "markets": m.market_rows(self.broker),
             "mission": self._mission(),
+            "blotter": self._blotter(),
             "account_mode": ap.active(),
             "ops": ops_log.events(os.path.join(m.LOG_DIR, "server.log"), NAMES, 50),
             "tip": dict(zip(("term", "text"), wr.GLOSSARY[int(time.time() // 12) % len(wr.GLOSSARY)])),
@@ -270,6 +271,7 @@ class State:
             "trusts": trusts, "ignores": ignores, "signal_history": hist, "pending": pending,
             "trades": [{"side": "BUY" if int(p.type) == 0 else "SELL", "volume": float(p.volume),
                         "entry": float(p.price_open), "pnl": round(float(p.profit), 2)} for p in mine],
+            "candles": (b.ohlc.get(s) or [])[-84:],
             "stack_max": self._stack_max(),
             "pipeline": {
                 "lstm": float(sg.get("agi_bias", 0) or 0),
@@ -317,6 +319,32 @@ class State:
             act = f"Inside the ±{thr:.2f} trade line ({abs(final) / thr:.0%} of the way there): not enough edge to pay the spread, so it waits."
         out.append({"k": "Action", "v": final, "text": act})
         return out
+
+    def _blotter(self) -> list[dict]:
+        """Every open trade: where price sits between its stop and its target, in R and in $."""
+        b = self.broker
+        rows = []
+        for p in b.positions or []:
+            sym = str(getattr(p, "symbol", ""))
+            s = sym if sym in NAMES or sym.endswith("m") else sym + "m"
+            buy = int(p.type) == 0
+            tick = b.ticks.get(s)
+            now = float(getattr(p, "price_current", 0) or 0) or (float(tick.bid if buy else tick.ask) if tick else None)
+            entry, sl, tp = float(p.price_open), float(p.sl or 0), float(p.tp or 0)
+            sgn = 1 if buy else -1
+            r = ((now - entry) * sgn / abs(entry - sl)) if (now and sl and entry != sl) else None
+            prog = None
+            if now and sl and tp and tp != sl:
+                prog = max(0.0, min(1.0, (now - sl) / (tp - sl)))
+            rows.append({"ticket": int(getattr(p, "ticket", 0) or 0), "symbol": s, "name": NAMES.get(s, s),
+                         "side": "BUY" if buy else "SELL", "volume": float(p.volume), "entry": entry, "now": now,
+                         "sl": sl or None, "tp": tp or None, "pnl": round(float(p.profit), 2), "r": None if r is None else round(r, 2),
+                         "progress": prog, "entry_pos": (max(0.0, min(1.0, (entry - sl) / (tp - sl))) if sl and tp and tp != sl else None),
+                         "opened": int(getattr(p, "time", 0) or 0),
+                         "dist_sl_pct": (abs(now - sl) / now * 100) if (now and sl) else None,
+                         "dist_tp_pct": (abs(tp - now) / now * 100) if (now and tp) else None})
+        rows.sort(key=lambda x: -x["opened"])
+        return rows
 
     def _stack_max(self) -> int:
         st = (((self.cfg.get("trading") or {}).get("demo_learning") or {}).get("stacking") or {})

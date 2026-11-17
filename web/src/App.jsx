@@ -5,10 +5,11 @@ import {
 import {
   Activity, ArrowDownRight, ArrowUpRight, Brain, CircleDollarSign, Clock, GraduationCap, Lightbulb, Pause,
   Receipt, ShieldCheck, Target, TrendingUp, Trophy, Wallet, Zap, Sparkles, Cpu, FlaskConical, Database,
-  ArrowLeftRight, Moon, Newspaper, CalendarClock,
+  ArrowLeftRight, Moon, Newspaper, CalendarClock, LogOut,
 } from "lucide-react";
 import {
   WarCard, MissionControl, OpsLog, CommandBar, Section, Clocks, Sitrep, NewsAlert, Tour, Glossary, HelpButtons, condition, ago,
+  Tape, Blotter, FillAlerts, SoundButton,
 } from "./WarRoom.jsx";
 import { Boot, AccountSwitch, Logo } from "./Boot.jsx";
 
@@ -258,7 +259,7 @@ const store = {
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
 };
 
-function Header({ d, explain, setExplain, onTour, onGloss, onAccount }) {
+function Header({ d, explain, setExplain, onTour, onGloss, onAccount, sound, setSound, onLogout }) {
   const bot = d?.bot || {};
   const c = d ? condition(d) : null;
   return (
@@ -282,7 +283,11 @@ function Header({ d, explain, setExplain, onTour, onGloss, onAccount }) {
           <span className={`dot ${bot.running ? "pulse" : ""}`} /> {bot.running ? "BOT ONLINE" : "BOT OFFLINE"}
         </span>
         {d && <Countdown seconds={bot.next_check_s} />}
+        <SoundButton on={sound} set={setSound} />
         <HelpButtons explain={explain} setExplain={setExplain} onTour={onTour} onGloss={onGloss} />
+        <button className="logout" onClick={onLogout} title="Back to the login screen. The bot keeps trading; this only closes the war room view.">
+          <LogOut size={14} /> LOG OUT
+        </button>
       </div>
     </header>
   );
@@ -293,9 +298,17 @@ export default function App() {
   const [booted, setBooted] = useState(() => { try { return window.location.hash === "#warroom" || sessionStorage.getItem("cg_booted") === "1"; } catch { return false; } });
   const [explain, setExplainS] = useState(() => store.get("cg_explain", true));
   const setExplain = (v) => { setExplainS(v); store.set("cg_explain", v); };
+  const [sound, setSoundS] = useState(() => store.get("cg_sound", false));
+  const setSound = (v) => { setSoundS(v); store.set("cg_sound", v); };
   const [tour, setTour] = useState(false);
   const [gloss, setGloss] = useState(false);
   const [acct, setAcct] = useState(false);
+  const logout = () => {
+    try { sessionStorage.removeItem("cg_booted"); } catch { /* ignore */ }
+    if (window.location.hash) window.history.replaceState(null, "", window.location.pathname);
+    window.scrollTo(0, 0);
+    setBooted(false);
+  };
   const enter = () => {
     setBooted(true);
     try { sessionStorage.setItem("cg_booted", "1"); } catch { /* ignore */ }
@@ -305,7 +318,8 @@ export default function App() {
   return (
     <div className={`app ${explain ? "" : "explain-off"}`}>
       <div className="scan" aria-hidden />
-      <Header d={d} explain={explain} setExplain={setExplain} onTour={() => setTour(true)} onGloss={() => setGloss(true)} onAccount={() => setAcct(true)} />
+      <Header d={d} explain={explain} setExplain={setExplain} onTour={() => setTour(true)} onGloss={() => setGloss(true)} onAccount={() => setAcct(true)} sound={sound} setSound={setSound} onLogout={logout} />
+      <Tape symbols={d.symbols} />
       {err && <div className="banner">{err} · showing last known data</div>}
       <NewsAlert d={d} />
       <Sitrep d={d} />
@@ -314,23 +328,28 @@ export default function App() {
         <CommandBar d={d} Animated={AnimatedNumber} />
       </Section>
 
-      <Section id="sec-markets" no="02" title="MARKETS"
+      <Section id="sec-positions" no="02" title="POSITIONS"
+               sub="every open trade: where price is between its stop and its target, profit in R and dollars, time held">
+        <Blotter rows={d.blotter} />
+      </Section>
+
+      <Section id="sec-markets" no="03" title="MARKETS"
                sub="one card per market: the needle is the final verdict, the bars are the voters, the line underneath is the next move">
         <div className="war-grid">{d.symbols.map((s) => <WarCard key={s.symbol} s={s} />)}</div>
       </Section>
 
-      <Section id="sec-ops" no="03" title="OPS LOG & EQUITY" sub="every action with its reason, and how the account has moved">
+      <Section id="sec-ops" no="04" title="OPS LOG & EQUITY" sub="every action with its reason, and how the account has moved">
         <div className="bottom">
           <OpsLog ops={d.ops} feed={d.feed} trades={d.trades} />
           <EquityChart series={d.equity} equity={d.account.equity} />
         </div>
       </Section>
 
-      <Section id="sec-training" no="04" title="TRAINING" sub="each market's AI: which reward style it is practising, and its exam record">
+      <Section id="sec-training" no="05" title="TRAINING" sub="each market's AI: which reward style it is practising, and its exam record">
         <MissionControl rows={d.mission} training={d.training} />
       </Section>
 
-      <Section id="sec-news" no="05" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
+      <Section id="sec-news" no="06" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
         <News news={d.news} />
       </Section>
 
@@ -338,6 +357,7 @@ export default function App() {
         <Lightbulb size={14} /> <b>{d.tip.term.replace(" ┃", "")}:</b> {d.tip.text}
         <span className="muted right"><Clock size={12} /> updated {new Date(d.ts * 1000).toLocaleTimeString()}</span>
       </footer>
+      <FillAlerts ops={d.ops} sound={sound} />
       <Tour open={tour} onClose={() => setTour(false)} />
       <Glossary open={gloss} onClose={() => setGloss(false)} terms={d.glossary} />
       <AccountSwitch open={acct} onClose={() => setAcct(false)} />
