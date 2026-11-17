@@ -35,6 +35,9 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import warroom as wr  # noqa: E402
+
 LOG_DIR = os.path.join(ROOT, "logs")
 AUDIT = os.path.join(LOG_DIR, "audit_events.jsonl")
 SERVER_LOG = os.path.join(LOG_DIR, "server.log")
@@ -453,24 +456,6 @@ def explain(prog: dict, tr: dict, reg: dict, symbols: list[str], alive: bool, lo
     else:
         say("💤 No training running. Type 'exness train' to start a new cycle.", "dim")
 
-    # ---- indicator council in words
-    from Python.indicator_council import STRATEGIES as IND
-    for s in symbols:
-        p = ((logs.last_council.get(s) or {}).get("payload") or {})
-        if not p:
-            continue
-        t = float(p.get("target", 0))
-        ign = [IND.get(k, k) for k in (p.get("ignored") or [])]
-        works = [IND.get(k, k) for k, a in (p.get("assess") or {}).items() if (a or {}).get("verdict") == "works"
-                 and abs(float((p.get("votes") or {}).get(k, 0))) > 0.05]
-        msg = f"📊 {_nm(s)}: {p.get('up', 0)} indicators say up, {p.get('down', 0)} down, {p.get('flat', 0)} no view. "
-        if works:
-            msg += "Trusted here: " + ", ".join(works[:3]) + ". "
-        if ign:
-            msg += "Ignoring " + ", ".join(ign[:3]) + (" …" if len(ign) > 3 else "") + " (poor record in this market). "
-        msg += f"Council: {'BUY' if t > 0.05 else ('SELL' if t < -0.05 else 'no trade')} ({t:+.2f})."
-        say(msg, "green" if t > 0.3 else ("red" if t < -0.3 else ""))
-
     # ---- what happened at the gate
     for line in tail_lines(CYCLE_LOG, 120):
         l = line.lower()
@@ -482,20 +467,8 @@ def explain(prog: dict, tr: dict, reg: dict, symbols: list[str], alive: bool, lo
         elif "candidate blocked" in l:
             say("🚫 " + line.split(" - ", 1)[-1][:90] + " (did not beat the benchmarks).", "yellow")
 
-    # ---- the bot
-    any_model = any(((reg.get("symbols") or {}).get(s) or {}).get("champion") or
-                    ((reg.get("symbols") or {}).get(s) or {}).get("canary") for s in symbols)
     if not alive:
         say("🔴 The bot is not running. Type 'exness' to start it.", "red")
-    elif not any_model:
-        say("🤖 Bot is running but holding flat: no trained model yet, so it has nothing to act on.", "cyan")
-    else:
-        sig = [((logs.last_signal.get(s) or {}).get("payload") or {}) for s in symbols]
-        acting = [s for s, p in zip(symbols, sig) if abs(float(p.get("exposure", 0) or 0)) > 0]
-        if acting:
-            say("🤖 Bot wants a position in " + ", ".join(_nm(s) for s in acting) + "; see the decision table.", "cyan")
-        else:
-            say("🤖 Bot is running and checking every 5 minutes; models currently see no trade worth the spread.", "cyan")
     return out
 
 
@@ -689,6 +662,22 @@ def _threshold(cfg: dict, symbol: str, sg: dict) -> float:
     return {"BTC": 0.18, "XAU": 0.12}.get(symbol[:3], 0.15)
 
 
+def _px(v):
+    try:
+        v = float(v)
+        return f"{v:,.{price_digits(v)}f}"
+    except Exception:
+        return str(v)
+
+
+def _default_meta() -> dict:
+    try:
+        with open(os.path.join(ROOT, "models", "lstm_agi_trained.meta.json"), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
 def memory_rows(symbol: str):
     try:
         from Python.model_memory import ModelMemory
@@ -730,7 +719,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
                 p = last.get("payload") or {}
                 style = "bold black on green" if (frame // 4) % 2 == 0 else "bold green on black"
                 banner = Text(f"  ⚡ TRADE {p.get('symbol')} {p.get('request_action')} {p.get('order_type')} "
-                              f"{p.get('executed_lots', p.get('volume_lots'))} lots @ {p.get('entry_price')}  ",
+                              f"{p.get('executed_lots', p.get('volume_lots'))} lots @ {_px(p.get('entry_price'))}  ",
                               style=style, justify="center")
 
     # ---- charts
@@ -764,7 +753,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
             title.append("  flat", style="dim")
         color = "green" if len(closes) > 1 and closes[-1] >= closes[0] else "red"
         cells.append(Panel(braille_chart(closes, chart_w, 5, marks, color=color), title=title,
-                           subtitle=Text("M5 · last 150 bars + live", style="dim"), box=box.ROUNDED))
+                           subtitle=wr.caption("5-min price · yellow entry · red stop · green target"), box=box.ROUNDED))
     radar_sym = symbols[(frame // 40) % len(symbols)]
     rp = (logs.last_council.get(radar_sym) or {}).get("payload") or {}
     cells.append(Panel(Align.center(radar(frame, rp, 26, 5)), title=Text(f"◎ RADAR · {_nm(radar_sym).upper()}", style="bold green"),
@@ -789,9 +778,14 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     used = min(1.0, max(0.0, -day_total / max_loss)) if max_loss else 0.0
     loss_bar = tbar(used, 22, "red" if used > 0.6 else ("yellow" if used > 0.3 else "green"))
     eq_series = logs.equity or ([float(acc.equity)] if acc else [])
-    acct_panel = Panel(Group(acct, Text(f"daily loss limit ${max_loss:,.0f}  used {used * 100:.0f}%", style="dim"),
-                             loss_bar, Text("equity " + sparkline(eq_series, 30), style="cyan")),
-                       title="Account", box=box.ROUNDED)
+    eq_shown = wr.ease("equity", float(getattr(acc, "equity", 0) or 0), 0.3)
+    acct_panel = Panel(Group(Text(f"${eq_shown:,.2f}", style="bold bright_white", justify="center"),
+                             Text(f"day {day_total:+.2f}  ·  floating {floating:+.2f}", justify="center",
+                                  style="green" if day_total >= 0 else "red"),
+                             Text(f"loss limit used {used * 100:.0f}% of ${max_loss:,.0f}", style="dim"),
+                             loss_bar, Text("equity " + sparkline(eq_series, 22), style="cyan")),
+                       title=Text("💼 ACCOUNT", style="bold"), box=box.ROUNDED,
+                       subtitle=wr.caption("demo · live from Exness"))
 
     # ---- decisions
     dec = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 1))
@@ -890,7 +884,11 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
             expl = os.path.exists(os.path.join(str(ca), "exploration.json"))
             line.append(("exploring " if expl else "canary ") + os.path.basename(str(ca)), style="magenta" if expl else "yellow")
         else:
-            line.append("no model yet", style="red")
+            safe = s.replace("/", "_")
+            has_lstm = os.path.exists(os.path.join(ROOT, "models", "per_symbol", f"lstm_{safe}.pt")) or \
+                str((_default_meta() or {}).get("symbol")) == s
+            line.append("LSTM ready ✓" if has_lstm else "LSTM pending", style="green" if has_lstm else "grey50")
+            line.append("  ·  PPO trader: in training (not approved yet)", style="yellow")
         parts.append(line)
     live_prog = (prog and not prog.get("done") and time.time() - float(prog.get("ts", 0)) < 600
                  and bool(tr["running"]))
@@ -944,7 +942,8 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     else:
         parts.append(Text("training: idle", style="dim"))
     parts.append(Text(tr["last"], style="dim", overflow="ellipsis", no_wrap=True))
-    models_panel = Panel(Group(*parts), title="Models / training (live)", box=box.ROUNDED)
+    models_panel = Panel(Group(*parts), title=Text("🧠 MODELS & TRAINING", style="bold"), box=box.ROUNDED,
+                         subtitle=wr.caption("loss going down = learning · ★ = best version kept"))
     explain_panel = Panel(Group(*explain(prog, tr, reg, symbols, alive, logs)), title="What's happening (plain English)",
                           box=box.ROUNDED, border_style="bright_blue")
 
@@ -958,7 +957,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
         if r.get("event") == "trade_action":
             ev.add_row(age(r.get("ts")), Text("TRADE", style="bold green"),
                        f"{p.get('symbol')} {p.get('request_action')} {p.get('order_type')} "
-                       f"{p.get('executed_lots', p.get('volume_lots'))} @ {p.get('entry_price')} "
+                       f"{p.get('executed_lots', p.get('volume_lots'))} @ {_px(p.get('entry_price'))} "
                        f"SL {p.get('sl_price')} TP {p.get('tp_price')}")
         else:
             ev.add_row(age(r.get("ts")), Text("BLOCK", style="yellow"),
@@ -978,23 +977,27 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     # ---- layout
     layout = Layout()
     pulse = ["cyan", "bright_cyan", "bright_white", "bright_cyan", "cyan", "dark_cyan"][frame % 6]
-    top = [Layout(Panel(header, box=box.HEAVY, border_style=(pulse if alive else "red")), size=4),
-           Layout(banner, size=1)]
+    brief = wr.briefing(frame, logs, cfg, symbols) or [Text("waiting for the first decision…", style="dim")]
+    brief_panel = Panel(Group(*brief, Text(""), *explain(prog, tr, reg, symbols, alive, logs)),
+                        title=Text("🗣  BRIEFING · what the bot sees, why, and what's next", style="bold bright_cyan"),
+                        box=box.ROUNDED, border_style="bright_cyan")
     layout.split_column(
-        *top,
+        Layout(Panel(header, box=box.HEAVY, border_style=(pulse if alive else "red")), size=4),
+        Layout(banner, size=1),
         Layout(charts, size=9),
-        Layout(name="mid", size=12),
+        Layout(name="mid", size=2 * len(symbols) + 3),
         Layout(name="low"),
+        Layout(wr.footer(frame, logs, width), size=2),
     )
-    layout["mid"].split_row(Layout(acct_panel, ratio=2),
-                            Layout(Panel(Group(gauges, dec), title=Text("◆ DECISION ENGINE · blend needle vs trade threshold ┃",
-                                                                        style="bold"),
-                                         box=box.ROUNDED, border_style="magenta"), ratio=5))
+    layout["mid"].split_row(Layout(acct_panel, size=32),
+                            Layout(wr.pipeline(frame, logs, cfg, symbols, width), ratio=4))
     layout["low"].split_row(Layout(name="left", ratio=4), Layout(name="right", ratio=5))
-    layout["left"].split_column(Layout(explain_panel, ratio=1), Layout(council_panel, size=19))
-    layout["right"].split_column(Layout(models_panel, size=21),
-                                 Layout(Panel(ev, title="Trades / risk blocks", box=box.ROUNDED)),
-                                 Layout(Panel(logt, title="Server log", box=box.ROUNDED), size=7))
+    layout["left"].split_column(Layout(brief_panel, ratio=1), Layout(council_panel, size=19))
+    layout["right"].split_column(Layout(models_panel, size=17),
+                                 Layout(Panel(ev, title="Trades / risk blocks", box=box.ROUNDED,
+                                              subtitle=wr.caption("every order and every time the risk guard said no"))),
+                                 Layout(Panel(logt, title="Server log", box=box.ROUNDED,
+                                              subtitle=wr.caption("raw engine output")), size=7))
     return layout
 
 
