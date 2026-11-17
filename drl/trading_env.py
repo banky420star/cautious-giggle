@@ -297,7 +297,7 @@ class TradingEnv(gym.Env):
         o, h, l, c, v, dates = self._extract_arrays(df)
         self.prices = c.astype(np.float64)
         self._set_bar_arrays(h, l, c)
-        self.opens = np.asarray(o, dtype=np.float64)
+        self.opens = np.array(o, dtype=np.float64)
         base = pd.DataFrame(
             {
                 "time": dates if dates is not None else pd.RangeIndex(len(c)),
@@ -325,7 +325,7 @@ class TradingEnv(gym.Env):
 
         self.prices = price.astype(np.float64)
         self._set_bar_arrays(h, l, price)
-        self.opens = np.asarray(o, dtype=np.float64)
+        self.opens = np.array(o, dtype=np.float64)
         base = pd.DataFrame(
             {
                 "time": dates,
@@ -342,8 +342,8 @@ class TradingEnv(gym.Env):
         self.reset()
 
     def _set_bar_arrays(self, h, l, c):
-        self.highs = np.asarray(h, dtype=np.float64)
-        self.lows = np.asarray(l, dtype=np.float64)
+        self.highs = np.array(h, dtype=np.float64)
+        self.lows = np.array(l, dtype=np.float64)
         c = np.asarray(c, dtype=np.float64)
         prev_c = np.concatenate([[c[0]], c[:-1]])
         tr = np.maximum(self.highs - self.lows, np.maximum(np.abs(self.highs - prev_c), np.abs(self.lows - prev_c)))

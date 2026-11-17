@@ -684,3 +684,21 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .setups td.small { max-width: 340px; }
 .op-tag.green { color: var(--green, #34d399); background: rgba(52,211,153,.1); }
 .setups .linkish { margin-top: 8px; }
+
+/* your models */
+.models { display: grid; gap: 12px; }
+.models-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.models-head .muted { flex: 1 1 320px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.dot.on { background: var(--green, #34d399); box-shadow: 0 0 8px var(--green, #34d399); }
+.dot.off { background: var(--red, #f87171); }
+.models-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); }
+.model-card { overflow-x: auto; }
+.small-t td, .small-t th { font-size: 12px; padding: 5px 6px; }
+.vbar { position: relative; display: inline-block; width: 92px; height: 16px; background: rgba(148,163,184,.12); border-radius: 3px; vertical-align: middle; }
+.vbar::after { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(148,163,184,.5); }
+.vbar i { position: absolute; top: 2px; bottom: 2px; border-radius: 2px; }
+.vbar i.up { background: var(--green, #34d399); }
+.vbar i.dn { background: var(--red, #f87171); }
+.vbar b { position: absolute; right: -44px; top: 0; font-size: 11px; font-weight: 600; width: 40px; text-align: left; }
+.model-card td:nth-child(2) { padding-right: 50px; }

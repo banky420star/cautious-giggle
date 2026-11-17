@@ -358,6 +358,98 @@ const VERDICT = {
   retest: ["RE-TEST", "violet", "one smallest-lot try"], block: ["BLOCKED", "red", "no trades"],
 };
 
+const VERDICT_TAG = { works: ["WORKS", "green"], "doesn't work": ["IGNORED", "red"], neutral: ["NEUTRAL", "grey"], learning: ["LEARNING", "amber"] };
+const pct = (x) => (x == null ? "—" : `${Math.round(x * 100)}%`);
+const bps = (x) => (x == null ? "—" : `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(2)}`);
+
+function VoteBar({ v }) {
+  if (v == null) return <span className="muted small">waiting</span>;
+  const w = Math.min(50, Math.abs(v) * 50);
+  return (
+    <span className="vbar" title={`${v >= 0 ? "+" : ""}${v.toFixed(2)} (−1 strongly down … +1 strongly up)`}>
+      <i className={v >= 0 ? "up" : "dn"} style={v >= 0 ? { left: "50%", width: `${w}%` } : { left: `${50 - w}%`, width: `${w}%` }} />
+      <b>{v >= 0 ? "+" : ""}{v.toFixed(2)}</b>
+    </span>
+  );
+}
+
+function testCell(t, spread) {
+  if (!t || !t.active) return <span className="muted small">{t ? "no calls" : "—"}</span>;
+  const good = t.edge_bps > 0;
+  return (
+    <span title={`${t.active} calls replayed · following it averaged ${bps(t.follow_bps)} bps per 30 min${spread != null ? ` · spread ${spread.toFixed(2)} bps` : ""}`}>
+      <b className={good ? "pos" : "neg"}>{pct(t.hit)}</b> <span className="muted small">edge {bps(t.edge_bps)}</span>
+    </span>
+  );
+}
+
+export function Models({ data }) {
+  if (!data || !data.voters?.length) return <div className="card hud"><div className="muted small">{data?.error || "Your models are not loaded."}</div></div>;
+  const tst = data.test || {};
+  const cmp = Object.entries(tst.compare || {});
+  return (
+    <div className="models">
+      <div className="card hud models-head">
+        <span className={`dot ${data.live ? "on" : "off"}`} /> <b>{data.live ? "Voting live" : data.updated ? `Not voting: last vote ${ago(data.updated)} (bot stopped or broker connection lost)` : "Not voting (bot not running)"}</b>
+        <span className="muted small">
+          Each model gets a weight (an indicator counts 1). Its live record decides how much it counts: models that keep being right count up to 1.5× more, wrong ones are ignored.
+          {" "}History test: {tst.running ? "running…" : tst.done ? `last ${tst.days} days, scored against the next ${tst.horizon_min} min` : "not run yet"}.
+        </span>
+      </div>
+      <div className="models-grid">
+        {data.voters.map((m) => (
+          <div key={m.key} className="card hud model-card">
+            <div className="card-head"><b>{m.name}</b><span className="op-tag cyan">weight {m.weight}×</span></div>
+            <table className="blt small-t">
+              <thead><tr><th>Market</th><th>Now</th><th className="r">Live hit</th><th className="r">Live edge</th><th>Verdict</th><th>History test</th></tr></thead>
+              <tbody>
+                {m.rows.map((r) => {
+                  const [lab, col] = VERDICT_TAG[r.live?.verdict] || ["—", "grey"];
+                  const spread = tst.compare?.[r.symbol]?.spread_bps;
+                  return (
+                    <tr key={r.symbol} title={r.error || ""}>
+                      <td><b>{r.name}</b>{r.error && <span className="neg small"> ⚠</span>}</td>
+                      <td><VoteBar v={r.vote} /></td>
+                      <td className="r">{pct(r.live?.hit)}<span className="muted small"> /{Math.round(r.live?.n || 0)}</span></td>
+                      <td className={`r ${(r.live?.edge_bps || 0) >= 0 ? "pos" : "neg"}`}>{bps(r.live?.edge_bps)}</td>
+                      <td><span className={`op-tag ${col}`}>{lab}</span></td>
+                      <td>{testCell(r.test, spread)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
+      {cmp.length > 0 && (
+        <div className="card hud">
+          <div className="card-head"><b>Does adding your models help?</b><span className="muted small">same bars, indicators alone vs indicators + your models</span></div>
+          <table className="blt">
+            <thead><tr><th>Market</th><th className="r">Indicators only</th><th className="r">+ your models</th><th className="r">Spread (cost)</th><th>Result</th></tr></thead>
+            <tbody>
+              {cmp.map(([s, c]) => {
+                const b = c.base?.edge_bps, w = c.with?.edge_bps;
+                const res = b == null || w == null ? ["—", "grey"] : w > b + 0.2 ? ["HELPS", "green"] : w < b - 0.2 ? ["HURTS", "red"] : ["NO CHANGE", "grey"];
+                return (
+                  <tr key={s}>
+                    <td><b>{c.name}</b></td>
+                    <td className="r">{pct(c.base?.hit)} <span className="muted small">edge {bps(b)}</span></td>
+                    <td className="r">{pct(c.with?.hit)} <span className="muted small">edge {bps(w)}</span></td>
+                    <td className="r muted">{c.spread_bps == null ? "—" : `${c.spread_bps.toFixed(2)} bps`}</td>
+                    <td><span className={`op-tag ${res[1]}`}>{res[0]}</span></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot><tr><td colSpan={5} className="muted small ex">Hit = share of calls that got the next 30 minutes' direction right. Edge = average of (vote × next move) in basis points (1 bp = 0.01%); it must beat the spread to make money after costs.</td></tr></tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Setups({ data }) {
   const [all, setAll] = useState(false);
   const rows = data?.rows || [];

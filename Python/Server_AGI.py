@@ -995,6 +995,7 @@ def main(live=False):
                         f"ones that keep being wrong are ignored by the model memory)")
     except Exception as exc:
         logger.warning(f"external voters unavailable: {exc}")
+    _xv_dumped = [0.0]
     from Python.setup_gate import SetupGate
     setup_gate = SetupGate(((cfg.get("trading") or {}).get("setup_gate") or {}))
     _gate_logged: dict = {}
@@ -1199,6 +1200,12 @@ def main(live=False):
         except Exception as exc:
             logger.warning(f"news step failed: {exc}")
 
+        if ext_voters is not None and time.time() - _xv_dumped[0] > 30:
+            _xv_dumped[0] = time.time()
+            try:
+                ext_voters.dump(os.path.join(LOG_DIR, "external_voters.json"))
+            except Exception:
+                pass
         try:
             if setup_gate.resolve(mt5):
                 logger.info("setup scorecard updated from closed trades")

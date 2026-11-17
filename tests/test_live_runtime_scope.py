@@ -31,5 +31,13 @@ def test_recent_live_runtime_decisions_only_for_approved_markets():
     if not recent:
         pytest.skip("no decisions logged yet")
 
+    try:
+        from tools import account_profiles as ap
+        mode = ap.active()
+    except Exception:
+        mode = None
+    if mode == "demo":
+        pytest.skip("demo account: demo_learning trades every market on purpose (this guard is for live)")
+
     traded = {m.group(1) for line in recent if (m := re.search(r"DECISION (\S+)", line))}
     assert traded <= _allowed_symbols(), f"decisions for unapproved markets: {traded - _allowed_symbols()}"

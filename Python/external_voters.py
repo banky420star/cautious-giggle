@@ -474,6 +474,18 @@ class ExternalVoters:
                 out[name] = v
         return out
 
+    def dump(self, path: str) -> None:
+        """Live votes and health for the war room (the dashboard runs in another process)."""
+        st = self.status()
+        st.update({"t": time.time(), "weights": self.weights(), "names": NAMES,
+                   "markets": {"ob_gold": self.cfg["ob_gold"].get("symbols"), "catboost": list(self.cfg["catboost"].get("pairs") or {}),
+                               "kronos": "all", "news_llm": "all"},
+                   "news_model": self.cfg["news_llm"].get("model")})
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(st, f)
+        os.replace(tmp, path)
+
     def status(self) -> dict:
         return {"kronos": self.kronos.error or ("ready" if self.kronos.pred is not None else "loading"),
                 "catboost": {f"{k[1]}": {"trained_rows": v.get("n"), "original_model_accepts_today": v.get("original_ok")}

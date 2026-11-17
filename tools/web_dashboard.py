@@ -200,6 +200,7 @@ class State:
             "mission": self._mission(),
             "blotter": self._blotter(),
             "setups": self._setups(),
+            "models": self._models(),
             "account_mode": ap.active(),
             "ops": ops_log.events(os.path.join(m.LOG_DIR, "server.log"), NAMES, 50),
             "tip": dict(zip(("term", "text"), wr.GLOSSARY[int(time.time() // 12) % len(wr.GLOSSARY)])),
@@ -339,6 +340,56 @@ class State:
             act = f"Inside the ±{thr:.2f} trade line ({abs(final) / thr:.0%} of the way there): not enough edge to pay the spread, so it waits."
         out.append({"k": "Action", "v": final, "text": act})
         return out
+
+    _models_cache: tuple = (0.0, None)
+
+    def _models(self) -> dict:
+        """The user's own models in the council: live vote per market, live track record (model memory),
+        and the history test (tools/voter_backtest.py)."""
+        t, v = self._models_cache
+        if v is not None and time.time() - t < 10:
+            return v
+        def _read(p):
+            try:
+                with open(p, encoding="utf-8") as f:
+                    return json.load(f)
+            except (OSError, ValueError):
+                return {}
+        try:
+            from Python.model_memory import ModelMemory
+            from Python.external_voters import NAMES as XN, DEFAULTS as XD
+            st = _read(os.path.join(m.LOG_DIR, "external_voters.json"))
+            bt = _read(os.path.join(m.LOG_DIR, "voter_backtest.json"))
+            mem = ModelMemory(os.path.join(m.LOG_DIR, "memory", "model_memory.json"))
+            weights = st.get("weights") or XD["weights"]
+            syms = list(NAMES)
+            cover = {"ob_gold": XD["ob_gold"]["symbols"], "catboost": list(XD["catboost"]["pairs"]),
+                     "kronos": syms, "news_llm": syms}
+            errs = st.get("errors") or {}
+            voters = []
+            for key in ("ob_gold", "kronos", "catboost", "news_llm"):
+                rows = []
+                for s in cover[key]:
+                    a = mem.assess(s, f"ind:{key}", "*")
+                    tb = (((bt.get("markets") or {}).get(s) or {}).get("voters") or {}).get(key)
+                    rows.append({"symbol": s, "name": NAMES.get(s, s), "vote": (st.get("values") or {}).get(f"{s}:{key}"),
+                                 "live": {"n": a["n_all"], "hit": a["hit_rate"], "edge_bps": a["edge_bps"],
+                                          "verdict": a["verdict"] if a["n_all"] >= 60 else "learning", "mult": a["mult"]},
+                                 "test": tb, "error": errs.get(f"{s}:{key}")})
+                voters.append({"key": key, "name": XN.get(key, key), "weight": weights.get(key), "rows": rows})
+            compare = {s: {"name": NAMES.get(s, s), "spread_bps": d.get("spread_bps"),
+                           "base": (d.get("voters") or {}).get("indicators_only"),
+                           "with": (d.get("voters") or {}).get("indicators_plus_models")}
+                       for s, d in (bt.get("markets") or {}).items()}
+            v = {"live": bool(st) and time.time() - float(st.get("t", 0)) < 180, "updated": st.get("t"),
+                 "news_model": st.get("news_model"), "voters": voters,
+                 "test": {"t": bt.get("t"), "done": bool(bt.get("done")), "days": bt.get("days"),
+                          "horizon_min": bt.get("horizon_min"), "compare": compare,
+                          "running": bool(bt) and not bt.get("done")}}
+        except Exception as exc:
+            v = {"live": False, "voters": [], "error": f"{type(exc).__name__}: {exc}"}
+        self._models_cache = (time.time(), v)
+        return v
 
     _setups_cache: tuple = (0.0, None)
 
