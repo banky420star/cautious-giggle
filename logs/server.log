@@ -110,3 +110,19 @@
 2026-11-17 05:50:24.788 +02:00 | INFO     | __main__:main:1076 - DECISION XAUUSDm | regime=BUY conf=0.6505 risk=0.9000 agi_bias=0.6505 ppo=0.0000 dreamer=0.0000 raw=0.0078 final=0.0000
 2026-11-17 05:55:08.950 +02:00 | INFO     | __main__:main:1076 - DECISION BTCUSDm | regime=BUY conf=0.6820 risk=0.9000 agi_bias=0.6820 ppo=0.0000 dreamer=0.0000 raw=-0.1049 final=0.0000
 2026-11-17 05:55:11.974 +02:00 | INFO     | __main__:main:1076 - DECISION XAUUSDm | regime=BUY conf=0.6493 risk=0.9000 agi_bias=0.6493 ppo=0.0000 dreamer=0.0000 raw=-0.0071 final=0.0000
+2026-11-17 06:00:20.153 +02:00 | INFO     | __main__:main:1076 - DECISION BTCUSDm | regime=BUY conf=0.6805 risk=0.9000 agi_bias=0.6805 ppo=0.0000 dreamer=0.0000 raw=-0.0352 final=0.0000
+2026-11-17 06:00:24.324 +02:00 | INFO     | __main__:main:1076 - DECISION XAUUSDm | regime=BUY conf=0.6557 risk=0.9000 agi_bias=0.6557 ppo=0.0000 dreamer=0.0000 raw=-0.0203 final=0.0000
+2026-11-17 06:05:05.646 +02:00 | INFO     | __main__:main:1076 - DECISION BTCUSDm | regime=BUY conf=0.6720 risk=0.9000 agi_bias=0.6720 ppo=0.0000 dreamer=0.0000 raw=-0.0486 final=0.0000
+2026-11-17 06:05:08.634 +02:00 | INFO     | __main__:main:1076 - DECISION XAUUSDm | regime=BUY conf=0.6571 risk=0.9000 agi_bias=0.6571 ppo=0.0000 dreamer=0.0000 raw=-0.0370 final=0.0000
+2026-11-17 06:06:18.027 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 06:06:18.097 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 06:06:18.098 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 06:06:18.673 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded default model on MPS
+2026-11-17 06:06:18.674 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded default feature scaler
+2026-11-17 06:06:18.756 +02:00 | INFO     | __main__:main:848 - indicator council ON
+2026-11-17 06:06:20.457 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 06:06:20.458 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 06:06:23.520 +02:00 | INFO     | __main__:main:1088 - DECISION BTCUSDm | regime=BUY conf=0.6720 risk=0.9000 agi_bias=0.6720 ppo=0.0000 dreamer=0.0000 raw=-0.1461 final=0.0000
+2026-11-17 06:06:25.654 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[XAUUSDm] model on MPS
+2026-11-17 06:06:25.655 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[XAUUSDm] feature scaler
+2026-11-17 06:06:27.621 +02:00 | INFO     | __main__:main:1088 - DECISION XAUUSDm | regime=BUY conf=0.6571 risk=0.9000 agi_bias=0.6571 ppo=0.0000 dreamer=0.0000 raw=-0.1084 final=0.0000

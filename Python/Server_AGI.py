@@ -531,6 +531,16 @@ def _blend_symbol_decision(
 
     raw = ppo_w * ppo_target + dreamer_w * dreamer_target + agi_w * agi_bias + council_w * council_target
 
+    # Weighted average over the voters that actually have a view this bar, so a model that is
+    # missing (not trained yet) or abstaining (LSTM below its confidence bar) doesn't silently
+    # shrink every signal below the trade threshold. trading.normalize_active_weights: false
+    # restores the old "missing weight counts as zero" behaviour.
+    active_w = ((ppo_w if ppo_meta is not None else 0.0) + (dreamer_w if dreamer_meta is not None else 0.0)
+                + (agi_w if agi_bias != 0.0 else 0.0) + (council_w if council_meta is not None else 0.0))
+    normalized = bool(trading_cfg.get("normalize_active_weights", False)) and active_w > 0
+    if normalized:
+        raw = raw / active_w
+
     adjusted = raw * agi_risk
     adjusted = _clip(adjusted, -float(profile["max_abs_target"]), float(profile["max_abs_target"]))
 
@@ -552,6 +562,8 @@ def _blend_symbol_decision(
         "agi_weight_used": round(agi_w, 3),
         "council_target": council_target,
         "council_weight_used": round(council_w, 3),
+        "active_weight": round(active_w, 3),
+        "weights_normalized": normalized,
         "profile": profile,
     }
 

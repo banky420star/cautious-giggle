@@ -26,6 +26,7 @@ trading:
   min_lot_max_risk_percent: 2.0   # small accounts: allow the minimum lot if its stop risk is <= 2%
   max_drawdown: 10.0
   confidence_threshold: 0.85
+  normalize_active_weights: true   # average over models that have a view this bar (missing/abstaining ones don't dilute the signal)
   magic_number: 505
   demo_exploration:          # demo accounts only: trade a gate-failing model small so memory can learn
     enabled: false
