@@ -481,6 +481,10 @@ class ModelRegistry:
             cur = dict(symbols.get(symbol, {"champion": None, "canary": None, "canary_policy": {}, "canary_state": {}}))
             if not cur.get("canary"):
                 raise RuntimeError(f"No canary to promote for {symbol}.")
+            from Python.demo_exploration import is_exploration
+
+            if is_exploration(cur.get("canary")):
+                raise RuntimeError(f"Canary for {symbol} is a demo-exploration model and cannot be promoted.")
             if not force:
                 ok, reason = self.can_promote_canary(symbol=symbol)
                 if not ok:

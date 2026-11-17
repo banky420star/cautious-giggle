@@ -11,6 +11,7 @@ import pandas as pd
 from loguru import logger
 
 from Python.model_memory import ModelMemory, market_context
+from Python import demo_exploration
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -783,6 +784,27 @@ def main(live=False):
     event_intel = runtime["EventIntel"](cfg, LOG_DIR)
 
     model_memory = ModelMemory.from_cfg(cfg, LOG_DIR)
+    explore_cfg = demo_exploration.settings(cfg)
+    explore_demo_ok = bool(explore_cfg["enabled"]) and demo_exploration.account_is_demo(mt5)
+    explore_cache: dict = {}
+
+    def _exploration_scale(sym: str) -> float:
+        """Size scale for symbols running a demo-exploration canary (0 on a live account)."""
+        hit = explore_cache.get(sym)
+        if hit and time.time() - hit[0] < 60:
+            return hit[1]
+        scale = 1.0
+        try:
+            from Python.model_registry import ModelRegistry
+
+            d = ModelRegistry().load_active_model(prefer_canary=True, symbol=sym)
+            if demo_exploration.is_exploration(d):
+                scale = float(explore_cfg["size_scale"]) if explore_demo_ok else 0.0
+        except Exception:
+            pass
+        explore_cache[sym] = (time.time(), scale)
+        return scale
+
     memory_on = bool(((cfg.get("trading", {}) or {}).get("model_memory", {}) or {}).get("enabled", True))
     alerter.online("Trading engine initialized")
 
@@ -959,6 +981,10 @@ def main(live=False):
                 mem_mult = model_memory.multipliers(symbol, ctx["key"]) if memory_on else {}
                 decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, cfg=cfg,
                                                   memory_mult=mem_mult)
+                explore_scale = _exploration_scale(symbol)
+                if explore_scale != 1.0:
+                    decision["target"] = float(decision["target"]) * explore_scale
+                    decision["exploration_scale"] = explore_scale
                 exposure = float(decision["target"])
                 try:
                     scored = model_memory.observe(

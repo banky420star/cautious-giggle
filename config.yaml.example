@@ -26,6 +26,9 @@ trading:
   max_drawdown: 10.0
   confidence_threshold: 0.85
   magic_number: 505
+  demo_exploration:          # demo accounts only: trade a gate-failing model small so memory can learn
+    enabled: false
+    size_scale: 0.5          # fraction of normal size; ignored (0) on real-money accounts
   model_memory:              # each model's record per market context (trend|vol|session)
     enabled: true            # scale model weights by what has worked; false = record only
     half_life_bars: 1200     # ~4 days of M5; older results fade

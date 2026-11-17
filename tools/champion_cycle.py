@@ -17,6 +17,7 @@ LOCK_PATH = os.path.join(LOCK_DIR, "champion_cycle.lock")
 
 from Python.model_evaluator import evaluate_candidate_vs_champion
 from Python.model_registry import ModelRegistry
+from Python import demo_exploration
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, parse_symbol_list, resolve_trading_symbols
 from alerts.telegram_alerts import TelegramAlerter
 
@@ -114,6 +115,27 @@ def _has_dreamer_artifact(symbol: str) -> bool:
 
 def _pending_symbols(symbols: list[str], checker) -> list[str]:
     return [symbol for symbol in symbols if not checker(symbol)]
+
+
+def _maybe_demo_explore(reg, cfg, symbol, candidate, champion, report):
+    """On a demo account with no approved model, run the failed candidate as a reduced-size
+    exploration canary so the bot trades and the model memory learns. Never on live money."""
+    ex = demo_exploration.settings(cfg)
+    if not ex["enabled"] or champion:
+        return
+    try:
+        from Python.mt5_compat import mt5
+
+        mt5.initialize()
+        if not demo_exploration.account_is_demo(mt5):
+            logger.info(f"{symbol}: demo exploration skipped (account is not a demo account)")
+            return
+        demo_exploration.mark(candidate, report)
+        reg.set_canary(candidate, symbol=symbol)
+        logger.warning(f"{symbol}: DEMO EXPLORATION canary {os.path.basename(candidate)} "
+                       f"(failed gates; trades at {ex['size_scale']:.0%} size, never promoted)")
+    except Exception as exc:
+        logger.warning(f"{symbol}: demo exploration setup failed: {exc}")
 
 
 def _latest_candidate(reg: ModelRegistry, symbol: str | None = None):
@@ -388,6 +410,7 @@ def main():
                         logger.success(f"Canary set for {symbol}: {candidate}")
                     else:
                         logger.warning(f"Candidate blocked for {symbol}; champion unchanged")
+                        _maybe_demo_explore(reg, cfg, symbol, candidate, champion, report)
 
                     cycle_report["symbols"].append(
                         {

@@ -32,7 +32,6 @@ from rich.console import Console, Group
 from rich.layout import Layout
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress_bar import ProgressBar
 from rich.table import Table
 from rich.text import Text
 
@@ -167,6 +166,12 @@ def braille_chart(values: list[float], width: int, height: int, lines: dict[str,
     return out
 
 
+def tbar(frac: float, width: int, style: str = "cyan") -> Text:
+    frac = max(0.0, min(1.0, float(frac or 0.0)))
+    full = int(frac * width)
+    return Text("█" * full + "░" * (width - full), style=style)
+
+
 SPARK = "▁▂▃▄▅▆▇█"
 
 
@@ -183,7 +188,8 @@ def sparkline(values: list[float], width: int) -> str:
 
 # --------------------------------------------------------------------------- data
 class Broker:
-    """Read-only broker view, throttled to stay well inside the API rate limits."""
+    """Read-only broker view polled in a background thread (never blocks drawing),
+    throttled to stay well inside the API rate limits."""
 
     def __init__(self, symbols):
         from Python.mt5_compat import BROKER_BACKEND, MT5_AVAILABLE, mt5
@@ -206,8 +212,19 @@ class Broker:
                 self.err = str(exc)
         else:
             self.err = "broker backend unavailable"
+        import threading
+
+        threading.Thread(target=self._loop, daemon=True).start()
+
+    def _loop(self):
+        while True:
+            self._poll()
+            time.sleep(0.5)
 
     def refresh(self):
+        pass  # polling happens in the background thread
+
+    def _poll(self):
         if not self.ok:
             return
         now = time.time()
@@ -365,9 +382,9 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     risk = cfg.get("risk", {}) or {}
 
     # ---- header + ticker
-    beat = HEART[frame % 4] if alive else "✖"
+    beat = HEART[(frame // 2) % 4] if alive else "✖"
     head = Text()
-    head.append(f" {beat} ", style="bold red" if alive else "bold red blink")
+    head.append(f" {beat} ", style="bold red")
     head.append(f"BOT {status} ", style="bold green" if alive else "bold red")
     head.append(f" {spin} ", style="cyan")
     head.append(f"backend {broker.backend} · acct {os.environ.get('EXNESS_ACCOUNT_ID', '-')} · last loop "
@@ -384,11 +401,11 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
             arrow = "▲" if t.bid > prev else ("▼" if t.bid < prev else "•")
             tick_txt += f"  {s} {t.bid:,.{price_digits(t.bid)}f} {arrow}   "
     tick_txt = (tick_txt or "  waiting for prices…  ") * 4
-    off = frame % max(1, len(tick_txt) // 4)
+    off = (frame // 2) % max(1, len(tick_txt) // 4)
     ticker = Text(tick_txt[off: off + max(20, width - 4)], style="bold yellow")
 
     # ---- trade flash
-    banner = None
+    banner = Text(" ", style="dim")
     if logs.events:
         last = logs.events[-1]
         if last.get("event") == "trade_action":
@@ -398,7 +415,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
                 secs = 999
             if secs < 20:
                 p = last.get("payload") or {}
-                style = "bold black on green" if frame % 2 == 0 else "bold green on black"
+                style = "bold black on green" if (frame // 4) % 2 == 0 else "bold green on black"
                 banner = Text(f"  ⚡ TRADE {p.get('symbol')} {p.get('request_action')} {p.get('order_type')} "
                               f"{p.get('executed_lots', p.get('volume_lots'))} lots @ {p.get('entry_price')}  ",
                               style=style, justify="center")
@@ -451,8 +468,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     acct.add_row("Realized today", signed(broker.pnl_today))
     acct.add_row("Day total", signed(day_total))
     used = min(1.0, max(0.0, -day_total / max_loss)) if max_loss else 0.0
-    loss_bar = ProgressBar(total=1.0, completed=used, width=22,
-                           complete_style="red" if used > 0.6 else ("yellow" if used > 0.3 else "green"))
+    loss_bar = tbar(used, 22, "red" if used > 0.6 else ("yellow" if used > 0.3 else "green"))
     eq_series = logs.equity or ([float(acc.equity)] if acc else [])
     acct_panel = Panel(Group(acct, Text(f"daily loss limit ${max_loss:,.0f}  used {used * 100:.0f}%", style="dim"),
                              loss_bar, Text("equity " + sparkline(eq_series, 30), style="cyan")),
@@ -485,15 +501,15 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     for s in symbols:
         rows = _mem_cache["v"].get(s) or []
         cur = ((logs.last_memory.get(s) or {}).get("payload") or {}).get("context", {}).get("key")
-        mt = Table(box=box.MINIMAL, expand=True, padding=(0, 1), title=Text(s, style="bold"), title_justify="left")
-        mt.add_column("context", no_wrap=True)
+        mt = Table(box=None, expand=True, padding=(0, 1), show_header=True, header_style="bold dim",
+                   title=Text(s, style="bold"), title_justify="left")
+        mt.add_column("context", no_wrap=True, min_width=20, ratio=3)
         for m in MODELS:
-            mt.add_column(m, justify="center", no_wrap=True)
+            mt.add_column(m, justify="center", no_wrap=True, min_width=10, ratio=2)
         rows = sorted(rows, key=lambda r: (r["ctx"] != cur, r["ctx"] == "*", -max(r[m]["n"] for m in MODELS)))[:5]
         for r in rows:
             label = "ALL" if r["ctx"] == "*" else r["ctx"]
-            name = Text(("▶ " if r["ctx"] == cur else "  ") + label,
-                        style="bold reverse" if (r["ctx"] == cur and frame % 4 < 2) else "")
+            name = Text(("▶ " if r["ctx"] == cur else "  ") + label, style="bold yellow" if r["ctx"] == cur else "")
             vals = []
             for m in MODELS:
                 a = r[m]
@@ -507,7 +523,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
                 vals.append(Text(f"{mult:.2f}×{hr}", style=style))
             mt.add_row(name, *vals)
         if not rows:
-            mt.add_row(Text("  learning… (needs a few closed bars)", style="dim"), *["" for _ in MODELS])
+            mt.add_row(Text("learning… (starts when the bot runs)", style="dim"), *["·" for _ in MODELS])
         mem_tables.append(mt)
     mem_panel = Panel(Group(*mem_tables, Text("weight multiplier × · hit rate  │ green = works · red = doesn't",
                                               style="dim")), title="Model memory: what works where", box=box.ROUNDED)
@@ -532,18 +548,20 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
         parts.append(Text(f"{spin} training: {', '.join(tr['running'])}", style="bold cyan"))
         if tr["lstm"]:
             l = tr["lstm"]
-            parts.append(Text(f"LSTM {l['symbol']} epoch {l['epoch']}/{l['total']} {l['detail']}", style="cyan"))
-            parts.append(ProgressBar(total=l["total"], completed=l["epoch"], width=34, pulse=False))
+            parts.append(Text(f"LSTM {l['symbol']} epoch {l['epoch']}/{l['total']}", style="cyan"))
+            parts.append(tbar(l["epoch"] / max(1, l["total"]), 34))
+            parts.append(Text(l["detail"], style="dim", no_wrap=True, overflow="ellipsis"))
         if tr["ppo"]:
             pp = tr["ppo"]
             parts.append(Text(f"PPO {pp['done']:,}/{pp['total']:,} steps", style="cyan"))
-            parts.append(ProgressBar(total=pp["total"], completed=pp["done"], width=34))
+            parts.append(tbar(pp["done"] / max(1, pp["total"]), 34))
         if not tr["lstm"] and not tr["ppo"]:
-            parts.append(ProgressBar(total=None, width=34, pulse=True, animation_time=frame / 4))
+            k = (frame // 2) % 30
+            parts.append(Text("░" * k + "███" + "░" * (30 - k), style="cyan"))
     else:
         parts.append(Text("training: idle", style="dim"))
     parts.append(Text(tr["last"], style="dim", overflow="ellipsis", no_wrap=True))
-    models_panel = Panel(Group(*parts), title="Models / training", box=box.ROUNDED)
+    models_panel = Panel(Group(*parts), title="Models / training", box=box.ROUNDED, height=12)
 
     # ---- events
     ev = Table(box=None, expand=True, show_header=False, padding=(0, 1))
@@ -574,9 +592,8 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
 
     # ---- layout
     layout = Layout()
-    top = [Layout(Panel(Group(head, ticker), box=box.HEAVY, border_style="green" if alive else "red"), size=4)]
-    if banner is not None:
-        top.append(Layout(banner, size=1))
+    top = [Layout(Panel(Group(head, ticker), box=box.HEAVY, border_style="green" if alive else "red"), size=4),
+           Layout(banner, size=1)]
     layout.split_column(
         *top,
         Layout(charts, size=11),
@@ -586,7 +603,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     layout["mid"].split_row(Layout(acct_panel, ratio=2), Layout(Panel(dec, title="Latest decision per symbol",
                                                                       box=box.ROUNDED), ratio=5))
     layout["low"].split_row(Layout(mem_panel, ratio=5), Layout(name="right", ratio=4))
-    layout["right"].split_column(Layout(models_panel, size=10),
+    layout["right"].split_column(Layout(models_panel, size=12),
                                  Layout(Panel(ev, title="Trades / risk blocks", box=box.ROUNDED)),
                                  Layout(Panel(logt, title="Server log", box=box.ROUNDED), size=7))
     return layout
@@ -599,14 +616,15 @@ def main():
     broker = Broker(symbols)
     logs = Logs()
     frame = 0
-    with Live(console=console, screen=True, refresh_per_second=8, transient=True) as live:
+    with Live(console=console, screen=True, auto_refresh=False, transient=True,
+              vertical_overflow="crop") as live:
         try:
             while True:
-                broker.refresh()
+                t0 = time.time()
                 logs.refresh()
-                live.update(render(frame, broker, logs, cfg, symbols, console.size.width))
+                live.update(render(frame, broker, logs, cfg, symbols, console.size.width), refresh=True)
                 frame += 1
-                time.sleep(0.25)
+                time.sleep(max(0.05, 0.25 - (time.time() - t0)))
         except KeyboardInterrupt:
             pass
 
