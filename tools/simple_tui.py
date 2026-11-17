@@ -239,7 +239,7 @@ def symbol_card(frame, s, broker, logs, width, compact=False, info=None) -> Pane
         gr = info.get("grad") or {}
         t = Text("trades news only · ", style="grey62")
         if gr:
-            t.append(gr.get("label", "") + (f" ({gr.get('attempts', 0)}/3)" if gr.get("status") in ("training", "exam_failed") else ""),
+            t.append(gr.get("label", "") + (f" ({gr.get('attempts', 0)}/5)" if gr.get("status") in ("training", "exam_failed") else ""),
                      style="bold magenta" if gr.get("status") == "training" else "magenta")
         rows.append(t)
         w = str(gr.get("why") or "trades all day once it passes its exam.")

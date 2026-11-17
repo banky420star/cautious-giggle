@@ -444,3 +444,48 @@
 2026-11-17 08:15:05.544 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.7022 risk=0.9000 agi_bias=-0.7022 ppo=0.0000 dreamer=0.0000 raw=-0.4349 final=-0.3914
 2026-11-17 08:15:10.225 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=HOLD conf=0.6483 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.1055 final=-0.0844
 2026-11-17 08:15:11.190 +02:00 | INFO     | __main__:main:1298 - ENTRY PLAN XAUUSDm | waiting up to 15 min for 3876.7 (now 3875.7, 0.25 ATR pullback)
+2026-11-17 08:17:27.981 +02:00 | WARNING  | __main__:_ensure_mt5_connected:397 - MT5 connection lost; re-initializing
+2026-11-17 08:20:03.530 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.6537 risk=0.9000 agi_bias=-0.6537 ppo=0.0000 dreamer=0.0000 raw=-0.3010 final=-0.2709
+2026-11-17 08:20:14.355 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.7101 risk=0.9000 agi_bias=-0.7101 ppo=0.0000 dreamer=0.0000 raw=-0.4957 final=-0.4461
+2026-11-17 08:25:03.635 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=HOLD conf=0.6288 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.2716 final=-0.2173
+2026-11-17 08:25:12.225 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.7085 risk=0.9000 agi_bias=-0.7085 ppo=0.0000 dreamer=0.0000 raw=-0.4978 final=-0.4480
+2026-11-17 08:26:51.280 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.07 price=64560.01 sl=64685.94 tp=64362.12 target=-0.3500 magic=51900 retcode=10009 ticket=380967000429563904
+2026-11-17 08:26:51.332 +02:00 | INFO     | __main__:main:1129 - ENTRY BTCUSDm | timeout_market after 917s | sell 0.07 @ 64568.630000000005 vs 64671.98 at signal (-15.98 bps better)
+2026-11-17 08:30:09.209 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.5332 risk=0.9000 agi_bias=-0.5332 ppo=0.0000 dreamer=0.0000 raw=-0.1965 final=-0.1768
+2026-11-17 08:30:19.915 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=open side=sell lots=0.02 price=3876.4990000000003 sl=3882.444 tp=3867.156 target=-0.1768 magic=52900 retcode=10009 ticket=380967876766470144
+2026-11-17 08:30:19.920 +02:00 | INFO     | __main__:main:1129 - ENTRY XAUUSDm | timeout_market after 909s | sell 0.02 @ 3876.4990000000003 vs 3875.681 at signal (+2.11 bps better)
+2026-11-17 08:30:23.117 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.7072 risk=0.9000 agi_bias=-0.7072 ppo=0.0000 dreamer=0.0000 raw=-0.5516 final=-0.4964
+2026-11-17 08:31:49.907 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64494.88 tp=64362.12 target=0.0000 magic=51920 retcode=10009 ticket=380968252949401600
+2026-11-17 08:33:54.385 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=manage side= lots=0.00 price=None sl=3876.65 tp=3867.156 target=0.0000 magic=52920 retcode=10009 ticket=380968776302071808
+2026-11-17 08:35:12.446 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.7153 risk=0.9000 agi_bias=-0.7153 ppo=0.0000 dreamer=0.0000 raw=-0.6590 final=-0.5931
+2026-11-17 08:35:13.543 +02:00 | INFO     | __main__:main:1298 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64339 (now 64291, 0.50 ATR pullback)
+2026-11-17 08:35:15.765 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.7067 risk=0.9000 agi_bias=-0.7067 ppo=0.0000 dreamer=0.0000 raw=-0.2652 final=-0.2387
+2026-11-17 08:35:16.466 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=manage side= lots=0.00 price=None sl=3874.488 tp=3867.156 target=0.0000 magic=52920 retcode=10009 ticket=380969120595709952
+2026-11-17 08:35:24.906 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=manage side= lots=0.00 price=None sl=3873.867 tp=3867.156 target=0.0000 magic=52920 retcode=10009 ticket=380969156012412928
+2026-11-17 08:40:02.492 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.7030 risk=0.9000 agi_bias=-0.7030 ppo=0.0000 dreamer=0.0000 raw=-0.3023 final=-0.2721
+2026-11-17 08:40:03.247 +02:00 | INFO     | __main__:main:1298 - ENTRY PLAN XAUUSDm | waiting up to 15 min for 3875.7 (now 3874.7, 0.25 ATR pullback)
+2026-11-17 08:40:12.945 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.7048 risk=0.9000 agi_bias=-0.7048 ppo=0.0000 dreamer=0.0000 raw=-0.1996 final=-0.1796
+2026-11-17 08:40:57.739 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.03 price=64352.16 sl=64488.85 tp=64137.36 target=-0.1796 magic=51900 retcode=10009 ticket=380970550593327104
+2026-11-17 08:40:57.757 +02:00 | INFO     | __main__:main:1129 - ENTRY BTCUSDm | pullback after 344s | sell 0.03 @ 64352.16 vs 64291.130000000005 at signal (+9.49 bps better)
+2026-11-17 08:45:09.079 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.6941 risk=0.9000 agi_bias=-0.6941 ppo=0.0000 dreamer=0.0000 raw=-0.1611 final=-0.1450
+2026-11-17 08:45:09.517 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=buy lots=0.01 price=64368.33 sl=None tp=None target=-0.1450 magic=51910 retcode=10009 ticket=380971606815543296
+2026-11-17 08:45:09.536 +02:00 | INFO     | __main__:main:1375 - ACTION BTCUSDm | req=reduce side=BUY volume=0.01 target=-0.1450 ppo=0.0000 dreamer=0.0000 agi=-0.6941 magic=51910 comment=AGI|BTC|UN|C|P000000|P+00 ticket=380971606815543296 retcode=10009 TP=None SL=None
+2026-11-17 08:45:15.996 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.6851 risk=0.9000 agi_bias=-0.6851 ppo=0.0000 dreamer=0.0000 raw=-0.3165 final=-0.2848
+2026-11-17 08:50:05.434 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.6815 risk=0.9000 agi_bias=-0.6815 ppo=0.0000 dreamer=0.0000 raw=-0.4361 final=-0.3925
+2026-11-17 08:50:26.186 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.6863 risk=0.9000 agi_bias=-0.6863 ppo=0.0000 dreamer=0.0000 raw=-0.6007 final=-0.5407
+2026-11-17 08:50:30.912 +02:00 | INFO     | __main__:main:1298 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64437 (now 64387, 0.50 ATR pullback)
+2026-11-17 08:51:02.214 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.05 price=64423.950000000004 sl=64562.59 tp=64206.09 target=-0.3500 magic=51900 retcode=10009 ticket=380973085831991296
+2026-11-17 08:51:02.240 +02:00 | INFO     | __main__:main:1129 - ENTRY BTCUSDm | pullback after 31s | sell 0.05 @ 64440.810000000005 vs 64387.42 at signal (+8.29 bps better)
+2026-11-17 08:55:09.026 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=open side=sell lots=0.02 price=3872.2760000000003 sl=3877.561 tp=3863.971 target=-0.3500 magic=52900 retcode=10009 ticket=380974122491973632
+2026-11-17 08:55:09.036 +02:00 | INFO     | __main__:main:1129 - ENTRY XAUUSDm | timeout_market after 906s | sell 0.02 @ 3872.022 vs 3874.654 at signal (-6.79 bps better)
+2026-11-17 08:55:11.269 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.6762 risk=0.9000 agi_bias=-0.6762 ppo=0.0000 dreamer=0.0000 raw=-0.1875 final=-0.1688
+2026-11-17 08:55:12.373 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=buy lots=0.02 price=64514.990000000005 sl=None tp=None target=-0.1688 magic=51910 retcode=10009 ticket=380974135192326144
+2026-11-17 08:55:12.433 +02:00 | INFO     | __main__:main:1375 - ACTION BTCUSDm | req=reduce side=BUY volume=0.02 target=-0.1688 ppo=0.0000 dreamer=0.0000 agi=-0.6762 magic=51910 comment=AGI|BTC|UN|C|P000000|P+00 ticket=380974135192326144 retcode=10009 TP=None SL=None
+2026-11-17 08:55:15.637 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.6811 risk=0.9000 agi_bias=-0.6811 ppo=0.0000 dreamer=0.0000 raw=-0.4080 final=-0.3672
+2026-11-17 08:55:40.282 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.6811 risk=0.9000 agi_bias=-0.6811 ppo=0.0000 dreamer=0.0000 raw=-0.4073 final=-0.3666
+2026-11-17 08:56:09.295 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.6811 risk=0.9000 agi_bias=-0.6811 ppo=0.0000 dreamer=0.0000 raw=-0.4073 final=-0.3666
+2026-11-17 09:00:18.967 +02:00 | INFO     | __main__:main:1206 - DECISION BTCUSDm | regime=SELL conf=0.6722 risk=0.9000 agi_bias=-0.6722 ppo=0.0000 dreamer=0.0000 raw=-0.5429 final=-0.4886
+2026-11-17 09:00:20.959 +02:00 | INFO     | __main__:main:1298 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64565 (now 64514, 0.50 ATR pullback)
+2026-11-17 09:00:26.166 +02:00 | INFO     | __main__:main:1206 - DECISION XAUUSDm | regime=SELL conf=0.6757 risk=0.9000 agi_bias=-0.6757 ppo=0.0000 dreamer=0.0000 raw=-0.4800 final=-0.4320
+2026-11-17 09:01:40.329 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.07 price=64580.68 sl=64722.8 tp=64357.34 target=-0.3500 magic=51900 retcode=10009 ticket=380975762271899648
+2026-11-17 09:01:40.337 +02:00 | INFO     | __main__:main:1129 - ENTRY BTCUSDm | pullback after 79s | sell 0.07 @ 64580.68 vs 64513.96 at signal (+10.34 bps better)

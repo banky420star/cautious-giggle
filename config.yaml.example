@@ -120,6 +120,31 @@ drl:
     enabled: false
     min_votes: 2
     agreement_threshold: 0.5
+  # Reward scenarios: each training attempt uses the next one (tools/graduation.py), so a market
+  # that fails its exam comes back with a different strategy, not just more practice. The one that
+  # passes is remembered and tried first on later retrains. Weights override drl.reward.weights.
+  scenario_order: [balanced, patient, hunter, steady, trend_rider]
+  reward_scenarios:
+    balanced:
+      about: the default mix of profit, risk and costs
+      weights: {}
+    patient:
+      about: fewer, longer trades; big penalty for paying the spread too often
+      weights: {cost_penalty: 9.0, churn_penalty: 2.0, growth: 8.0}
+      env: {min_rebalance: 0.12}
+      ppo: {gamma: 0.998}
+    hunter:
+      about: must take positions; penalised for sitting flat while price moves
+      weights: {growth: 12.0, payoff: 3.0, actionable_target_bonus: 0.6, neutral_collapse_penalty: 0.4, cost_penalty: 4.0}
+      ppo: {ent_coef: 0.01}
+    steady:
+      about: smooth equity; rewards a high Sharpe, punishes drawdowns hard
+      weights: {growth: 6.0, sharpe_bonus: 3.0, drawdown_penalty: 7.0, loss_streak_penalty: 1.0}
+    trend_rider:
+      about: rewarded for staying in while the move continues, cutting when it turns
+      weights: {directional_followthrough: 4.0, churn_penalty: 1.2, cost_penalty: 6.0}
+      env: {min_rebalance: 0.10}
+      ppo: {gamma: 0.998, gae_lambda: 0.97}
   reward:
     version: v2_risk_adjusted
     weights:

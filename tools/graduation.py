@@ -52,6 +52,10 @@ def settings() -> dict:
         "retrain_max_win_rate": float((g.get("retrain_when") or {}).get("win_rate_below", 0.40)),
         "retrain_cooldown_h": float((g.get("retrain_when") or {}).get("cooldown_hours", 24)),
         "live": [str(s) for s in ((cfg.get("trading") or {}).get("symbols") or [])],
+        "scenarios": [str(x) for x in ((cfg.get("drl") or {}).get("scenario_order")
+                                        or list(((cfg.get("drl") or {}).get("reward_scenarios") or {}).keys()))] or ["default"],
+        "scenario_about": {k: str((v or {}).get("about", "")) for k, v in
+                           (((cfg.get("drl") or {}).get("reward_scenarios") or {}).items())},
     }
 
 
@@ -110,12 +114,15 @@ def cycle_running() -> bool:
     return subprocess.run(["pgrep", "-f", "tools/champion_cycle.py"], capture_output=True).returncode == 0
 
 
-def run_cycle(symbols: list[str], steps: int, retrain: bool) -> int:
+def run_cycle(symbols: list[str], steps: int, retrain: bool, scenario: str = "default") -> int:
     env = dict(os.environ, AGI_CYCLE_SYMBOLS=",".join(symbols), AGI_DRL_TIMESTEPS=str(steps),
                PYTHONPATH=ROOT, AGI_CYCLE_SKIP_COMPLETED="true")
+    if scenario and scenario != "default":
+        env["AGI_DRL_SCENARIO"] = scenario
     if retrain:  # pattern models already exist; another PPO attempt is what is needed
         env.update(AGI_CYCLE_SKIP_LSTM="true", AGI_CYCLE_SKIP_DREAMER="true")
-    log(f"training {symbols} | PPO steps {steps:,} | {'retrain' if retrain else 'first training'}")
+    log(f"training {symbols} | reward scenario '{scenario}' | PPO steps {steps:,} | "
+        f"{'retrain' if retrain else 'first training'}")
     with open(os.path.join(ROOT, "logs", "champion_cycle_run.log"), "a", encoding="utf-8") as out:
         return subprocess.call(["caffeinate", "-is", PY, "tools/champion_cycle.py"], cwd=ROOT, env=env,
                                stdout=out, stderr=subprocess.STDOUT)
@@ -145,6 +152,14 @@ def restart_bot():
     subprocess.call(["scripts/mac/start_bot.sh"], cwd=ROOT, stdout=subprocess.DEVNULL)
 
 
+def scenario_for(v: dict, cfg: dict) -> tuple[str, int]:
+    """Reward scenario and PPO step budget for this symbol's next attempt."""
+    sc = cfg["scenarios"]
+    idx = int(v.get("scenario_idx", 0))
+    rounds = idx // len(sc)          # every full pass through the scenarios adds x step_growth practice
+    return sc[idx % len(sc)], int(cfg["base_steps"] * cfg["step_growth"] ** rounds)
+
+
 def plan(st: dict, cfg: dict) -> tuple[list[str], list[str]]:
     """(first-time trainees, retrain trainees) for the next cycle."""
     first, again = [], []
@@ -159,6 +174,9 @@ def plan(st: dict, cfg: dict) -> tuple[list[str], list[str]]:
         elif v["status"] == "exam_failed" and v["attempts"] < cfg["max_attempts"]:
             again.append(s)
         elif v["status"] == "retrain_queued":
+            again.append(s)
+        elif v["status"] == "needs_work" and time.time() - float(v.get("last_retrain", 0)) > 24 * 3600:
+            v["attempts"] = 0          # a new round through the scenarios, now with more PPO steps
             again.append(s)
     return first, again
 
@@ -186,6 +204,42 @@ def check_live(st: dict, cfg: dict):
             log(f"{s}: {v['why']}")
 
 
+def finish(st: dict, s: str, cfg: dict, rc: int | None, newly: list):
+    """Record the result of a finished attempt and decide what comes next."""
+    v = st["symbols"][s]
+    scen, steps = v.get("scenario", "default"), v.get("steps")
+    ok, how = exam_passed(s)
+    v["history"].append({"t": time.time(), "attempt": v["attempts"], "scenario": scen, "steps": steps,
+                         "passed": ok, "how": how, "rc": rc, "exam": last_exam(s)})
+    v["last_retrain"] = time.time()
+    v["scenario_idx"] = int(v.get("scenario_idx", 0)) + 1      # next attempt tries the next scenario
+    live_sym = s in cfg["live"]
+    if ok:
+        if not live_sym and v.get("status") != "graduated":
+            newly.append(s)
+        v["status"] = "live" if live_sym else "graduated"
+        v["best_scenario"] = scen
+        v["why"] = f"passed the exam on attempt {v['attempts']} with the '{scen}' reward"
+    elif v["attempts"] < cfg["max_attempts"]:
+        nxt, _ = scenario_for(v, cfg)
+        v["status"] = "retrain_queued" if (live_sym or v.get("was_live")) else "exam_failed"
+        v["why"] = (f"failed the exam with the '{scen}' reward (attempt {v['attempts']}/{cfg['max_attempts']}); "
+                    f"next: '{nxt}' — {cfg['scenario_about'].get(nxt, '')}")
+    elif live_sym or v.get("was_live"):
+        v["status"] = "live" if live_sym else "graduated"
+        v["why"] = f"tried {v['attempts']} reward scenarios without beating the exam; keeps the model it had"
+    else:
+        v["status"] = "needs_work"
+        v["why"] = (f"failed the exam with all {v['attempts']} reward scenarios: trades news only; the next "
+                    f"round trains longer")
+    if v["status"] in ("graduated", "live"):
+        v["attempts"] = 0
+        v.pop("was_live", None)
+        if v.get("best_scenario") in cfg["scenarios"]:   # retrains start from what worked
+            v["scenario_idx"] = cfg["scenarios"].index(v["best_scenario"])
+    log(f"{s}: {v['status']} — {v['why']}")
+
+
 def run():
     log("graduation manager started")
     while True:
@@ -198,53 +252,36 @@ def run():
             continue
         st = load_state()
         st.setdefault("symbols", {})
+        # a manager restart can leave attempts marked 'training' after their cycle ended: book them
+        stale = [s for s, v in st["symbols"].items() if v.get("status") == "training"]
+        newly: list[str] = []
+        for s in stale:
+            finish(st, s, cfg, None, newly)
         check_live(st, cfg)
         first, again = plan(st, cfg)
         save_state(st)
+        if newly:
+            restart_bot()
+            newly = []
         if not first and not again:
             time.sleep(1800)
             continue
-        # markets that already trade go first, then the newcomers
-        groups = [(again, True)] if again else []
-        if first:
-            groups.append((first, False))
-        newly = []
-        for syms, retrain in groups:
-            # each group trains with the step budget of its most-tried member
-            att = max(st["symbols"][s]["attempts"] for s in syms) + 1
-            steps = int(cfg["base_steps"] * cfg["step_growth"] ** (att - 1))
+        # markets that already trade go first, then the newcomers; one cycle per reward scenario
+        groups: dict[tuple, list[str]] = {}
+        for syms, retrain in ((again, True), (first, False)):
+            for s in syms:
+                scen, steps = scenario_for(st["symbols"][s], cfg)
+                groups.setdefault((retrain, scen, steps), []).append(s)
+        for (retrain, scen, steps), syms in sorted(groups.items(), key=lambda kv: not kv[0][0]):
             for s in syms:
                 v = st["symbols"][s]
-                v.update(status="training", attempts=v["attempts"] + 1, steps=steps, started=time.time(),
-                         was_live=bool(v.get("was_live")) or v.get("status") == "retrain_queued")
+                v.update(status="training", attempts=v["attempts"] + 1, steps=steps, scenario=scen, started=time.time(),
+                         was_live=bool(v.get("was_live")) or s in cfg["live"])
+                v["why"] = f"training with the '{scen}' reward — {cfg['scenario_about'].get(scen, '')}"
             save_state(st)
-            rc = run_cycle(syms, steps, retrain)
+            rc = run_cycle(syms, steps, retrain, scen)
             for s in syms:
-                v = st["symbols"][s]
-                ok, how = exam_passed(s)
-                ex = last_exam(s)
-                v["history"].append({"t": time.time(), "attempt": v["attempts"], "steps": steps, "passed": ok,
-                                     "how": how, "rc": rc, "exam": ex})
-                v["last_retrain"] = time.time()
-                if ok:
-                    if s not in cfg["live"] and v.get("status") != "graduated":
-                        newly.append(s)
-                    v["status"] = "graduated" if s not in cfg["live"] else "live"
-                    v["why"] = f"passed the exam on attempt {v['attempts']} ({how})"
-                elif s in cfg["live"] or v.pop("was_live", False):
-                    v["status"] = "graduated" if s not in cfg["live"] else "live"
-                    v["why"] = "retrain did not beat the exam; keeps the model it had"
-                elif v["attempts"] >= cfg["max_attempts"]:
-                    v["status"] = "needs_work"
-                    v["why"] = (f"failed the exam {v['attempts']} times: trades news only until its training is "
-                                f"improved")
-                else:
-                    v["status"] = "exam_failed"
-                    v["why"] = f"failed the exam on attempt {v['attempts']}: training again with more steps"
-                if v["status"] in ("graduated", "live"):
-                    v["attempts"] = 0   # the next retrain starts from the base step budget again
-                    v.pop("was_live", None)
-                log(f"{s}: {v['status']} — {v['why']}")
+                finish(st, s, cfg, rc, newly)
             save_state(st)
         if newly:
             restart_bot()
@@ -253,7 +290,7 @@ def run():
 def status():
     st = load_state()
     for s, v in (st.get("symbols") or {}).items():
-        print(f"{s:9s} {v.get('status', '?'):15s} attempts {v.get('attempts', 0)}  {v.get('why', '')}")
+        print(f"{s:9s} {v.get('status', '?'):15s} attempt {v.get('attempts', 0)} · {v.get('scenario', '-'):11s} {v.get('why', '')}")
 
 
 if __name__ == "__main__":

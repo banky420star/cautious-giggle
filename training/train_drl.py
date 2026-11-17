@@ -222,6 +222,10 @@ def _resolve_symbol_training_options(cfg: dict, symbols: list[str], default_feat
             feature_version = normalize_feature_version(str(symbol_cfg.get("feature_version")), default=feature_version)
 
     reward_weights = dict(reward_cfg.get("weights", {}) or {}) if isinstance(reward_cfg.get("weights", {}), dict) else {}
+    name, scen = active_scenario(cfg)
+    if name:
+        reward_weights.update({k: float(v) for k, v in ((scen.get("weights") or {}).items())})
+        logger.info(f"reward scenario '{name}': {scen.get('about', '')} | weights={reward_weights}")
     return reward_cfg, reward_weights, action_cfg, feature_version
 
 
@@ -277,6 +281,18 @@ DEFAULT_SYMBOL_COSTS = {
 }
 
 
+def active_scenario(cfg: dict) -> tuple[str | None, dict]:
+    """Reward scenario chosen for this run (AGI_DRL_SCENARIO, set by tools/graduation.py)."""
+    name = (os.environ.get("AGI_DRL_SCENARIO") or "").strip()
+    if not name:
+        return None, {}
+    scen = (((cfg or {}).get("drl") or {}).get("reward_scenarios") or {}).get(name)
+    if not isinstance(scen, dict):
+        logger.warning(f"unknown reward scenario '{name}'; using the default reward")
+        return None, {}
+    return name, scen
+
+
 def resolve_env_kwargs(cfg: dict, symbol: str | None, training: bool = True) -> dict:
     """TradingEnv kwargs shared by training, validation, backtest (stored in metadata)."""
     drl_cfg = (cfg or {}).get("drl", {}) if isinstance(cfg, dict) else {}
@@ -299,6 +315,13 @@ def resolve_env_kwargs(cfg: dict, symbol: str | None, training: bool = True) -> 
     if training:
         kwargs["random_start"] = bool(env_cfg.get("random_start", True))
         kwargs["episode_length"] = int(env_cfg.get("episode_length", 2048))
+    # scenario tweaks that keep live parity (stops/targets stay as the live executor uses them)
+    _, scen = active_scenario(cfg)
+    for k, v in ((scen.get("env") or {}) if isinstance(scen.get("env"), dict) else {}).items():
+        if k == "min_rebalance":
+            kwargs[k] = float(v)
+        elif k == "episode_length" and training:
+            kwargs[k] = int(v)
     return kwargs
 
 
@@ -501,6 +524,10 @@ def _maybe_optimize_ppo_params(
         for k, v in ((drl_cfg.get("ppo") or {}) if isinstance(drl_cfg.get("ppo"), dict) else {}).items():
             if k in params:
                 params[k] = None if v is None else type(params[k])(v) if params[k] is not None else v
+        _, scen = active_scenario(cfg)
+        for k, v in ((scen.get("ppo") or {}) if isinstance(scen.get("ppo"), dict) else {}).items():
+            if k in params:
+                params[k] = v
         # per-run overrides (used by retraining attempts and experiments), e.g. AGI_DRL_PPO_JSON='{"use_sde": false}'
         try:
             for k, v in (json.loads(os.environ.get("AGI_DRL_PPO_JSON", "") or "{}") or {}).items():
@@ -907,7 +934,8 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         data_source=data_source,
         src_model_path=stage_model,
         src_vec_path=stage_vec,
-        extra_meta={**split_meta, "env_kwargs": eval_env_kwargs, "best_val_reward": best_score},
+        extra_meta={**split_meta, "env_kwargs": eval_env_kwargs, "best_val_reward": best_score,
+                    "reward_scenario": active_scenario(cfg)[0] or "default", "reward_weights": reward_weights},
     )
     if alerter is not None:
         try:

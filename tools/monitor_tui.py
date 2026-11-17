@@ -331,7 +331,10 @@ def market_rows(broker) -> list[dict]:
         rows.append({"symbol": s, "name": MARKET_NAMES.get(s, s), "bid": bid,
                      "chg_pct": ((bid / o - 1) * 100) if (bid and o) else None,
                      "mode": "signals + news" if s in broker.symbols else "news only",
-                     "grad": ({"status": grad[s].get("status"), "label": labels.get(grad[s].get("status"), grad[s].get("status")),
+                     "grad": ({"status": grad[s].get("status"),
+                               "label": labels.get(grad[s].get("status"), grad[s].get("status"))
+                               + (f" · {grad[s].get('scenario')} reward" if grad[s].get("status") == "training" and grad[s].get("scenario") else "")
+                               + (f" · best: {grad[s].get('best_scenario')}" if grad[s].get("status") == "graduated" and grad[s].get("best_scenario") else ""),
                                "attempts": grad[s].get("attempts", 0), "why": grad[s].get("why", "")} if s in grad else None),
                      "lots": round(lots, 2), "pnl": round(sum(float(p.profit) for p in pos), 2) if pos else None,
                      "news": ({"title": nxt["title"], "t0": nxt["t0"], "phase": nxt["phase"], "plan": nxt.get("plan")}

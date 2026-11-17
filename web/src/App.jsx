@@ -245,7 +245,7 @@ function SymbolCard({ s }) {
           <div className={`sym-price ${flash}`}>{fmtPx(s.bid)}</div>
           {s.chg_pct != null && <div className={`sym-chg ${s.chg_pct >= 0 ? "pos" : "neg"}`}>{s.chg_pct >= 0 ? "▲ +" : "▼ "}{s.chg_pct.toFixed(2)}% in 24h</div>}
           {s.mode === "news only" && s.grad && (
-            <div className={`mk-grad ${s.grad.status}`}>news only · {s.grad.label}{["training", "exam_failed"].includes(s.grad.status) ? ` · attempt ${s.grad.attempts}/3` : ""}</div>
+            <div className={`mk-grad ${s.grad.status}`}>news only · {s.grad.label}{["training", "exam_failed"].includes(s.grad.status) ? ` · attempt ${s.grad.attempts}/5` : ""}</div>
           )}
         </div>
         {p ? (
@@ -423,7 +423,7 @@ function Markets({ rows }) {
               <div className="mk-top"><b>{r.name}</b><span className="muted small">{r.mode}</span></div>
               {r.grad && r.mode === "news only" && (
                 <div className={`mk-grad ${r.grad.status}`} title={r.grad.why}>
-                  {r.grad.label}{["training", "exam_failed"].includes(r.grad.status) ? ` · attempt ${r.grad.attempts}/3` : ""}
+                  {r.grad.label}{["training", "exam_failed"].includes(r.grad.status) ? ` · attempt ${r.grad.attempts}/5` : ""}
                 </div>
               )}
               <div className="mk-px">{r.bid == null ? "—" : r.bid.toLocaleString(undefined, { maximumFractionDigits: r.bid < 10 ? 5 : r.bid < 1000 ? 3 : 2 })}</div>
