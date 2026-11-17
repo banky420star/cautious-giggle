@@ -180,3 +180,22 @@ code { background: rgba(255,255,255,.07); padding: 1px 6px; border-radius: 6px; 
 .stage-now { padding: 10px 12px; border-radius: 12px; background: rgba(250,204,21,.06); border: 1px solid rgba(250,204,21,.2); margin-bottom: 12px; }
 .stage-now-head { display: flex; justify-content: space-between; align-items: baseline; }
 .stage-pct { font-size: 22px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+.bottom { grid-template-columns: 1fr 1.2fr; }
+.bottom2 { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.feed { display: flex; flex-direction: column; }
+.feed-list { display: flex; flex-direction: column; gap: 6px; max-height: 520px; overflow: auto; margin-top: 8px; padding-right: 4px; }
+.feed-item { display: flex; gap: 10px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,.02);
+  border: 1px solid transparent; animation: slidein .5s ease-out; }
+.feed-item.good { border-color: rgba(52,211,153,.18); }
+.feed-item.bad { border-color: rgba(248,113,113,.18); }
+.feed-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0;
+  background: rgba(56,189,248,.1); color: var(--cyan); }
+.feed-item.good .feed-ic { background: rgba(52,211,153,.12); color: var(--pos); }
+.feed-item.bad .feed-ic { background: rgba(248,113,113,.12); color: var(--neg); }
+.feed-body { flex: 1; min-width: 0; }
+.feed-head { display: flex; justify-content: space-between; gap: 8px; }
+.feed-text { font-size: 13px; line-height: 1.5; color: #d2d8e3; margin-top: 2px; }
+.delta { display: inline-block; margin-top: 6px; margin-right: 6px; font-size: 11.5px; font-weight: 600; padding: 2px 8px;
+  border-radius: 999px; background: rgba(255,255,255,.05); font-variant-numeric: tabular-nums; }
+.tabs button { text-transform: capitalize; }

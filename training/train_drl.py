@@ -496,7 +496,12 @@ def _maybe_optimize_ppo_params(
     drl_cfg = cfg.get("drl", {}) or {}
     trials = int(drl_cfg.get("optuna_trials", 0) or 0)
     if trials <= 0:
-        return _default_ppo_params()
+        params = _default_ppo_params()
+        # config overrides, e.g. drl.ppo: {target_kl: 0.03}
+        for k, v in ((drl_cfg.get("ppo") or {}) if isinstance(drl_cfg.get("ppo"), dict) else {}).items():
+            if k in params:
+                params[k] = None if v is None else type(params[k])(v) if params[k] is not None else v
+        return params
 
     try:
         import optuna

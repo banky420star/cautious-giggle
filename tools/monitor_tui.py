@@ -275,6 +275,7 @@ class Logs:
     def __init__(self):
         self.last_signal, self.last_block, self.last_memory = {}, {}, {}
         self.last_council = {}
+        self.prev_council = {}
         self.sig_hist: dict[str, list] = {}
         self.pending_entry: dict[str, dict] = {}
         self.events: list[dict] = []
@@ -325,6 +326,8 @@ class Logs:
             elif ev == "model_memory" and sym:
                 self.last_memory[sym] = r
             elif ev == "council" and sym:
+                if sym in self.last_council:
+                    self.prev_council[sym] = self.last_council[sym]
                 self.last_council[sym] = r
             elif ev == "risk_supervisor_block" and sym:
                 self.last_block[sym] = r

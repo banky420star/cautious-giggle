@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import monitor_tui as m  # noqa: E402
 import warroom as wr  # noqa: E402
+from narrator import Narrator  # noqa: E402
 from Python.indicator_council import describe  # noqa: E402
 
 DIST = os.path.join(ROOT, "web", "dist")
@@ -37,9 +38,12 @@ class State:
         self.broker = m.Broker(self.symbols)
         self.logs = m.Logs()
         self.lock = threading.Lock()
+        self.log_lock = threading.Lock()
         self.equity: list[tuple[float, float, float]] = []  # (ts, equity, balance)
         self._load_equity()
+        self.narrator = Narrator()
         threading.Thread(target=self._sampler, daemon=True).start()
+        threading.Thread(target=self._narrate, daemon=True).start()
 
     # ------------------------------------------------------------------ equity history
     def _load_equity(self):
@@ -86,9 +90,21 @@ class State:
                     pass
             time.sleep(15)
 
+    def _narrate(self):
+        time.sleep(6)  # let the broker poller fill in first
+        while True:
+            try:
+                with self.log_lock:
+                    self.logs.refresh()
+                self.narrator.tick(self.logs, m.read_progress(), self.broker, m.tail_lines)
+            except Exception:
+                pass
+            time.sleep(10)
+
     # ------------------------------------------------------------------ snapshot
     def snapshot(self) -> dict:
-        self.logs.refresh()
+        with self.log_lock:
+            self.logs.refresh()
         b, logs = self.broker, self.logs
         alive, _ = m.bot_status()
         acc = b.account
@@ -130,6 +146,7 @@ class State:
             "symbols": symbols,
             "trades": self._trades(deals, out_entry),
             "training": self._training(),
+            "feed": self.narrator.feed(60),
             "tip": dict(zip(("term", "text"), wr.GLOSSARY[int(time.time() // 12) % len(wr.GLOSSARY)])),
         }
 

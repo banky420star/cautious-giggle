@@ -4,7 +4,8 @@ import {
 } from "recharts";
 import {
   Activity, ArrowDownRight, ArrowUpRight, Brain, CircleDollarSign, Clock, GraduationCap, Lightbulb, Pause,
-  Receipt, ShieldCheck, Target, TrendingUp, Trophy, Wallet, Zap,
+  Receipt, ShieldCheck, Target, TrendingUp, Trophy, Wallet, Zap, Sparkles, Cpu, FlaskConical, Database,
+  ArrowLeftRight, Moon,
 } from "lucide-react";
 
 const fmtMoney = (v, sign = false) => {
@@ -341,6 +342,51 @@ function Learning({ d }) {
   );
 }
 
+const FEED_ICON = { ppo: Cpu, eval: FlaskConical, lstm: Brain, dreamer: Moon, memory: Database,
+  signal: ArrowLeftRight, trade: Receipt };
+const ago = (t) => {
+  const s = Math.max(0, Date.now() / 1000 - t);
+  return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)} min ago` : `${Math.floor(s / 3600)}h ago`;
+};
+
+function Feed({ items }) {
+  const [filter, setFilter] = useState("all");
+  const groups = { all: null, training: ["ppo", "eval", "lstm", "dreamer"], learning: ["memory"], trading: ["signal", "trade"] };
+  const shown = (items || []).filter((it) => !groups[filter] || groups[filter].includes(it.kind));
+  return (
+    <div className="card feed">
+      <div className="card-head">
+        <div className="card-title"><Sparkles size={16} /> What changed, and why</div>
+        <div className="tabs">
+          {Object.keys(groups).map((k) => (
+            <button key={k} className={k === filter ? "active" : ""} onClick={() => setFilter(k)}>{k}</button>
+          ))}
+        </div>
+      </div>
+      <div className="feed-list">
+        {!shown.length && <div className="muted small">Updates appear here as training rounds finish, the memory re-scores indicators, signals change and trades close.</div>}
+        {shown.map((it) => {
+          const Icon = FEED_ICON[it.kind] || Sparkles;
+          return (
+            <div key={`${it.t}-${it.title}`} className={`feed-item ${it.tone}`}>
+              <div className="feed-ic"><Icon size={15} /></div>
+              <div className="feed-body">
+                <div className="feed-head"><b>{it.title}</b><span className="muted small">{ago(it.t)}</span></div>
+                <div className="feed-text">{it.text}</div>
+                {it.numbers?.filter((n) => n.from != null).map((n, i) => (
+                  <span key={i} className={`delta ${n.to >= n.from ? "pos" : "neg"}`}>
+                    {n.label} {n.from} → {n.to} ({n.to - n.from >= 0 ? "+" : ""}{(n.to - n.from).toFixed(2)})
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Trades({ trades }) {
   return (
     <div className="card trades">
@@ -401,6 +447,9 @@ export default function App() {
       </section>
       <section className="bottom">
         <Learning d={d} />
+        <Feed items={d.feed} />
+      </section>
+      <section className="bottom2">
         <Trades trades={d.trades} />
       </section>
       <footer className="footer">
