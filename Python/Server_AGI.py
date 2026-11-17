@@ -855,6 +855,20 @@ def main(live=False):
 
     trading_cfg = cfg.get("trading", {})
     symbols = resolve_trading_symbols(cfg, env_keys=("AGI_RUNTIME_SYMBOLS",), fallback=DEFAULT_TRADING_SYMBOLS)
+    # markets that passed the exam through tools/graduation.py trade like the others
+    try:
+        if bool((((cfg.get("trading") or {}).get("graduation") or {}).get("enabled"))):
+            with open(os.path.join(LOG_DIR, "graduation.json"), encoding="utf-8") as _gf:
+                _gst = (json.load(_gf).get("symbols") or {})
+            grads = [s_ for s_, v_ in _gst.items() if s_ not in symbols and (
+                v_.get("status") == "graduated" or (v_.get("status") in ("training", "retrain_queued") and v_.get("was_live")))]
+            if grads:
+                symbols = list(symbols) + grads
+                logger.info(f"graduated markets trading: {grads}")
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        logger.warning(f"graduation state unreadable: {exc}")
     timeframe = _to_mt5_timeframe(trading_cfg.get("timeframe", "M5"))
     max_lots = float(cfg.get("risk", {}).get("max_lots", 1.0))
     # Demo learning mode may raise the risk limits, on demo accounts only (never carried to real money).

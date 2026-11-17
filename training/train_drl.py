@@ -501,6 +501,15 @@ def _maybe_optimize_ppo_params(
         for k, v in ((drl_cfg.get("ppo") or {}) if isinstance(drl_cfg.get("ppo"), dict) else {}).items():
             if k in params:
                 params[k] = None if v is None else type(params[k])(v) if params[k] is not None else v
+        # per-run overrides (used by retraining attempts and experiments), e.g. AGI_DRL_PPO_JSON='{"use_sde": false}'
+        try:
+            for k, v in (json.loads(os.environ.get("AGI_DRL_PPO_JSON", "") or "{}") or {}).items():
+                if k in params:
+                    params[k] = v
+        except Exception as exc:
+            logger.warning(f"AGI_DRL_PPO_JSON ignored: {exc}")
+        if os.environ.get("AGI_DRL_PPO_JSON"):
+            logger.info(f"PPO params: {params}")
         return params
 
     try:

@@ -227,3 +227,7 @@ code { background: rgba(255,255,255,.07); padding: 1px 6px; border-radius: 6px; 
 .mk-px { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .mk-pos { color: var(--cyan); font-weight: 600; }
 .mk-news { color: #fbbf24; }
+
+.mk-grad { font-size: 11.5px; font-weight: 600; color: #c084fc; }
+.mk-grad.training { animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 50% { opacity: .45; } }

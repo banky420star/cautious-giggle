@@ -409,6 +409,11 @@ function Markets({ rows }) {
           return (
             <div key={r.symbol} className={`mk ${live ? "live" : ""}`}>
               <div className="mk-top"><b>{r.name}</b><span className="muted small">{r.mode}</span></div>
+              {r.grad && r.mode === "news only" && (
+                <div className={`mk-grad ${r.grad.status}`} title={r.grad.why}>
+                  {r.grad.label}{["training", "exam_failed"].includes(r.grad.status) ? ` · attempt ${r.grad.attempts}/3` : ""}
+                </div>
+              )}
               <div className="mk-px">{r.bid == null ? "—" : r.bid.toLocaleString(undefined, { maximumFractionDigits: r.bid < 10 ? 5 : r.bid < 1000 ? 3 : 2 })}</div>
               {r.chg_pct != null && <div className={r.chg_pct >= 0 ? "pos small" : "neg small"}>{r.chg_pct >= 0 ? "▲" : "▼"} {r.chg_pct.toFixed(2)}% 24h</div>}
               <div className="small">{r.lots ? <span className="mk-pos">{r.lots > 0 ? "LONG" : "SHORT"} {Math.abs(r.lots).toFixed(2)}

@@ -102,7 +102,12 @@ def markets_panel(broker) -> Panel:
             if r["pnl"] is not None:
                 c.append(f"{'+' if r['pnl'] >= 0 else '−'}${abs(r['pnl']):.2f}", style="green" if r["pnl"] >= 0 else "red")
         else:
-            c.append(r["mode"], style="grey50")
+            g = r.get("grad")
+            if g and r["mode"] == "news only":
+                c.append(g["label"] + (f" ({g['attempts']}/3)" if g["status"] in ("training", "exam_failed") else ""),
+                         style="bold magenta" if g["status"] == "training" else "magenta")
+            else:
+                c.append(r["mode"], style="grey50")
         c.append("\n")
         n = r.get("news")
         if n:
@@ -326,7 +331,7 @@ def improvement_panel(frame, broker, logs, symbols, cfg) -> Panel:
     # model training, one line
     tr = m.training_state()
     prog = m.read_progress()
-    stages = wr.cycle_stages(wr.stage_lines(m.CYCLE_LOG), symbols)
+    stages = wr.cycle_stages(wr.stage_lines(m.CYCLE_LOG), wr.cycle_symbols(symbols))
     cur = next((r for r in stages if r["status"] == "running"), None)
     done = sum(1 for r in stages if r["status"] in ("done", "passed"))
     lines.append(Text("BRAIN TRAINING", style="bold cyan"))

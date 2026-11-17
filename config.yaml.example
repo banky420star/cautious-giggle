@@ -34,6 +34,12 @@ trading:
     wait_minutes: 15               # if price doesn't come back in time, enter at market anyway
     pullback_atr: {BTCUSDm: 0.5, XAUUSDm: 0.25}   # how far (x ATR of 5-min bars) to wait for
   normalize_active_weights: true   # average over models that have a view this bar (missing/abstaining ones don't dilute the signal)
+  graduation:
+    enabled: false
+    candidates: []
+    max_attempts: 3
+    step_growth: 1.5
+    retrain_when: {min_trades: 20, win_rate_below: 0.40, cooldown_hours: 24}
   news_trading:                    # demo only: prep for high-impact US releases, trade the liquidity sweep
     enabled: false
     symbols: [XAUUSDm, BTCUSDm]

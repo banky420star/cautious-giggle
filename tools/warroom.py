@@ -7,6 +7,7 @@ it survives between frames.
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
 import time
 
@@ -357,6 +358,18 @@ def stage_lines(path: str, max_bytes: int = 50_000_000) -> list[str]:
     except OSError:
         return []
     return [l for l in data.splitlines() if any(k in l for k in STAGE_KEYS)]
+
+
+def cycle_symbols(default: list[str]) -> list[str]:
+    """Markets the running training cycle is working on (graduation trainees, else the defaults)."""
+    try:
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "logs", "graduation.json"), encoding="utf-8") as f:
+            st = json.load(f).get("symbols") or {}
+        tr = [s for s, v in st.items() if v.get("status") == "training"]
+        return tr or list(default)
+    except Exception:
+        return list(default)
 
 
 def cycle_stages(lines: list[str], symbols: list[str]) -> list[dict]:

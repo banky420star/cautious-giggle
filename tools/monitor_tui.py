@@ -295,6 +295,13 @@ def market_rows(broker) -> list[dict]:
             news = json.load(f).get("events", [])
     except Exception:
         news = []
+    try:
+        with open(os.path.join(LOG_DIR, "graduation.json"), encoding="utf-8") as f:
+            grad = json.load(f).get("symbols") or {}
+    except Exception:
+        grad = {}
+    labels = {"queued": "queued for training", "training": "training", "exam_failed": "failed exam · training again",
+              "needs_work": "needs work", "graduated": "graduated", "retrain_queued": "retrain queued"}
     rows = []
     for s in list(broker.symbols) + list(getattr(broker, "extra", [])):
         t = broker.ticks.get(s) or getattr(broker, "extra_ticks", {}).get(s)
@@ -306,6 +313,8 @@ def market_rows(broker) -> list[dict]:
         rows.append({"symbol": s, "name": MARKET_NAMES.get(s, s), "bid": bid,
                      "chg_pct": ((bid / o - 1) * 100) if (bid and o) else None,
                      "mode": "signals + news" if s in broker.symbols else "news only",
+                     "grad": ({"status": grad[s].get("status"), "label": labels.get(grad[s].get("status"), grad[s].get("status")),
+                               "attempts": grad[s].get("attempts", 0), "why": grad[s].get("why", "")} if s in grad else None),
                      "lots": round(lots, 2), "pnl": round(sum(float(p.profit) for p in pos), 2) if pos else None,
                      "news": ({"title": nxt["title"], "t0": nxt["t0"], "phase": nxt["phase"], "plan": nxt.get("plan")}
                               if nxt else None)})
