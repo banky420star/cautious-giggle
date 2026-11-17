@@ -928,3 +928,6 @@ body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-i
 .m-val { font: 700 9.5px var(--mono); fill: #fde68a; }
 .m-pin { transition: transform .7s cubic-bezier(.2,.8,.2,1); }
 .m-pin line { stroke: #fde68a; stroke-width: 2; } .m-pin circle { fill: #fde68a; }
+
+/* market cards now carry a forecast and a 48-voter matrix: 3 per row on a MacBook, so the readings fit */
+.war-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); }
