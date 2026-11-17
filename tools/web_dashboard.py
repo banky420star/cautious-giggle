@@ -28,7 +28,7 @@ from Python.indicator_council import describe  # noqa: E402
 
 DIST = os.path.join(ROOT, "web", "dist")
 EQ_FILE = os.path.join(ROOT, "logs", "equity_history.csv")
-NAMES = {"BTCUSDm": "Bitcoin", "XAUUSDm": "Gold"}
+NAMES = m.MARKET_NAMES
 
 
 class State:
@@ -152,9 +152,17 @@ class State:
         closed = [float(d.profit) + float(getattr(d, "commission", 0) or 0) + float(getattr(d, "swap", 0) or 0)
                   for d in deals if int(getattr(d, "entry", -1)) == out_entry]
 
+        infos = {r["symbol"]: r for r in m.market_rows(self.broker)}
         symbols = []
-        for s in self.symbols:
-            symbols.append(self._symbol(s))
+        for s in list(self.symbols) + list(self.broker.extra):
+            row = self._symbol(s)
+            inf = infos.get(s) or {}
+            row.update(mode=inf.get("mode", "signals + news"), grad=inf.get("grad"), news=inf.get("news"),
+                       chg_pct=inf.get("chg_pct"))
+            if row["mode"] == "news only" and not row.get("position"):
+                g = inf.get("grad") or {}
+                row["why"] = ("Trades news releases only for now. " + (g.get("why") or "")).strip()
+            symbols.append(row)
 
         with self.lock:
             eqh = list(self.equity)

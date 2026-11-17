@@ -252,7 +252,7 @@ class Broker:
                 self._t["tick"] = now
             if now - self._t["bars"] >= 60:
                 tf = getattr(self.mt5, "TIMEFRAME_M5", 5)
-                for s in self.symbols:
+                for s in list(self.symbols) + list(self.extra):
                     r = self.mt5.copy_rates_from_pos(s, tf, 1, 150)
                     if r is not None and len(r):
                         self.bars[s] = [float(x) for x in r["close"]]
@@ -261,7 +261,12 @@ class Broker:
                 for s in self.extra:
                     t = self.mt5.symbol_info_tick(s)
                     if t is not None:
+                        old = self.extra_ticks.get(s)
+                        if old is not None and float(old.bid) != float(t.bid):
+                            self.prev_bid[s] = float(old.bid)
+                            self.flash[s] = time.time()
                         self.extra_ticks[s] = t
+                        self.ticks[s] = t
                 self._t["xtick"] = now
             if now - self._t.get("dopen", 0) >= 300:
                 tf = getattr(self.mt5, "TIMEFRAME_H1", 60)

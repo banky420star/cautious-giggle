@@ -196,8 +196,9 @@ def top_bar(frame, alive, broker, logs, cfg) -> Panel:
 
 
 # ----------------------------------------------------------------------------- symbol card
-def symbol_card(frame, s, broker, logs, width) -> Panel:
+def symbol_card(frame, s, broker, logs, width, compact=False, info=None) -> Panel:
     tick = broker.ticks.get(s)
+    info = info or {}
     sg = (logs.last_signal.get(s) or {}).get("payload") or {}
     cv = (logs.last_council.get(s) or {}).get("payload") or {}
     mine = [p for p in broker.positions if str(getattr(p, "symbol", "")) in (s, s.rstrip("m"))]
@@ -209,6 +210,9 @@ def symbol_card(frame, s, broker, logs, width) -> Panel:
         col = "green" if tick.bid >= prev else "red"
         fresh = time.time() - broker.flash.get(s, 0) < 1.2
         title.append(f"  ${m._px(tick.bid)} {arrow} ", style=(f"bold black on {col}" if fresh else f"bold {col}"))
+        if info.get("chg_pct") is not None:
+            c = info["chg_pct"]
+            title.append(f"{c:+.2f}% 24h ", style="green" if c >= 0 else "red")
 
     rows = []
     # 1. status, big and plain
@@ -217,15 +221,36 @@ def symbol_card(frame, s, broker, logs, width) -> Panel:
         p0 = mine[0]
         long_ = int(p0.type) == 0
         pnl = sum(float(p.profit) for p in mine)
-        st.append(f" {'▲ IN A BUY TRADE' if long_ else '▼ IN A SELL TRADE'} ",
+        st.append(f" {'▲ BUY' if long_ else '▼ SELL'} " if compact else f" {'▲ IN A BUY TRADE' if long_ else '▼ IN A SELL TRADE'} ",
                   style="bold black on green" if long_ else "bold white on red")
         st.append(f"  {sum(float(p.volume) for p in mine):.2f} lots   ", style="bold")
-        st.append(f"{'+' if pnl >= 0 else '−'}${abs(pnl):,.2f} right now", style="bold green" if pnl >= 0 else "bold red")
+        st.append(f"{'+' if pnl >= 0 else '−'}${abs(pnl):,.2f}" + ("" if compact else " right now"),
+                  style="bold green" if pnl >= 0 else "bold red")
     else:
         st.append(" ⏸  WAITING ", style="bold black on grey70")
         st.append("  no open trade", style="dim")
     rows.append(st)
-    rows.append(Text(""))
+    if not compact:
+        rows.append(Text(""))
+    news_only = info.get("mode") == "news only"
+    if news_only:
+        gr = info.get("grad") or {}
+        t = Text("trades news only · ", style="grey62")
+        if gr:
+            t.append(gr.get("label", "") + (f" ({gr.get('attempts', 0)}/3)" if gr.get("status") in ("training", "exam_failed") else ""),
+                     style="bold magenta" if gr.get("status") == "training" else "magenta")
+        rows.append(t)
+        rows.append(Text(str(gr.get("why") or "Trades all day once it passes its exam."), style="grey70", overflow="ellipsis",
+                         no_wrap=compact))
+        sg = {}
+    n = info.get("news")
+    if n:
+        secs = n["t0"] - time.time()
+        when = f"in {secs / 3600:.1f}h" if secs > 3600 else (f"in {secs / 60:.0f}m" if secs > 0 else "now")
+        live = n["phase"] in ("prep", "armed", "in_trade")
+        play = {"fade": "fade the sweep", "breakout": "ride the breakout"}.get(n.get("plan"), "stand aside")
+        rows.append(Text(f"📰 news {when}: {play}" + (f" · {n['phase'].upper()}" if live else ""),
+                         style="bold yellow" if live else "yellow"))
 
     # 2. why, in one sentence
     if sg:
@@ -244,8 +269,9 @@ def symbol_card(frame, s, broker, logs, width) -> Panel:
             why = f"Leaning {lean} ({up} signals up, {down} down). Almost strong enough to trade."
         else:
             why = f"Signals are mixed ({up} up, {down} down). Not worth paying the spread yet."
-        rows.append(Text(why, style="bold"))
-        rows.append(Text(""))
+        rows.append(Text(why, style="bold", overflow="ellipsis", no_wrap=compact))
+        if not compact:
+            rows.append(Text(""))
         # 3. meter
         shown = wr.ease(f"s:{s}", raw)
         w = max(24, min(56, width - 22))
@@ -253,13 +279,15 @@ def symbol_card(frame, s, broker, logs, width) -> Panel:
         meter.append_text(wr._needle(shown, thr, w))
         meter.append(" BUY", style="bold green")
         rows.append(meter)
-        lbl = Text(" " * 8)
-        lbl.append(f"signal {raw:+.2f}", style="bold")
-        lbl.append(f"   trades when it passes the yellow line (±{thr:.2f})", style="dim")
-        rows.append(lbl)
-    else:
+        if not compact:
+            lbl = Text(" " * 8)
+            lbl.append(f"signal {raw:+.2f}", style="bold")
+            lbl.append(f"   trades when it passes the yellow line (±{thr:.2f})", style="dim")
+            rows.append(lbl)
+    elif not news_only:
         rows.append(Text("Waiting for its first check…", style="dim"))
-    rows.append(Text(""))
+    if not compact:
+        rows.append(Text(""))
 
     # 4. small price chart with trade levels
     closes = list(broker.bars.get(s, []))
@@ -274,8 +302,9 @@ def symbol_card(frame, s, broker, logs, width) -> Panel:
         if p0.tp:
             marks["target"] = (float(p0.tp), "green")
     color = "green" if len(closes) > 1 and closes[-1] >= closes[0] else "red"
-    rows.append(m.braille_chart(closes, max(20, width - 18), 4, marks, color=color))
-    rows.append(Text("last 12 hours", style="dim"))
+    rows.append(m.braille_chart(closes, max(20, width - (6 if compact else 18)), 2 if compact else 4, marks, color=color))
+    if not compact:
+        rows.append(Text("last 12 hours", style="dim"))
     return Panel(Group(*rows), title=title, title_align="left", box=box.ROUNDED,
                  border_style="green" if mine else "grey50", padding=(0, 1))
 
@@ -390,11 +419,19 @@ def trades_panel(broker) -> Panel:
 def render(frame, broker, logs, cfg, symbols, width):
     alive, _ = m.bot_status()
     lay = Layout()
-    card_w = (width - 4) // max(1, len(symbols))
+    infos = {r["symbol"]: r for r in m.market_rows(broker)}
+    allsyms = list(infos) or list(symbols)
+    per_row = 4 if len(allsyms) > 4 else max(1, len(allsyms))
+    card_w = (width - 4) // per_row
+    compact = len(allsyms) > 2
     cards = Table.grid(expand=True, padding=(0, 0))
-    for _ in symbols:
+    for _ in range(per_row):
         cards.add_column(ratio=1)
-    cards.add_row(*[symbol_card(frame, s, broker, logs, card_w) for s in symbols])
+    made = [symbol_card(frame, s, broker, logs, card_w, compact=compact, info=infos.get(s)) for s in allsyms]
+    for i in range(0, len(made), per_row):
+        row = made[i:i + per_row]
+        cards.add_row(*(row + [Text("")] * (per_row - len(row))))
+    n_rows = (len(made) + per_row - 1) // per_row
     tip = wr.GLOSSARY[int(time.time() // 10) % len(wr.GLOSSARY)]
     foot = Text(" 💡 ", style="bold")
     foot.append(f"{tip[0]}: ", style="bold bright_cyan")
@@ -402,8 +439,7 @@ def render(frame, broker, logs, cfg, symbols, width):
     foot.append("      Ctrl+C to exit · type 'exness pro' for the detailed view", style="grey42")
     lay.split_column(
         Layout(top_bar(frame, alive, broker, logs, cfg), size=3),
-        Layout(cards, size=15),
-        Layout(markets_panel(broker), size=6),
+        Layout(cards, size=(11 * n_rows) if compact else 15),
         Layout(name="bottom"),
         Layout(foot, size=1),
     )

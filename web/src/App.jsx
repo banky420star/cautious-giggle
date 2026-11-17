@@ -241,8 +241,13 @@ function SymbolCard({ s }) {
     <div className={`card symbol ${p ? (p.side === "BUY" ? "in-long" : "in-short") : ""}`}>
       <div className="sym-head">
         <div>
-          <div className="sym-name">{s.name}</div>
-          <div className={`sym-price ${flash}`}>${fmtPx(s.bid)}</div>
+          <div className="sym-name">{s.name}
+            {s.chg_pct != null && <span className={`sym-chg ${s.chg_pct >= 0 ? "pos" : "neg"}`}>{s.chg_pct >= 0 ? "+" : ""}{s.chg_pct.toFixed(2)}% 24h</span>}
+          </div>
+          <div className={`sym-price ${flash}`}>{fmtPx(s.bid)}</div>
+          {s.mode === "news only" && s.grad && (
+            <div className={`mk-grad ${s.grad.status}`}>news only · {s.grad.label}{["training", "exam_failed"].includes(s.grad.status) ? ` · attempt ${s.grad.attempts}/3` : ""}</div>
+          )}
         </div>
         {p ? (
           <div className={`status ${p.side === "BUY" ? "long" : "short"}`}>
@@ -263,7 +268,13 @@ function SymbolCard({ s }) {
           <span className="muted">price at signal ${fmtPx(s.pending.ref)} · now ${fmtPx(s.pending.side === "BUY" ? s.ask : s.bid)}</span>
         </div>
       )}
-      <SignalMeter value={s.signal} threshold={s.threshold} />
+      {s.mode !== "news only" && <SignalMeter value={s.signal} threshold={s.threshold} />}
+      {s.news && (
+        <div className={`sym-news ${["prep", "armed", "in_trade"].includes(s.news.phase) ? "live" : ""}`}>
+          <Newspaper size={13} /> news {until(s.news.t0)} · {s.news.plan ? PLAY[s.news.plan] : "stand aside"}
+          {["prep", "armed", "in_trade"].includes(s.news.phase) && <b> · {s.news.phase.toUpperCase()}</b>}
+        </div>
+      )}
       <div className="spark">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={bars} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
@@ -569,11 +580,10 @@ export default function App() {
         </Kpi>
         <Kpi icon={Zap} label="Open trades" sub={`floating ${fmtMoney(a.floating, true)}`}>{open}</Kpi>
       </section>
-      <section className="main">
+      <section className="main-full">
         <EquityChart series={d.equity} equity={a.equity} />
-        <div className="symbols">{d.symbols.map((s) => <SymbolCard key={s.symbol} s={s} />)}</div>
       </section>
-      <Markets rows={d.markets} />
+      <section className="symbols-grid">{d.symbols.map((s) => <SymbolCard key={s.symbol} s={s} />)}</section>
       <section className="bottom">
         <Learning d={d} />
         <Feed items={d.feed} />

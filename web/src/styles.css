@@ -231,3 +231,9 @@ code { background: rgba(255,255,255,.07); padding: 1px 6px; border-radius: 6px; 
 .mk-grad { font-size: 11.5px; font-weight: 600; color: #c084fc; }
 .mk-grad.training { animation: blink 1.6s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: .45; } }
+
+.main-full { margin-bottom: 14px; }
+.symbols-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.sym-chg { font-size: 12px; font-weight: 600; margin-left: 8px; }
+.sym-news { font-size: 12.5px; color: #fbbf24; display: flex; align-items: center; gap: 6px; }
+.sym-news.live { animation: blink 1.6s ease-in-out infinite; }
