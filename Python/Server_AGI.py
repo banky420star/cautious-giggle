@@ -1050,7 +1050,8 @@ def main(live=False):
                 exposure = float(decision["target"])
                 try:
                     scored = model_memory.observe(
-                        symbol, df.index[-1], float(df["close"].iloc[-1]), ctx,
+                        symbol, pd.Timestamp(df["time"].iloc[-1]).tz_localize("UTC") if "time" in df.columns else df.index[-1],
+                        float(df["close"].iloc[-1]), ctx,
                         {
                             "ppo": None if ppo_meta is None else float(ppo_meta.get("target", 0.0) or 0.0),
                             "lstm": None if agi_meta is None else float(agi_meta.get("trend_bias", 0.0) or 0.0),

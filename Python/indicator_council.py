@@ -121,10 +121,14 @@ def context_series(df: pd.DataFrame) -> pd.Series:
     trend = np.where(gap > 0.75, "up", np.where(gap < -0.75, "down", "range"))
     med = atr.rolling(300, min_periods=50).median()
     vol = np.where(atr > 1.3 * med, "high", np.where(atr < 0.75 * med, "low", "normal"))
-    try:
+    if isinstance(df.index, pd.DatetimeIndex):
         hour = df.index.hour
-    except Exception:
-        hour = np.zeros(len(df), dtype=int)
+    elif "time" in df.columns:
+        t = df["time"]
+        t = pd.to_datetime(t, unit="s", utc=True) if np.issubdtype(t.dtype, np.number) else pd.to_datetime(t, utc=True)
+        hour = t.dt.hour.to_numpy()
+    else:
+        hour = np.full(len(df), pd.Timestamp.now(tz="UTC").hour)
     session = np.where(hour < 7, "asia", np.where(hour < 13, "europe", np.where(hour < 21, "us", "late")))
     return pd.Series([f"{t}|{v}|{s}" for t, v, s in zip(trend, vol, session)], index=df.index)
 
@@ -180,6 +184,15 @@ def votes_mtf(m5: pd.DataFrame, htf: dict | None = None) -> pd.DataFrame:
     broker bars per timeframe ({'H1': df, ...}, closed bars, indexed by open time); missing
     timeframes are resampled from the M5 frame.
     """
+    if not isinstance(m5.index, pd.DatetimeIndex):
+        m5 = m5.copy()
+        if "time" in m5.columns:
+            t = m5["time"]
+            m5.index = pd.to_datetime(t, unit="s", utc=True) if np.issubdtype(t.dtype, np.number) else pd.to_datetime(t, utc=True)
+        else:
+            return votes(m5)  # no timestamps: M5 only
+    elif m5.index.tz is None:
+        m5 = m5.tz_localize("UTC")
     frames = [votes(m5)]
     for tf, minutes in TIMEFRAMES.items():
         if minutes == 5:
@@ -192,7 +205,8 @@ def votes_mtf(m5: pd.DataFrame, htf: dict | None = None) -> pd.DataFrame:
         v = votes(src)
         v.columns = [f"{c}@{tf}" for c in v.columns]
         frames.append(align_to_m5(v, minutes, m5.index))
-    return pd.concat(frames, axis=1)
+    out = pd.concat(frames, axis=1)
+    return out
 
 
 def describe(key: str) -> str:
