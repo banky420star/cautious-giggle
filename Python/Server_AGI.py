@@ -888,6 +888,11 @@ def main(live=False):
     smart_entry = _smart_entry_settings(cfg)
     pending_entries: dict = {}
     logger.info(f"smart entry {'ON' if smart_entry['enabled'] else 'OFF'} (pullback wait {smart_entry['wait_min']:.0f} min)")
+    from Python.news_trader import NewsTrader
+    news_trader = NewsTrader(mt5, executor, cfg, logger, _append_audit)
+    if news_trader.enabled and not demo_exploration.account_is_demo(mt5):
+        news_trader.enabled = False  # demo only, like the other learning features
+    logger.info(f"news trading {'ON' if news_trader.enabled else 'OFF'}")
     learn_cfg = (cfg.get("trading", {}) or {}).get("demo_learning", {}) or {}
     if bool(learn_cfg.get("enabled", False)) and demo_exploration.account_is_demo(mt5):
         cfg.setdefault("trading", {})["_learning_threshold_scale"] = float(learn_cfg.get("threshold_scale", 0.5))
@@ -1070,12 +1075,24 @@ def main(live=False):
                 logger.warning(f"trade learning update failed: {e}")
             last_learning = now
 
+        # ---- news: prep for releases, trade the sweep, learn from the result
+        try:
+            news_trader.step()
+            with open(os.path.join(LOG_DIR, "news_state.json"), "w", encoding="utf-8") as _f:
+                json.dump({"t": time.time(), "enabled": news_trader.enabled, "events": news_trader.upcoming()}, _f)
+        except Exception as exc:
+            logger.warning(f"news step failed: {exc}")
+
         # ---- smart entry: fill pending pullback entries (or enter at market when the wait runs out)
         for psym, pe in list(pending_entries.items()):
             try:
                 if supervisor.halt_until is not None and supervisor.halt_until > _utc_now():
                     pending_entries.pop(psym, None)
                     _append_audit("entry_cancelled", {"symbol": psym, "reason": "risk halt"})
+                    continue
+                if news_trader.blocks_regular(psym):
+                    pending_entries.pop(psym, None)
+                    _append_audit("entry_cancelled", {"symbol": psym, "reason": news_trader.blocks_regular(psym)})
                     continue
                 tk = mt5.symbol_info_tick(psym)
                 if tk is None:
@@ -1274,7 +1291,14 @@ def main(live=False):
                                 "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
                                 "agi_risk_scalar": _risk_scalar(agi_meta)})
                             pending_now = True
-                if pending_now:
+                news_block = news_trader.blocks_regular(symbol)
+                if news_block:
+                    if pending_entries.pop(symbol, None):
+                        _append_audit("entry_cancelled", {"symbol": symbol, "reason": news_block})
+                    sym_state["news_block"] = news_block
+                    order_meta = None
+                    bar_settled = True
+                elif pending_now:
                     order_meta = None
                     bar_settled = True
                 elif supervisor_decision.allowed:
@@ -1409,7 +1433,8 @@ def main(live=False):
                 alerter.symbol_status(sym, sstate)
             last_symbol_cards = now
 
-        time.sleep(5 if pending_entries else max(5, loop_sleep_sec))
+        news_active = any(ev["phase"] in ("prep", "armed", "in_trade") for ev in news_trader.events.values())
+        time.sleep(5 if (pending_entries or news_active) else max(5, loop_sleep_sec))
 
 
 if __name__ == "__main__":

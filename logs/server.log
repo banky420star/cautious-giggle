@@ -243,3 +243,64 @@
 2026-11-17 06:55:12.771 +02:00 | INFO     | __main__:main:1174 - DECISION XAUUSDm | regime=HOLD conf=0.6295 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.0518 final=0.0000
 2026-11-17 06:55:21.327 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.03 price=64975.22 sl=65085.87 tp=64801.34 target=-0.2415 magic=51900 retcode=10009 ticket=380943973679632384
 2026-11-17 06:55:21.350 +02:00 | INFO     | __main__:main:1097 - ENTRY BTCUSDm | pullback after 148s | sell 0.03 @ 64975.22 vs 64933.01 at signal (+6.50 bps better)
+2026-11-17 07:00:24.323 +02:00 | INFO     | __main__:main:1174 - DECISION BTCUSDm | regime=BUY conf=0.6376 risk=0.9000 agi_bias=0.6376 ppo=0.0000 dreamer=0.0000 raw=-0.2675 final=-0.2407
+2026-11-17 07:00:29.572 +02:00 | INFO     | __main__:main:1174 - DECISION XAUUSDm | regime=BUY conf=0.6192 risk=0.9000 agi_bias=0.6192 ppo=0.0000 dreamer=0.0000 raw=0.0380 final=0.0000
+2026-11-17 07:00:51.138 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64975.19 tp=64801.34 target=0.0000 magic=51920 retcode=10009 ticket=380945357321801728
+2026-11-17 07:01:15.340 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64885.04 tp=64801.34 target=0.0000 magic=51920 retcode=10009 ticket=380945458819764224
+2026-11-17 07:01:38.092 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64871.53 tp=64801.34 target=0.0000 magic=51920 retcode=10009 ticket=380945554248568832
+2026-11-17 07:02:02.276 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64845.12 tp=64566.95 target=0.0000 magic=51920 retcode=10009 ticket=380945655687811072
+2026-11-17 07:02:02.733 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64845.12 tp=64801.34 target=0.0000 magic=51920 retcode=10009 ticket=380945657600413696
+2026-11-17 07:05:02.059 +02:00 | INFO     | __main__:main:1174 - DECISION BTCUSDm | regime=SELL conf=0.7196 risk=0.9000 agi_bias=-0.7196 ppo=0.0000 dreamer=0.0000 raw=-0.3221 final=-0.2899
+2026-11-17 07:05:02.791 +02:00 | INFO     | __main__:main:1266 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64837 (now 64794, 0.50 ATR pullback)
+2026-11-17 07:05:06.058 +02:00 | INFO     | __main__:main:1174 - DECISION XAUUSDm | regime=BUY conf=0.5794 risk=0.9000 agi_bias=0.5794 ppo=0.0000 dreamer=0.0000 raw=0.0183 final=0.0000
+2026-11-17 07:05:17.944 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.05 price=64843.29 sl=64963.62 tp=64654.2 target=-0.2899 magic=51900 retcode=10009 ticket=380946476110450688
+2026-11-17 07:05:17.948 +02:00 | INFO     | __main__:main:1097 - ENTRY BTCUSDm | pullback after 15s | sell 0.05 @ 64843.29 vs 64794.23 at signal (+7.57 bps better)
+2026-11-17 07:06:29.633 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 07:06:29.775 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 07:06:29.858 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 07:06:29.858 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 07:06:29.946 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 07:06:29.946 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 07:06:30.482 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded default model on MPS
+2026-11-17 07:06:30.483 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded default feature scaler
+2026-11-17 07:06:30.503 +02:00 | INFO     | __main__:main:876 - demo learning risk: 2.5% per trade (min-lot ceiling 4.0%), max_lots 0.2, daily loss stop $150, drawdown halt 40.0%
+2026-11-17 07:06:30.569 +02:00 | INFO     | __main__:main:890 - smart entry ON (pullback wait 15 min)
+2026-11-17 07:06:30.588 +02:00 | INFO     | __main__:main:895 - news trading ON
+2026-11-17 07:06:30.606 +02:00 | INFO     | __main__:main:899 - demo learning mode ON: trade threshold x0.50
+2026-11-17 07:06:31.533 +02:00 | INFO     | __main__:main:908 - indicator council ON
+2026-11-17 07:06:35.651 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 07:06:35.652 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 07:06:38.782 +02:00 | INFO     | __main__:main:1191 - DECISION BTCUSDm | regime=SELL conf=0.7196 risk=0.9000 agi_bias=-0.7196 ppo=0.0000 dreamer=0.0000 raw=-0.3234 final=-0.2910
+2026-11-17 07:06:42.931 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[XAUUSDm] model on MPS
+2026-11-17 07:06:42.932 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[XAUUSDm] feature scaler
+2026-11-17 07:06:44.098 +02:00 | INFO     | __main__:main:1191 - DECISION XAUUSDm | regime=BUY conf=0.5794 risk=0.9000 agi_bias=0.5794 ppo=0.0000 dreamer=0.0000 raw=0.0169 final=0.0000
+2026-11-17 07:10:12.426 +02:00 | INFO     | __main__:main:1191 - DECISION BTCUSDm | regime=SELL conf=0.7119 risk=0.9000 agi_bias=-0.7119 ppo=0.0000 dreamer=0.0000 raw=-0.3303 final=-0.2973
+2026-11-17 07:10:12.807 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64779.02 tp=64654.2 target=0.0000 magic=51920 retcode=10009 ticket=380947713119752192
+2026-11-17 07:10:16.101 +02:00 | INFO     | __main__:main:1191 - DECISION XAUUSDm | regime=BUY conf=0.6698 risk=0.9000 agi_bias=0.6698 ppo=0.0000 dreamer=0.0000 raw=0.0523 final=0.0000
+2026-11-17 07:15:03.442 +02:00 | INFO     | __main__:main:1191 - DECISION BTCUSDm | regime=SELL conf=0.6981 risk=0.9000 agi_bias=-0.6981 ppo=0.0000 dreamer=0.0000 raw=-0.4026 final=-0.3623
+2026-11-17 07:15:04.358 +02:00 | INFO     | __main__:main:1283 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64795 (now 64754, 0.50 ATR pullback)
+2026-11-17 07:15:09.481 +02:00 | INFO     | __main__:main:1191 - DECISION XAUUSDm | regime=BUY conf=0.6654 risk=0.9000 agi_bias=0.6654 ppo=0.0000 dreamer=0.0000 raw=-0.0581 final=0.0000
+2026-11-17 07:18:47.282 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.07 price=64795.12 sl=64909.87 tp=64614.79 target=-0.3500 magic=51900 retcode=10009 ticket=380949869541462016
+2026-11-17 07:18:47.291 +02:00 | INFO     | __main__:main:1114 - ENTRY BTCUSDm | pullback after 223s | sell 0.07 @ 64795.12 vs 64753.91 at signal (+6.36 bps better)
+2026-11-17 07:19:58.425 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 07:19:58.698 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 07:19:58.882 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 07:19:58.882 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 07:19:58.953 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 07:19:58.953 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 07:19:59.577 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded default model on MPS
+2026-11-17 07:19:59.578 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded default feature scaler
+2026-11-17 07:19:59.598 +02:00 | INFO     | __main__:main:876 - demo learning risk: 2.5% per trade (min-lot ceiling 4.0%), max_lots 0.2, daily loss stop $150, drawdown halt 40.0%
+2026-11-17 07:19:59.659 +02:00 | INFO     | __main__:main:890 - smart entry ON (pullback wait 15 min)
+2026-11-17 07:19:59.679 +02:00 | INFO     | __main__:main:895 - news trading ON
+2026-11-17 07:19:59.696 +02:00 | INFO     | __main__:main:899 - demo learning mode ON: trade threshold x0.50
+2026-11-17 07:20:00.618 +02:00 | INFO     | __main__:main:908 - indicator council ON
+2026-11-17 07:20:02.749 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 07:20:02.750 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 07:20:05.437 +02:00 | INFO     | __main__:main:1191 - DECISION BTCUSDm | regime=SELL conf=0.6974 risk=0.9000 agi_bias=-0.6974 ppo=0.0000 dreamer=0.0000 raw=-0.3674 final=-0.3307
+2026-11-17 07:20:08.399 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=buy lots=0.01 price=64850.780000000006 sl=None tp=None target=-0.3307 magic=51910 retcode=10009 ticket=380950208659329024
+2026-11-17 07:20:08.452 +02:00 | INFO     | __main__:main:1360 - ACTION BTCUSDm | req=reduce side=BUY volume=0.01 target=-0.3307 ppo=0.0000 dreamer=0.0000 agi=-0.6974 magic=51910 comment=AGI|BTC|UN|C|P000000|P+00 ticket=380950208659329024 retcode=10009 TP=None SL=None
+2026-11-17 07:20:11.542 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[XAUUSDm] model on MPS
+2026-11-17 07:20:11.543 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[XAUUSDm] feature scaler
+2026-11-17 07:20:12.746 +02:00 | INFO     | __main__:main:1191 - DECISION XAUUSDm | regime=BUY conf=0.6702 risk=0.9000 agi_bias=0.6702 ppo=0.0000 dreamer=0.0000 raw=0.1065 final=0.0958
+2026-11-17 07:20:15.628 +02:00 | INFO     | __main__:main:1283 - ENTRY PLAN XAUUSDm | waiting up to 15 min for 3877.3 (now 3878.1, 0.25 ATR pullback)

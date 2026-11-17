@@ -42,6 +42,8 @@ class State:
         self.equity: list[tuple[float, float, float]] = []  # (ts, equity, balance)
         self._load_equity()
         self.narrator = Narrator()
+        self.news = None
+        threading.Thread(target=self._news_loop, daemon=True).start()
         threading.Thread(target=self._sampler, daemon=True).start()
         threading.Thread(target=self._narrate, daemon=True).start()
 
@@ -89,6 +91,36 @@ class State:
                 except Exception:
                     pass
             time.sleep(15)
+
+    def _news_loop(self):
+        time.sleep(8)
+        try:
+            from Python.news_markets import NewsMarkets
+            if self.broker.mt5 is None:
+                return
+            self.news = NewsMarkets(self.broker.mt5, poll_sec=300)
+            self.news.loop()
+        except Exception as exc:
+            print("news loop stopped:", exc)
+
+    def _news_snapshot(self) -> dict:
+        from Python import news_trader as nt
+        try:
+            with open(os.path.join(m.LOG_DIR, "news_state.json"), encoding="utf-8") as f:
+                live = json.load(f)
+        except Exception:
+            live = {"enabled": False, "events": []}
+        pb = nt.load_playbook()
+        book = []
+        for sym, topics in pb.items():
+            for topic, plays in topics.items():
+                for play, rows in plays.items():
+                    st = nt.stats(rows)
+                    book.append({"symbol": sym, "topic": topic, "play": play, **{k: round(v, 3) for k, v in st.items()}})
+        nm = self.news
+        return {"enabled": live.get("enabled"), "plan": live.get("events", []),
+                "recent": nm.recent(30) if nm else [], "upcoming": nm.upcoming() if nm else [],
+                "playbook": book, "errors": (nm.status.get("errors") if nm else [])}
 
     def _narrate(self):
         time.sleep(6)  # let the broker poller fill in first
@@ -147,6 +179,7 @@ class State:
             "trades": self._trades(deals, out_entry),
             "training": self._training(),
             "feed": self.narrator.feed(60),
+            "news": self._news_snapshot(),
             "tip": dict(zip(("term", "text"), wr.GLOSSARY[int(time.time() // 12) % len(wr.GLOSSARY)])),
         }
 

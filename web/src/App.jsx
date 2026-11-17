@@ -5,7 +5,7 @@ import {
 import {
   Activity, ArrowDownRight, ArrowUpRight, Brain, CircleDollarSign, Clock, GraduationCap, Lightbulb, Pause,
   Receipt, ShieldCheck, Target, TrendingUp, Trophy, Wallet, Zap, Sparkles, Cpu, FlaskConical, Database,
-  ArrowLeftRight, Moon,
+  ArrowLeftRight, Moon, Newspaper, CalendarClock,
 } from "lucide-react";
 
 const fmtMoney = (v, sign = false) => {
@@ -387,6 +387,103 @@ function Feed({ items }) {
   );
 }
 
+const NAME = { BTCUSDm: "Bitcoin", XAUUSDm: "Gold" };
+const PHASE = { scheduled: "scheduled", prep: "PREP · range marked, normal trades paused", armed: "ARMED · watching for the sweep",
+  in_trade: "IN TRADE", review: "reviewing result", done: "done" };
+const PLAY = { fade: "Fade the sweep", breakout: "Ride the breakout" };
+const until = (t) => {
+  const s = t - Date.now() / 1000;
+  if (s <= 0) return `${Math.round(-s / 60)} min ago`;
+  return s < 3600 ? `in ${Math.round(s / 60)} min` : `in ${(s / 3600).toFixed(1)} h`;
+};
+
+function News({ news }) {
+  const [tab, setTab] = useState("plan");
+  if (!news) return null;
+  const plan = news.plan || [];
+  return (
+    <div className="card news">
+      <div className="card-head">
+        <div className="card-title"><Newspaper size={16} /> News &amp; markets {news.enabled ? <span className="pill on">news trading on</span> : <span className="pill">off</span>}</div>
+        <div className="tabs">
+          {[["plan", "Next releases"], ["moved", "What moved markets"], ["record", "Track record"]].map(([k, l]) => (
+            <button key={k} className={k === tab ? "active" : ""} onClick={() => setTab(k)}>{l}</button>
+          ))}
+        </div>
+      </div>
+      {tab === "plan" && (
+        <div className="news-list">
+          <div className="muted small">Before each big US release the bot marks the 30-min range (stops pile up just beyond it),
+            pauses its normal trades, then after the release trades the play that has worked before for that market.</div>
+          {!plan.length && <div className="muted small">No high-impact US release in the next 36 h (or the calendar is still loading).</div>}
+          {plan.map((e, i) => (
+            <div key={i} className={`news-item ${e.phase}`}>
+              <CalendarClock size={15} />
+              <div className="feed-body">
+                <div className="feed-head"><b>{NAME[e.sym] || e.sym} · {e.title}</b><span className="muted small">{until(e.t0)}</span></div>
+                <div className="feed-text"><span className="tag">{e.topic}</span> <b>{e.plan ? PLAY[e.plan] : "Stand aside"}</b> — {e.why}</div>
+                <div className="muted small">{PHASE[e.phase] || e.phase}
+                  {e.range && ` · range ${e.range[1].toFixed(2)}–${e.range[0].toFixed(2)}`}
+                  {e.result && ` · paper result: ${Object.entries(e.result).map(([p, r]) => `${p} ${r == null ? "no trigger" : (r >= 0 ? "+" : "") + r + "R"}`).join(", ")}`}</div>
+              </div>
+            </div>
+          ))}
+          {(news.upcoming || []).filter((u) => !plan.some((p) => p.title === u.title)).slice(0, 6).map((u, i) => (
+            <div key={`u${i}`} className="news-item dim">
+              <CalendarClock size={15} />
+              <div className="feed-body">
+                <div className="feed-head"><span>{u.title} <span className="muted small">({u.impact})</span></span><span className="muted small">{until(u.t)}</span></div>
+                <div className="muted small">Watch: {u.watch.join(", ") || "—"} · {u.mechanism}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {tab === "moved" && (
+        <div className="news-list">
+          {!(news.recent || []).length && <div className="muted small">Collecting headlines and measuring reactions (each item is checked 15 min after it lands)…</div>}
+          {(news.recent || []).map((it) => (
+            <div key={it.id} className={`news-item ${it.max_size >= 2 ? "hot" : ""}`}>
+              <Newspaper size={15} />
+              <div className="feed-body">
+                <div className="feed-head"><b>{it.title}</b><span className="muted small">{it.source} · {ago(it.t)}</span></div>
+                <div className="muted small"><span className="tag">{it.topic}</span> {it.mechanism}</div>
+                <div className="chips">
+                  {(it.chips || []).map((c) => (
+                    <span key={c.symbol} className={`delta ${c.m15 >= 0 ? "pos" : "neg"} ${c.size >= 2 ? "big" : ""}`}>
+                      {c.label} {c.m15 >= 0 ? "+" : ""}{c.m15.toFixed(2)}% · {c.size}×
+                    </span>
+                  ))}
+                </div>
+                {it.explain && <div className="feed-text">{it.explain}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {tab === "record" && (
+        <div className="news-list">
+          <div className="muted small">Paper results of both plays at every release (R = multiples of the amount risked, after costs).
+            A play is traded once it has 8+ results averaging at least +0.10R.</div>
+          <table className="tbl">
+            <thead><tr><th>Market</th><th>News type</th><th>Play</th><th>Trades</th><th>Win</th><th>Avg</th><th>Total</th></tr></thead>
+            <tbody>
+              {(news.playbook || []).map((r, i) => (
+                <tr key={i}>
+                  <td>{NAME[r.symbol] || r.symbol}</td><td>{r.topic === "us_release" ? "all US releases" : r.topic}</td>
+                  <td>{PLAY[r.play] || r.play}</td><td>{r.n}/{r.events}</td><td>{Math.round(r.win * 100)}%</td>
+                  <td className={r.avg_r >= 0 ? "pos" : "neg"}>{r.avg_r >= 0 ? "+" : ""}{r.avg_r.toFixed(2)}R</td>
+                  <td className={r.total_r >= 0 ? "pos" : "neg"}>{r.total_r >= 0 ? "+" : ""}{r.total_r.toFixed(1)}R</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Trades({ trades }) {
   return (
     <div className="card trades">
@@ -450,6 +547,7 @@ export default function App() {
         <Feed items={d.feed} />
       </section>
       <section className="bottom2">
+        <News news={d.news} />
         <Trades trades={d.trades} />
       </section>
       <footer className="footer">
