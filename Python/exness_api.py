@@ -682,6 +682,59 @@ class ExnessMT5:
                                balance=bal, equity=eq, margin=used, margin_free=eq - used,
                                profit=eq - bal, currency="USD")
 
+    # ------------------------------------------------------------ ownership
+    # The Exness API has no magic number or comment on positions, so the bot keeps its own list of the
+    # positions its orders created. With hide_foreign on (the trading bot), positions the user opened by
+    # hand are invisible to it: never closed, resized, stacked on or given new stops.
+    hide_foreign = False
+
+    def _own_path(self) -> str:
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(root, ".tmp", f"exness_own_{getattr(self.client, 'account_id', 'x')}.json")
+
+    def _own_load(self) -> set:
+        path = self._own_path()
+        try:
+            mt = os.path.getmtime(path)
+        except OSError:
+            # first run on this account: adopt whatever is open now (nothing is open on a fresh account)
+            ids = {str(p.get("position_id")) for p in ((self._snapshot(0).get("positions")) or [])}
+            self._own_save(ids)
+            return ids
+        cache = getattr(self, "_own_cache", None)
+        if cache and cache[0] == mt:
+            return cache[1]
+        try:
+            with open(path, encoding="utf-8") as f:
+                ids = {str(x) for x in json.load(f)}
+        except Exception:
+            ids = set()
+        self._own_cache = (mt, ids)
+        return ids
+
+    def _own_save(self, ids: set) -> None:
+        path = self._own_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f"{path}.{os.getpid()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(sorted(ids), f)
+        os.replace(tmp, path)
+        self._own_cache = (os.path.getmtime(path), set(ids))
+
+    def _open_ids(self, inst: str) -> set:
+        self._snap_cache = None
+        return {str(p.get("position_id")) for p in (self._snapshot(0).get("positions") or [])
+                if str(p.get("instrument")) == inst and str(p.get("state", "open")) == "open"}
+
+    def _claim_new(self, inst: str, before: set) -> None:
+        for _ in range(12):
+            new = self._open_ids(inst) - before
+            if new:
+                open_now = {str(p.get("position_id")) for p in (self._snapshot(0).get("positions") or [])}
+                self._own_save((self._own_load() & open_now) | new)
+                return
+            time.sleep(0.25)
+
     def positions_get(self, symbol=None, **kwargs):
         try:
             snap = self._snapshot()
@@ -700,6 +753,13 @@ class ExnessMT5:
             sym = reverse.get(inst, inst)
             if symbol is not None and str(symbol) not in (sym, inst):
                 continue
+            pid = str(p.get("position_id"))
+            try:
+                own = pid in self._own_load()
+            except Exception:
+                own = True
+            if not own and self.hide_foreign:
+                continue
             is_buy = str(p.get("direction")) == "buy"
             vol, open_px = _f(p.get("volume")), _f(p.get("open_price"))
             o = sltp.get(str(p.get("position_id"))) or {}
@@ -716,7 +776,8 @@ class ExnessMT5:
                 volume=vol, type=self.ORDER_TYPE_BUY if is_buy else self.ORDER_TYPE_SELL,
                 price_open=open_px, sl=_f(o.get("stop_loss_price")), tp=_f(o.get("take_profit_price")),
                 profit=profit + _f(p.get("swap")) - abs(_f(p.get("commission"))), swap=_f(p.get("swap")),
-                magic=None, comment="", time=int(_to_dt(p.get("create_time")).timestamp()) if p.get("create_time") else 0,
+                magic=None if own else -1, comment="" if own else "manual",
+                time=int(_to_dt(p.get("create_time")).timestamp()) if p.get("create_time") else 0,
                 _sltp_order_id=o.get("order_id"),
             ))
         return tuple(out)
@@ -804,7 +865,12 @@ class ExnessMT5:
                     body["stop_loss_price"] = sl
                 if tp:
                     body["take_profit_price"] = tp
+                before = self._open_ids(inst)
                 ack = self._call(self.client.open_position, body, key)
+                ok_, rc_, msg_ = self._await_operation(ack or {})
+                if ok_:
+                    self._claim_new(inst, before)
+                return self._result(rc_, req, msg_, order=(ack or {}).get("operation_id") or 0)
             elif action == self.TRADE_ACTION_SLTP:
                 pos_id = str(req.get("position"))
                 existing = next((p for p in (self.positions_get() or []) if str(p.ticket) == pos_id), None)

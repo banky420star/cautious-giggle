@@ -4,7 +4,7 @@
   "symbols": {
     "XAUUSDm": {
       "champion": null,
-      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_100243",
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_124025",
       "canary_policy": {
         "min_trades": 30,
         "min_realized_pnl": 0.0,
@@ -15,8 +15,8 @@
         "trades": 0,
         "realized_pnl": 0.0,
         "drawdown": 0.0,
-        "runtime_minutes": 9.298324584960938e-06,
-        "checked_at": "2026-11-17T10:02:23.598194+00:00",
+        "runtime_minutes": 4.434585571289063e-06,
+        "checked_at": "2026-11-17T10:43:21.152725+00:00",
         "passed": false,
         "reason": "trades 0 < min_trades 30"
       },
@@ -24,7 +24,7 @@
     },
     "BTCUSDm": {
       "champion": null,
-      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_090107",
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_121708",
       "canary_policy": {
         "min_trades": 60,
         "min_realized_pnl": 0.0,
@@ -35,8 +35,8 @@
         "trades": 0,
         "realized_pnl": 0.0,
         "drawdown": 0.0,
-        "runtime_minutes": 5.133946736653646e-06,
-        "checked_at": "2026-11-17T10:02:23.560580+00:00",
+        "runtime_minutes": 4.450480143229167e-06,
+        "checked_at": "2026-11-17T10:43:21.127822+00:00",
         "passed": false,
         "reason": "trades 0 < min_trades 60"
       },
@@ -47,8 +47,8 @@
   "canary_state": {},
   "champion_history": [],
   "registry_metadata": {
-    "updated_at": "2026-11-17T10:02:23.598244+00:00",
-    "git_commit": "6d37dae35717fc739b894c9e8d6937bdea411b4d",
+    "updated_at": "2026-11-17T10:43:21.152752+00:00",
+    "git_commit": "a19c5cfb8902cea44f448caeca9449f52aeef740",
     "champion_metadata": {},
     "canary_metadata": {}
   }

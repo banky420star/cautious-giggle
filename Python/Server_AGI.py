@@ -901,6 +901,9 @@ def main(live=False):
         pass
     except Exception as exc:
         logger.warning(f"graduation state unreadable: {exc}")
+    if hasattr(mt5, "hide_foreign"):
+        mt5.hide_foreign = True  # trades opened by hand in Exness are the user's: the bot never touches them
+        logger.info("manual trades are left alone: the bot only manages positions its own orders opened")
     _dl = ((cfg.get("trading", {}) or {}).get("demo_learning", {}) or {})
     if bool(_dl.get("enabled")) and bool(_dl.get("trade_all_markets")) and demo_exploration.demo_rules_apply(mt5, cfg):
         extra_ = [s_ for s_ in (((cfg.get("trading") or {}).get("news_trading") or {}).get("symbols") or []) if s_ not in symbols]
