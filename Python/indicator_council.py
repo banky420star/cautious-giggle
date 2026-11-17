@@ -148,3 +148,53 @@ def council_vote(latest_votes: dict, assessments: dict) -> dict:
             "up": sum(1 for v in latest_votes.values() if v > 0.05),
             "down": sum(1 for v in latest_votes.values() if v < -0.05),
             "flat": sum(1 for v in latest_votes.values() if abs(v) <= 0.05)}
+
+
+# --------------------------------------------------------------------------- multi-timeframe
+TIMEFRAMES = {"M5": 5, "M15": 15, "H1": 60, "H4": 240}
+
+
+def resample_ohlc(m5: pd.DataFrame, minutes: int) -> pd.DataFrame:
+    """M5 -> higher timeframe, bars labelled by their open time."""
+    agg = {"open": "first", "high": "max", "low": "min", "close": "last"}
+    out = m5[["open", "high", "low", "close"]].resample(f"{minutes}min", label="left", closed="left").agg(agg)
+    return out.dropna()
+
+
+def align_to_m5(htf_votes: pd.DataFrame, minutes: int, m5_index: pd.DatetimeIndex) -> pd.DataFrame:
+    """Make a higher-timeframe vote visible only from the M5 bar that closes with the HTF bar.
+
+    M5 bars are labelled by open time, so the HTF bar opened at T (closing at T+minutes) becomes
+    usable on the M5 bar opened at T+minutes-5. Earlier M5 bars see the previous HTF bar: no lookahead.
+    """
+    shifted = htf_votes.copy()
+    shifted.index = shifted.index + pd.Timedelta(minutes=minutes - 5)
+    shifted = shifted[~shifted.index.duplicated(keep="last")].sort_index()
+    return shifted.reindex(m5_index, method="ffill").fillna(0.0)
+
+
+def votes_mtf(m5: pd.DataFrame, htf: dict | None = None) -> pd.DataFrame:
+    """Votes for every strategy on every timeframe, aligned to the M5 index.
+
+    Columns: '<strategy>' for M5 and '<strategy>@<TF>' for higher timeframes. `htf` may supply
+    broker bars per timeframe ({'H1': df, ...}, closed bars, indexed by open time); missing
+    timeframes are resampled from the M5 frame.
+    """
+    frames = [votes(m5)]
+    for tf, minutes in TIMEFRAMES.items():
+        if minutes == 5:
+            continue
+        src = (htf or {}).get(tf)
+        if src is None or len(src) < 60:
+            src = resample_ohlc(m5, minutes)
+        if len(src) < 30:
+            continue
+        v = votes(src)
+        v.columns = [f"{c}@{tf}" for c in v.columns]
+        frames.append(align_to_m5(v, minutes, m5.index))
+    return pd.concat(frames, axis=1)
+
+
+def describe(key: str) -> str:
+    name, _, tf = key.partition("@")
+    return f"{STRATEGIES.get(name, name)} ({tf or 'M5'})"

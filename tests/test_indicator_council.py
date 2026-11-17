@@ -35,3 +35,15 @@ def test_council_ignores_strategies_that_dont_work():
 def test_context_series_buckets():
     c = context_series(_df())
     assert c.iloc[-1].count("|") == 2
+
+
+def test_mtf_votes_have_no_lookahead():
+    from Python.indicator_council import votes_mtf
+    rng = np.random.default_rng(3)
+    n = 4000
+    c = 100 * np.exp(np.cumsum(rng.normal(0, 0.002, n)))
+    idx = pd.date_range("2026-01-05", periods=n, freq="5min", tz="UTC")
+    df = pd.DataFrame({"open": c, "high": c * 1.001, "low": c * 0.999, "close": c}, index=idx)
+    full, cut = votes_mtf(df), votes_mtf(df.iloc[:3000])
+    assert full.shape[1] == 48
+    assert float((full.iloc[:3000] - cut).abs().max().max()) == 0.0

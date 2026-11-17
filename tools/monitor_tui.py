@@ -499,6 +499,196 @@ def explain(prog: dict, tr: dict, reg: dict, symbols: list[str], alive: bool, lo
     return out
 
 
+
+# --------------------------------------------------------------------------- war-room widgets
+SESSIONS = [("SYD", 21, 6), ("TYO", 0, 9), ("LDN", 7, 16), ("NYC", 12, 21)]
+
+
+def _session_open(h0: int, h1: int, now: dt.datetime) -> bool:
+    h = now.hour + now.minute / 60
+    return (h0 <= h < h1) if h0 < h1 else (h >= h0 or h < h1)
+
+
+def war_header(frame: int, alive: bool, engaged: bool, halted: bool, broker, symbols, logs) -> Group:
+    now = dt.datetime.now(dt.timezone.utc)
+    title = "◢◤ CAUTIOUS-GIGGLE  ·  TRADING WAR ROOM ◥◣"
+    t = Text("  ")
+    k = (frame // 1) % (len(title) + 12)
+    for i, ch in enumerate(title):
+        d = abs(i - k)
+        t.append(ch, style="bold bright_white" if d == 0 else ("bold bright_cyan" if d < 3 else "bold cyan"))
+    if not alive:
+        badge, bstyle = " OFFLINE ", "bold white on red"
+    elif halted:
+        badge, bstyle = " HALTED ", "bold black on yellow"
+    elif engaged:
+        badge, bstyle = " ENGAGED ", ("bold black on bright_green" if (frame // 4) % 2 == 0 else "bold black on green")
+    else:
+        badge, bstyle = " ARMED · SCANNING ", "bold black on cyan"
+    t.append("    ")
+    t.append(badge, style=bstyle)
+    t.append("   " + ("♥" if (frame // 2) % 2 == 0 and alive else "♡"), style="bold red")
+    t.append(f"   UTC {now:%H:%M:%S}", style="bold")
+    t.append(f"   LOCAL {dt.datetime.now():%H:%M:%S}", style="dim")
+    weekend = now.weekday() == 5 or (now.weekday() == 6 and now.hour < 21) or (now.weekday() == 4 and now.hour >= 21)
+    t.append("   SESSIONS ", style="dim")
+    for name, h0, h1 in SESSIONS:
+        op = _session_open(h0, h1, now) and not weekend
+        t.append(f"{'●' if op else '○'}{name} ", style="bold green" if op else "grey42")
+
+    tk = Text("  ")
+    for s in symbols:
+        tick = broker.ticks.get(s)
+        if not tick:
+            tk.append(f"{s} …   ", style="dim")
+            continue
+        prev = broker.prev_bid.get(s, tick.bid)
+        arrow = "▲" if tick.bid > prev else ("▼" if tick.bid < prev else "◆")
+        fresh = time.time() - broker.flash.get(s, 0) < 1.5
+        col = "green" if tick.bid >= prev else "red"
+        style = (f"bold black on {col}" if fresh and frame % 2 == 0 else f"bold {col}") if tick.bid != prev else "bold yellow"
+        tk.append(f"{_nm(s).upper():<8}", style="bold white")
+        tk.append(f" {tick.bid:,.{price_digits(tick.bid)}f} {arrow} ", style=style)
+        tk.append(f" spr {(tick.ask - tick.bid):.{price_digits(tick.bid)}f}    ", style="dim")
+    left = 300 - (time.time() % 300)
+    w = 34
+    full = int((1 - left / 300) * w)
+    tk.append("NEXT DECISION ", style="dim")
+    tk.append(f"{int(left // 60)}:{int(left % 60):02d} ", style="bold cyan" if left > 10 else "bold black on cyan")
+    tk.append("▰" * full, style="cyan")
+    tk.append("▱" * (w - full), style="grey35")
+    return Group(t, tk)
+
+
+def radar(frame: int, payload: dict, width: int = 30, height: int = 9) -> Text:
+    """Braille radar: rings = timeframes (inner M5 -> outer H4), angle = indicator; blips glow
+    when the sweep passes. Green = votes up, red = down, grey = ignored (no record here)."""
+    from Python.indicator_council import STRATEGIES as IND, TIMEFRAMES
+
+    cols, rows = width * 2, height * 4
+    cx, cy = (cols - 1) / 2, (rows - 1) / 2
+    R = min(cx, cy * 1.0)
+    sweep = (frame * 0.14) % (2 * math.pi)
+    grid = [[0] * width for _ in range(height)]
+    style = [[None] * width for _ in range(height)]
+    prio = [[0] * width for _ in range(height)]
+    dot = [[0x01, 0x08], [0x02, 0x10], [0x04, 0x20], [0x40, 0x80]]
+
+    def put(x, y, st, pr):
+        xi, yi = int(round(x)), int(round(y))
+        if 0 <= xi < cols and 0 <= yi < rows:
+            r, c = yi // 4, xi // 2
+            grid[r][c] |= dot[yi % 4][xi % 2]
+            if pr >= prio[r][c]:
+                style[r][c], prio[r][c] = st, pr
+
+    for frac in (0.25, 0.5, 0.75, 1.0):
+        n = int(2 * math.pi * R * frac)
+        for i in range(0, max(8, n), 2):
+            a = 2 * math.pi * i / max(8, n)
+            put(cx + R * frac * math.cos(a), cy + R * frac * math.sin(a), "grey30", 1)
+    for i in range(int(R) + 1):  # sweep beam + fading trail
+        for lag, st in ((0.0, "bold bright_green"), (0.18, "green"), (0.36, "dark_green")):
+            a = sweep - lag
+            put(cx + i * math.cos(a), cy + i * math.sin(a), st, 2)
+    votes_ = (payload or {}).get("votes") or {}
+    assess = (payload or {}).get("assess") or {}
+    names = list(IND)
+    for ti, tf in enumerate(TIMEFRAMES):
+        rr = R * (0.25 + 0.25 * ti) - 0.8
+        for ii, name in enumerate(names):
+            key = name if tf == "M5" else f"{name}@{tf}"
+            v = votes_.get(key)
+            if v is None or abs(v) <= 0.05:
+                continue
+            a = 2 * math.pi * ii / len(names)
+            behind = (sweep - a) % (2 * math.pi)
+            hot = behind < 0.9
+            ignored = (assess.get(key) or {}).get("verdict") == "doesn't work"
+            col = "grey50" if ignored else ("bright_green" if v > 0 else "bright_red")
+            st = ("bold " + col) if hot else col.replace("bright_", "")
+            x, y = cx + rr * math.cos(a), cy + rr * math.sin(a)
+            for dx, dy in ((0, 0), (1, 0), (0, 1), (1, 1)):
+                put(x + dx, y + dy, st, 3)
+    out = Text()
+    for r in range(height):
+        for c in range(width):
+            out.append(chr(0x2800 + grid[r][c]) if grid[r][c] else " ", style=style[r][c] or "")
+        out.append("\n")
+    return out
+
+
+def gauge(value: float, threshold: float, width: int = 44) -> Text:
+    """Decision needle on a -1..+1 scale with the trade thresholds marked."""
+    v = max(-1.0, min(1.0, float(value or 0.0)))
+    pos = int(round((v + 1) / 2 * (width - 1)))
+    mid = (width - 1) // 2
+    thr = [int(round((x + 1) / 2 * (width - 1))) for x in (-threshold, threshold)]
+    out = Text()
+    for i in range(width):
+        if i == pos:
+            out.append("▼" if True else "", style="bold bright_white")
+        elif i in thr:
+            out.append("┃", style="bold yellow")
+        elif i == mid:
+            out.append("┼", style="grey50")
+        elif (mid < i < pos) or (pos < i < mid):
+            strong = abs(v) >= threshold
+            out.append("█", style=("bold green" if v > 0 else "bold red") if strong else ("green" if v > 0 else "red"))
+        else:
+            out.append("─", style="grey30")
+    return out
+
+
+def council_grid(payloads: dict, symbols: list[str]) -> Table:
+    from Python.indicator_council import STRATEGIES as IND, TIMEFRAMES
+
+    tfs = list(TIMEFRAMES)
+    t = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 0), show_edge=False)
+    t.add_column("indicator", no_wrap=True, overflow="ellipsis", ratio=4)
+    for s in symbols:
+        for tf in tfs:
+            t.add_column(f"{_nm(s)[:3].upper()}\n{tf}" if tf == "M5" else f"\n{tf}", justify="center", no_wrap=True, ratio=1)
+    for name, desc in IND.items():
+        row = [Text(desc[:26])]
+        for s in symbols:
+            p = payloads.get(s) or {}
+            for tf in tfs:
+                key = name if tf == "M5" else f"{name}@{tf}"
+                v = (p.get("votes") or {}).get(key)
+                a = (p.get("assess") or {}).get(key) or {}
+                if v is None:
+                    row.append(Text("··", style="grey30"))
+                    continue
+                verdict = a.get("verdict")
+                if verdict == "doesn't work":
+                    row.append(Text("╳╳", style="grey42"))
+                elif abs(v) <= 0.05:
+                    row.append(Text("──", style="grey35"))
+                else:
+                    strong = abs(v) > 0.5
+                    col = "green" if v > 0 else "red"
+                    st = f"bold bright_{col}" if (strong and verdict == "works") else (f"bold {col}" if strong else col)
+                    row.append(Text("██" if strong else "▄▄", style=st))
+        t.add_row(*row)
+    tot = [Text("COUNCIL VOTE", style="bold")]
+    for s in symbols:
+        p = payloads.get(s) or {}
+        tv = float(p.get("target", 0) or 0) if p else None
+        cell = Text(("—" if tv is None else f"{'▲' if tv > 0.05 else ('▼' if tv < -0.05 else '◆')}{tv:+.2f}"),
+                    style="bold black on green" if (tv or 0) > 0.3 else ("bold white on red" if (tv or 0) < -0.3 else "bold"))
+        tot += [cell, Text(""), Text(""), Text("")]
+    t.add_row(*tot)
+    return t
+
+
+def _threshold(cfg: dict, symbol: str, sg: dict) -> float:
+    for k in ("min_trade_threshold", "trade_threshold", "threshold"):
+        if sg.get(k) is not None:
+            return float(sg[k])
+    return {"BTC": 0.18, "XAU": 0.12}.get(symbol[:3], 0.15)
+
+
 def memory_rows(symbol: str):
     try:
         from Python.model_memory import ModelMemory
@@ -518,43 +708,14 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     alive, status = bot_status()
     risk = cfg.get("risk", {}) or {}
 
-    # ---- header + ticker
-    beat = HEART[(frame // 2) % 4] if alive else "✖"
-    head = Text()
-    head.append(f" {beat} ", style="bold red")
-    head.append(f"BOT {status} ", style="bold green" if alive else "bold red")
-    head.append(f" {spin} ", style="cyan")
-    head.append(f"backend {broker.backend} · acct {os.environ.get('EXNESS_ACCOUNT_ID', '-')} · last loop "
-                f"{age(logs.last_snapshot and logs.last_snapshot.get('ts'))} ago", style="dim")
-    head.append("   " + dt.datetime.now().strftime("%H:%M:%S"), style="bold")
-    if broker.err:
-        head.append(f"   BROKER: {broker.err}", style="red")
-
-    ticker = Text()
-    for s in symbols:
-        t = broker.ticks.get(s)
-        if not t:
-            ticker.append(f"  {s} …   ", style="dim")
-            continue
-        prev = broker.prev_bid.get(s, t.bid)
-        up = t.bid >= prev
-        arrow = "▲" if t.bid > prev else ("▼" if t.bid < prev else "•")
-        fresh = time.time() - broker.flash.get(s, 0) < 1.5
-        col = "green" if up else "red"
-        style = (f"bold black on {col}" if fresh and frame % 2 == 0 else f"bold {col}") if t.bid != prev else "bold yellow"
-        ticker.append(f"  {s} ", style="bold white")
-        ticker.append(f" {t.bid:,.{price_digits(t.bid)}f} {arrow} ", style=style)
-        ticker.append(f" spr {(t.ask - t.bid):.{price_digits(t.bid)}f}   ", style="dim")
-    now_s = time.time()
-    left = 300 - (now_s % 300)
-    frac = 1 - left / 300
-    w = 30
-    ticker.append("  next M5 decision ", style="dim")
-    ticker.append(f"{int(left // 60)}:{int(left % 60):02d} ", style="bold cyan")
-    full = int(frac * w)
-    ticker.append("━" * full, style="cyan")
-    ticker.append("╸" if full < w else "", style="bold white")
-    ticker.append("─" * max(0, w - full - 1), style="grey30")
+    # ---- header
+    halted = False
+    for x in symbols:
+        blk, sgl = logs.last_block.get(x), logs.last_signal.get(x)
+        if blk and str((blk.get("payload") or {}).get("reason", "")).startswith("halt") and \
+                (not sgl or blk.get("ts", "") >= sgl.get("ts", "")):
+            halted = True
+    header = war_header(frame, alive, bool(broker.positions), halted, broker, symbols, logs)
 
     # ---- trade flash
     banner = Text(" ", style="dim")
@@ -573,10 +734,11 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
                               style=style, justify="center")
 
     # ---- charts
-    chart_w = max(20, (width - 10) // max(1, len(symbols)) - 14)
+    chart_w = max(20, int((width - 10) * 3 / (3 * len(symbols) + 2)) - 14)
     charts = Table.grid(expand=True)
     for _ in symbols:
-        charts.add_column(ratio=1)
+        charts.add_column(ratio=3)
+    charts.add_column(ratio=2)
     cells = []
     for s in symbols:
         closes = list(broker.bars.get(s, []))
@@ -603,6 +765,11 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
         color = "green" if len(closes) > 1 and closes[-1] >= closes[0] else "red"
         cells.append(Panel(braille_chart(closes, chart_w, 5, marks, color=color), title=title,
                            subtitle=Text("M5 · last 150 bars + live", style="dim"), box=box.ROUNDED))
+    radar_sym = symbols[(frame // 40) % len(symbols)]
+    rp = (logs.last_council.get(radar_sym) or {}).get("payload") or {}
+    cells.append(Panel(Align.center(radar(frame, rp, 26, 5)), title=Text(f"◎ RADAR · {_nm(radar_sym).upper()}", style="bold green"),
+                       subtitle=Text("rings M5→H4 · blip = indicator vote", style="dim"), box=box.ROUNDED,
+                       border_style="green"))
     charts.add_row(*cells)
 
     # ---- account
@@ -647,44 +814,27 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
                     signed(sg.get("exposure")) if sg else Text("-"), sup,
                     age((logs.last_signal.get(s) or {}).get("ts")))
 
-    # ---- indicator council
-    from Python.indicator_council import STRATEGIES as IND
-    ct = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 1))
-    ct.add_column("indicator", no_wrap=True, ratio=3)
+    gauges = Table.grid(expand=True, padding=(0, 1))
+    gauges.add_column(no_wrap=True)
+    gauges.add_column(no_wrap=True)
+    gauges.add_column(no_wrap=True)
     for s in symbols:
-        ct.add_column(_nm(s), justify="center", no_wrap=True, ratio=2)
-    cvs = {s: ((logs.last_council.get(s) or {}).get("payload") or {}) for s in symbols}
-    for k, desc in IND.items():
-        row = [Text(desc, style="")]
-        for s in symbols:
-            p = cvs[s]
-            v = (p.get("votes") or {}).get(k)
-            a = (p.get("assess") or {}).get(k) or {}
-            if v is None:
-                row.append(Text("·", style="dim"))
-                continue
-            arrow = "▲" if v > 0.05 else ("▼" if v < -0.05 else "─")
-            mult = float(a.get("mult", 1.0))
-            verdict = a.get("verdict", "")
-            vstyle = "green" if v > 0.05 else ("red" if v < -0.05 else "dim")
-            cell = Text(f"{arrow} {v:+.2f} ", style=vstyle)
-            cell.append(f"×{mult:.2f}", style="bold green" if verdict == "works" else
-                        ("strike dim red" if verdict == "doesn't work" else "dim"))
-            row.append(cell)
-        ct.add_row(*row)
-    tot = [Text("COUNCIL VOTE", style="bold")]
-    for s in symbols:
-        p = cvs[s]
-        if p:
-            t = float(p.get("target", 0))
-            tot.append(Text(f"{'BUY' if t > 0.05 else ('SELL' if t < -0.05 else 'NONE')} {t:+.2f}",
-                            style="bold black on green" if t > 0.3 else ("bold white on red" if t < -0.3 else "bold")))
-        else:
-            tot.append(Text("waiting for next bar", style="dim"))
-    ct.add_row(*tot)
-    council_panel = Panel(Group(ct, Text("▲/▼ vote  ×weight from memory · green = has worked here · struck = ignored "
-                                         "(hasn't worked in this market)", style="dim")),
-                          title="Indicator council (12 classic indicators, weighted by track record)", box=box.ROUNDED)
+        sg = (logs.last_signal.get(s) or {}).get("payload") or {}
+        thr = _threshold(cfg, s, sg)
+        val = float(sg.get("exposure", 0) or 0) if sg else 0.0
+        rawv = float(sg.get("raw_target", 0) or 0) if sg else 0.0
+        verdict = ("GO LONG" if val > 0 else "GO SHORT") if abs(val) >= thr and val != 0 else "HOLD"
+        gauges.add_row(Text(f"{_nm(s).upper():<8}", style="bold"), gauge(rawv * 1.0, thr, 46),
+                       Text(f" {rawv:+.2f} / need ±{thr:.2f}  {verdict}",
+                            style="bold green" if verdict == "GO LONG" else ("bold red" if verdict == "GO SHORT" else "dim")))
+
+    # ---- indicator council (multi-timeframe heat grid)
+    cvs = {x: ((logs.last_council.get(x) or {}).get("payload") or {}) for x in symbols}
+    council_panel = Panel(Group(council_grid(cvs, symbols),
+                                Text("██ strong · ▄▄ weak · green up / red down · bright = proven here · ╳╳ ignored (poor record) · ── no view",
+                                     style="dim", overflow="ellipsis", no_wrap=True)),
+                          title="Indicator council · 12 indicators × 4 timeframes, weighted by track record",
+                          box=box.ROUNDED, border_style="cyan")
 
     # ---- model memory heatmap
     if time.time() - _mem_cache["t"] > 10:
@@ -827,16 +977,19 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
 
     # ---- layout
     layout = Layout()
-    top = [Layout(Panel(Group(head, ticker), box=box.HEAVY, border_style="green" if alive else "red"), size=4),
+    pulse = ["cyan", "bright_cyan", "bright_white", "bright_cyan", "cyan", "dark_cyan"][frame % 6]
+    top = [Layout(Panel(header, box=box.HEAVY, border_style=(pulse if alive else "red")), size=4),
            Layout(banner, size=1)]
     layout.split_column(
         *top,
         Layout(charts, size=9),
-        Layout(name="mid", size=10),
+        Layout(name="mid", size=12),
         Layout(name="low"),
     )
-    layout["mid"].split_row(Layout(acct_panel, ratio=2), Layout(Panel(dec, title="Latest decision per symbol",
-                                                                      box=box.ROUNDED), ratio=5))
+    layout["mid"].split_row(Layout(acct_panel, ratio=2),
+                            Layout(Panel(Group(gauges, dec), title=Text("◆ DECISION ENGINE · blend needle vs trade threshold ┃",
+                                                                        style="bold"),
+                                         box=box.ROUNDED, border_style="magenta"), ratio=5))
     layout["low"].split_row(Layout(name="left", ratio=4), Layout(name="right", ratio=5))
     layout["left"].split_column(Layout(explain_panel, ratio=1), Layout(council_panel, size=19))
     layout["right"].split_column(Layout(models_panel, size=21),

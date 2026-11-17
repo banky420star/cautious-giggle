@@ -11,7 +11,7 @@ import pandas as pd
 from loguru import logger
 
 from Python.model_memory import ModelMemory, market_context
-from Python.indicator_council import STRATEGIES, council_vote, votes as council_votes
+from Python.indicator_council import council_vote, votes_mtf
 from Python import demo_exploration
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
@@ -458,6 +458,33 @@ def _risk_scalar(agi_meta: dict | None) -> float:
 
 class _CouncilOff(Exception):
     pass
+
+
+_HTF_CACHE: dict = {}
+
+
+def _htf_frames(symbol: str) -> dict:
+    """Closed M15/H1/H4 bars from the broker (cached until a new bar can exist)."""
+    out = {}
+    for tf_name, minutes, const in (("M15", 15, "TIMEFRAME_M15"), ("H1", 60, "TIMEFRAME_H1"), ("H4", 240, "TIMEFRAME_H4")):
+        key = (symbol, tf_name)
+        bucket = int(time.time() // (minutes * 60))
+        hit = _HTF_CACHE.get(key)
+        if hit and hit[0] == bucket:
+            out[tf_name] = hit[1]
+            continue
+        try:
+            rates = mt5.copy_rates_from_pos(symbol, getattr(mt5, const), 1, 400)
+            if rates is None or len(rates) < 60:
+                continue
+            df = pd.DataFrame(rates)
+            df.index = pd.to_datetime(df["time"], unit="s", utc=True)
+            df = df[["open", "high", "low", "close"]].astype(float)
+            _HTF_CACHE[key] = (bucket, df)
+            out[tf_name] = df
+        except Exception:
+            continue
+    return out
 
 
 def _blend_symbol_decision(
@@ -1004,12 +1031,12 @@ def main(live=False):
                 try:
                     if not council_allowed:
                         raise _CouncilOff()
-                    vt = council_votes(df.tail(1500))
-                    ind_votes = {k: float(vt[k].iloc[-1]) for k in STRATEGIES}
-                    ind_assess = model_memory.multipliers(symbol, ctx["key"], names=[f"ind:{k}" for k in STRATEGIES])
-                    council_meta = council_vote(ind_votes, {k: ind_assess.get(f"ind:{k}") for k in STRATEGIES})
+                    vt = votes_mtf(df.tail(1500), _htf_frames(symbol))
+                    ind_votes = {k: float(vt[k].iloc[-1]) for k in vt.columns}
+                    ind_assess = model_memory.multipliers(symbol, ctx["key"], names=[f"ind:{k}" for k in vt.columns])
+                    council_meta = council_vote(ind_votes, {k: ind_assess.get(f"ind:{k}") for k in vt.columns})
                     council_meta["votes"] = ind_votes
-                    council_meta["assess"] = {k: ind_assess.get(f"ind:{k}") for k in STRATEGIES}
+                    council_meta["assess"] = {k: ind_assess.get(f"ind:{k}") for k in vt.columns}
                 except _CouncilOff:
                     pass
                 except Exception as e:
