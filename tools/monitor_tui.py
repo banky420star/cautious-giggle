@@ -408,6 +408,10 @@ def explain(prog: dict, tr: dict, reg: dict, symbols: list[str], alive: bool, lo
             h = hist[-1]
             va = float(h.get("val_acc", 0))
             say(f"On bars it has never seen it got {va:.1f}% right after the last pass.")
+            if base is not None and va < base:
+                say("That is below the yardstick on purpose: it is trained to call the rarer UP/DOWN moves instead of "
+                    "always saying FLAT, so raw accuracy undersells it. Watch whether val_loss keeps falling; the "
+                    "real verdict is the trading exam after training.", "dim")
             if len(hist) >= 2:
                 prev = hist[-2]
                 tl, vl = float(h["loss"]) - float(prev["loss"]), float(h["val_loss"]) - float(prev["val_loss"])
