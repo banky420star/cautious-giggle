@@ -148,6 +148,10 @@ def restart_bot():
 def plan(st: dict, cfg: dict) -> tuple[list[str], list[str]]:
     """(first-time trainees, retrain trainees) for the next cycle."""
     first, again = [], []
+    for s in cfg.get("live", []):
+        v = st["symbols"].get(s) or {}
+        if v.get("status") == "retrain_queued":
+            again.append(s)
     for s in cfg["candidates"]:
         v = st["symbols"].setdefault(s, {"status": "queued", "attempts": 0, "history": []})
         if v["status"] in ("queued",):
@@ -200,9 +204,10 @@ def run():
         if not first and not again:
             time.sleep(1800)
             continue
-        groups = [(first, False)] if first else []
-        if again:
-            groups.append((again, True))
+        # markets that already trade go first, then the newcomers
+        groups = [(again, True)] if again else []
+        if first:
+            groups.append((first, False))
         newly = []
         for syms, retrain in groups:
             # each group trains with the step budget of its most-tried member

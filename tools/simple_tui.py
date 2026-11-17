@@ -72,7 +72,9 @@ def news_panel(frame) -> Panel:
             half = "half size" in w or "no history" in w
             import re as _re
             mm = _re.search(r"averaged ([+-][0-9.]+R) per trade \(([0-9]+)% wins, ([0-9]+) trades", w)
-            ln.append(f" {mm.group(1)} · {mm.group(2)}% wins · {mm.group(3)} past" if mm else " no track record", style="grey70")
+            few = _re.search(r"only ([0-9]+) past releases", w)
+            ln.append(f" {mm.group(1)} · {mm.group(2)}% wins · {mm.group(3)} past" if mm else
+                      (f" only {few.group(1)} past releases" if few else " no track record"), style="grey70")
             if half:
                 ln.append("  half size", style="yellow")
             if e.get("result"):
@@ -212,7 +214,7 @@ def symbol_card(frame, s, broker, logs, width, compact=False, info=None) -> Pane
         title.append(f"  ${m._px(tick.bid)} {arrow} ", style=(f"bold black on {col}" if fresh else f"bold {col}"))
         if info.get("chg_pct") is not None:
             c = info["chg_pct"]
-            title.append(f"{c:+.2f}% 24h ", style="green" if c >= 0 else "red")
+            title.append(f"(24h {c:+.2f}%) ", style="green" if c >= 0 else "red")
 
     rows = []
     # 1. status, big and plain
@@ -240,8 +242,8 @@ def symbol_card(frame, s, broker, logs, width, compact=False, info=None) -> Pane
             t.append(gr.get("label", "") + (f" ({gr.get('attempts', 0)}/3)" if gr.get("status") in ("training", "exam_failed") else ""),
                      style="bold magenta" if gr.get("status") == "training" else "magenta")
         rows.append(t)
-        rows.append(Text(str(gr.get("why") or "Trades all day once it passes its exam."), style="grey70", overflow="ellipsis",
-                         no_wrap=compact))
+        w = str(gr.get("why") or "trades all day once it passes its exam.")
+        rows.append(Text(w[:1].upper() + w[1:], style="grey70", overflow="ellipsis", no_wrap=compact))
         sg = {}
     n = info.get("news")
     if n:
@@ -361,7 +363,7 @@ def improvement_panel(frame, broker, logs, symbols, cfg) -> Panel:
     tr = m.training_state()
     prog = m.read_progress()
     stages = wr.cycle_stages(wr.stage_lines(m.CYCLE_LOG), wr.cycle_symbols(symbols))
-    cur = next((r for r in stages if r["status"] == "running"), None)
+    cur = next((r for r in stages if r["status"] == "running"), None) if tr.get("running") else None
     done = sum(1 for r in stages if r["status"] in ("done", "passed"))
     lines.append(Text("BRAIN TRAINING", style="bold cyan"))
     if cur:
@@ -382,7 +384,7 @@ def improvement_panel(frame, broker, logs, symbols, cfg) -> Panel:
     elif tr.get("running"):
         lines.append(Text(" Preparing data…", style="dim"))
     else:
-        lines.append(Text(" No training running. Type 'exness train' to start a learning cycle.", style="dim"))
+        lines.append(Text(" " + m.training_note(), style="dim"))
     return Panel(Group(*lines), title=Text(" 📈 IS IT GETTING BETTER? ", style="bold"), title_align="left",
                  box=box.ROUNDED, border_style="cyan", padding=(0, 1))
 

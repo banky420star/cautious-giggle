@@ -187,9 +187,11 @@ def choose(pb: dict, sym: str, topic: str) -> dict:
                        why=f"no play has an edge on {label} yet (best: {best} {s['avg_r']:+.2f}R over {s['n']}"
                            + (f"; {others}" if others else "") + ") — standing aside, only protecting")
         return out
+    n_have = max((stats(r)["events"] for r in ((pb.get(sym) or {}).get(GENERIC) or {}).values()), default=0)
     if ALWAYS_TRADE:
         out.update(play="fade", proven=False,
-                   why="no history for this market yet: fading the sweep at half size (the most common release pattern)")
+                   why=(f"only {n_have} past releases for this market (needs {MIN_SAMPLES}): " if n_have else
+                        "no history for this market yet: ") + "fading the sweep at half size (the most common release pattern)")
     else:
         out["why"] = "not enough past events yet — standing aside, only protecting"
     return out
@@ -234,8 +236,7 @@ class NewsTrader:
                     continue
                 eid = f"{sym}|{int(e['t'])}"   # releases at the same minute are one event
                 short = e["title"].replace("USD ", "")
-                if eid in self.events and short not in self.events[eid]["title"].split(" + ") \
-                        and e["title"] != self.events[eid]["title"]:
+                if eid in self.events and short not in [x.replace("USD ", "") for x in self.events[eid]["title"].split(" + ")]:
                     self.events[eid]["title"] += " + " + short
                 if eid not in self.events:
                     self.events[eid] = {"id": eid, "sym": sym, "t0": e["t"], "title": e["title"], "topic": topic,

@@ -85,7 +85,7 @@ function Header({ d }) {
         <img src="/icon.svg" alt="" className="logo" />
         <div>
           <div className="brand-name">Cautious Giggle</div>
-          <div className="brand-sub">Exness demo · Bitcoin & Gold · 5-minute bars</div>
+          <div className="brand-sub">Exness demo · {d?.symbols?.length || 2} markets · 5-minute bars</div>
         </div>
       </div>
       <div className="header-right">
@@ -241,10 +241,9 @@ function SymbolCard({ s }) {
     <div className={`card symbol ${p ? (p.side === "BUY" ? "in-long" : "in-short") : ""}`}>
       <div className="sym-head">
         <div>
-          <div className="sym-name">{s.name}
-            {s.chg_pct != null && <span className={`sym-chg ${s.chg_pct >= 0 ? "pos" : "neg"}`}>{s.chg_pct >= 0 ? "+" : ""}{s.chg_pct.toFixed(2)}% 24h</span>}
-          </div>
+          <div className="sym-name">{s.name}</div>
           <div className={`sym-price ${flash}`}>{fmtPx(s.bid)}</div>
+          {s.chg_pct != null && <div className={`sym-chg ${s.chg_pct >= 0 ? "pos" : "neg"}`}>{s.chg_pct >= 0 ? "▲ +" : "▼ "}{s.chg_pct.toFixed(2)}% in 24h</div>}
           {s.mode === "news only" && s.grad && (
             <div className={`mk-grad ${s.grad.status}`}>news only · {s.grad.label}{["training", "exam_failed"].includes(s.grad.status) ? ` · attempt ${s.grad.attempts}/3` : ""}</div>
           )}
@@ -279,19 +278,19 @@ function SymbolCard({ s }) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={bars} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
             <YAxis hide domain={[lo, hi]} />
-            {p && <ReferenceLine y={p.entry} stroke="#facc15" strokeDasharray="3 3" label={{ value: "entry", fill: "#facc15", fontSize: 10, position: "insideRight" }} />}
-            {p && p.sl > 0 && <ReferenceLine y={p.sl} stroke="#f87171" strokeDasharray="3 3" label={{ value: "stop", fill: "#f87171", fontSize: 10, position: "insideRight" }} />}
-            {p && p.tp > 0 && <ReferenceLine y={p.tp} stroke="#34d399" strokeDasharray="3 3" label={{ value: "target", fill: "#34d399", fontSize: 10, position: "insideRight" }} />}
+            {p && <ReferenceLine y={p.entry} stroke="#facc15" strokeDasharray="3 3" label={{ value: "entry", fill: "#facc15", fontSize: 10, position: "insideLeft" }} />}
+            {p && p.sl > 0 && <ReferenceLine y={p.sl} stroke="#f87171" strokeDasharray="3 3" label={{ value: "stop", fill: "#f87171", fontSize: 10, position: "insideBottomRight" }} />}
+            {p && p.tp > 0 && <ReferenceLine y={p.tp} stroke="#34d399" strokeDasharray="3 3" label={{ value: "target", fill: "#34d399", fontSize: 10, position: "insideTopRight" }} />}
             <Line type="monotone" dataKey="v" stroke={up ? "#34d399" : "#f87171"} strokeWidth={1.8} dot={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <div className="sym-foot">
+      {s.mode !== "news only" && <div className="sym-foot">
         <span title="indicator votes across 5m, 15m, 1h and 4h"><ArrowUpRight size={13} className="pos" /> {s.up} up</span>
         <span><ArrowDownRight size={13} className="neg" /> {s.down} down</span>
         <span title="indicators with a poor recent record are ignored"><ShieldCheck size={13} /> {s.voters - s.ignored} of {s.voters} trusted</span>
         <span className="muted">last 12h</span>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -309,7 +308,8 @@ function Learning({ d }) {
             <div>
               {s.trusts.length > 0 && <div><span className="tag pos">trusts</span> {s.trusts.join(" · ")}</div>}
               {s.ignores.length > 0 && <div><span className="tag neg">ignores</span> {s.ignores.join(" · ")}</div>}
-              {!s.trusts.length && !s.ignores.length && <div className="muted">building its track record…</div>}
+              {!s.trusts.length && !s.ignores.length && <div className="muted">{s.mode === "news only"
+                ? "trades news only until it passes its exam; its indicator memory starts then" : "building its track record…"}</div>}
             </div>
           </div>
         ))}
@@ -318,9 +318,10 @@ function Learning({ d }) {
       <div className="divider" />
       <div className="train-head">
         <span><GraduationCap size={15} /> Brain training</span>
-        <span className="muted">{t.running ? `whole cycle ${pct}%${t.stage?.cycle_eta_s ? ` · ~${fmtDur(t.stage.cycle_eta_s)} left` : ""}` : "idle"}</span>
+        <span className="muted">{t.running ? `whole cycle ${pct}%${t.stage?.cycle_eta_s ? ` · ~${fmtDur(t.stage.cycle_eta_s)} left` : ""}` : "paused"}</span>
       </div>
       <div className="progress thin"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+      {!t.running && t.note && <div className="train-note">{t.note}</div>}
       {t.current && t.stage?.stage_progress != null && (
         <div className="stage-now">
           <div className="stage-now-head">
@@ -347,7 +348,7 @@ function Learning({ d }) {
           {t.next && <div className="muted small">Next up: {t.next}. New models trade only after passing an exam on data they've never seen.</div>}
         </div>
       ) : (
-        <div className="muted small">No training running. Run <code>exness train</code> to start a learning cycle.</div>
+        !t.note && <div className="muted small">No training running. Run <code>exness train</code> to start a learning cycle.</div>
       )}
     </div>
   );

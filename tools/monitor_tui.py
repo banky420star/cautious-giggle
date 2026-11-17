@@ -293,6 +293,19 @@ MARKET_NAMES = {"BTCUSDm": "Bitcoin", "XAUUSDm": "Gold", "EURUSDm": "EUR/USD", "
                 "XAGUSDm": "Silver", "ETHUSDm": "Ether", "USOILm": "Oil"}
 
 
+def training_note() -> str:
+    """One line for when no cycle runs: what is queued next (graduation manager)."""
+    try:
+        with open(os.path.join(LOG_DIR, "graduation.json"), encoding="utf-8") as f:
+            st = json.load(f).get("symbols") or {}
+    except Exception:
+        st = {}
+    q = [MARKET_NAMES.get(s, s) for s, v in st.items() if v.get("status") in ("retrain_queued", "queued", "exam_failed")]
+    if q:
+        return "Not training right now. Queued next: " + ", ".join(q) + "."
+    return "Not training right now. Markets are retrained automatically when their live results slip."
+
+
 def market_rows(broker) -> list[dict]:
     """One row per market the bot trades (regular and news-only) for the UIs."""
     try:
@@ -425,7 +438,8 @@ def training_state() -> dict:
                              capture_output=True, text=True, timeout=3).stdout
     except Exception:
         out = ""
-    running = [w for w in ("champion_cycle", "train_lstm", "train_drl", "train_dreamer") if w in out]
+    # only the project's own cycle counts; side experiments run from other folders
+    running = ["champion_cycle"] if "tools/champion_cycle.py" in out else []
     st = {"running": running, "stage": "", "lstm": None, "ppo": None, "last": ""}
     for line in reversed(tail_lines(CYCLE_LOG, 60)):
         if " - " in line and "|" in line:

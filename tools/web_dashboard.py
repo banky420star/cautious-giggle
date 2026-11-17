@@ -161,7 +161,8 @@ class State:
                        chg_pct=inf.get("chg_pct"))
             if row["mode"] == "news only" and not row.get("position"):
                 g = inf.get("grad") or {}
-                row["why"] = ("Trades news releases only for now. " + (g.get("why") or "")).strip()
+                w = str(g.get("why") or "")
+                row["why"] = ("Trades news releases only for now. " + (w[:1].upper() + w[1:])).strip()
             symbols.append(row)
 
         with self.lock:
@@ -257,16 +258,33 @@ class State:
                          "closing": closing, "pnl": float(getattr(d, "profit", 0) or 0) if closing else None})
         return rows[::-1]
 
+    def _training_note(self) -> str:
+        try:
+            with open(os.path.join(m.LOG_DIR, "graduation.json"), encoding="utf-8") as f:
+                st = json.load(f).get("symbols") or {}
+        except Exception:
+            st = {}
+        q = [NAMES.get(s, s) for s, v in st.items() if v.get("status") in ("retrain_queued", "queued", "exam_failed")]
+        if q:
+            return "Not training right now. Queued next: " + ", ".join(q) + "."
+        return "Not training right now. Markets are retrained automatically when their live results slip."
+
     def _training(self) -> dict:
-        prog = m.read_progress()
+        running = bool(m.training_state().get("running"))
+        prog = m.read_progress() if running else {}
         stages = wr.cycle_stages(wr.stage_lines(m.CYCLE_LOG), wr.cycle_symbols(self.symbols))
-        cur = next((r for r in stages if r["status"] == "running"), None)
+        if not running:
+            for r in stages:
+                if r["status"] == "running":
+                    r["status"] = "interrupted"
+        cur = next((r for r in stages if r["status"] == "running"), None) if running else None
         summ = wr.training_summary(prog, stages)
         frac = summ["overall"]
         mission = wr.MISSIONS.get(cur["kind"]) if cur else None
         nxt = next((r for r in stages if r["status"] == "pending"), None)
         return {
-            "running": bool(m.training_state().get("running")),
+            "running": running,
+            "note": None if running else m.training_note(),
             "progress": frac,
             "stage": summ,
             "stages": [{"label": r["label"], "status": r["status"]} for r in stages],

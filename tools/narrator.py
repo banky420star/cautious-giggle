@@ -282,6 +282,13 @@ class Narrator:
     # ------------------------------------------------------------------ trades
     def _trades(self, broker):
         out_entry = int(getattr(broker.mt5, "DEAL_ENTRY_OUT", 1)) if broker.mt5 else 1
+        if not getattr(self, "_deals_primed", False):
+            # the first batch of deals after a (re)start is history, not news: remember it silently
+            if broker.deals:
+                for d in broker.deals:
+                    self._deals_seen.add(int(getattr(d, "ticket", 0) or 0) or (getattr(d, "time", 0), getattr(d, "price", 0)))
+                self._deals_primed = True
+            return
         for d in broker.deals:
             key = int(getattr(d, "ticket", 0) or 0) or (getattr(d, "time", 0), getattr(d, "price", 0))
             if key in self._deals_seen:

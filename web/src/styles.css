@@ -237,3 +237,13 @@ code { background: rgba(255,255,255,.07); padding: 1px 6px; border-radius: 6px; 
 .sym-chg { font-size: 12px; font-weight: 600; margin-left: 8px; }
 .sym-news { font-size: 12.5px; color: #fbbf24; display: flex; align-items: center; gap: 6px; }
 .sym-news.live { animation: blink 1.6s ease-in-out infinite; }
+
+.chart-wrap { height: 300px; flex: none; }
+.sym-chg { font-size: 12px; font-weight: 600; margin: 2px 0 0; }
+.sym-head .status { white-space: nowrap; flex-shrink: 0; }
+.status-pnl { white-space: nowrap; }
+.sym-head > div:first-child { min-width: 0; }
+.train-note { margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.03); color: #cbd5e1; font-size: 13px; }
+.stage-chip.interrupted, .chip.interrupted { color: #fbbf24; border-color: rgba(251,191,36,.4); }
+.stage.interrupted { color: #fbbf24; border-color: rgba(251,191,36,.4); }
+.sym-head { flex-wrap: wrap; gap: 8px; }

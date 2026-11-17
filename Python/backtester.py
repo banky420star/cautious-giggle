@@ -170,10 +170,18 @@ def _load_model_meta(model_dir: str) -> dict:
 
 def _holdout_slice(df: pd.DataFrame, holdout_start: str | None) -> pd.DataFrame:
     """Keep only bars at/after the model's training holdout boundary (out-of-sample)."""
-    if not holdout_start or "time" not in df.columns:
+    if not holdout_start:
         return df
     try:
-        t = pd.to_datetime(df["time"], utc=True, errors="coerce")
+        if "time" in df.columns:
+            t = pd.to_datetime(df["time"], utc=True, errors="coerce")
+        elif isinstance(df.index, pd.DatetimeIndex):
+            # broker data arrives time-indexed; without this the holdout cut was skipped and the
+            # exam replayed the whole history, training data included
+            idx = df.index if df.index.tz is not None else df.index.tz_localize("UTC")
+            t = pd.Series(idx, index=df.index)
+        else:
+            return df
         cut = pd.to_datetime(holdout_start, utc=True)
         out = df.loc[t >= cut].reset_index(drop=True)
         return out
@@ -283,7 +291,7 @@ def run_ppo_backtest(
         equities.append(eq)
         costs.append(cost)
         positions.append(pos)
-        rewards.append(float(reward))
+        rewards.append(float(np.asarray(reward, dtype=np.float64).reshape(-1)[0]))  # VecEnv returns shape (1,)
 
         if prev_eq is not None and prev_eq > 0:
             step_rets.append((eq - prev_eq) / prev_eq)
@@ -292,7 +300,7 @@ def run_ppo_backtest(
         steps += 1
         if max_steps and steps >= max_steps:
             break
-        if bool(done):
+        if bool(np.asarray(done).reshape(-1)[0]):
             break
 
     equity = np.array(equities, dtype=np.float64)
