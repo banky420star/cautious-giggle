@@ -49,7 +49,10 @@ class RiskSupervisor:
 
     def _state_path(self) -> str:
         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        return os.path.join(project_root, "logs", "risk_supervisor_state.json")
+        # One halt file per broker account, so a halt on the live account never blocks demo (and vice versa).
+        acct = "".join(c for c in str(os.environ.get("EXNESS_ACCOUNT_ID", "")) if c.isalnum())
+        name = f"risk_supervisor_state_{acct}.json" if acct else "risk_supervisor_state.json"
+        return os.path.join(project_root, "logs", name)
 
     def _save_state(self) -> None:
         try:
@@ -96,6 +99,11 @@ class RiskSupervisor:
     def enforce_halt(self, minutes: int, reason: str) -> RiskDecision:
         self.halt_until = self._now() + dt.timedelta(minutes=max(1, int(minutes)))
         self._save_state()
+        try:
+            from loguru import logger
+            logger.warning(f"RISK HALT | {reason} -> no new trades until {self.halt_until.isoformat()}")
+        except Exception:
+            pass
         return RiskDecision(False, reason)
 
     def allow_trade(
