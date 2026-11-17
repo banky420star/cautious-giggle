@@ -2,7 +2,7 @@
 # Start the web dashboard server (if needed) and open it in its own window.
 cd "$(dirname "$0")/../.."
 export PYTHONPATH="$PWD"
-[ -f ~/.exness/env ] && source ~/.exness/env
+source scripts/mac/account_env.sh
 PORT=8787
 if ! curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$PORT/api/state"; then
   [ -d web/dist ] || (cd web && npm run build >/dev/null 2>&1)

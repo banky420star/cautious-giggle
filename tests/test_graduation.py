@@ -78,3 +78,13 @@ def test_live_market_failing_retrain_keeps_trading_and_tries_next(tmp_path, monk
     g.finish(st, "BTCUSDm", cfg, 0, [])
     assert st["symbols"]["BTCUSDm"]["status"] == "retrain_queued"
     assert g.scenario_for(st["symbols"]["BTCUSDm"], cfg)[0] == "patient"
+
+
+def test_interrupted_attempt_is_retried_with_same_scenario(tmp_path, monkeypatch):
+    g = _grad(tmp_path, monkeypatch)
+    monkeypatch.setattr(g, "log", lambda m: None)
+    cfg = _cfg()
+    v = {"status": "training", "attempts": 2, "scenario": "patient", "scenario_idx": 1, "was_live": True, "history": []}
+    g.requeue_interrupted(v, cfg)
+    assert v["status"] == "retrain_queued" and v["attempts"] == 1
+    assert g.scenario_for(v, cfg)[0] == "patient"

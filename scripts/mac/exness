@@ -10,8 +10,7 @@
 ROOT="/Volumes/AI_DRIVE/cautious-giggle"
 if [ ! -d "$ROOT" ]; then echo "AI_DRIVE not mounted ($ROOT missing)"; exit 1; fi
 cd "$ROOT" || exit 1
-[ -f ~/.exness/env ] || { echo "missing ~/.exness/env (Exness API settings)"; exit 1; }
-source ~/.exness/env
+source "$ROOT/scripts/mac/account_env.sh" || exit 1
 export PYTHONPATH="$ROOT"
 
 bot_running()      { [ -f .tmp/supervisor.pid ] && kill -0 "$(cat .tmp/supervisor.pid)" 2>/dev/null; }

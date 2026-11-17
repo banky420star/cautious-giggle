@@ -32,7 +32,8 @@ PY = os.path.join(ROOT, ".venv", "bin", "python")
 
 def log(msg: str):
     line = f"{dt.datetime.now():%Y-%m-%d %H:%M:%S} {msg}"
-    print(line, flush=True)
+    if sys.stdout.isatty():
+        print(line, flush=True)
     with open(LOG, "a", encoding="utf-8") as f:
         f.write(line + "\n")
 
@@ -204,6 +205,16 @@ def check_live(st: dict, cfg: dict):
             log(f"{s}: {v['why']}")
 
 
+def requeue_interrupted(v: dict, cfg: dict):
+    """An attempt whose training was killed before its exam: retry it with the same reward scenario."""
+    v["attempts"] = max(0, int(v.get("attempts", 1)) - 1)
+    was_live = bool(v.get("was_live"))
+    v["status"] = "retrain_queued" if was_live else ("queued" if v["attempts"] == 0 else "exam_failed")
+    v["why"] = (f"training with the '{v.get('scenario', 'balanced')}' reward was interrupted before its exam; "
+                f"it restarts with the same scenario")
+    log(f"interrupted attempt re-queued ({v.get('scenario')})")
+
+
 def finish(st: dict, s: str, cfg: dict, rc: int | None, newly: list):
     """Record the result of a finished attempt and decide what comes next."""
     v = st["symbols"][s]
@@ -255,8 +266,14 @@ def run():
         # a manager restart can leave attempts marked 'training' after their cycle ended: book them
         stale = [s for s, v in st["symbols"].items() if v.get("status") == "training"]
         newly: list[str] = []
+        rep = os.path.join(ROOT, "logs", "champion_cycle_last_report.json")
+        rep_t = os.path.getmtime(rep) if os.path.exists(rep) else 0.0
         for s in stale:
-            finish(st, s, cfg, None, newly)
+            v = st["symbols"][s]
+            if rep_t > float(v.get("started", 0)):
+                finish(st, s, cfg, None, newly)        # the cycle finished and examined it while we were away
+            else:
+                requeue_interrupted(v, cfg)            # killed mid-run: same scenario again, not a failed exam
         check_live(st, cfg)
         first, again = plan(st, cfg)
         save_state(st)

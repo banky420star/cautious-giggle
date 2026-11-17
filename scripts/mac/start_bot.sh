@@ -2,7 +2,7 @@
 # Start the trading bot in the background (keeps running after you close Terminal).
 # Auto-restarts if it crashes; caffeinate keeps the Mac awake while it runs.
 cd "$(dirname "$0")/../.." || exit 1
-source ~/.exness/env || { echo "missing ~/.exness/env"; exit 1; }
+source scripts/mac/account_env.sh || exit 1
 export PYTHONPATH="$PWD"
 mkdir -p logs .tmp
 if [ -f .tmp/supervisor.pid ] && kill -0 "$(cat .tmp/supervisor.pid)" 2>/dev/null; then

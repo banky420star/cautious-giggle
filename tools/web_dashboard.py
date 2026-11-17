@@ -21,7 +21,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import monitor_tui as m  # noqa: E402
+import monitor_tui as m
+import ops_log  # noqa: E402
+import account_profiles as ap  # noqa: E402
 import warroom as wr  # noqa: E402
 from narrator import Narrator  # noqa: E402
 from Python.indicator_council import describe  # noqa: E402
@@ -30,6 +32,11 @@ DIST = os.path.join(ROOT, "web", "dist")
 EQ_FILE = os.path.join(ROOT, "logs", "equity_history.csv")
 NAMES = m.MARKET_NAMES
 
+
+
+def money_fmt(v) -> str:
+    v = float(v or 0)
+    return f"{'+' if v >= 0 else '-'}${abs(v):.2f}"
 
 class State:
     def __init__(self):
@@ -191,7 +198,10 @@ class State:
             "news": self._news_snapshot(),
             "markets": m.market_rows(self.broker),
             "mission": self._mission(),
+            "account_mode": ap.active(),
+            "ops": ops_log.events(os.path.join(m.LOG_DIR, "server.log"), NAMES, 50),
             "tip": dict(zip(("term", "text"), wr.GLOSSARY[int(time.time() // 12) % len(wr.GLOSSARY)])),
+            "glossary": [{"term": t, "text": x} for t, x in wr.GLOSSARY],
         }
 
     def _loss_limit(self, risk: dict) -> float:
@@ -269,9 +279,44 @@ class State:
                 "blend": float(sg.get("raw_target", 0) or 0),
                 "final": float(sg.get("exposure", 0) or 0),
             } if sg else None,
+            "briefing": self._briefing(s, sg, cv, thr, pos, pending),
             "brain": ("AI models + indicators" if (float(sg.get("agi_bias", 0) or 0) or float(sg.get("ppo_exposure", 0) or 0))
                       else "indicator council (AI still training)") if sg else None,
         }
+
+    def _briefing(self, s, sg, cv, thr, pos, pending) -> list[dict]:
+        """Step-by-step: how this market's decision was made, in plain English."""
+        if not sg:
+            return [{"k": "status", "text": "Waiting for the first 5-minute check on this market."}]
+        side = lambda v: "BUY" if v > 0 else "SELL" if v < 0 else "no view"  # noqa: E731
+        lstm, ppo = float(sg.get("agi_bias", 0) or 0), float(sg.get("ppo_exposure", 0) or 0)
+        council, raw = float(sg.get("council", 0) or 0), float(sg.get("raw_target", 0) or 0)
+        final, conf = float(sg.get("exposure", 0) or 0), float(sg.get("confidence", 0) or 0)
+        rs = float(sg.get("risk_scalar", 1) or 1)
+        up, down = int(cv.get("up", 0) or 0), int(cv.get("down", 0) or 0)
+        out = []
+        out.append({"k": "LSTM", "v": lstm, "text": (
+            f"Pattern reader leans {side(lstm)} {lstm:+.2f} ({conf:.0%} sure) from the last 60 bars." if lstm else
+            "No pattern reader for this market yet: it trains in the queue below, so it sits this one out.")})
+        out.append({"k": "PPO", "v": ppo, "text": (
+            f"Trader model wants {side(ppo)} {ppo:+.2f}." if ppo else
+            "Trader model has no approved version yet (it must pass the exam first), so it has no vote.")})
+        out.append({"k": "Council", "v": council, "text": (
+            f"{up} indicator views say up, {down} say down (5m to 4h). Weighted by each one's recent record, the council "
+            f"says {side(council)} {council:+.2f}.")})
+        out.append({"k": "Blend", "v": raw, "text": (
+            f"Votes combined into {raw:+.2f}, then scaled by market risk (×{rs:.2f}) and each model's track record "
+            f"in this kind of market → {final:+.2f}.")})
+        if pos:
+            act = f"In a {pos['side'].lower()} trade ({money_fmt(pos['pnl'])}); the stop and target do the work, and it exits if the order line goes back inside ±{thr:.2f}."
+        elif pending:
+            act = f"Past the ±{thr:.2f} trade line, so a {pending['side'].lower()} is planned: waiting for a better price first."
+        elif abs(final) >= thr:
+            act = f"Past the ±{thr:.2f} trade line: places a {side(final).lower()} at the next check."
+        else:
+            act = f"Inside the ±{thr:.2f} trade line ({abs(final) / thr:.0%} of the way there): not enough edge to pay the spread, so it waits."
+        out.append({"k": "Action", "v": final, "text": act})
+        return out
 
     def _stack_max(self) -> int:
         st = (((self.cfg.get("trading") or {}).get("demo_learning") or {}).get("stacking") or {})
@@ -369,6 +414,30 @@ class State:
 STATE: State | None = None
 
 
+def _live_rules(cfg: dict) -> list[str]:
+    """What changes on a real-money account (the demo-only overrides switch off)."""
+    risk = (cfg or {}).get("risk") or {}
+    sup = risk.get("supervisor") or {}
+    tr = (cfg or {}).get("trading") or {}
+    return [
+        f"Risk per trade {float(tr.get('risk_percent', 1.0)):g}% (demo: 2.5%), max {float(risk.get('max_lots', 0.05)):g} lots",
+        f"Daily loss stop ${float(risk.get('max_daily_loss', 25)):g}; halts at {float(sup.get('max_drawdown_pct', 8)):g}% drawdown",
+        f"Only {', '.join(tr.get('symbols') or ['BTCUSDm', 'XAUUSDm'])}: the other markets stay demo-only until their AI passes",
+        "No trade stacking, no learning mode, no exploration models",
+        "Indicator council off (opt-in with trading.council.allow_live)",
+        "Only exam-approved AI models trade",
+    ]
+
+
+def _reexec_with(profile: str):
+    """Restart this dashboard on the newly active account so it shows the right balance."""
+    time.sleep(1.5)
+    env = {k: v for k, v in os.environ.items() if not k.startswith("EXNESS_")}
+    env.update(ap.env_for(profile))
+    env["CG_ACCOUNT_PROFILE"] = profile
+    os.execve(sys.executable, [sys.executable] + sys.argv, env)
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
@@ -381,8 +450,45 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _json(self, code, obj):
+        return self._send(code, json.dumps(obj).encode(), "application/json")
+
+    def _same_origin(self) -> bool:
+        # A page on another site can fire requests at localhost; it cannot add custom headers without
+        # a CORS preflight (which this server never approves), so require one, plus a local Origin.
+        origin = self.headers.get("Origin") or ""
+        host = self.headers.get("Host") or ""
+        local = ("127.0.0.1", "localhost")
+        return (self.headers.get("X-CG-Client") == "dashboard"
+                and host.split(":")[0] in local
+                and (not origin or origin.split("://", 1)[-1].split(":")[0] in local))
+
+    def do_POST(self):
+        path = self.path.split("?", 1)[0]
+        if not self._same_origin():
+            return self._json(403, {"ok": False, "error": "forbidden"})
+        try:
+            n = min(int(self.headers.get("Content-Length") or 0), 4096)
+            body = json.loads(self.rfile.read(n) or b"{}")
+        except Exception:
+            return self._json(400, {"ok": False, "error": "bad request"})
+        prof = str(body.get("profile", ""))
+        if path == "/api/account/check" and prof in ap.FILES:
+            return self._json(200, ap.check(prof))
+        if path == "/api/account/switch" and prof in ap.FILES:
+            res = ap.switch(prof, str(body.get("confirm", "")))
+            self._json(200, res)
+            if res.get("ok"):
+                threading.Thread(target=_reexec_with, args=(prof,), daemon=True).start()
+            return None
+        return self._json(404, {"ok": False, "error": "not found"})
+
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if path == "/api/account":
+            ap.ensure_template()
+            return self._json(200, {"active": ap.active(), "demo": ap.status("demo"), "live": ap.status("live"),
+                                    "confirm": ap.CONFIRM, "live_rules": _live_rules(STATE.cfg if STATE else {})})
         if path == "/api/state":
             try:
                 body = json.dumps(STATE.snapshot()).encode()

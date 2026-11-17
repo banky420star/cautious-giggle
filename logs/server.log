@@ -628,3 +628,32 @@
 2026-11-17 10:35:44.382 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - ETHUSDm: using minimum lot 0.1 (stop risk 0.09% <= ceiling 4.0%)
 2026-11-17 10:35:44.383 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN ETHUSDm | waiting up to 15 min for 1822.4 (now 1821.2, 0.35 ATR pullback)
 2026-11-17 10:35:47.713 +02:00 | INFO     | __main__:main:1254 - DECISION USOILm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.3239 final=-0.2591
+2026-11-17 10:40:39.166 +02:00 | INFO     | __main__:main:1254 - DECISION BTCUSDm | regime=SELL conf=0.7085 risk=0.9000 agi_bias=-0.7085 ppo=0.0000 dreamer=0.0000 raw=-0.3830 final=-0.1723
+2026-11-17 10:40:56.787 +02:00 | INFO     | __main__:main:1254 - DECISION XAUUSDm | regime=SELL conf=0.6831 risk=0.9000 agi_bias=-0.6831 ppo=0.0000 dreamer=0.0000 raw=-0.0807 final=-0.0363
+2026-11-17 10:40:59.973 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - XAUUSDm: using minimum lot 0.01 (stop risk 0.90% <= ceiling 4.0%)
+2026-11-17 10:41:02.111 +02:00 | INFO     | __main__:main:1254 - DECISION EURUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.5106 final=-0.4085
+2026-11-17 10:41:05.357 +02:00 | INFO     | __main__:main:1254 - DECISION USDJPYm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.2409 final=-0.1927
+2026-11-17 10:41:10.491 +02:00 | INFO     | __main__:main:1254 - DECISION XAGUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.3627 final=-0.2902
+2026-11-17 10:41:24.456 +02:00 | INFO     | __main__:main:1254 - DECISION ETHUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.2543 final=-0.2035
+2026-11-17 10:41:43.085 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - ETHUSDm: using minimum lot 0.1 (stop risk 0.10% <= ceiling 4.0%)
+2026-11-17 10:41:47.771 +02:00 | INFO     | __main__:main:1254 - DECISION USOILm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.3173 final=-0.2539
+2026-11-17 10:43:29.464 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - XAUUSDm: using minimum lot 0.01 (stop risk 0.91% <= ceiling 4.0%)
+2026-11-17 10:43:29.615 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=open side=sell lots=0.01 price=3867.665 sl=3872.264 tp=3860.438 target=-0.0363 magic=52900 retcode=10009 ticket=381001387825172480
+2026-11-17 10:43:29.621 +02:00 | INFO     | __main__:main:1177 - ENTRY XAUUSDm | pullback after 498s | sell 0.01 @ 3867.665 vs 3866.6730000000002 at signal (+2.57 bps better)
+2026-11-17 10:44:45.089 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.03 price=64361.18 sl=64510.27 tp=64126.88 target=-0.1723 magic=51900 retcode=10009 ticket=381001702771265536
+2026-11-17 10:44:45.102 +02:00 | INFO     | __main__:main:1177 - ENTRY BTCUSDm | pullback after 579s | sell 0.03 @ 64361.18 vs 64293.39 at signal (+10.54 bps better)
+2026-11-17 10:45:29.691 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAGUSDm | action=open side=sell lots=0.01 price=47.517 sl=47.767 tp=47.067 target=-0.2902 magic=59900 retcode=10009 ticket=381001891535917056
+2026-11-17 10:45:29.694 +02:00 | INFO     | __main__:main:1177 - ENTRY XAGUSDm | pullback after 849s | sell 0.01 @ 47.517 vs 47.489000000000004 at signal (+5.90 bps better)
+2026-11-17 10:45:37.826 +02:00 | INFO     | __main__:main:1254 - DECISION BTCUSDm | regime=SELL conf=0.7026 risk=0.9000 agi_bias=-0.7026 ppo=0.0000 dreamer=0.0000 raw=-0.2746 final=-0.1236
+2026-11-17 10:45:49.302 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=buy lots=0.01 price=64381.630000000005 sl=None tp=None target=-0.1236 magic=51910 retcode=10009 ticket=381001972456624128
+2026-11-17 10:45:49.326 +02:00 | INFO     | __main__:main:1426 - ACTION BTCUSDm | req=reduce side=BUY volume=0.01 target=-0.1236 ppo=0.0000 dreamer=0.0000 agi=-0.7026 magic=51910 comment=AGI|BTC|UN|C|P000000|P+00 ticket=381001972456624128 retcode=10009 TP=None SL=None
+2026-11-17 10:45:59.934 +02:00 | INFO     | __main__:main:1254 - DECISION XAUUSDm | regime=SELL conf=0.6885 risk=0.9000 agi_bias=-0.6885 ppo=0.0000 dreamer=0.0000 raw=-0.0391 final=0.0000
+2026-11-17 10:46:04.307 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=close side=buy lots=0.01 price=3870.5969999999998 sl=None tp=None target=0.0000 magic=52910 retcode=10009 ticket=381002036793053184
+2026-11-17 10:46:04.334 +02:00 | INFO     | __main__:main:1426 - ACTION XAUUSDm | req=close side=BUY volume=0.01 target=0.0000 ppo=0.0000 dreamer=0.0000 agi=-0.6885 magic=52910 comment=AGI|XAU|UN|C|P000000|P+00 ticket=381002036793053184 retcode=10009 TP=None SL=None
+2026-11-17 10:46:06.604 +02:00 | INFO     | __main__:main:1254 - DECISION EURUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.3684 final=-0.2947
+2026-11-17 10:46:25.113 +02:00 | INFO     | __main__:main:1254 - DECISION USDJPYm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.4703 final=-0.3763
+2026-11-17 10:46:33.408 +02:00 | INFO     | __main__:main:1254 - DECISION XAGUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.2831 final=-0.2265
+2026-11-17 10:46:45.608 +02:00 | INFO     | __main__:main:1254 - DECISION ETHUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.2271 final=-0.1817
+2026-11-17 10:46:50.004 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - ETHUSDm: using minimum lot 0.1 (stop risk 0.10% <= ceiling 4.0%)
+2026-11-17 10:46:53.339 +02:00 | INFO     | __main__:main:1254 - DECISION USOILm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.3906 final=-0.3125
+2026-11-17 10:46:53.432 +02:00 | INFO     | __main__:_stack_level:865 - STACK USOILm | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3

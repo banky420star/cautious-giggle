@@ -7,7 +7,10 @@ import {
   Receipt, ShieldCheck, Target, TrendingUp, Trophy, Wallet, Zap, Sparkles, Cpu, FlaskConical, Database,
   ArrowLeftRight, Moon, Newspaper, CalendarClock,
 } from "lucide-react";
-import { WarCard, MissionControl, RiskStrip } from "./WarRoom.jsx";
+import {
+  WarCard, MissionControl, OpsLog, CommandBar, Section, Clocks, Sitrep, NewsAlert, Tour, Glossary, HelpButtons, condition, ago,
+} from "./WarRoom.jsx";
+import { Boot, AccountSwitch, Logo } from "./Boot.jsx";
 
 const fmtMoney = (v, sign = false) => {
   if (v == null || Number.isNaN(v)) return "—";
@@ -74,42 +77,6 @@ function Countdown({ seconds }) {
         <circle cx="12" cy="12" r={r} className="ring-fg" strokeDasharray={c} strokeDashoffset={c * (1 - frac)} />
       </svg>
       <span>Next check <b>{Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}</b></span>
-    </div>
-  );
-}
-
-function Header({ d }) {
-  const bot = d?.bot || {};
-  return (
-    <header className="header">
-      <div className="brand">
-        <img src="/icon.svg" alt="" className="logo" />
-        <div>
-          <div className="brand-name">Cautious Giggle <span className="wr-tag">WAR ROOM</span></div>
-          <div className="brand-sub">Exness demo · {d?.symbols?.length || 2} markets trading · 5-minute bars</div>
-        </div>
-      </div>
-      <div className="header-right">
-        {bot.learning_mode && (
-          <span className="pill violet" title="Demo only: trades more often so the models learn faster">
-            <GraduationCap size={14} /> Learning mode
-          </span>
-        )}
-        <span className={`pill ${bot.running ? "green" : "red"}`}>
-          <span className={`dot ${bot.running ? "pulse" : ""}`} /> {bot.running ? "Bot running" : "Bot stopped"}
-        </span>
-        {d && <Countdown seconds={bot.next_check_s} />}
-      </div>
-    </header>
-  );
-}
-
-function Kpi({ icon: Icon, label, children, sub, tone }) {
-  return (
-    <div className="card kpi">
-      <div className="kpi-label"><Icon size={15} /> {label}</div>
-      <div className={`kpi-value ${tone || ""}`}>{children}</div>
-      {sub && <div className="kpi-sub">{sub}</div>}
     </div>
   );
 }
@@ -188,218 +155,6 @@ function EqTip({ active, payload }) {
   );
 }
 
-function SignalMeter({ value, threshold }) {
-  const clamp = (x) => Math.max(-1, Math.min(1, x));
-  const pos = (x) => `${((clamp(x) + 1) / 2) * 100}%`;
-  const strong = Math.abs(value) >= threshold;
-  const left = value >= 0 ? 50 : ((clamp(value) + 1) / 2) * 100;
-  const width = Math.abs(clamp(value)) * 50;
-  return (
-    <div className="meter">
-      <div className="meter-labels"><span className="neg">SELL</span><span className="muted">signal strength</span><span className="pos">BUY</span></div>
-      <div className="meter-track">
-        <div className="zone sell" style={{ width: pos(-threshold) }} />
-        <div className="zone buy" style={{ left: pos(threshold), right: 0 }} />
-        <div className={`meter-fill ${value >= 0 ? "pos" : "neg"} ${strong ? "strong" : ""}`}
-             style={{ left: `${left}%`, width: `${width}%` }} />
-        <div className="thr" style={{ left: pos(-threshold) }} />
-        <div className="thr" style={{ left: pos(threshold) }} />
-        <div className="mid" />
-        <div className={`needle ${strong ? "glow" : ""}`} style={{ left: pos(value) }} />
-      </div>
-      <div className="meter-foot">
-        <span>now <b className={value >= 0 ? "pos" : "neg"}>{value >= 0 ? "+" : ""}{value.toFixed(2)}</b></span>
-        <span className="muted">trades past the gold lines (±{threshold.toFixed(2)})</span>
-      </div>
-    </div>
-  );
-}
-
-function usePriceFlash(price) {
-  const prev = useRef(price);
-  const [flash, setFlash] = useState("");
-  useEffect(() => {
-    if (price != null && prev.current != null && price !== prev.current) {
-      setFlash(price > prev.current ? "flash-up" : "flash-down");
-      const id = setTimeout(() => setFlash(""), 900);
-      prev.current = price;
-      return () => clearTimeout(id);
-    }
-    prev.current = price;
-  }, [price]);
-  return flash;
-}
-
-function SymbolCard({ s }) {
-  const flash = usePriceFlash(s.bid);
-  const bars = (s.bars || []).map((v, i) => ({ i, v }));
-  if (s.bid != null) bars.push({ i: bars.length, v: s.bid });
-  const p = s.position;
-  const up = bars.length > 1 && bars[bars.length - 1].v >= bars[0].v;
-  const vals = bars.map((b) => b.v).concat(p ? [p.entry, p.sl, p.tp].filter(Boolean) : []);
-  const lo = Math.min(...vals), hi = Math.max(...vals);
-  return (
-    <div className={`card symbol ${p ? (p.side === "BUY" ? "in-long" : "in-short") : ""}`}>
-      <div className="sym-head">
-        <div>
-          <div className="sym-name">{s.name}</div>
-          <div className={`sym-price ${flash}`}>{fmtPx(s.bid)}</div>
-          {s.chg_pct != null && <div className={`sym-chg ${s.chg_pct >= 0 ? "pos" : "neg"}`}>{s.chg_pct >= 0 ? "▲ +" : "▼ "}{s.chg_pct.toFixed(2)}% in 24h</div>}
-          {s.mode === "news only" && s.grad && (
-            <div className={`mk-grad ${s.grad.status}`}>news only · {s.grad.label}{["training", "exam_failed"].includes(s.grad.status) ? ` · attempt ${s.grad.attempts}/5` : ""}</div>
-          )}
-        </div>
-        {p ? (
-          <div className={`status ${p.side === "BUY" ? "long" : "short"}`}>
-            {p.side === "BUY" ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
-            In a {p.side === "BUY" ? "buy" : "sell"} trade
-            <span className={`status-pnl ${p.pnl >= 0 ? "pos" : "neg"}`}>{fmtMoney(p.pnl, true)}</span>
-          </div>
-        ) : s.pending ? (
-          <div className="status pending"><Clock size={14} /> {s.pending.side === "BUY" ? "Buying" : "Selling"} on a dip · {Math.floor(s.pending.expires_in / 60)}:{String(s.pending.expires_in % 60).padStart(2, "0")}</div>
-        ) : (
-          <div className="status idle"><Pause size={14} /> Waiting</div>
-        )}
-      </div>
-      <p className="why">{s.why}</p>
-      {s.pending && (
-        <div className="pending-box">
-          <span>Target entry <b>${fmtPx(s.pending.limit)}</b></span>
-          <span className="muted">price at signal ${fmtPx(s.pending.ref)} · now ${fmtPx(s.pending.side === "BUY" ? s.ask : s.bid)}</span>
-        </div>
-      )}
-      {s.mode !== "news only" && <SignalMeter value={s.signal} threshold={s.threshold} />}
-      {s.news && (
-        <div className={`sym-news ${["prep", "armed", "in_trade"].includes(s.news.phase) ? "live" : ""}`}>
-          <Newspaper size={13} /> news {until(s.news.t0)} · {s.news.plan ? PLAY[s.news.plan] : "stand aside"}
-          {["prep", "armed", "in_trade"].includes(s.news.phase) && <b> · {s.news.phase.toUpperCase()}</b>}
-        </div>
-      )}
-      <div className="spark">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={bars} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-            <YAxis hide domain={[lo, hi]} />
-            {p && <ReferenceLine y={p.entry} stroke="#facc15" strokeDasharray="3 3" label={{ value: "entry", fill: "#facc15", fontSize: 10, position: "insideLeft" }} />}
-            {p && p.sl > 0 && <ReferenceLine y={p.sl} stroke="#f87171" strokeDasharray="3 3" label={{ value: "stop", fill: "#f87171", fontSize: 10, position: "insideBottomRight" }} />}
-            {p && p.tp > 0 && <ReferenceLine y={p.tp} stroke="#34d399" strokeDasharray="3 3" label={{ value: "target", fill: "#34d399", fontSize: 10, position: "insideTopRight" }} />}
-            <Line type="monotone" dataKey="v" stroke={up ? "#34d399" : "#f87171"} strokeWidth={1.8} dot={false} isAnimationActive={false} />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      {s.mode !== "news only" && <div className="sym-foot">
-        <span title="indicator votes across 5m, 15m, 1h and 4h"><ArrowUpRight size={13} className="pos" /> {s.up} up</span>
-        <span><ArrowDownRight size={13} className="neg" /> {s.down} down</span>
-        <span title="indicators with a poor recent record are ignored"><ShieldCheck size={13} /> {s.voters - s.ignored} of {s.voters} trusted</span>
-        <span className="muted">last 12h</span>
-      </div>}
-    </div>
-  );
-}
-
-function Learning({ d }) {
-  const t = d.training || {};
-  const pct = Math.round((t.progress || 0) * 100);
-  return (
-    <div className="card learning">
-      <div className="card-title"><Brain size={16} /> Is it getting smarter?</div>
-      <div className="learned">
-        {d.symbols.map((s) => (
-          <div key={s.symbol} className="learned-row">
-            <div className="learned-sym">{s.name}</div>
-            <div>
-              {s.trusts.length > 0 && <div><span className="tag pos">trusts</span> {s.trusts.join(" · ")}</div>}
-              {s.ignores.length > 0 && <div><span className="tag neg">ignores</span> {s.ignores.join(" · ")}</div>}
-              {!s.trusts.length && !s.ignores.length && <div className="muted">{s.mode === "news only"
-                ? "trades news only until it passes its exam; its indicator memory starts then" : "building its track record…"}</div>}
-            </div>
-          </div>
-        ))}
-        <div className="muted small">Every 5-minute bar, each indicator is scored on whether it was right. Proven ones get more say; wrong ones get ignored.</div>
-      </div>
-      <div className="divider" />
-      <div className="train-head">
-        <span><GraduationCap size={15} /> Brain training</span>
-        <span className="muted">{t.running ? `whole cycle ${pct}%${t.stage?.cycle_eta_s ? ` · ~${fmtDur(t.stage.cycle_eta_s)} left` : ""}` : "paused"}</span>
-      </div>
-      <div className="progress thin"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
-      {!t.running && t.note && <div className="train-note">{t.note}</div>}
-      {t.current && t.stage?.stage_progress != null && (
-        <div className="stage-now">
-          <div className="stage-now-head">
-            <b>{t.current.name} · {t.current.symbol}</b>
-            <span className="stage-pct">{Math.round(t.stage.stage_progress * 100)}%</span>
-          </div>
-          <div className="progress big"><div className="progress-fill" style={{ width: `${t.stage.stage_progress * 100}%` }} /></div>
-          <div className="muted small">
-            {t.stage.step?.toLocaleString()} / {t.stage.total?.toLocaleString()} {t.stage.unit}
-            {t.stage.stage_eta_s ? ` · ~${fmtDur(t.stage.stage_eta_s)} left` : ""}
-            {t.stage.phase === "evaluating" ? " · running a quick test on validation data…" : t.stage.phase === "finishing" ? " · target reached, saving and testing the final model…" : ""}
-          </div>
-        </div>
-      )}
-      <div className="stages">
-        {(t.stages || []).map((st, i) => <span key={i} className={`stage ${st.status}`}>{st.label}</span>)}
-      </div>
-      {t.current ? (
-        <div className="mission">
-          <div className="mission-title">Now: {t.current.name} · {t.current.symbol}</div>
-          <div className="mrow"><span className="mlabel">Learning</span>{t.current.learn}</div>
-          <div className="mrow"><span className="mlabel">Goal</span>{t.current.goal}</div>
-          <div className="mrow"><span className="mlabel">Tested by</span>{t.current.test}</div>
-          {t.next && <div className="muted small">Next up: {t.next}. New models trade only after passing an exam on data they've never seen.</div>}
-        </div>
-      ) : (
-        !t.note && <div className="muted small">No training running. Run <code>exness train</code> to start a learning cycle.</div>
-      )}
-    </div>
-  );
-}
-
-const FEED_ICON = { ppo: Cpu, eval: FlaskConical, lstm: Brain, dreamer: Moon, memory: Database,
-  signal: ArrowLeftRight, trade: Receipt };
-const ago = (t) => {
-  const s = Math.max(0, Date.now() / 1000 - t);
-  return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)} min ago` : `${Math.floor(s / 3600)}h ago`;
-};
-
-function Feed({ items }) {
-  const [filter, setFilter] = useState("all");
-  const groups = { all: null, training: ["ppo", "eval", "lstm", "dreamer"], learning: ["memory"], trading: ["signal", "trade"] };
-  const shown = (items || []).filter((it) => !groups[filter] || groups[filter].includes(it.kind));
-  return (
-    <div className="card feed">
-      <div className="card-head">
-        <div className="card-title"><Sparkles size={16} /> What changed, and why</div>
-        <div className="tabs">
-          {Object.keys(groups).map((k) => (
-            <button key={k} className={k === filter ? "active" : ""} onClick={() => setFilter(k)}>{k}</button>
-          ))}
-        </div>
-      </div>
-      <div className="feed-list">
-        {!shown.length && <div className="muted small">Updates appear here as training rounds finish, the memory re-scores indicators, signals change and trades close.</div>}
-        {shown.map((it) => {
-          const Icon = FEED_ICON[it.kind] || Sparkles;
-          return (
-            <div key={`${it.t}-${it.title}`} className={`feed-item ${it.tone}`}>
-              <div className="feed-ic"><Icon size={15} /></div>
-              <div className="feed-body">
-                <div className="feed-head"><b>{it.title}</b><span className="muted small">{ago(it.t)}</span></div>
-                <div className="feed-text">{it.text}</div>
-                {it.numbers?.filter((n) => n.from != null).map((n, i) => (
-                  <span key={i} className={`delta ${n.to >= n.from ? "pos" : "neg"}`}>
-                    {n.label} {n.from} → {n.to} ({n.to - n.from >= 0 ? "+" : ""}{(n.to - n.from).toFixed(2)})
-                  </span>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 const NAME = { BTCUSDm: "Bitcoin", XAUUSDm: "Gold", EURUSDm: "EUR/USD", USDJPYm: "USD/JPY", XAGUSDm: "Silver",
   ETHUSDm: "Ether", USOILm: "Oil" };
 const PHASE = { scheduled: "scheduled", prep: "PREP · range marked, normal trades paused", armed: "ARMED · watching for the sweep",
@@ -410,36 +165,6 @@ const until = (t) => {
   if (s <= 0) return `${Math.round(-s / 60)} min ago`;
   return s < 3600 ? `in ${Math.round(s / 60)} min` : `in ${(s / 3600).toFixed(1)} h`;
 };
-
-function Markets({ rows }) {
-  if (!rows?.length) return null;
-  return (
-    <div className="card markets">
-      <div className="card-title"><TrendingUp size={16} /> All markets</div>
-      <div className="mk-grid">
-        {rows.map((r) => {
-          const live = r.news && ["prep", "armed", "in_trade"].includes(r.news.phase);
-          return (
-            <div key={r.symbol} className={`mk ${live ? "live" : ""}`}>
-              <div className="mk-top"><b>{r.name}</b><span className="muted small">{r.mode}</span></div>
-              {r.grad && r.mode === "news only" && (
-                <div className={`mk-grad ${r.grad.status}`} title={r.grad.why}>
-                  {r.grad.label}{["training", "exam_failed"].includes(r.grad.status) ? ` · attempt ${r.grad.attempts}/5` : ""}
-                </div>
-              )}
-              <div className="mk-px">{r.bid == null ? "—" : r.bid.toLocaleString(undefined, { maximumFractionDigits: r.bid < 10 ? 5 : r.bid < 1000 ? 3 : 2 })}</div>
-              {r.chg_pct != null && <div className={r.chg_pct >= 0 ? "pos small" : "neg small"}>{r.chg_pct >= 0 ? "▲" : "▼"} {r.chg_pct.toFixed(2)}% 24h</div>}
-              <div className="small">{r.lots ? <span className="mk-pos">{r.lots > 0 ? "LONG" : "SHORT"} {Math.abs(r.lots).toFixed(2)}
-                {r.pnl != null && <span className={r.pnl >= 0 ? "pos" : "neg"}> {r.pnl >= 0 ? "+" : "−"}${Math.abs(r.pnl).toFixed(2)}</span>}</span>
-                : <span className="muted">no position</span>}</div>
-              {r.news && <div className="mk-news small">news {until(r.news.t0)} · {r.news.plan ? PLAY[r.news.plan] : "stand aside"}</div>}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function News({ news }) {
   const [tab, setTab] = useState("plan");
@@ -528,78 +253,94 @@ function News({ news }) {
   );
 }
 
-function Trades({ trades }) {
+const store = {
+  get: (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
+};
+
+function Header({ d, explain, setExplain, onTour, onGloss, onAccount }) {
+  const bot = d?.bot || {};
+  const c = d ? condition(d) : null;
   return (
-    <div className="card trades">
-      <div className="card-title"><Receipt size={16} /> Today's trades</div>
-      {!trades.length && <div className="muted small">No trades yet today.</div>}
-      <div className="trade-list">
-        {trades.map((t, i) => (
-          <div key={i} className="trade">
-            <div className={`trade-ic ${t.closing ? (t.pnl > 0 ? "win" : "loss") : t.side === "BUY" ? "buy" : "sell"}`}>
-              {t.closing ? (t.pnl > 0 ? <Trophy size={14} /> : <Target size={14} />) : t.side === "BUY" ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-            </div>
-            <div className="trade-body">
-              <div>{t.closing ? `Closed ${t.symbol}` : `${t.side === "BUY" ? "Bought" : "Sold"} ${t.volume.toFixed(2)} ${t.symbol}`}</div>
-              <div className="muted small">{fmtTime(t.t)} · ${fmtPx(t.price)}</div>
-            </div>
-            {t.closing && <div className={`trade-pnl ${t.pnl > 0 ? "pos" : "neg"}`}>{fmtMoney(t.pnl, true)}</div>}
+    <header className="header hud">
+      <div className="brand">
+        <Logo size={40} />
+        <div>
+          <div className="brand-name">CAUTIOUS GIGGLE <span className="wr-tag">WAR ROOM</span></div>
+          <div className="brand-sub">
+            <button className={`acct ${d?.account_mode === "live" ? "live" : ""}`} onClick={onAccount} title="Switch between demo and live">
+              {d?.account_mode === "live" ? "LIVE · REAL MONEY" : "DEMO ACCOUNT"}
+            </button>
+            {" "}· {d?.symbols?.length || 0} markets · 5-minute bars
           </div>
-        ))}
+        </div>
       </div>
-    </div>
+      <Clocks />
+      <div className="header-right">
+        {c && <span className={`cond ${c.level}`} title={c.why}><i />{c.label}</span>}
+        <span className={`pill ${bot.running ? "green" : "red"}`} title={bot.running ? "The trading bot process is running" : "The bot is stopped"}>
+          <span className={`dot ${bot.running ? "pulse" : ""}`} /> {bot.running ? "BOT ONLINE" : "BOT OFFLINE"}
+        </span>
+        {d && <Countdown seconds={bot.next_check_s} />}
+        <HelpButtons explain={explain} setExplain={setExplain} onTour={onTour} onGloss={onGloss} />
+      </div>
+    </header>
   );
 }
 
 export default function App() {
   const [d, err] = useApi(2000);
-  if (!d) {
-    return (
-      <div className="app"><Header d={null} />
-        <div className="loading"><Activity className="spin" /> {err || "Connecting to the bot…"}</div>
-      </div>
-    );
-  }
-  const a = d.account, st = d.stats;
-  const winRate = st.closed ? Math.round((st.wins / st.closed) * 100) : null;
-  const lossUsed = a.daily_loss_limit ? Math.max(0, Math.min(1, -a.today / a.daily_loss_limit)) : 0;
-  const open = d.symbols.reduce((n, s) => n + (s.trades || (s.position ? [1] : [])).length, 0);
+  const [booted, setBooted] = useState(() => { try { return window.location.hash === "#warroom" || sessionStorage.getItem("cg_booted") === "1"; } catch { return false; } });
+  const [explain, setExplainS] = useState(() => store.get("cg_explain", true));
+  const setExplain = (v) => { setExplainS(v); store.set("cg_explain", v); };
+  const [tour, setTour] = useState(false);
+  const [gloss, setGloss] = useState(false);
+  const [acct, setAcct] = useState(false);
+  const enter = () => {
+    setBooted(true);
+    try { sessionStorage.setItem("cg_booted", "1"); } catch { /* ignore */ }
+    if (!store.get("cg_toured", false)) { setTour(true); store.set("cg_toured", true); }
+  };
+  if (!booted || !d) return <Boot d={d} err={err} onEnter={enter} onAccount={() => setAcct(true)} acctOpen={acct} closeAcct={() => setAcct(false)} />;
   return (
-    <div className="app">
-      <Header d={d} />
+    <div className={`app ${explain ? "" : "explain-off"}`}>
+      <div className="scan" aria-hidden />
+      <Header d={d} explain={explain} setExplain={setExplain} onTour={() => setTour(true)} onGloss={() => setGloss(true)} onAccount={() => setAcct(true)} />
       {err && <div className="banner">{err} · showing last known data</div>}
-      <section className="kpis">
-        <Kpi icon={Wallet} label="Equity" sub={`balance ${fmtMoney(a.balance)}`}>
-          <AnimatedNumber value={a.equity} format={(v) => fmtMoney(v)} />
-        </Kpi>
-        <Kpi icon={CircleDollarSign} label="Today" tone={a.today >= 0 ? "pos" : "neg"}
-             sub={<span>{a.today_pct >= 0 ? "+" : ""}{a.today_pct.toFixed(2)}% · loss limit used {Math.round(lossUsed * 100)}%
-               <span className="mini-bar"><span style={{ width: `${lossUsed * 100}%` }} /></span></span>}>
-          <AnimatedNumber value={a.today} format={(v) => fmtMoney(v, true)} />
-        </Kpi>
-        <Kpi icon={Trophy} label="Win rate today" sub={`${st.wins} won · ${st.losses} lost · ${fmtMoney(st.pnl_closed, true)}`}>
-          {winRate == null ? "—" : `${winRate}%`}
-        </Kpi>
-        <Kpi icon={Zap} label="Open trades" sub={`floating ${fmtMoney(a.floating, true)}`}>{open}</Kpi>
-      </section>
-      <RiskStrip d={d} />
-      <section className="war-grid">{d.symbols.map((s) => <WarCard key={s.symbol} s={s} />)}</section>
-      <MissionControl rows={d.mission} training={d.training} />
-      <section className="bottom">
-        <EquityChart series={d.equity} equity={a.equity} />
-        <Feed items={d.feed} />
-      </section>
-      <section className="bottom2">
+      <NewsAlert d={d} />
+      <Sitrep d={d} />
+
+      <Section id="sec-command" no="01" title="COMMAND" sub="the account at a glance and the safety limits">
+        <CommandBar d={d} Animated={AnimatedNumber} />
+      </Section>
+
+      <Section id="sec-markets" no="02" title="MARKETS"
+               sub="one card per market: the needle is the final verdict, the bars are the voters, the line underneath is the next move">
+        <div className="war-grid">{d.symbols.map((s) => <WarCard key={s.symbol} s={s} />)}</div>
+      </Section>
+
+      <Section id="sec-ops" no="03" title="OPS LOG & EQUITY" sub="every action with its reason, and how the account has moved">
+        <div className="bottom">
+          <OpsLog ops={d.ops} feed={d.feed} trades={d.trades} />
+          <EquityChart series={d.equity} equity={d.account.equity} />
+        </div>
+      </Section>
+
+      <Section id="sec-training" no="04" title="TRAINING" sub="each market's AI: which reward style it is practising, and its exam record">
+        <MissionControl rows={d.mission} training={d.training} />
+      </Section>
+
+      <Section id="sec-news" no="05" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
         <News news={d.news} />
-        <Trades trades={d.trades} />
-      </section>
-      <section className="main-full">
-        <Learning d={d} />
-      </section>
+      </Section>
+
       <footer className="footer">
-        <Lightbulb size={14} /> <b>{d.tip.term}:</b> {d.tip.text}
+        <Lightbulb size={14} /> <b>{d.tip.term.replace(" ┃", "")}:</b> {d.tip.text}
         <span className="muted right"><Clock size={12} /> updated {new Date(d.ts * 1000).toLocaleTimeString()}</span>
       </footer>
+      <Tour open={tour} onClose={() => setTour(false)} />
+      <Glossary open={gloss} onClose={() => setGloss(false)} terms={d.glossary} />
+      <AccountSwitch open={acct} onClose={() => setAcct(false)} />
     </div>
   );
 }
