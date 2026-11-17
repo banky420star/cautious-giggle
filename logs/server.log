@@ -362,3 +362,11 @@
 2026-11-17 07:35:03.662 +02:00 | INFO     | __main__:main:1192 - DECISION BTCUSDm | regime=BUY conf=0.7116 risk=0.9000 agi_bias=0.7116 ppo=0.0000 dreamer=0.0000 raw=-0.2362 final=-0.2125
 2026-11-17 07:35:03.724 +02:00 | INFO     | __main__:main:1284 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64995 (now 64948, 0.50 ATR pullback)
 2026-11-17 07:35:06.681 +02:00 | INFO     | __main__:main:1192 - DECISION XAUUSDm | regime=BUY conf=0.6973 risk=0.9000 agi_bias=0.6973 ppo=0.0000 dreamer=0.0000 raw=0.4245 final=0.3820
+2026-11-17 07:37:14.148 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64977.03 tp=64771.65 target=0.0000 magic=51920 retcode=10009 ticket=380954513567125504
+2026-11-17 07:37:41.958 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64925.17 tp=64771.65 target=0.0000 magic=51920 retcode=10009 ticket=380954630223302656
+2026-11-17 07:38:02.497 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64914.79 tp=64771.65 target=0.0000 magic=51920 retcode=10009 ticket=380954716017790976
+2026-11-17 07:38:22.845 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64903.18 tp=64771.65 target=0.0000 magic=51920 retcode=10009 ticket=380954801669672960
+2026-11-17 07:40:04.609 +02:00 | INFO     | __main__:main:1192 - DECISION BTCUSDm | regime=HOLD conf=0.5584 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.3419 final=-0.2735
+2026-11-17 07:40:08.008 +02:00 | INFO     | __main__:main:1192 - DECISION XAUUSDm | regime=BUY conf=0.6908 risk=0.9000 agi_bias=0.6908 ppo=0.0000 dreamer=0.0000 raw=0.3444 final=0.3100
+2026-11-17 07:40:28.948 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=open side=buy lots=0.02 price=3881.203 sl=3875.892 tp=3889.549 target=0.3100 magic=52900 retcode=10009 ticket=380955331762589696
+2026-11-17 07:40:28.952 +02:00 | INFO     | __main__:main:1115 - ENTRY XAUUSDm | pullback after 471s | buy 0.02 @ 3881.203 vs 3882.5339999999997 at signal (+3.43 bps better)

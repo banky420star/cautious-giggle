@@ -218,3 +218,12 @@ code { background: rgba(255,255,255,.07); padding: 1px 6px; border-radius: 6px; 
 .tbl th { color: var(--muted); font-weight: 500; }
 .bottom2 { grid-template-columns: 1.3fr 1fr; }
 @media (max-width: 1000px) { .bottom2 { grid-template-columns: 1fr; } }
+
+.markets { margin-bottom: 14px; }
+.mk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
+.mk { padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.04); display: flex; flex-direction: column; gap: 3px; }
+.mk.live { border-color: rgba(251,191,36,.45); animation: pulse 2s infinite; }
+.mk-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.mk-px { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mk-pos { color: var(--cyan); font-weight: 600; }
+.mk-news { color: #fbbf24; }

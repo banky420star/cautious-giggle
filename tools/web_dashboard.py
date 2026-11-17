@@ -35,7 +35,8 @@ class State:
     def __init__(self):
         self.cfg = m._cfg()
         self.symbols = [str(s) for s in ((self.cfg.get("trading") or {}).get("symbols") or ["BTCUSDm", "XAUUSDm"])]
-        self.broker = m.Broker(self.symbols)
+        news_syms = [str(x) for x in (((self.cfg.get("trading") or {}).get("news_trading") or {}).get("symbols") or [])]
+        self.broker = m.Broker(self.symbols, extra=news_syms)
         self.logs = m.Logs()
         self.lock = threading.Lock()
         self.log_lock = threading.Lock()
@@ -180,6 +181,7 @@ class State:
             "training": self._training(),
             "feed": self.narrator.feed(60),
             "news": self._news_snapshot(),
+            "markets": m.market_rows(self.broker),
             "tip": dict(zip(("term", "text"), wr.GLOSSARY[int(time.time() // 12) % len(wr.GLOSSARY)])),
         }
 

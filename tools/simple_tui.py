@@ -85,6 +85,36 @@ def news_panel(frame) -> Panel:
                  box=box.ROUNDED, border_style="yellow" if any(e["phase"] in ("prep", "armed", "in_trade") for e in evs) else "grey50")
 
 
+def markets_panel(broker) -> Panel:
+    g = Table.grid(expand=True, padding=(0, 1))
+    rows = m.market_rows(broker)
+    for _ in rows:
+        g.add_column(ratio=1)
+    cells = []
+    for r in rows:
+        c = Text(r["name"], style="bold")
+        c.append(f"  {'' if r['bid'] is None else m._px(r['bid'])}\n", style="white")
+        if r["chg_pct"] is not None:
+            c.append(f"{'▲' if r['chg_pct'] >= 0 else '▼'} {r['chg_pct']:+.2f}% 24h", style="green" if r["chg_pct"] >= 0 else "red")
+        c.append("\n")
+        if r["lots"]:
+            c.append(f"{'LONG' if r['lots'] > 0 else 'SHORT'} {abs(r['lots']):.2f} ", style="bold cyan")
+            if r["pnl"] is not None:
+                c.append(f"{'+' if r['pnl'] >= 0 else '−'}${abs(r['pnl']):.2f}", style="green" if r["pnl"] >= 0 else "red")
+        else:
+            c.append(r["mode"], style="grey50")
+        c.append("\n")
+        n = r.get("news")
+        if n:
+            secs = n["t0"] - time.time()
+            when = f"{secs / 3600:.1f}h" if secs > 3600 else (f"{secs / 60:.0f}m" if secs > 0 else "now")
+            live = n["phase"] in ("prep", "armed", "in_trade")
+            c.append(f"news {when}: {n.get('plan') or 'aside'}", style="bold yellow" if live else "yellow")
+        cells.append(c)
+    g.add_row(*cells)
+    return Panel(g, title=Text(" 🌍 ALL MARKETS ", style="bold"), title_align="left", box=box.ROUNDED, border_style="grey50")
+
+
 def feed_panel(height: int) -> Panel:
     import json
     items = []
@@ -368,6 +398,7 @@ def render(frame, broker, logs, cfg, symbols, width):
     lay.split_column(
         Layout(top_bar(frame, alive, broker, logs, cfg), size=3),
         Layout(cards, size=15),
+        Layout(markets_panel(broker), size=6),
         Layout(name="bottom"),
         Layout(foot, size=1),
     )
@@ -382,7 +413,7 @@ def main():
     cfg = m._cfg()
     symbols = [str(s) for s in ((cfg.get("trading") or {}).get("symbols") or ["BTCUSDm", "XAUUSDm"])]
     console = Console()
-    broker = m.Broker(symbols)
+    broker = m.Broker(symbols, extra=[str(x) for x in (((cfg.get("trading") or {}).get("news_trading") or {}).get("symbols") or [])])
     logs = m.Logs()
     frame = 0
     with Live(console=console, screen=True, auto_refresh=False, transient=True, vertical_overflow="crop") as live:

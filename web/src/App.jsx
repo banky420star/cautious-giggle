@@ -398,6 +398,31 @@ const until = (t) => {
   return s < 3600 ? `in ${Math.round(s / 60)} min` : `in ${(s / 3600).toFixed(1)} h`;
 };
 
+function Markets({ rows }) {
+  if (!rows?.length) return null;
+  return (
+    <div className="card markets">
+      <div className="card-title"><TrendingUp size={16} /> All markets</div>
+      <div className="mk-grid">
+        {rows.map((r) => {
+          const live = r.news && ["prep", "armed", "in_trade"].includes(r.news.phase);
+          return (
+            <div key={r.symbol} className={`mk ${live ? "live" : ""}`}>
+              <div className="mk-top"><b>{r.name}</b><span className="muted small">{r.mode}</span></div>
+              <div className="mk-px">{r.bid == null ? "—" : r.bid.toLocaleString(undefined, { maximumFractionDigits: r.bid < 10 ? 5 : r.bid < 1000 ? 3 : 2 })}</div>
+              {r.chg_pct != null && <div className={r.chg_pct >= 0 ? "pos small" : "neg small"}>{r.chg_pct >= 0 ? "▲" : "▼"} {r.chg_pct.toFixed(2)}% 24h</div>}
+              <div className="small">{r.lots ? <span className="mk-pos">{r.lots > 0 ? "LONG" : "SHORT"} {Math.abs(r.lots).toFixed(2)}
+                {r.pnl != null && <span className={r.pnl >= 0 ? "pos" : "neg"}> {r.pnl >= 0 ? "+" : "−"}${Math.abs(r.pnl).toFixed(2)}</span>}</span>
+                : <span className="muted">no position</span>}</div>
+              {r.news && <div className="mk-news small">news {until(r.news.t0)} · {r.news.plan ? PLAY[r.news.plan] : "stand aside"}</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function News({ news }) {
   const [tab, setTab] = useState("plan");
   if (!news) return null;
@@ -543,6 +568,7 @@ export default function App() {
         <EquityChart series={d.equity} equity={a.equity} />
         <div className="symbols">{d.symbols.map((s) => <SymbolCard key={s.symbol} s={s} />)}</div>
       </section>
+      <Markets rows={d.markets} />
       <section className="bottom">
         <Learning d={d} />
         <Feed items={d.feed} />

@@ -194,7 +194,9 @@ class Broker:
     """Read-only broker view polled in a background thread (never blocks drawing),
     throttled to stay well inside the API rate limits."""
 
-    def __init__(self, symbols):
+    def __init__(self, symbols, extra=None):
+        self.extra = [x for x in (extra or []) if x not in symbols]
+        self.extra_ticks, self.day_open = {}, {}
         from Python.mt5_compat import BROKER_BACKEND, MT5_AVAILABLE, mt5
 
         self.symbols = symbols
@@ -255,6 +257,19 @@ class Broker:
                     if r is not None and len(r):
                         self.bars[s] = [float(x) for x in r["close"]]
                 self._t["bars"] = now
+            if self.extra and now - self._t.get("xtick", 0) >= 10:
+                for s in self.extra:
+                    t = self.mt5.symbol_info_tick(s)
+                    if t is not None:
+                        self.extra_ticks[s] = t
+                self._t["xtick"] = now
+            if now - self._t.get("dopen", 0) >= 300:
+                tf = getattr(self.mt5, "TIMEFRAME_H1", 60)
+                for s in list(self.symbols) + self.extra:
+                    r = self.mt5.copy_rates_from_pos(s, tf, 0, 25)
+                    if r is not None and len(r):
+                        self.day_open[s] = float(r["open"][0])   # price 24 h ago
+                self._t["dopen"] = now
             if now - self._t["deals"] >= 60:
                 start = dt.datetime.now(dt.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
                 deals = self.mt5.history_deals_get(start, dt.datetime.now(dt.timezone.utc)) or []
@@ -267,6 +282,34 @@ class Broker:
             self.err = ""
         except Exception as exc:
             self.err = str(exc)[:160]
+
+
+MARKET_NAMES = {"BTCUSDm": "Bitcoin", "XAUUSDm": "Gold", "EURUSDm": "EUR/USD", "USDJPYm": "USD/JPY",
+                "XAGUSDm": "Silver", "ETHUSDm": "Ether", "USOILm": "Oil"}
+
+
+def market_rows(broker) -> list[dict]:
+    """One row per market the bot trades (regular and news-only) for the UIs."""
+    try:
+        with open(os.path.join(LOG_DIR, "news_state.json"), encoding="utf-8") as f:
+            news = json.load(f).get("events", [])
+    except Exception:
+        news = []
+    rows = []
+    for s in list(broker.symbols) + list(getattr(broker, "extra", [])):
+        t = broker.ticks.get(s) or getattr(broker, "extra_ticks", {}).get(s)
+        bid = float(t.bid) if t is not None else None
+        o = getattr(broker, "day_open", {}).get(s)
+        pos = [p for p in (broker.positions or []) if str(getattr(p, "symbol", "")) == s]
+        lots = sum(float(p.volume) * (1 if int(p.type) == 0 else -1) for p in pos)
+        nxt = next((e for e in sorted(news, key=lambda e: e["t0"]) if e["sym"] == s and e.get("phase") != "done"), None)
+        rows.append({"symbol": s, "name": MARKET_NAMES.get(s, s), "bid": bid,
+                     "chg_pct": ((bid / o - 1) * 100) if (bid and o) else None,
+                     "mode": "signals + news" if s in broker.symbols else "news only",
+                     "lots": round(lots, 2), "pnl": round(sum(float(p.profit) for p in pos), 2) if pos else None,
+                     "news": ({"title": nxt["title"], "t0": nxt["t0"], "phase": nxt["phase"], "plan": nxt.get("plan")}
+                              if nxt else None)})
+    return rows
 
 
 class Logs:
