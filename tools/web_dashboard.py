@@ -168,6 +168,13 @@ class State:
         trusts = [describe(k) for k, v in ranked[:3] if (v or {}).get("verdict") == "works"]
         ignores = [describe(k) for k, v in ranked[::-1][:3] if (v or {}).get("verdict") == "doesn't work"]
         hist = [{"t": h[0], "v": round(h[1], 3)} for h in (logs.sig_hist.get(s) or [])[-120:]]
+        pe = logs.pending_entry.get(s)
+        pending = None
+        if pe and float(pe.get("expires", 0)) > time.time() - 30 and not pos:
+            pending = {"side": pe.get("side"), "limit": float(pe["limit"]), "ref": float(pe["ref"]),
+                       "expires_in": max(0, int(float(pe["expires"]) - time.time()))}
+            why = (f"Signal says {pe.get('side')}. Waiting for a better price (${pending['limit']:,.2f}) instead of "
+                   f"chasing; enters at market if it doesn't come within the time limit.")
         return {
             "symbol": s, "name": NAMES.get(s, s),
             "bid": float(tick.bid) if tick else None, "ask": float(tick.ask) if tick else None,
@@ -175,7 +182,7 @@ class State:
             "position": pos, "signal": raw, "threshold": thr, "why": why,
             "up": up, "down": down, "voters": len(cv.get("votes") or {}), "ignored": len(cv.get("ignored") or []),
             "council": float(sg.get("council", 0) or 0), "lstm_conf": float(sg.get("confidence", 0) or 0),
-            "trusts": trusts, "ignores": ignores, "signal_history": hist,
+            "trusts": trusts, "ignores": ignores, "signal_history": hist, "pending": pending,
         }
 
     def _trades(self, deals, out_entry) -> list[dict]:

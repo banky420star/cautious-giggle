@@ -276,6 +276,7 @@ class Logs:
         self.last_signal, self.last_block, self.last_memory = {}, {}, {}
         self.last_council = {}
         self.sig_hist: dict[str, list] = {}
+        self.pending_entry: dict[str, dict] = {}
         self.events: list[dict] = []
         self.equity: list[float] = []
         self.last_snapshot = None
@@ -328,8 +329,14 @@ class Logs:
             elif ev == "risk_supervisor_block" and sym:
                 self.last_block[sym] = r
                 self.events.append(r)
+            elif ev == "entry_planned" and sym:
+                self.pending_entry[sym] = p
+            elif ev == "entry_cancelled" and sym:
+                self.pending_entry.pop(sym, None)
             elif ev == "trade_action":
                 self.events.append(r)
+                if sym:
+                    self.pending_entry.pop(sym, None)
             elif ev == "snapshot":
                 self.last_snapshot = r
                 eq = p.get("equity")

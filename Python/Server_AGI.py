@@ -465,6 +465,28 @@ class _CouncilOff(Exception):
     pass
 
 
+def _smart_entry_settings(cfg: dict) -> dict:
+    se = ((cfg or {}).get("trading", {}) or {}).get("smart_entry", {}) or {}
+    return {"enabled": bool(se.get("enabled", False)), "wait_min": float(se.get("wait_minutes", 15)),
+            "pullback_atr": dict(se.get("pullback_atr", {}) or {}), "default_atr": float(se.get("default_pullback_atr", 0.35))}
+
+
+def _plan_entry(symbol: str, exposure: float, executor, settings: dict) -> dict | None:
+    """Pullback entry: instead of buying/selling at market, wait up to wait_min for price to come
+    back k x ATR(M5); if it doesn't, enter at market when the wait runs out."""
+    tick = mt5.symbol_info_tick(symbol)
+    info = executor._symbol_info(symbol)
+    atr_pts = executor._atr_points(symbol)
+    if tick is None or info is None or not atr_pts:
+        return None
+    k = float(settings["pullback_atr"].get(str(symbol), settings["default_atr"]))
+    side = 1 if exposure > 0 else -1
+    ref = float(tick.ask) if side > 0 else float(tick.bid)
+    atr = float(atr_pts) * float(info.point or 0.0)
+    return {"side": side, "exposure": float(exposure), "ref": ref, "limit": ref - side * k * atr, "k": k,
+            "created": time.time(), "expires": time.time() + settings["wait_min"] * 60.0}
+
+
 _HTF_CACHE: dict = {}
 
 
@@ -844,6 +866,9 @@ def main(live=False):
     model_memory = ModelMemory.from_cfg(cfg, LOG_DIR)
     explore_cfg = demo_exploration.settings(cfg)
     explore_demo_ok = bool(explore_cfg["enabled"]) and demo_exploration.account_is_demo(mt5)
+    smart_entry = _smart_entry_settings(cfg)
+    pending_entries: dict = {}
+    logger.info(f"smart entry {'ON' if smart_entry['enabled'] else 'OFF'} (pullback wait {smart_entry['wait_min']:.0f} min)")
     learn_cfg = (cfg.get("trading", {}) or {}).get("demo_learning", {}) or {}
     if bool(learn_cfg.get("enabled", False)) and demo_exploration.account_is_demo(mt5):
         cfg.setdefault("trading", {})["_learning_threshold_scale"] = float(learn_cfg.get("threshold_scale", 0.5))
@@ -1026,6 +1051,37 @@ def main(live=False):
                 logger.warning(f"trade learning update failed: {e}")
             last_learning = now
 
+        # ---- smart entry: fill pending pullback entries (or enter at market when the wait runs out)
+        for psym, pe in list(pending_entries.items()):
+            try:
+                if supervisor.halt_until is not None and supervisor.halt_until > _utc_now():
+                    pending_entries.pop(psym, None)
+                    _append_audit("entry_cancelled", {"symbol": psym, "reason": "risk halt"})
+                    continue
+                tk = mt5.symbol_info_tick(psym)
+                if tk is None:
+                    continue
+                px = float(tk.ask) if pe["side"] > 0 else float(tk.bid)
+                hit = px <= pe["limit"] if pe["side"] > 0 else px >= pe["limit"]
+                if not hit and time.time() < pe["expires"]:
+                    continue
+                pending_entries.pop(psym, None)
+                om = brain.live_trade(psym, pe["exposure"], pe["max_lots"], action_meta=pe.get("action_meta"),
+                                      execution_context=pe.get("ctx"))
+                if om and om.get("executed"):
+                    supervisor.mark_trade(psym)
+                    om = dict(om)
+                    om["entry_mode"] = "pullback" if hit else "timeout_market"
+                    om["entry_improvement_bps"] = round((pe["ref"] - px) * pe["side"] / pe["ref"] * 1e4, 2)
+                    om["waited_s"] = round(time.time() - pe["created"])
+                    _append_audit("trade_action", om)
+                    logger.info(f"ENTRY {psym} | {om['entry_mode']} after {om['waited_s']}s | "
+                                f"{'buy' if pe['side'] > 0 else 'sell'} {om.get('executed_lots', om.get('volume_lots'))} "
+                                f"@ {px} vs {pe['ref']} at signal ({om['entry_improvement_bps']:+.2f} bps better)")
+            except Exception as exc:
+                pending_entries.pop(psym, None)
+                logger.warning(f"smart entry failed for {psym}: {exc}")
+
         for symbol in symbols:
             try:
                 bar_time = _last_closed_bar_time(symbol, timeframe)
@@ -1168,7 +1224,41 @@ def main(live=False):
                 if supervisor_decision.allowed and getattr(supervisor_decision, "target", None) is not None:
                     exposure = float(supervisor_decision.target)
                     sym_state["risk_supervisor"]["capped_target"] = exposure
-                if supervisor_decision.allowed:
+                pending_now = False
+                if supervisor_decision.allowed and smart_entry["enabled"]:
+                    pend = pending_entries.get(symbol)
+                    cur_lots = abs(float(current_symbol_exposure)) * float(max_lots)
+                    want_lots = executor.normalize_volume(
+                        symbol, executor.risk_capped_lots(symbol, abs(float(exposure)) * float(max_lots))) if exposure else 0.0
+                    same_side = float(current_symbol_exposure) == 0.0 or (float(exposure) > 0) == (float(current_symbol_exposure) > 0)
+                    opening = float(exposure) != 0.0 and same_side and want_lots > cur_lots + 1e-9
+                    if pend and (not opening or (float(exposure) > 0) != (pend["side"] > 0)):
+                        pending_entries.pop(symbol, None)
+                        _append_audit("entry_cancelled", {"symbol": symbol, "reason": "signal changed"})
+                        pend = None
+                    if opening:
+                        if pend is None:
+                            pend = _plan_entry(symbol, float(exposure), executor, smart_entry)
+                            if pend is not None:
+                                pending_entries[symbol] = pend
+                                _append_audit("entry_planned", {"symbol": symbol, "side": "BUY" if pend["side"] > 0 else "SELL",
+                                                                "ref": pend["ref"], "limit": pend["limit"], "k_atr": pend["k"],
+                                                                "expires": pend["expires"]})
+                                logger.info(f"ENTRY PLAN {symbol} | waiting up to {smart_entry['wait_min']:.0f} min for "
+                                            f"{pend['limit']:.5g} (now {pend['ref']:.5g}, {pend['k']:.2f} ATR pullback)")
+                        if pend is not None:
+                            pend.update(exposure=float(exposure), max_lots=max_lots, action_meta=action_meta, ctx={
+                                "regime": regime, "confidence": conf, "target_exposure": float(exposure),
+                                "raw_target": float(decision["raw_target"]),
+                                "ppo_target": float((ppo_meta or {}).get("target", 0.0) or 0.0),
+                                "dreamer_target": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
+                                "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
+                                "agi_risk_scalar": _risk_scalar(agi_meta)})
+                            pending_now = True
+                if pending_now:
+                    order_meta = None
+                    bar_settled = True
+                elif supervisor_decision.allowed:
                     order_meta = brain.live_trade(
                         symbol,
                         exposure,
@@ -1300,7 +1390,7 @@ def main(live=False):
                 alerter.symbol_status(sym, sstate)
             last_symbol_cards = now
 
-        time.sleep(max(5, loop_sleep_sec))
+        time.sleep(5 if pending_entries else max(5, loop_sleep_sec))
 
 
 if __name__ == "__main__":

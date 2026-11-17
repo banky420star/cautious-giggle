@@ -36,3 +36,29 @@ def test_normalize_active_weights_lets_council_trade_alone():
     assert abs(off["raw_target"]) < abs(on["raw_target"])
     nothing = _blend_symbol_decision("BTCUSDm", weak_lstm, None, None, cfg=cfg, council_meta=None)
     assert nothing["target"] == 0.0
+
+
+def test_plan_entry_sets_pullback_limit(monkeypatch):
+    import Python.Server_AGI as srv
+
+    class T:  # tick
+        bid, ask = 100.0, 100.2
+
+    class I:
+        point = 0.01
+
+    class Ex:
+        def _symbol_info(self, s):
+            return I()
+
+        def _atr_points(self, s):
+            return 100  # 1.00 price units
+
+    monkeypatch.setattr(srv.mt5, "symbol_info_tick", lambda s: T(), raising=False)
+    st = srv._smart_entry_settings({"trading": {"smart_entry": {"enabled": True, "wait_minutes": 15,
+                                                                "pullback_atr": {"BTCUSDm": 0.5}}}})
+    buy = srv._plan_entry("BTCUSDm", 0.3, Ex(), st)
+    assert abs(buy["limit"] - 99.7) < 1e-9 and buy["side"] == 1          # ask 100.2 - 0.5 ATR
+    sell = srv._plan_entry("BTCUSDm", -0.3, Ex(), st)
+    assert abs(sell["limit"] - 100.5) < 1e-9 and sell["side"] == -1      # bid 100.0 + 0.5 ATR
+    assert 890 < buy["expires"] - buy["created"] < 910

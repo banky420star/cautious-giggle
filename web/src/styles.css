@@ -170,3 +170,7 @@ code { background: rgba(255,255,255,.07); padding: 1px 6px; border-radius: 6px; 
   .app { padding: 14px 16px; }
   .kpis { grid-template-columns: 1fr; }
 }
+
+.status.pending { color: #1a1300; background: var(--gold); animation: breathe 1.6s ease-in-out infinite; }
+.pending-box { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 12.5px; padding: 8px 10px;
+  border-radius: 10px; background: rgba(250,204,21,.08); border: 1px solid rgba(250,204,21,.25); }

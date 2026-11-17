@@ -29,6 +29,10 @@ trading:
   demo_learning:                   # DEMO accounts only: trade more often to learn faster
     enabled: false
     threshold_scale: 0.5           # halve the signal needed to open a trade
+  smart_entry:                     # wait for a small pullback instead of buying/selling at market
+    enabled: true
+    wait_minutes: 15               # if price doesn't come back in time, enter at market anyway
+    pullback_atr: {BTCUSDm: 0.5, XAUUSDm: 0.25}   # how far (x ATR of 5-min bars) to wait for
   normalize_active_weights: true   # average over models that have a view this bar (missing/abstaining ones don't dilute the signal)
   magic_number: 505
   demo_exploration:          # demo accounts only: trade a gate-failing model small so memory can learn

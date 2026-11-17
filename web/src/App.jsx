@@ -248,11 +248,19 @@ function SymbolCard({ s }) {
             In a {p.side === "BUY" ? "buy" : "sell"} trade
             <span className={`status-pnl ${p.pnl >= 0 ? "pos" : "neg"}`}>{fmtMoney(p.pnl, true)}</span>
           </div>
+        ) : s.pending ? (
+          <div className="status pending"><Clock size={14} /> {s.pending.side === "BUY" ? "Buying" : "Selling"} on a dip · {Math.floor(s.pending.expires_in / 60)}:{String(s.pending.expires_in % 60).padStart(2, "0")}</div>
         ) : (
           <div className="status idle"><Pause size={14} /> Waiting</div>
         )}
       </div>
       <p className="why">{s.why}</p>
+      {s.pending && (
+        <div className="pending-box">
+          <span>Target entry <b>${fmtPx(s.pending.limit)}</b></span>
+          <span className="muted">price at signal ${fmtPx(s.pending.ref)} · now ${fmtPx(s.pending.side === "BUY" ? s.ask : s.bid)}</span>
+        </div>
+      )}
       <SignalMeter value={s.signal} threshold={s.threshold} />
       <div className="spark">
         <ResponsiveContainer width="100%" height="100%">
