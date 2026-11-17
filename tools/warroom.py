@@ -299,3 +299,252 @@ def footer(frame: int, logs, width: int) -> Group:
 
 def caption(text: str) -> Text:
     return Text(text, style="dim italic", overflow="ellipsis", no_wrap=True)
+
+
+# ----------------------------------------------------------------------------- training mission control
+MISSIONS = {
+    "lstm": {
+        "name": "LSTM pattern reader",
+        "learn": "which patterns in the last 60 five-minute bars (150 indicators each) come just before an UP, DOWN "
+                 "or FLAT next bar.",
+        "goal": "make its error on bars it has never seen (val_loss) as low as possible, so its UP/DOWN calls are "
+                "right more often than chance.",
+        "test": "after every pass it is quizzed on the newest 15% of history it never trained on; the best pass is "
+                "kept and training stops early if 4 passes in a row don't improve.",
+        "role": "Live role: a helper vote. It only counts when ≥85% sure.",
+    },
+    "dreamer": {
+        "name": "Dreamer world model",
+        "learn": "a mini simulator of how this market moves (a 'world model'), then practises trading inside its "
+                 "own imagined futures.",
+        "goal": "predict upcoming bars well (world-model error falls) and earn a positive reward in its imagination.",
+        "test": "no vote yet (weight 0). It is experimental and only gets a say after proving itself in the exam.",
+        "role": "Live role: none yet. It's a research model.",
+    },
+    "ppo": {
+        "name": "PPO trader",
+        "learn": "when to be long, short or flat and how big, by trial and error over past data, paying real "
+                 "spread, stop-loss and take-profit costs.",
+        "goal": "the highest profit after costs with small drawdowns. Its practice score should climb above zero.",
+        "test": "the exam below. It is replayed on the last 15% of history it never saw and must pass every gate.",
+        "role": "Live role: the main decision-maker (60% of the vote) once it passes.",
+    },
+    "exam": {
+        "name": "Exam (out-of-sample backtest)",
+        "learn": "nothing. This is the test.",
+        "goal": "prove the new PPO trader would have made money on unseen data, safely, and better than simple rules.",
+        "test": "the gates below. Pass → it starts trading on demo (canary). Fail → it may trade half-size on demo "
+                "only, to collect real evidence.",
+        "role": "",
+    },
+}
+
+
+def cycle_stages(lines: list[str], symbols: list[str]) -> list[dict]:
+    """Ordered roadmap of the champion cycle with status from its log."""
+    st = []
+    for kind, label in (("lstm", "LSTM"), ("dreamer", "Dreamer"), ("ppo", "PPO")):
+        for s in symbols:
+            st.append({"kind": kind, "symbol": s, "label": f"{label} {s[:3]}", "status": "pending"})
+    for s in symbols:
+        st.append({"kind": "exam", "symbol": s, "label": f"Exam {s[:3]}", "status": "pending"})
+    # only the most recent cycle
+    start = 0
+    for i, l in enumerate(lines):
+        if "Cycle start" in l:
+            start = i
+    for l in lines[start:]:
+        for row in st:
+            s = row["symbol"]
+            tag = {"lstm": "LSTM", "dreamer": "Dreamer", "ppo": "PPO"}.get(row["kind"])
+            if tag and f"{tag} start | symbol={s}" in l:
+                row["status"] = "running"
+            elif tag and f"{tag} complete | symbol={s}" in l:
+                row["status"] = "done"
+            elif tag and ("failed" in l and f"symbol={s}" in l and tag.lower() in l.lower()):
+                row["status"] = "failed"
+            elif row["kind"] == "exam" and f"Evaluate {s} " in l:
+                row["status"] = "running"
+            elif row["kind"] == "exam" and f"Canary set for {s}" in l:
+                row["status"] = "passed"
+            elif row["kind"] == "exam" and (f"Candidate blocked for {s}" in l or f"Skipping evaluation for {s}" in l):
+                row["status"] = "failed"
+    return st
+
+
+def _bar(frac: float, width: int, style: str = "bright_cyan", frame: int = 0) -> Text:
+    frac = max(0.0, min(1.0, frac))
+    full = int(frac * width)
+    t = Text()
+    for i in range(full):
+        shimmer = (frame - i) % 24 == 0
+        t.append("█", style="bold bright_white" if shimmer else style)
+    if full < width:
+        t.append("▌" if (frac * width - full) > 0.5 else " ", style=style)
+        t.append("░" * (width - full - 1), style="grey30")
+    return t
+
+
+def training_panel(frame: int, prog: dict, running: bool, cycle_lines: list[str], symbols: list[str],
+                   cfg: dict, spark) -> Panel:
+    spin = "◐◓◑◒"[frame % 4]
+    stages = cycle_stages(cycle_lines, symbols)
+    road = Text(no_wrap=True, overflow="ellipsis")
+    icon = {"done": ("✓", "green"), "passed": ("✓", "bold green"), "running": (spin, "bold bright_yellow"),
+            "failed": ("✗", "red"), "pending": ("○", "grey42")}
+    for i, row in enumerate(stages):
+        ic, stl = icon[row["status"]]
+        road.append(f"{ic} {row['label']}", style=stl if row["status"] != "running" else "bold black on bright_yellow")
+        if i < len(stages) - 1:
+            road.append(" › ", style="grey42")
+    cur = next((r for r in stages if r["status"] == "running"), None)
+    out = [road, Text("")]
+
+    if not running and not cur:
+        out.append(Text("No training running. Type 'exness train' to start a new learning cycle.", style="dim"))
+    kind = (cur or {}).get("kind")
+    if cur:
+        m = MISSIONS[kind]
+        out.append(Text(f"NOW TRAINING · {m['name']} · {_nm(cur['symbol'])}", style="bold bright_yellow"))
+        for tag, key, st in (("LEARNING", "learn", ""), ("GOAL    ", "goal", "green"), ("TESTED  ", "test", "cyan")):
+            t = Text(f" {tag} ", style="bold black on grey70")
+            t.append(" " + m[key], style=st)
+            out.append(t)
+        if m["role"]:
+            out.append(Text(" " + m["role"], style="dim italic"))
+        out.append(Text(""))
+
+    live = prog and not prog.get("done") and time.time() - float(prog.get("ts", 0) or 0) < 600
+    if cur and live and prog.get("kind") == kind and prog.get("symbol") in (cur["symbol"], None) or \
+            (cur and live and prog.get("kind") == kind):
+        out.extend(_progress_lines(frame, prog, spark))
+    elif cur and kind != "exam":
+        started = _stage_start(cycle_lines, cur)
+        out.append(Text(f" {spin} working… started {started}. Live numbers appear from the next run of this stage.",
+                        style="dim"))
+    out.append(Text(""))
+    out.extend(_exam_lines(cfg, stages, symbols))
+    return Panel(Group(*out), title=Text("🧠 TRAINING MISSION CONTROL", style="bold"),
+                 subtitle=caption("what each model learns · what it aims for · how it's tested"),
+                 box=box.ROUNDED, border_style="yellow" if cur else "grey50")
+
+
+def _stage_start(lines, cur) -> str:
+    tag = {"lstm": "LSTM", "dreamer": "Dreamer", "ppo": "PPO", "exam": "Evaluate"}[cur["kind"]]
+    for l in reversed(lines):
+        if tag in l and cur["symbol"] in l:
+            try:
+                t = dt.datetime.strptime(l[:19], "%Y-%m-%d %H:%M:%S")
+                return f"{int((dt.datetime.now() - t).total_seconds() // 60)} min ago"
+            except Exception:
+                break
+    return "recently"
+
+
+def _progress_lines(frame: int, prog: dict, spark) -> list[Text]:
+    out = []
+    k = prog.get("kind")
+    el = time.time() - float(prog.get("started", time.time()))
+    if k == "lstm":
+        ep, eps = int(prog.get("epoch", 0)), max(1, int(prog.get("epochs", 1)))
+        b, nb = int(prog.get("batch", 0)), max(1, int(prog.get("n_batches", 1)))
+        frac = ((ep - 1) + b / nb) / eps
+        t = Text(f" pass {ep}/{eps} ")
+        t.append_text(_bar(frac, 30, frame=frame))
+        t.append(f" {frac * 100:.0f}%", style="bold")
+        out.append(t)
+        hist = prog.get("history") or []
+        if hist:
+            v0, vb = float(hist[0]["val_loss"]), min(float(h["val_loss"]) for h in hist)
+            imp = (v0 - vb) / v0 * 100 if v0 else 0
+            sc = Text(" SCORECARD ", style="bold black on cyan")
+            sc.append(f"  unseen-data error {v0:.3f} → best {vb:.3f} ", style="bold")
+            sc.append(f"({imp:.1f}% better)", style="green" if imp > 0 else "red")
+            out.append(sc)
+            out.append(Text(f"  error per pass (lower = better) {spark([float(h['val_loss']) for h in hist], 30)}",
+                            style="cyan"))
+            stale = 0
+            for h in reversed(hist):
+                if h.get("best"):
+                    break
+                stale += 1
+            pat = int(prog.get("patience", 4))
+            verdict = ("✅ still improving" if stale == 0 else f"⏳ no improvement for {stale} pass(es); "
+                                                              f"stops after {pat}")
+            out.append(Text("  " + verdict, style="green" if stale == 0 else "yellow"))
+    elif k in ("ppo", "dreamer"):
+        st, tot = int(prog.get("step", 0)), max(1, int(prog.get("total", 1)))
+        frac = st / tot
+        eta = el / frac - el if frac > 0.01 else None
+        t = Text(f" {'practice steps' if k == 'ppo' else 'imagination steps'} {st:,}/{tot:,} ")
+        t.append_text(_bar(frac, 26, frame=frame))
+        t.append(f" {frac * 100:.0f}%", style="bold")
+        if eta:
+            t.append(f"  ~{int(eta // 60)}m left", style="dim")
+        out.append(t)
+        r = prog.get("ep_reward_mean")
+        if k == "dreamer":
+            w0, w = prog.get("world_model_loss_start"), prog.get("world_model_loss")
+            if w is not None and w0:
+                sc = Text(" SCORECARD ", style="bold black on cyan")
+                imp = (float(w0) - float(w)) / float(w0) * 100
+                sc.append(f"  world-model error {float(w0):.3f} → {float(w):.3f} ", style="bold")
+                sc.append(f"({imp:.0f}% better at predicting the market)", style="green" if imp > 0 else "red")
+                out.append(sc)
+        if r is not None:
+            sc = Text(" PRACTICE SCORE ", style="bold black on cyan")
+            sc.append(f"  {float(r):+.3f} per run ", style="bold green" if r > 0 else "bold yellow")
+            sc.append("→ making money after costs in practice" if r > 0 else "→ still losing to costs; keeps learning",
+                      style="dim")
+            out.append(sc)
+        rec = prog.get("recent") or []
+        if rec:
+            out.append(Text(f"  trend {spark(rec, 34)}", style="cyan"))
+    return out
+
+
+def _exam_lines(cfg: dict, stages: list[dict], symbols: list[str]) -> list[Text]:
+    ev = (cfg.get("evaluation") or {})
+    gates = [
+        ("Profit after costs", f"> {float(ev.get('min_return', 0)) * 100:.1f}%"),
+        ("Max drawdown", f"≤ {float(ev.get('max_drawdown', 0.10)) * 100:.0f}%"),
+        ("Sharpe (return per risk)", f"≥ {float(ev.get('min_sharpe', 0.5)):.1f}"),
+        ("Beats EMA-cross & buy-and-hold", "required" if ev.get("require_beat_baseline", True) else "optional"),
+        ("Only unseen data", "last 15% of history"),
+    ]
+    t = Table(box=None, padding=(0, 1), expand=True, show_header=True, header_style="bold")
+    t.add_column("EXAM GATES the PPO trader must pass", ratio=3)
+    t.add_column("target", ratio=2)
+    for s in symbols:
+        t.add_column(_nm(s), justify="center", ratio=1)
+    res = {r["symbol"]: r["status"] for r in stages if r["kind"] == "exam"}
+    for name, target in gates:
+        row = [Text(name), Text(target, style="cyan")]
+        for s in symbols:
+            r = res.get(s, "pending")
+            row.append(Text("✓" if r == "passed" else ("✗" if r == "failed" else ("…" if r == "running" else "○")),
+                            style={"passed": "bold green", "failed": "red", "running": "yellow"}.get(r, "grey42")))
+        t.add_row(*row)
+    return [t]
+
+
+# ----------------------------------------------------------------------------- signal history
+def signal_history(hist: dict, symbols: list[str], chart, width: int) -> Group:
+    parts = []
+    for s in symbols:
+        h = hist.get(s) or []
+        vals = [x[1] for x in h][-width * 2:]
+        thr = h[-1][3] if h else 0.15
+        trades = sum(1 for x in h[-60:] if x[2])
+        last = vals[-1] if vals else 0.0
+        head = Text(f"{_nm(s).upper():<8}", style="bold", no_wrap=True, overflow="ellipsis")
+        head.append(f" now {last:+.2f} ", style="bold green" if last >= thr else ("bold red" if last <= -thr else "bold"))
+        head.append(f"· needs ±{thr:.2f} · {trades} trade calls", style="dim")
+        parts.append(head)
+        if len(vals) >= 2:
+            ct = chart(vals, width, 2, {"BUY": (thr, "green"), "SELL": (-thr, "red")}, color="bright_cyan")
+            ct.rstrip()
+            parts.append(ct)
+        else:
+            parts.append(Text("  collecting decisions…\n", style="dim"))
+    return Group(*parts)

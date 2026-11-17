@@ -184,17 +184,35 @@ def _train_symbol(symbol: str, args, period: str, interval: str, candles: int, f
         agent.replay_buffer.add(obs, action_onehot, reward, done)
         obs = env.reset() if done else next_obs
 
+    try:
+        from Python.train_progress import ProgressWriter
+        prog = ProgressWriter("dreamer", symbol)
+    except Exception:
+        prog = None
     obs = env.reset()
     h, z = None, None
+    ep_r, ep_rewards, wm0 = 0.0, [], None
     for step in range(args.steps):
         action_onehot, (h, z) = agent.act(obs, h, z, deterministic=False)
         next_obs, reward, done, _ = env.step(action_onehot)
         agent.replay_buffer.add(obs, action_onehot, reward, done)
+        ep_r += float(reward)
+        losses = None
         if step % 4 == 0:
-            agent.train_step(batch_size=args.batch_size)
+            losses = agent.train_step(batch_size=args.batch_size)
         obs = env.reset() if done else next_obs
         if done:
             h, z = None, None
+            ep_rewards = (ep_rewards + [ep_r])[-50:]
+            ep_r = 0.0
+        if prog is not None and losses:
+            wm = float(losses.get("world_model_loss", 0.0))
+            wm0 = wm if wm0 is None else wm0
+            prog.update(recent=wm, step=step + 1, total=int(args.steps), world_model_loss=wm, world_model_loss_start=wm0,
+                        reward_loss=float(losses.get("reward_loss", 0.0)),
+                        ep_reward_mean=(float(np.mean(ep_rewards)) if ep_rewards else None), episodes=len(ep_rewards))
+    if prog is not None:
+        prog.finish(step=int(args.steps), total=int(args.steps))
 
     out_dir = os.path.join(PROJECT_ROOT, "models", "dreamer")
     os.makedirs(out_dir, exist_ok=True)

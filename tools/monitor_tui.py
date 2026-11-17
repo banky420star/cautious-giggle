@@ -273,6 +273,7 @@ class Logs:
     def __init__(self):
         self.last_signal, self.last_block, self.last_memory = {}, {}, {}
         self.last_council = {}
+        self.sig_hist: dict[str, list] = {}
         self.events: list[dict] = []
         self.equity: list[float] = []
         self.last_snapshot = None
@@ -312,6 +313,12 @@ class Logs:
             sym = p.get("symbol")
             if ev == "signal" and sym:
                 self.last_signal[sym] = r
+                prof = p.get("decision_profile") if isinstance(p.get("decision_profile"), dict) else {}
+                h = self.sig_hist.setdefault(sym, [])
+                h.append((r.get("ts"), float(p.get("raw_target", 0) or 0) * float(p.get("risk_scalar", 1) or 1),
+                          float(p.get("exposure", 0) or 0), float(prof.get("min_trade_threshold", 0.15) or 0.15),
+                          float(p.get("council", 0) or 0)))
+                del h[:-240]
             elif ev == "model_memory" and sym:
                 self.last_memory[sym] = r
             elif ev == "council" and sym:
@@ -754,11 +761,11 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
         color = "green" if len(closes) > 1 and closes[-1] >= closes[0] else "red"
         cells.append(Panel(braille_chart(closes, chart_w, 5, marks, color=color), title=title,
                            subtitle=wr.caption("5-min price · yellow entry · red stop · green target"), box=box.ROUNDED))
-    radar_sym = symbols[(frame // 40) % len(symbols)]
-    rp = (logs.last_council.get(radar_sym) or {}).get("payload") or {}
-    cells.append(Panel(Align.center(radar(frame, rp, 26, 5)), title=Text(f"◎ RADAR · {_nm(radar_sym).upper()}", style="bold green"),
-                       subtitle=Text("rings M5→H4 · blip = indicator vote", style="dim"), box=box.ROUNDED,
-                       border_style="green"))
+    sh_w = max(20, int((width - 10) * 2 / (3 * len(symbols) + 2)) - 12)
+    cells.append(Panel(wr.signal_history(logs.sig_hist, symbols, braille_chart, sh_w),
+                       title=Text("📈 SIGNAL vs TRADE LINE", style="bold bright_cyan"),
+                       subtitle=wr.caption("blended signal each decision · trades when it crosses buy/sell"),
+                       box=box.ROUNDED, border_style="bright_cyan"))
     charts.add_row(*cells)
 
     # ---- account
@@ -978,7 +985,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     layout = Layout()
     pulse = ["cyan", "bright_cyan", "bright_white", "bright_cyan", "cyan", "dark_cyan"][frame % 6]
     brief = wr.briefing(frame, logs, cfg, symbols) or [Text("waiting for the first decision…", style="dim")]
-    brief_panel = Panel(Group(*brief, Text(""), *explain(prog, tr, reg, symbols, alive, logs)),
+    brief_panel = Panel(Group(*brief, *([] if alive else [Text("🔴 The bot is not running. Type 'exness' to start it.", style="red")])),
                         title=Text("🗣  BRIEFING · what the bot sees, why, and what's next", style="bold bright_cyan"),
                         box=box.ROUNDED, border_style="bright_cyan")
     layout.split_column(
@@ -993,11 +1000,13 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
                             Layout(wr.pipeline(frame, logs, cfg, symbols, width), ratio=4))
     layout["low"].split_row(Layout(name="left", ratio=4), Layout(name="right", ratio=5))
     layout["left"].split_column(Layout(brief_panel, ratio=1), Layout(council_panel, size=19))
-    layout["right"].split_column(Layout(models_panel, size=17),
+    train_panel = wr.training_panel(frame, prog, bool(tr.get("running")), tail_lines(CYCLE_LOG, 400), symbols,
+                                    cfg, sparkline)
+    layout["right"].split_column(Layout(train_panel, size=26),
                                  Layout(Panel(ev, title="Trades / risk blocks", box=box.ROUNDED,
                                               subtitle=wr.caption("every order and every time the risk guard said no"))),
                                  Layout(Panel(logt, title="Server log", box=box.ROUNDED,
-                                              subtitle=wr.caption("raw engine output")), size=7))
+                                              subtitle=wr.caption("raw engine output")), size=6))
     return layout
 
 
