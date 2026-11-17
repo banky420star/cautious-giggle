@@ -1,6 +1,6 @@
 """Local web dashboard server: serves the React app (web/dist) and a JSON snapshot at /api/state.
 
-    python tools/web_dashboard.py [--port 8787]
+    python tools/web_dashboard.py [--port 8788]
 
 Binds to 127.0.0.1 only. Read-only: it never places or changes orders. Equity is sampled every
 15 s into logs/equity_history.csv so the chart survives restarts.
@@ -650,7 +650,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     global STATE
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", type=int, default=8787)
+    ap.add_argument("--port", type=int, default=8788)
     args = ap.parse_args()
     STATE = State()
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)

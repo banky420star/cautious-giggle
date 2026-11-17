@@ -3,7 +3,7 @@
 cd "$(dirname "$0")/../.."
 export PYTHONPATH="$PWD"
 source scripts/mac/account_env.sh
-PORT=8787
+PORT=8788  # 8787 belongs to the Cable Speed Monitor, which kills whatever holds it
 if ! curl -s -o /dev/null --max-time 2 "http://127.0.0.1:$PORT/api/state"; then
   [ -d web/dist ] || (cd web && npm run build >/dev/null 2>&1)
   nohup .venv/bin/python tools/web_dashboard.py --port $PORT > logs/web_dashboard.log 2>&1 < /dev/null &
