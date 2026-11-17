@@ -15,8 +15,8 @@
         "trades": 0,
         "realized_pnl": 0.0,
         "drawdown": 0.0,
-        "runtime_minutes": 5.364418029785156e-06,
-        "checked_at": "2026-11-17T09:36:48.409298+00:00",
+        "runtime_minutes": 9.298324584960938e-06,
+        "checked_at": "2026-11-17T10:02:23.598194+00:00",
         "passed": false,
         "reason": "trades 0 < min_trades 30"
       },
@@ -35,8 +35,8 @@
         "trades": 0,
         "realized_pnl": 0.0,
         "drawdown": 0.0,
-        "runtime_minutes": 1.1718273162841797e-05,
-        "checked_at": "2026-11-17T09:36:48.382926+00:00",
+        "runtime_minutes": 5.133946736653646e-06,
+        "checked_at": "2026-11-17T10:02:23.560580+00:00",
         "passed": false,
         "reason": "trades 0 < min_trades 60"
       },
@@ -47,8 +47,8 @@
   "canary_state": {},
   "champion_history": [],
   "registry_metadata": {
-    "updated_at": "2026-11-17T09:36:48.409334+00:00",
-    "git_commit": "39e3eacb243856ac458dfc2cb344d34b7873cc58",
+    "updated_at": "2026-11-17T10:02:23.598244+00:00",
+    "git_commit": "6d37dae35717fc739b894c9e8d6937bdea411b4d",
     "champion_metadata": {},
     "canary_metadata": {}
   }

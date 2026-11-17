@@ -240,6 +240,8 @@ class State:
             why = "Waiting for its first check."
         elif pos:
             why = "Managing the trade: stop-loss and take-profit are set; it exits if the signals turn."
+        elif abs(raw) >= thr and s in self._blocks():
+            why = f"Signals agree on {lean}, but the account is too small for this market's minimum lot (needs ~${self._blocks()[s]['need']:,})."
         elif abs(raw) >= thr:
             why = f"Signals agree on {lean}. Placing a trade at the next check."
         elif (raw > 0 and down > up) or (raw < 0 and up > down):
@@ -286,6 +288,19 @@ class State:
                       else "indicator council (AI still training)") if sg else None,
         }
 
+    def _blocks(self) -> dict:
+        """Markets the bot skipped in the last 20 min because the minimum lot is too risky for the balance."""
+        now = time.time()
+        c = getattr(self, "_blk_cache", None)
+        if c and now - c[0] < 5:
+            return c[1]
+        out = {}
+        for e in ops_log.events(os.path.join(m.LOG_DIR, "server.log"), NAMES, 400, 300_000):
+            if e["kind"] == "blocked" and e.get("t") and now - e["t"] < 1200 and e["sym"] not in out:
+                out[e["sym"]] = e
+        self._blk_cache = (now, out)
+        return out
+
     def _briefing(self, s, sg, cv, thr, pos, pending) -> list[dict]:
         """Step-by-step: how this market's decision was made, in plain English."""
         if not sg:
@@ -313,6 +328,10 @@ class State:
             act = f"In a {pos['side'].lower()} trade ({money_fmt(pos['pnl'])}); the stop and target do the work, and it exits if the order line goes back inside ±{thr:.2f}."
         elif pending:
             act = f"Past the ±{thr:.2f} trade line, so a {pending['side'].lower()} is planned: waiting for a better price first."
+        elif abs(final) >= thr and s in self._blocks():
+            bk = self._blocks()[s]
+            act = (f"Past the ±{thr:.2f} trade line, but BLOCKED: the smallest lot would risk {bk['risk']:.1f}% of the "
+                   f"account at the stop (cap 4%). Trades here once the account is about ${bk['need']:,}.")
         elif abs(final) >= thr:
             act = f"Past the ±{thr:.2f} trade line: places a {side(final).lower()} at the next check."
         else:

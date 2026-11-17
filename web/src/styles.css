@@ -676,3 +676,4 @@ body::after { content: ""; position: fixed; inset: 0; pointer-events: none; z-in
 .acct-modal { max-height: calc(100vh - 32px); overflow-y: auto; }
 .war-grid { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
 .slots > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.op-tag.red { color: var(--neg); background: rgba(248,113,113,.12); }

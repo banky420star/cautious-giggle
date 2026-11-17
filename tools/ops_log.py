@@ -19,6 +19,7 @@ STACK = re.compile(r"STACK (\S+) \| (\d+) trade\(s\) in profit .* adding trade (
 ACTION = re.compile(r"ACTION (\S+) \| req=(close|reduce|open) side=(\w+) volume=([\d.]+) target=([-\d.]+)")
 MANAGE = re.compile(r"ORDER_SEND (\S+) \| action=manage .* sl=([\d.]+|None) tp=([\d.]+|None) .* retcode=10009")
 MINLOT = re.compile(r"(\S+): using minimum lot ([\d.]+) \(stop risk ([\d.]+)% <= ceiling ([\d.]+)%\)")
+SIZEBLOCK = re.compile(r"SIZE BLOCK (\S+) \| minimum lot ([\d.]+) would risk ([\d.]+)% of \$([\d.]+) at the stop \(cap ([\d.]+)%\); needs about \$(\d+)")
 LOST = re.compile(r"MT5 connection lost")
 HALT = re.compile(r"(risk halt|HALT|halted)[^\n]*", re.I)
 NEWS = re.compile(r"NEWS (\S+) \| (.*)")
@@ -95,6 +96,13 @@ def parse(line: str, names: dict) -> dict | None:
         return {"sym": s, "kind": "size", "title": f"Sized {nm(s)} at the minimum {lot} lots",
                 "text": f"The size the signal asked for is below the broker's smallest lot. The minimum lot risks "
                         f"{float(r):.2f}% of the account if the stop is hit (allowed up to {float(ceil):.0f}%), so it trades the minimum."}
+    if m := SIZEBLOCK.search(line):
+        s, lot, r, eq, cap, need = m.groups()
+        return {"sym": s, "kind": "blocked", "title": f"Skipped {nm(s)}: account too small",
+                "text": f"The signal wants a trade, but the smallest lot Exness allows ({lot}) would lose {float(r):.1f}% "
+                        f"of the ${float(eq):.2f} account if the stop is hit, over the {float(cap):.0f}% safety cap. "
+                        f"It trades this market once the account is about ${int(need):,}.", "tone": "neg", "need": int(need),
+                "risk": float(r)}
     if LOST.search(line):
         return {"sym": None, "kind": "warn", "title": "Broker connection dropped",
                 "text": "Lost contact with Exness for a moment and reconnected. Open trades keep their stops at the broker.",
@@ -119,7 +127,7 @@ def events(path: str, names: dict, limit: int = 60, max_bytes: int = 600_000) ->
     # collapse identical stop moves fired every loop, and sizing notes repeated within 20 min
     dedup, last_size = [], {}
     for ev in out:
-        if ev["kind"] == "size":
+        if ev["kind"] in ("size", "blocked"):
             if ev["t"] and ev["t"] - last_size.get(ev["sym"], 0) < 1200:
                 continue
             last_size[ev["sym"]] = ev["t"] or 0

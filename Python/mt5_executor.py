@@ -49,6 +49,9 @@ _MAX_SEND_ATTEMPTS = 3
 _ATR_CACHE_TTL_SEC = 30.0
 
 
+_SIZE_BLOCK_LOGGED: dict = {}
+
+
 class MT5Executor:
     def __init__(self, risk):
         self.risk = risk
@@ -332,6 +335,15 @@ class MT5Executor:
                 logger.info(f"{symbol}: using minimum lot {vol_min} (stop risk "
                             f"{vol_min * loss_per_lot / equity * 100:.2f}% <= ceiling {ceiling:.1f}%)")
                 return vol_min
+            if 0 < capped < vol_min:
+                # the broker's smallest lot is too big for this account: say so instead of skipping silently
+                now = time.time()
+                if now - _SIZE_BLOCK_LOGGED.get(symbol, 0.0) > 600:
+                    _SIZE_BLOCK_LOGGED[symbol] = now
+                    risk_min = vol_min * loss_per_lot / equity * 100
+                    need = vol_min * loss_per_lot / (max(ceiling, risk_pct) / 100.0)
+                    logger.warning(f"SIZE BLOCK {symbol} | minimum lot {vol_min} would risk {risk_min:.1f}% of "
+                                   f"${equity:.2f} at the stop (cap {max(ceiling, risk_pct):.1f}%); needs about ${need:.0f}")
             return capped
         except Exception as exc:
             logger.warning(f"risk_capped_lots({symbol}) failed: {exc}")

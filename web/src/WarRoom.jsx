@@ -348,7 +348,7 @@ export function WarCard({ s }) {
 /* ================================================================ ops log */
 const OPS = {
   plan: ["PLAN", "amber", Clock], entry: ["ENTRY", "green", Crosshair], stack: ["STACK", "cyan", Layers],
-  close: ["CLOSE", "grey", Target], reduce: ["TRIM", "grey", Scissors], manage: ["STOP", "violet", ShieldAlert],
+  blocked: ["BLOCKED", "red", ShieldAlert], close: ["CLOSE", "grey", Target], reduce: ["TRIM", "grey", Scissors], manage: ["STOP", "violet", ShieldAlert],
   size: ["SIZE", "grey", Ruler], warn: ["ALERT", "red", Wifi], news: ["NEWS", "amber", Newspaper],
   signal: ["SIGNAL", "cyan", ArrowLeftRight],
 };
