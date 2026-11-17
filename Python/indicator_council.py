@@ -219,3 +219,128 @@ def describe(key: str) -> str:
         pass
     name, _, tf = key.partition("@")
     return f"{STRATEGIES.get(name, name)} ({tf or 'M5'})"
+
+
+# --------------------------------------------------------------------------- why each strategy votes
+def _r(v, lo, hi, buy, sell, short, text, fmt=2):
+    v = float(v) if v is not None and np.isfinite(v) else 0.0
+    return {"v": round(v, 4), "min": lo, "max": hi, "buy": buy, "sell": sell, "fmt": fmt, "short": short, "text": text}
+
+
+def readings(df: pd.DataFrame) -> dict:
+    """For the last bar: the actual indicator reading behind each strategy's vote, the zone where it votes
+    buy or sell, and a one-line reason. Mirrors votes() exactly; for the war room only."""
+    c, h, l = df["close"].astype(float), df["high"].astype(float), df["low"].astype(float)
+    if len(c) < 30:
+        return {}
+    atr = _atr(df)
+    a, px = float(atr.iloc[-1]) or 1e-9, float(c.iloc[-1])
+    out = {}
+    e20, e50, e200 = _ema(c, 20), _ema(c, 50), _ema(c, 200)
+    g = float((e20.iloc[-1] - e50.iloc[-1]) / a)
+    out["ema_cross"] = _r(g, -1.5, 1.5, [0, 1.5], [-1.5, 0], f"{g:+.2f} ATR",
+                          f"EMA20 is {abs(g):.2f} ATR {'above' if g >= 0 else 'below'} EMA50: short-term trend points "
+                          f"{'up' if g >= 0 else 'down'} (full vote at ±0.5 ATR).")
+    g2 = float((px - e200.iloc[-1]) / a)
+    out["ema200"] = _r(g2, -4, 4, [0, 4], [-4, 0], f"{g2:+.1f} ATR",
+                       f"Price is {abs(g2):.1f} ATR {'above' if g2 >= 0 else 'below'} the 200-EMA ({float(e200.iloc[-1]):.5g}): "
+                       f"the long trend is {'up' if g2 >= 0 else 'down'} (full vote at ±2 ATR).")
+    macd = _ema(c, 12) - _ema(c, 26)
+    hist = float((macd - _ema(macd, 9)).iloc[-1] / a)
+    out["macd"] = _r(hist, -0.4, 0.4, [0, 0.4], [-0.4, 0], f"{hist:+.2f} ATR",
+                     f"MACD histogram is {'positive' if hist >= 0 else 'negative'} ({hist:+.2f} ATR): momentum is "
+                     f"{'building up' if hist >= 0 else 'building down'} (full vote at ±0.15 ATR).")
+    d = c.diff()
+    gain = d.clip(lower=0).ewm(alpha=1 / 14, adjust=False).mean()
+    loss = (-d.clip(upper=0)).ewm(alpha=1 / 14, adjust=False).mean()
+    rsi = float((100 - 100 / (1 + gain / loss.replace(0, np.nan))).fillna(50).iloc[-1])
+    out["rsi_trend"] = _r(rsi, 0, 100, [55, 100], [0, 45], f"RSI {rsi:.0f}",
+                          f"RSI is {rsi:.0f}: " + ("above 55, upward momentum." if rsi > 55 else
+                                                   "below 45, downward momentum." if rsi < 45 else
+                                                   "between 45 and 55, no clear momentum, so no vote."), 0)
+    out["rsi_revert"] = _r(rsi, 0, 100, [0, 30], [70, 100], f"RSI {rsi:.0f}",
+                           f"RSI is {rsi:.0f}: " + ("below 30, oversold, so it bets on a bounce." if rsi < 30 else
+                                                    "above 70, overbought, so it bets on a pullback." if rsi > 70 else
+                                                    "not stretched (30-70), so no vote."), 0)
+    mid, sd = c.rolling(20).mean(), c.rolling(20).std()
+    z = float(((c - mid) / sd.replace(0, np.nan)).fillna(0).iloc[-1])
+    out["bb_revert"] = _r(z, -3, 3, [-3, -1.5], [1.5, 3], f"z {z:+.1f}",
+                          f"Price is {abs(z):.1f} standard deviations {'above' if z >= 0 else 'below'} its 20-bar average: " +
+                          ("stretched, so it bets on a snap back." if abs(z) > 1.5 else "inside the bands, so no vote."), 1)
+    out["bb_break"] = _r(z, -3, 3, [2, 3], [-3, -2], f"z {z:+.1f}",
+                         f"Price is {abs(z):.1f} standard deviations {'above' if z >= 0 else 'below'} its 20-bar average: " +
+                         ("past 2, a breakout it follows." if abs(z) > 2 else "not past 2, so no breakout vote."), 1)
+    hi20, lo20 = float(h.rolling(20).max().shift(1).iloc[-1]), float(l.rolling(20).min().shift(1).iloc[-1])
+    pos = (px - lo20) / (hi20 - lo20) if hi20 > lo20 else 0.5
+    out["donchian"] = _r(pos * 100, -20, 120, [100, 120], [-20, 0], f"{pos * 100:.0f}% of range",
+                         f"Close {px:.5g} vs the 20-bar range {lo20:.5g}–{hi20:.5g}: " +
+                         ("broke above the high." if px > hi20 else "broke below the low." if px < lo20 else
+                          "inside the range; it keeps a breakout view for an hour after one."), 0)
+    up, dn = h.diff(), -l.diff()
+    pdm = pd.Series(np.where((up > dn) & (up > 0), up, 0.0), index=df.index).ewm(alpha=1 / 14, adjust=False).mean()
+    mdm = pd.Series(np.where((dn > up) & (dn > 0), dn, 0.0), index=df.index).ewm(alpha=1 / 14, adjust=False).mean()
+    pdi, mdi = 100 * pdm / atr, 100 * mdm / atr
+    adx = float((100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan)).ewm(alpha=1 / 14, adjust=False).mean().fillna(0).iloc[-1])
+    p_, m_ = float(pdi.iloc[-1]), float(mdi.iloc[-1])
+    out["adx_di"] = _r(adx if p_ >= m_ else -adx, -60, 60, [20, 60], [-60, -20], f"ADX {adx:.0f} {'↑' if p_ >= m_ else '↓'}",
+                       f"ADX {adx:.0f} ({'trending, above 20' if adx > 20 else 'no real trend, under 20'}); +DI {p_:.0f} vs "
+                       f"−DI {m_:.0f}, so buyers are {'stronger' if p_ >= m_ else 'weaker'}.", 0)
+    ll, hh = l.rolling(14).min(), h.rolling(14).max()
+    k = 100 * (c - ll) / (hh - ll).replace(0, np.nan)
+    kv, dv = float(k.fillna(50).iloc[-1]), float(k.rolling(3).mean().fillna(50).iloc[-1])
+    out["stoch"] = _r(kv - dv, -40, 40, [0, 40], [-40, 0], f"%K−%D {kv - dv:+.0f}",
+                      f"Stochastic %K {kv:.0f} is {'above' if kv >= dv else 'below'} its signal line %D {dv:.0f}: "
+                      f"short-term turn {'up' if kv >= dv else 'down'} (full vote at a 20-point gap).", 0)
+    roc = float(c.iloc[-1] / c.iloc[-13] - 1) if len(c) > 13 else 0.0
+    full = 3 * a / px
+    out["roc"] = _r(roc / full if full else 0, -1.5, 1.5, [0, 1.5], [-1.5, 0], f"{roc * 100:+.2f}%",
+                    f"Price moved {roc * 100:+.2f}% over the last 12 bars ({'up' if roc >= 0 else 'down'}); a full vote "
+                    f"needs ±{full * 100:.2f}% (3 ATR).")
+    band = (3.0 * atr).to_numpy()
+    hl2, cc = ((h + l) / 2).to_numpy(), c.to_numpy()
+    upper, lower, dirn = np.nan, np.nan, 1.0
+    for i in range(len(cc)):
+        if not np.isfinite(band[i]):
+            continue
+        u, lo_ = hl2[i] + band[i], hl2[i] - band[i]
+        upper = u if not np.isfinite(upper) or u < upper or cc[i - 1] > upper else upper
+        lower = lo_ if not np.isfinite(lower) or lo_ > lower or cc[i - 1] < lower else lower
+        dirn = 1.0 if cc[i] > upper else -1.0 if cc[i] < lower else dirn
+    trail = lower if dirn > 0 else upper
+    gap = (px - trail) / a if np.isfinite(trail) else 0.0
+    out["supertrend"] = _r(gap, -6, 6, [0, 6], [-6, 0], f"{'UP' if dirn > 0 else 'DOWN'} trail",
+                           f"Trend is {'up' if dirn > 0 else 'down'}: price {px:.5g} is {abs(gap):.1f} ATR "
+                           f"{'above' if gap >= 0 else 'below'} its ATR trailing stop at {trail:.5g}; it flips if price closes past it.", 1)
+    return out
+
+
+def readings_mtf(m5: pd.DataFrame, htf: dict | None = None) -> dict:
+    """readings() for every timeframe, keyed like votes_mtf ('<strategy>' for M5, '<strategy>@<TF>')."""
+    if not isinstance(m5.index, pd.DatetimeIndex):
+        m5 = m5.copy()
+        if "time" not in m5.columns:
+            return readings(m5)
+        t = m5["time"]
+        m5.index = pd.to_datetime(t, unit="s", utc=True) if np.issubdtype(t.dtype, np.number) else pd.to_datetime(t, utc=True)
+    elif m5.index.tz is None:
+        m5 = m5.tz_localize("UTC")
+    out = dict(readings(m5))
+    last = m5.index[-1]
+    for tf, minutes in TIMEFRAMES.items():
+        if minutes == 5:
+            continue
+        src = (htf or {}).get(tf)
+        if src is None or len(src) < 60:
+            src = resample_ohlc(m5, minutes)
+        if len(src) < 30:
+            continue
+        # same visibility as align_to_m5: only HTF bars that have closed by the last M5 bar
+        idx = src.index if isinstance(src.index, pd.DatetimeIndex) else pd.to_datetime(src.index, utc=True)
+        if idx.tz is None:
+            idx = idx.tz_localize("UTC")
+        src = src[(idx + pd.Timedelta(minutes=minutes - 5)) <= last]
+        if len(src) < 30:
+            continue
+        for k, r in readings(src).items():
+            out[f"{k}@{tf}"] = r
+    return out

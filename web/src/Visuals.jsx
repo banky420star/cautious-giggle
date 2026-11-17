@@ -1,12 +1,10 @@
-import React, { useMemo } from "react";
+import React from "react";
 import {
-  Area, CartesianGrid, Cell, ComposedChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart,
-  Tooltip, XAxis, YAxis, ZAxis,
+  CartesianGrid, Cell, ReferenceArea, ReferenceLine, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis, ZAxis,
 } from "recharts";
 
 const usd = (v, sign = false) => (v == null || Number.isNaN(v) ? "—"
   : `${sign ? (v >= 0 ? "+" : "−") : ""}$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-const hhmm = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 const clamp01 = (x) => Math.max(0, Math.min(1, Number(x) || 0));
 const MAX_OPEN = 14;
 
@@ -57,134 +55,6 @@ export function RiskReactor({ d }) {
         </ul>
       </div>
       <div className={`rr-verdict ${level}`}>{words[level]}</div>
-    </div>
-  );
-}
-
-/* ============================================================ today's story: equity with every trade on it */
-function StoryTip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload;
-  return (
-    <div className="tip">
-      <div className="tip-t">{hhmm(p.t)}</div>
-      {p.trade ? <div><b className={p.trade.side === "BUY" ? "pos" : "neg"}>{p.trade.side}</b> {p.trade.symbol} · {p.trade.volume} lots @ {p.trade.price}</div> : null}
-      <div>Account worth <b>{usd(p.equity)}</b></div>
-    </div>
-  );
-}
-
-export function DayStory({ d }) {
-  const a = d.account || {};
-  const start = (a.equity ?? 0) - (a.today ?? 0);
-  const brake = start - (a.daily_loss_limit ?? 0);
-  const { line, marks } = useMemo(() => {
-    const mid = new Date(); mid.setHours(0, 0, 0, 0);
-    const pts = (d.equity || []).filter((p) => p.t >= mid.getTime());
-    const series = pts.length >= 2 ? pts : (d.equity || []).slice(-60);
-    const near = (t) => {
-      let best = series[0];
-      for (const p of series) { if (Math.abs(p.t - t) < Math.abs(best.t - t)) best = p; }
-      return best;
-    };
-    const mk = series.length ? (d.trades || []).filter((t) => t.t >= series[0].t).map((t) => ({ t: t.t, equity: near(t.t).equity, trade: t })) : [];
-    return { line: series, marks: mk };
-  }, [d.equity, d.trades]);
-  if (line.length < 2) return <div className="card hud story"><div className="muted small">The story of the day starts after a few minutes of data.</div></div>;
-  const vals = line.map((p) => p.equity).concat([start, brake]);
-  const lo = Math.min(...vals), hi = Math.max(...vals), pad = Math.max((hi - lo) * 0.08, 1);
-  const now = line[line.length - 1].equity;
-  const up = now >= start;
-  return (
-    <div className="card hud story">
-      <div className="card-head">
-        <b>Today's story</b>
-        <span className="muted small">started {usd(start)} → now <b className={up ? "pos" : "neg"}>{usd(now)}</b> ({usd(now - start, true)})</span>
-      </div>
-      <div className="story-chart">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={line} margin={{ top: 10, right: 12, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="storyfill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={up ? "#34d399" : "#f87171"} stopOpacity={0.35} />
-                <stop offset="100%" stopColor={up ? "#34d399" : "#f87171"} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-            <ReferenceArea y1={lo - pad} y2={brake} fill="rgba(248,113,113,.08)" ifOverflow="hidden" />
-            <XAxis dataKey="t" type="number" domain={["dataMin", "dataMax"]} tickFormatter={hhmm} stroke="#5b6475"
-                   fontSize={11} tickLine={false} axisLine={false} minTickGap={60} />
-            <YAxis type="number" domain={[lo - pad, hi + pad]} allowDataOverflow tickFormatter={(v) => `$${v.toFixed(0)}`} stroke="#5b6475" fontSize={11}
-                   tickLine={false} axisLine={false} width={50} />
-            <Tooltip content={<StoryTip />} cursor={{ stroke: "rgba(255,255,255,.25)" }} />
-            <ReferenceLine y={start} stroke="#94a3b8" strokeDasharray="5 5"
-                           label={{ value: "start of day", position: "insideTopLeft", fill: "#94a3b8", fontSize: 11 }} />
-            <ReferenceLine y={brake} stroke="#f87171" strokeWidth={1.5}
-                           label={{ value: "safety brake: no new trades below here", position: "insideBottomRight", fill: "#f87171", fontSize: 11 }} />
-            <Area type="monotone" dataKey="equity" stroke={up ? "#34d399" : "#f87171"} strokeWidth={2.2} fill="url(#storyfill)"
-                  isAnimationActive animationDuration={1200} dot={false} />
-            <Scatter data={marks} dataKey="equity" isAnimationActive animationDuration={900}
-                     shape={(p) => <path className="story-mark" transform={`translate(${p.cx},${p.cy})`}
-                                         d={p.payload.trade.side === "BUY" ? "M0,-7 L6,4 L-6,4 Z" : "M0,7 L6,-4 L-6,-4 Z"}
-                                         fill={p.payload.trade.side === "BUY" ? "#34d399" : "#f87171"} />} />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="ex small muted">Line = what the account is worth through the day. ▲ = a buy, ▼ = a sell (hover for details).
-        The shaded red zone is where the daily safety brake kicks in.</div>
-    </div>
-  );
-}
-
-/* ============================================================ market radar: how close each market is to a trade */
-function Orb({ s }) {
-  const ready = s.threshold ? clamp01(Math.abs(s.signal || 0) / s.threshold) : 0;
-  const dir = (s.signal || 0) > 0 ? "up" : (s.signal || 0) < 0 ? "down" : "flat";
-  const r = 30, c = 2 * Math.PI * r;
-  return (
-    <svg viewBox="0 0 80 80" className={`orb ${dir} ${ready >= 1 ? "ready" : ""}`} aria-hidden>
-      <circle cx="40" cy="40" r={r} className="orb-track" />
-      <circle cx="40" cy="40" r={r} className="orb-fill" strokeDasharray={c} strokeDashoffset={c * (1 - ready)} transform="rotate(-90 40 40)" />
-      <circle cx="40" cy="40" r={10 + 10 * ready} className="orb-core" />
-      <text x="40" y="45" className="orb-arrow">{dir === "up" ? "▲" : dir === "down" ? "▼" : "•"}</text>
-    </svg>
-  );
-}
-
-export function MarketRadar({ d }) {
-  const chg = Object.fromEntries((d.markets || []).map((m) => [m.symbol, m.chg_pct]));
-  return (
-    <div className="card hud radar">
-      <div className="card-head"><b>Market radar</b>
-        <span className="muted small">The ring fills as the voters agree. A full, glowing ring means the signal is strong enough to pay the spread.</span>
-      </div>
-      <div className="radar-grid">
-        {(d.symbols || []).map((s) => {
-          const ready = s.threshold ? Math.min(999, Math.abs(s.signal || 0) / s.threshold) : 0;
-          const tot = (s.up || 0) + (s.down || 0);
-          const upShare = tot ? (s.up || 0) / tot : 0.5;
-          const pos = s.position;
-          const ch = chg[s.symbol];
-          return (
-            <div key={s.symbol} className={`radar-tile ${pos ? "has-pos" : ""}`} title={s.why}>
-              <div className="rt-top">
-                <b>{s.name}</b>
-                {ch != null && <span className={`rt-chg ${ch >= 0 ? "pos" : "neg"}`}>{ch >= 0 ? "+" : ""}{ch.toFixed(2)}%</span>}
-              </div>
-              <Orb s={s} />
-              <div className="rt-ready">{ready >= 1 ? "strong enough to trade" : `${Math.round(ready * 100)}% of the way to a trade`}</div>
-              <div className="tug" aria-label={`${s.up} voters say up, ${s.down} say down`}>
-                <span className="tug-up" style={{ width: `${upShare * 100}%` }} />
-                <span className="tug-knot" style={{ left: `${upShare * 100}%` }} />
-              </div>
-              <div className="tug-lab"><span className="pos">{s.up} up</span><span className="neg">{s.down} down</span></div>
-              {pos ? (
-                <div className={`rt-pos ${pos.pnl >= 0 ? "pos" : "neg"}`}>{pos.side} {pos.volume} · {usd(pos.pnl, true)}</div>
-              ) : <div className="rt-pos muted">no trade open</div>}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

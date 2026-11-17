@@ -13,7 +13,7 @@ import {
   Setups, Models, SectionNav, BackToTop,
 } from "./WarRoom.jsx";
 import { Boot, AccountSwitch, Logo } from "./Boot.jsx";
-import { RiskReactor, DayStory, MarketRadar, SetupMap } from "./Visuals.jsx";
+import { RiskReactor, SetupMap } from "./Visuals.jsx";
 
 const fmtMoney = (v, sign = false) => {
   if (v == null || Number.isNaN(v)) return "—";
@@ -287,9 +287,9 @@ function Header({ d, explain, setExplain, onTour, onGloss, onAccount, sound, set
   return (
     <header className="header hud" ref={ref}>
       <div className="brand">
-        <Logo size={40} />
+        <Logo size={52} />
         <div>
-          <div className="brand-name">CAUTIOUS GIGGLE <span className="wr-tag">WAR ROOM</span></div>
+          <div className="brand-name">GORILLA TRADER <span className="wr-tag">WAR ROOM</span></div>
           <div className="brand-sub">
             <button className={`acct ${d?.account_mode === "live" ? "live" : ""}`} onClick={onAccount} title="Switch between demo and live">
               {d?.account_mode === "live" ? "LIVE · REAL MONEY" : "DEMO ACCOUNT"}
@@ -321,7 +321,6 @@ function navItems(d) {
   const blocked = (d.setups?.rows || []).filter((r) => r.verdict === "block").length;
   const nextNews = new Set((d.news?.plan || []).filter((e) => e.t0 > Date.now() / 1000).map((e) => `${e.t0}|${e.title}`)).size;
   return [
-    { id: "sec-glance", label: "At a glance", Icon: Sparkles },
     { id: "sec-command", label: "Account", Icon: Gauge },
     { id: "sec-positions", label: "Positions", Icon: Wallet, badge: nPos || null, tone: "cyan" },
     { id: "sec-setups", label: "Setups", Icon: ListChecks, badge: blocked ? `${blocked} blocked` : null, tone: "red" },
@@ -365,17 +364,11 @@ export default function App() {
       <NewsAlert d={d} />
       <Sitrep d={d} />
 
-      <Section id="sec-glance" no="00" title="AT A GLANCE"
-               sub="the whole situation in three pictures: how safe the account is, how today went, and which markets are close to a trade">
-        <div className="glance-top">
+      <Section id="sec-command" no="01" title="ACCOUNT" sub="what the account is worth, how today went, and how close the safety limits are">
+        <div className="acct-row">
+          <CommandBar d={d} Animated={AnimatedNumber} />
           <RiskReactor d={d} />
-          <DayStory d={d} />
         </div>
-        <MarketRadar d={d} />
-      </Section>
-
-      <Section id="sec-command" no="01" title="COMMAND" sub="the account at a glance and the safety limits">
-        <CommandBar d={d} Animated={AnimatedNumber} />
       </Section>
 
       <Section id="sec-positions" no="02" title="POSITIONS"

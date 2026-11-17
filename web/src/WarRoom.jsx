@@ -209,30 +209,15 @@ function Tile({ label, value, sub, tone, hint, children }) {
 }
 
 export function CommandBar({ d, Animated }) {
-  const a = d.account, st = d.stats;
-  const used = a.daily_loss_limit ? Math.max(0, Math.min(1, -a.today / a.daily_loss_limit)) : 0;
-  const open = d.symbols.reduce((n, s) => n + (s.trades || []).length, 0);
-  const inMk = d.symbols.filter((s) => (s.trades || []).length).length;
-  const win = st.closed ? Math.round((st.wins / st.closed) * 100) : null;
+  const a = d.account;
   return (
-    <div className="tiles">
+    <div className="tiles tiles-2">
       <Tile label="EQUITY" value={<Animated value={a.equity} format={(v) => money(v, false)} />}
             sub={`balance ${money(a.balance, false)} · open trades ${money(a.floating)}`}
             hint="What the account is worth right now, including trades that are still open. Balance counts closed trades only." />
       <Tile label="TODAY" tone={a.today >= 0 ? "pos" : "neg"} value={<Animated value={a.today} format={(v) => money(v)} />}
             sub={`${a.today_pct >= 0 ? "+" : ""}${a.today_pct.toFixed(2)}% since midnight`}
             hint="Profit or loss since the start of the day (broker time), closed and open trades together." />
-      <Tile label="LOSS STOP" tone={used > 0.66 ? "neg" : ""} value={`${Math.round(used * 100)}%`}
-            sub={`of the $${(a.daily_loss_limit || 0).toFixed(0)} daily limit used`}
-            hint="Safety brake: if today's loss reaches the limit, the bot stops opening trades until tomorrow.">
-        <div className={`gbar ${used > 0.66 ? "hot" : used > 0.33 ? "warm" : ""}`}><span style={{ width: `${used * 100}%` }} /></div>
-      </Tile>
-      <Tile label="WIN RATE" value={win == null ? "—" : `${win}%`} sub={`${st.wins} won · ${st.losses} lost · ${money(st.pnl_closed)}`}
-            hint="Share of today's closed trades that made money. Under 50% can still profit if winners are bigger than losers." />
-      <Tile label="EXPOSURE" value={`${open}`} sub={`trade${open === 1 ? "" : "s"} in ${inMk} of ${d.symbols.length} markets · max 14`}
-            hint="Each market can hold up to 3 trades; extra ones are only added while the open ones are winning.">
-        <div className="gbar cyan"><span style={{ width: `${Math.min(100, (open / 14) * 100)}%` }} /></div>
-      </Tile>
     </div>
   );
 }
@@ -353,6 +338,183 @@ function useFlash(price) {
 }
 
 /* ================================================================ market card */
+/* ================================================================ Kronos: the next 30 minutes, candle by candle */
+const pxf = (v) => (v == null ? "—" : v >= 1000 ? v.toFixed(2) : v >= 10 ? v.toFixed(3) : v.toFixed(5));
+const sbps = (v) => (v == null ? "—" : `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1)} bps`);
+
+function ForecastChart({ k }) {
+  const real = k.recent || [], fut = k.candles || [];
+  const all = real.concat(fut);
+  if (!all.length) return null;
+  const W = 320, H = 130, padL = 4, padR = 54, top = 8, bot = 14;
+  const lo = Math.min(...all.map((c) => c.l)), hi = Math.max(...all.map((c) => c.h));
+  const y = (v) => top + (hi === lo ? 0.5 : (hi - v) / (hi - lo)) * (H - top - bot);
+  const step = (W - padL - padR) / all.length, bw = Math.max(2, step * 0.62);
+  const x = (i) => padL + step * i + step / 2;
+  const fx0 = padL + step * real.length;
+  const line = (v, cls, label) => (
+    <g className={`fc-line ${cls}`}>
+      <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} />
+      <text x={W - padR + 4} y={y(v) + 3}>{label}</text>
+    </g>
+  );
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="fc-chart" role="img" aria-label="Recent candles and Kronos's forecast of the next ones">
+      <rect x={fx0} y={0} width={W - padR - fx0} height={H - bot + 2} className="fc-zone" />
+      <text x={fx0 + 3} y={H - 3} className="fc-lab">Kronos forecast →</text>
+      <text x={padL} y={H - 3} className="fc-lab">last 2 h</text>
+      {all.map((c, i) => {
+        const f = i >= real.length, up = c.c >= c.o;
+        return (
+          <g key={i} className={`fc-c ${up ? "up" : "dn"} ${f ? "fut" : ""}`} style={f ? { animationDelay: `${(i - real.length) * 0.12}s` } : undefined}>
+            <line x1={x(i)} x2={x(i)} y1={y(c.h)} y2={y(c.l)} />
+            <rect x={x(i) - bw / 2} y={y(Math.max(c.o, c.c))} width={bw} height={Math.max(1, Math.abs(y(c.o) - y(c.c)))} rx="1" />
+          </g>
+        );
+      })}
+      {line(k.last, "now", `now ${pxf(k.last)}`)}
+      {line(k.buy.best_entry, "buy", `buy ${pxf(k.buy.best_entry)}`)}
+      {line(k.sell.best_entry, "sell", `sell ${pxf(k.sell.best_entry)}`)}
+    </svg>
+  );
+}
+
+function KronosForecast({ k, record }) {
+  if (!k) return <div className="fc card-lite muted small">Kronos is warming up: its first forecast for this market comes at the next 5-minute candle.</div>;
+  const lean = k.move_bps > 0 ? "up" : k.move_bps < 0 ? "down" : "flat";
+  const plan = (side, p) => (
+    <div className={`fc-plan ${side.toLowerCase()}`}>
+      <div className="fc-plan-h">If you {side} now</div>
+      <div><span className="muted">first goes against you</span> <b className="neg">{sbps(p.drawdown_bps)}</b></div>
+      <div><span className="muted">best entry</span> <b>{pxf(p.best_entry)}</b> <span className="muted">in ~{p.best_entry_in_min} min</span></div>
+      <div><span className="muted">likely best exit</span> <b>{pxf(p.target)}</b> <b className={p.upside_bps >= 0 ? "pos" : "neg"}>{sbps(p.upside_bps)}</b></div>
+    </div>
+  );
+  return (
+    <div className="fc card-lite">
+      <div className="fc-head">
+        <b>Kronos · next {k.horizon_min} min</b>
+        <span className={`fc-lean ${lean}`}>{lean === "up" ? "▲" : lean === "down" ? "▼" : "•"} {sbps(k.move_bps)}</span>
+        <span className="muted small">normal move ±{k.typical_bps} bps</span>
+      </div>
+      <ForecastChart k={k} />
+      <div className="fc-plans">{plan("BUY", k.buy)}{plan("SELL", k.sell)}</div>
+      <div className="ex small muted">
+        Kronos draws one likely path for the next {k.candles?.length || 6} candles. "Goes against you" is the worst dip (buy) or spike (sell)
+        on that path before it turns; "best entry" is where that dip or spike bottoms out.
+        {record && <> Its live record after costs here: <b className={(record.net_bps || 0) > 0 ? "pos" : "neg"}>{sbps(record.net_bps)}</b> per call over {record.n} calls ({record.verdict}). Treat the levels as a guess, not a promise.</>}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================ who voted, and why */
+const REC = { works: ["works", "green"], "doesn't work": ["ignored", "red"], neutral: ["neutral", "grey"], learning: ["learning", "amber"] };
+const TFS = ["M5", "M15", "H1", "H4"];
+const TFNAME = { M5: "5 min", M15: "15 min", H1: "1 hour", H4: "4 hours" };
+
+/* a ruler for one reading: red = where it votes sell, green = where it votes buy, the pin = where it is now */
+function Meter({ m }) {
+  if (!m) return null;
+  const W = 260, H = 34, L = 6, R = W - 6;
+  const sx = (v) => L + ((Math.max(m.min, Math.min(m.max, v)) - m.min) / (m.max - m.min)) * (R - L);
+  const zone = (z, cls) => z && <rect x={sx(z[0])} width={Math.max(1, sx(z[1]) - sx(z[0]))} y={10} height={10} className={`mz ${cls}`} />;
+  const f = (v) => Number(v).toFixed(m.fmt ?? 2);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="meter" role="img" aria-label={`reading ${m.short}`}>
+      <rect x={L} width={R - L} y={10} height={10} rx="3" className="mz track" />
+      {zone(m.sell, "sell")}{zone(m.buy, "buy")}
+      <text x={L} y={32} className="m-tick">{f(m.min)}</text>
+      <text x={R} y={32} className="m-tick" textAnchor="end">{f(m.max)}</text>
+      <g className="m-pin" style={{ transform: `translateX(${sx(m.v)}px)` }}>
+        <line x1={0} x2={0} y1={4} y2={24} /><circle cx={0} cy={4} r={3} />
+      </g>
+      <text x={sx(m.v)} y={32} className="m-val" textAnchor="middle">{m.short}</text>
+    </svg>
+  );
+}
+
+function VoterDetail({ r }) {
+  if (!r) return null;
+  const [rl, rc] = REC[r.record?.verdict] || ["—", "grey"];
+  return (
+    <div className={`vdetail ${r.ignored ? "ign" : ""}`} key={r.key}>
+      <div className="vd-top">
+        <span className={`bal-side ${r.side === "BUY" ? "buy" : r.side === "SELL" ? "sell" : "none"}`}>{r.side}</span>
+        <b>{r.name}</b>
+        <span className="bal-w" title={`counts ${r.base}× an indicator, × ${r.mult} for its record`}>{r.ignored ? "ignored" : `weight ×${r.weight}`}</span>
+        <span className={`op-tag ${rc}`}>{rl}</span>
+      </div>
+      <Meter m={r.meter} />
+      <div className="vd-why">
+        {r.ignored && <b className="neg">Not counted: its record here loses {sbps(r.record?.net_bps)} per call after the spread. </b>}
+        {r.reason}
+        {r.levels && <> Entry {pxf(r.levels.entry)} · stop {pxf(r.levels.stop)} · target {pxf(r.levels.target)} ({r.levels.state}).</>}
+      </div>
+      {r.headlines?.length > 0 && <ul className="bal-heads">{r.headlines.map((h, i) => <li key={i}>{h}</li>)}</ul>}
+      <div className="muted small">Record here after costs: {sbps(r.record?.net_bps)} per call over {r.record?.n ?? 0} calls
+        {r.record?.hit != null && <> · right {Math.round(r.record.hit * 100)}% of the time</>}.</div>
+    </div>
+  );
+}
+
+function cellStyle(r) {
+  if (!r || r.ignored || r.side === "no view") return undefined;
+  const a = 0.12 + 0.55 * Math.min(1, Math.abs(r.vote));
+  return { background: r.vote > 0 ? `rgba(52,211,153,${a})` : `rgba(248,113,113,${a})` };
+}
+
+function Ballot({ rows }) {
+  const [sel, setSel] = useState(null);
+  if (!rows?.length) return null;
+  const models = rows.filter((r) => r.model);
+  const ind = rows.filter((r) => !r.model);
+  const byKey = Object.fromEntries(rows.map((r) => [r.key, r]));
+  const strategies = [...new Set(ind.map((r) => r.strategy))];
+  const label = (st) => (ind.find((r) => r.strategy === st)?.name || st).replace(/ \((M5|M15|H1|H4)\)$/, "");
+  const up = rows.filter((r) => r.side === "BUY" && !r.ignored).length;
+  const dn = rows.filter((r) => r.side === "SELL" && !r.ignored).length;
+  const cur = byKey[sel] || rows[0];
+  return (
+    <div className="ballot card-lite">
+      <div className="ballot-head">
+        <b>Who voted and why</b>
+        <span className="muted small"><span className="pos">{up} buy</span> · <span className="neg">{dn} sell</span> · {rows.length - up - dn} no view or ignored. Click any voter to see its reading and reason.</span>
+      </div>
+      {models.length > 0 && (
+        <div className="vmodels">
+          {models.map((r) => (
+            <button type="button" key={r.key} className={`vmodel ${cur?.key === r.key ? "on" : ""} ${r.ignored ? "ign" : ""}`} onClick={() => setSel(r.key)} style={cellStyle(r)}>
+              <span className="vm-tag">YOUR MODEL · ×{r.base}</span>
+              <b>{r.name.split(" (")[0]}</b>
+              <span className="vm-side">{r.side} {r.meter?.short}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="vmatrix" role="grid">
+        <div className="vm-row vm-headrow"><span />{TFS.map((t) => <span key={t} className="vm-tf">{TFNAME[t]}</span>)}</div>
+        {strategies.map((st) => (
+          <div className="vm-row" key={st}>
+            <span className="vm-name" title={label(st)}>{label(st)}</span>
+            {TFS.map((tf) => {
+              const r = byKey[tf === "M5" ? st : `${st}@${tf}`];
+              return r ? (
+                <button type="button" key={tf} className={`vm-cell ${r.ignored ? "ign" : ""} ${cur?.key === r.key ? "on" : ""}`}
+                        style={cellStyle(r)} onClick={() => setSel(r.key)} title={r.reason}>
+                  <span className="vm-arrow">{r.side === "BUY" ? "▲" : r.side === "SELL" ? "▼" : "·"}</span>{r.meter?.short}
+                </button>
+              ) : <span key={tf} className="vm-cell empty">—</span>;
+            })}
+          </div>
+        ))}
+      </div>
+      <div className="vm-legend muted small"><i className="lg-buy" /> votes buy <i className="lg-sell" /> votes sell (stronger colour = stronger vote) <i className="lg-ign" /> ignored for a losing record</div>
+      <VoterDetail r={cur} />
+    </div>
+  );
+}
+
 export function WarCard({ s }) {
   const flash = useFlash(s.bid);
   const bars = (s.bars || []).map((v, i) => ({ i, v }));
@@ -408,6 +570,9 @@ export function WarCard({ s }) {
         <div className="w-pend">target entry <b>{fmtPx(s.pending.limit)}</b> · price at signal {fmtPx(s.pending.ref)} · now {fmtPx(s.pending.side === "BUY" ? s.ask : s.bid)}</div>
       )}
       <Explain s={s} />
+
+      <KronosForecast k={s.kronos} record={(s.ballot || []).find((r) => r.key === "kronos")?.record} />
+      <Ballot rows={s.ballot} />
 
       <Slots trades={trades} max={s.stack_max} />
 

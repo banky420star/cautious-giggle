@@ -184,6 +184,34 @@ def ob_vote(m15: pd.DataFrame) -> float | None:
     return 0.0
 
 
+def ob_vote_detail(m15: pd.DataFrame):
+    """ob_vote plus the order-block levels behind it (for the war room)."""
+    v = ob_vote(m15)
+    if v is None:
+        return None
+    o, h, l_, c = (m15[k].to_numpy(float) for k in ("open", "high", "low", "close"))
+    st = ob_state(o, c, h, l_)
+    px = float(c[-1])
+    side = lambda d: "BUY" if d > 0 else "SELL"  # noqa: E731
+    if st["open"]:
+        d, sp, lim, tg, _, ep = st["open"][-1]
+        why = (f"In a {side(d)} from the order block at {ep:.2f}: stop {sp:.2f}, target {tg:.2f}. "
+               f"The strategy is holding it, so it votes {side(d)}.")
+        lv = {"side": side(d), "entry": ep, "stop": sp, "target": tg, "state": "in trade"}
+    elif v:
+        atr = _atr_wilder(h, l_, c)[-1]
+        near = [z for z in st["armed"] if abs(z[2] - px) <= 1.0 * atr]
+        d, sp, lim, tg = near[-1]
+        why = (f"Price {px:.2f} is within one ATR of an armed {side(d)} order block at {lim:.2f} "
+               f"(stop {sp:.2f}, target {tg:.2f}). Half vote until it fills.")
+        lv = {"side": side(d), "entry": lim, "stop": sp, "target": tg, "state": "armed, waiting"}
+    else:
+        why = (f"No order block in play: {len(st['armed'])} armed zone(s), none within one ATR of price {px:.2f}. "
+               f"Votes 0 (no opinion).")
+        lv = None
+    return float(v), {"reason": why, "levels": lv}
+
+
 # =============================================================================== Kronos
 class _Kronos:
     def __init__(self, cfg: dict):
@@ -210,6 +238,13 @@ class _Kronos:
         return self.pred
 
     def vote(self, m5: pd.DataFrame) -> float | None:
+        r = self.forecast(m5)
+        return None if r is None else r[0]
+
+    def forecast(self, m5: pd.DataFrame):
+        """(vote, forecast): the next `horizon` 5-minute candles Kronos predicts, and what they imply for
+        an entry now: how far price is expected to go against a buy or a sell first, the best price to
+        enter at, and the expected best exit. One sampled path, so treat levels as a guess, not a promise."""
         p = self._load()
         if p is None or m5 is None or len(m5) < 120:
             return None
@@ -230,13 +265,35 @@ class _Kronos:
         last = float(x["close"].iloc[-1])
         ret = float(out["close"].tail(2).mean()) / last - 1.0
         sd = float(np.log(x["close"]).diff().tail(200).std() or 1e-4) * np.sqrt(h)
-        return float(np.tanh(ret / max(sd, 1e-6)))
+        vote = float(np.tanh(ret / max(sd, 1e-6)))
+        hi, lo = float(out["high"].max()), float(out["low"].min())
+        bp = lambda a: round((a / last - 1.0) * 1e4, 2)  # noqa: E731
+        i_lo, i_hi = int(np.argmin(out["low"].to_numpy())), int(np.argmax(out["high"].to_numpy()))
+        fc = {
+            "t_last": str(ts.iloc[-1]), "last": last, "horizon_min": h * 5,
+            "candles": [{"t": str(fut.iloc[i]), "o": float(out["open"].iloc[i]), "h": float(out["high"].iloc[i]),
+                         "l": float(out["low"].iloc[i]), "c": float(out["close"].iloc[i])} for i in range(len(out))],
+            "recent": [{"t": str(ts.iloc[i]), "o": float(x["open"].iloc[i]), "h": float(x["high"].iloc[i]),
+                        "l": float(x["low"].iloc[i]), "c": float(x["close"].iloc[i])} for i in range(len(x) - 24, len(x))],
+            "move_bps": round(ret * 1e4, 2), "typical_bps": round(sd * 1e4, 2),
+            # a BUY now: the dip it may sit through first, the best price to buy at, the high it may reach
+            "buy": {"drawdown_bps": bp(lo), "best_entry": lo, "best_entry_in_min": (i_lo + 1) * 5,
+                    "target": hi, "upside_bps": bp(hi)},
+            "sell": {"drawdown_bps": -bp(hi), "best_entry": hi, "best_entry_in_min": (i_hi + 1) * 5,
+                     "target": lo, "upside_bps": -bp(lo)},
+        }
+        nxt = fc["candles"][0]
+        fc["reason"] = (f"Forecasts the next {h * 5} min: close {fc['candles'][-1]['c']:.5g} ({fc['move_bps']:+.1f} bps; a normal "
+                        f"{h * 5}-min move is ±{fc['typical_bps']:.1f}). Next candle {nxt['o']:.5g} → {nxt['c']:.5g} "
+                        f"(range {nxt['l']:.5g}–{nxt['h']:.5g}).")
+        return vote, fc
 
 
 # =============================================================================== CatBoost (FreqAI)
 class _CatBoost:
     def __init__(self, cfg: dict):
         self.cfg = cfg
+        self.last_detail: dict = {}
         self.cache = {}
         self.error = {}
 
@@ -347,7 +404,12 @@ class _CatBoost:
         if x.isna().any(axis=None):
             return None
         r = float(b["model"].predict(x.to_numpy())[0])
-        return float(np.tanh(r / max(b["std"], 1e-6)))
+        z = r / max(b["std"], 1e-6)
+        self.last_detail[symbol] = {"reason": (
+            f"Predicts {'a rise' if r > 0 else 'a fall' if r < 0 else 'no move'} over the next few 15-min bars, "
+            f"{abs(z):.1f}× the size of its usual prediction (retrained every {self.cfg.get('retrain_hours', 6)} h on "
+            f"{b.get('n', '?')} Exness bars)."), "z": round(z, 2)}
+        return float(np.tanh(z))
 
 
 # =============================================================================== news via local LLM
@@ -386,30 +448,37 @@ class _NewsLLM:
     def vote(self, symbol: str) -> float | None:
         heads = self._headlines(symbol)
         if not heads:
-            return 0.0
+            return 0.0, {"reason": "No recent headlines about this market, so no opinion (0).", "headlines": [], "n_headlines": 0}
         asset = {"BTCUSDm": "Bitcoin", "ETHUSDm": "Ether", "XAUUSDm": "gold", "XAGUSDm": "silver",
                  "USOILm": "US crude oil", "EURUSDm": "EUR/USD (the euro against the dollar)",
                  "USDJPYm": "USD/JPY (the dollar against the yen)"}.get(symbol, symbol)
         prompt = (f"You are a markets analyst. Read these recent headlines and judge the likely direction of "
                   f"{asset} over the next few hours. Reply with JSON only: {{\"score\": number from -1 (strongly down) "
-                  f"to 1 (strongly up), 0 if unclear or unrelated}}.\n\n" + "\n".join(f"- {h}" for h in heads))
+                  f"to 1 (strongly up), 0 if unclear or unrelated, \"reason\": one short sentence naming the headline "
+                  f"that matters most and why}}.\n\n" + "\n".join(f"- {h}" for h in heads))
         # a schema, not "json": with plain json mode the model echoes the headlines and runs out of tokens
-        schema = {"type": "object", "properties": {"score": {"type": "number", "minimum": -1, "maximum": 1}}, "required": ["score"]}
+        schema = {"type": "object", "properties": {"score": {"type": "number", "minimum": -1, "maximum": 1},
+                                                   "reason": {"type": "string", "maxLength": 220}},
+                  "required": ["score", "reason"]}
         body = json.dumps({"model": self.cfg["model"], "prompt": prompt, "stream": False, "format": schema,
-                           "think": False, "options": {"temperature": 0, "num_predict": 64}}).encode()
+                           "think": False, "options": {"temperature": 0, "num_predict": 140}}).encode()
         req = urllib.request.Request(self.cfg["url"].rstrip("/") + "/api/generate", data=body,
                                      headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=120) as r:
             txt = json.loads(r.read().decode()).get("response", "")
+        reason = None
         try:
-            score = float(json.loads(txt).get("score", 0.0))
+            js = json.loads(txt)
+            score = float(js.get("score", 0.0))
+            reason = str(js.get("reason") or "")[:240] or None
         except (ValueError, AttributeError, TypeError):
             import re
             m = re.search(r'"?score"?\s*[:=]\s*(-?\d+(?:\.\d+)?)', txt)
             if not m:
                 raise ValueError("no score in the model's reply")
             score = float(m.group(1))
-        return float(np.clip(score, -1, 1))
+        return float(np.clip(score, -1, 1)), {"reason": reason or "No reason given.", "headlines": heads[-3:],
+                                              "n_headlines": len(heads)}
 
 
 # =============================================================================== runner
@@ -422,6 +491,7 @@ class ExternalVoters:
         self.cat = _CatBoost(self.cfg["catboost"])
         self.news = _NewsLLM(self.cfg["news_llm"])
         self.values: dict = {}      # (symbol, voter) -> (vote, computed_at)
+        self.details: dict = {}     # (symbol, voter) -> why it voted that way (reason, levels, forecast)
         self.errors: dict = {}
         self._stamp: dict = {}      # (symbol, voter) -> input stamp last queued
         # two workers: the price models are fast; the news model can take a minute and must not hold them up
@@ -440,8 +510,13 @@ class ExternalVoters:
             name, symbol, fn = q.get()
             try:
                 v = fn()
+                det = None
+                if isinstance(v, tuple):
+                    v, det = v
                 if v is not None and np.isfinite(v):
                     self.values[(symbol, name)] = (float(v), time.time())
+                    if det is not None:
+                        self.details[(symbol, name)] = det
                 self.errors.pop((symbol, name), None)
             except Exception as exc:
                 msg = f"{type(exc).__name__}: {exc}"[:200]
@@ -461,11 +536,12 @@ class ExternalVoters:
         stamp5 = str(m5["time"].iloc[-1]) if m5 is not None and "time" in m5.columns and len(m5) else str(time.time() // 300)
         stamp15 = str(m15["time"].iloc[-1]) if m15 is not None and "time" in m15.columns and len(m15) else str(time.time() // 900)
         if symbol in (self.cfg["ob_gold"].get("symbols") or []) and m15 is not None:
-            self._queue("ob_gold", symbol, stamp15, lambda d=m15.copy(): ob_vote(d))
+            self._queue("ob_gold", symbol, stamp15, lambda d=m15.copy(): ob_vote_detail(d))
         if self.cfg["weights"].get("kronos") and m5 is not None:
-            self._queue("kronos", symbol, stamp5, lambda d=m5.copy(): self.kronos.vote(d))
+            self._queue("kronos", symbol, stamp5, lambda d=m5.copy(): self.kronos.forecast(d))
         if symbol in (self.cfg["catboost"].get("pairs") or {}) and m15 is not None:
-            self._queue("catboost", symbol, stamp15, lambda d=m15.copy(): self.cat.vote(symbol, d))
+            self._queue("catboost", symbol, stamp15,
+                        lambda d=m15.copy(): (lambda v: None if v is None else (v, self.cat.last_detail.get(symbol)))(self.cat.vote(symbol, d)))
         if self.cfg["weights"].get("news_llm"):
             every = float(self.cfg["news_llm"].get("every_min", 20)) * 60
             self._queue("news_llm", symbol, str(time.time() // every), lambda: self.news.vote(symbol))
@@ -482,7 +558,8 @@ class ExternalVoters:
         st.update({"t": time.time(), "weights": self.weights(), "names": NAMES,
                    "markets": {"ob_gold": self.cfg["ob_gold"].get("symbols"), "catboost": list(self.cfg["catboost"].get("pairs") or {}),
                                "kronos": "all", "news_llm": "all"},
-                   "news_model": self.cfg["news_llm"].get("model")})
+                   "news_model": self.cfg["news_llm"].get("model"),
+                   "details": {f"{s}:{n}": d for (s, n), d in list(self.details.items())}})
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(st, f)

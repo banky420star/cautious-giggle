@@ -11,7 +11,7 @@ import pandas as pd
 from loguru import logger
 
 from Python.model_memory import ModelMemory, market_context
-from Python.indicator_council import council_vote, votes_mtf
+from Python.indicator_council import council_vote, readings_mtf, votes_mtf
 from Python import demo_exploration
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
@@ -996,6 +996,8 @@ def main(live=False):
     except Exception as exc:
         logger.warning(f"external voters unavailable: {exc}")
     _xv_dumped = [0.0]
+    council_readings: dict = {}
+    _readings_dumped = [0.0]
     from Python.setup_gate import SetupGate
     setup_gate = SetupGate(((cfg.get("trading") or {}).get("setup_gate") or {}))
     _cg = ((cfg.get("trading") or {}).get("cost_gate") or {})
@@ -1296,7 +1298,18 @@ def main(live=False):
                 try:
                     if not council_allowed:
                         raise _CouncilOff()
-                    vt = votes_mtf(df.tail(1500), _htf_frames(symbol))
+                    htf_ = _htf_frames(symbol)
+                    vt = votes_mtf(df.tail(1500), htf_)
+                    try:  # why each indicator voted as it did (war room); never blocks the decision
+                        council_readings[str(symbol)] = {"t": time.time(), "readings": readings_mtf(df.tail(1500), htf_)}
+                        if time.time() - _readings_dumped[0] > 20:
+                            _readings_dumped[0] = time.time()
+                            _tmp = os.path.join(LOG_DIR, "council_readings.json.tmp")
+                            with open(_tmp, "w", encoding="utf-8") as _f:
+                                json.dump(council_readings, _f)
+                            os.replace(_tmp, os.path.join(LOG_DIR, "council_readings.json"))
+                    except Exception as _e:
+                        logger.debug(f"council readings skipped for {symbol}: {_e}")
                     ind_votes = {k: float(vt[k].iloc[-1]) for k in vt.columns}
                     if ext_voters is not None and ext_voters.enabled:
                         try:

@@ -286,9 +286,81 @@ class State:
                 "final": float(sg.get("exposure", 0) or 0),
             } if sg else None,
             "briefing": self._briefing(s, sg, cv, thr, pos, pending),
+            "ballot": self._ballot(s, cv),
+            "kronos": ((self._xv().get("details") or {}).get(f"{s}:kronos")),
             "brain": ("AI models + indicators" if (float(sg.get("agi_bias", 0) or 0) or float(sg.get("ppo_exposure", 0) or 0))
                       else "indicator council (AI still training)") if sg else None,
         }
+
+    _xv_cache: tuple = (0.0, {})
+
+    def _xv(self) -> dict:
+        t, v = self._xv_cache
+        if time.time() - t < 5:
+            return v
+        try:
+            with open(os.path.join(m.LOG_DIR, "external_voters.json"), encoding="utf-8") as f:
+                v = json.load(f)
+        except (OSError, ValueError):
+            v = {}
+        self._xv_cache = (time.time(), v)
+        return v
+
+    _rd_cache: tuple = (0.0, {})
+
+    def _readings(self) -> dict:
+        t, v = self._rd_cache
+        if time.time() - t < 5:
+            return v
+        try:
+            with open(os.path.join(m.LOG_DIR, "council_readings.json"), encoding="utf-8") as f:
+                v = json.load(f)
+        except (OSError, ValueError):
+            v = {}
+        self._rd_cache = (time.time(), v)
+        return v
+
+    def _ballot(self, s: str, cv: dict) -> list[dict]:
+        """Every voter in this market's last council: what it said, how much it counts, its record, and why."""
+        votes, assess = cv.get("votes") or {}, cv.get("assess") or {}
+        rd = ((self._readings().get(s) or {}).get("readings") or {})
+        xv = self._xv()
+        weights, details = xv.get("weights") or {}, xv.get("details") or {}
+        ignored = set(cv.get("ignored") or [])
+        out = []
+        for k, v in votes.items():
+            if v is None:
+                continue
+            a = assess.get(k) or {}
+            ext = k in weights
+            base = float(weights.get(k, 1) if ext else 1)
+            mult = float(a.get("mult", 1) or 1)
+            side = "BUY" if v > 0.05 else "SELL" if v < -0.05 else "no view"
+            det = details.get(f"{s}:{k}") if ext else None
+            meter = rd.get(k)
+            if det and det.get("reason"):
+                reason = det["reason"]
+            elif meter and meter.get("text"):
+                reason = meter["text"]
+            else:
+                rule = describe(k)
+                reason = (f"Rule: {rule}. It fired on the {side} side." if side != "no view"
+                          else f"Rule: {rule}. Its condition isn't met right now, so it abstains.")
+            n = float(a.get("n_all", 0) or 0)
+            out.append({"key": k, "name": describe(k), "model": ext, "vote": round(float(v), 3), "side": side,
+                        "weight": round(base * mult, 2), "base": base, "mult": round(mult, 2),
+                        "pull": 0.0 if k in ignored else round(float(v) * base * mult, 3), "ignored": k in ignored,
+                        "record": {"n": round(n), "net_bps": a.get("edge_bps"), "hit": a.get("hit_rate"),
+                                   "verdict": a.get("verdict") if n >= 60 else "learning"},
+                        "reason": reason, "levels": (det or {}).get("levels"),
+                        "tf": (k.split("@")[1] if "@" in k else "M5") if not ext else None,
+                        "strategy": k.split("@")[0] if not ext else k,
+                        "meter": meter or {"v": round(float(v), 3), "min": -1, "max": 1, "buy": [0.05, 1], "sell": [-1, -0.05],
+                                           "fmt": 2, "short": f"{float(v):+.2f}",
+                                           "text": "vote from −1 (strong sell) to +1 (strong buy)"},
+                        "headlines": (det or {}).get("headlines")})
+        out.sort(key=lambda r: -abs(r["pull"]))
+        return out
 
     def _blocks(self) -> dict:
         """Markets the bot skipped in the last 20 min because the minimum lot is too risky for the balance."""
