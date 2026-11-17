@@ -145,15 +145,33 @@ def _resolve_inline_eval_freq(total_timesteps: int) -> int | None:
     if str(os.environ.get("AGI_DRL_DISABLE_INLINE_EVAL", "")).lower() == "true":
         return None
 
+    # Each inline eval replays the whole validation window; doing it every 10k steps made a
+    # 500k-step run take hours. Default: ~8 evals per run.
+    default = max(50_000, int(total_timesteps) // 8)
     raw = os.environ.get("AGI_DRL_EVAL_FREQ")
     if raw is None or str(raw).strip() == "":
-        return 10_000
+        return default
 
     try:
         value = int(str(raw).strip())
     except Exception:
-        return 10_000
+        return default
     return value if value > 0 else None
+
+
+def _progress_phase(phase: str, **fields) -> None:
+    """Mark the dashboard progress file (e.g. 'evaluating') without disturbing the PPO writer."""
+    try:
+        from Python.train_progress import PATH, read
+        import json as _json
+        st = read() or {}
+        st.update(phase=phase, ts=time.time(), **fields)
+        tmp = PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            _json.dump(st, f)
+        os.replace(tmp, PATH)
+    except Exception:
+        pass
 
 
 def _env_int(name: str, default: int) -> int:
@@ -636,7 +654,14 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
 
         def _on_step(self) -> bool:
             old_best = self.best_mean_reward if self.best_mean_reward is not None else -np.inf
+            due = self.eval_freq > 0 and self.n_calls % self.eval_freq == 0
+            if due:
+                _progress_phase("evaluating", step=int(self.num_timesteps))
+                logger.info(f"PPO inline eval at step {self.num_timesteps:,} ({self.n_eval_episodes} episode(s) on validation data)")
             cont = super()._on_step()
+            if due:
+                _progress_phase("training", last_eval_reward=float(self.last_mean_reward))
+                logger.info(f"PPO inline eval done | mean_reward={self.last_mean_reward:.3f} | best={self.best_mean_reward:.3f}")
             if self.best_mean_reward is not None and self.best_mean_reward > old_best:
                 if self.vec_env is not None and self.vec_save_path:
                     os.makedirs(os.path.dirname(self.vec_save_path), exist_ok=True)
@@ -812,6 +837,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
             best_model_save_path=best_dir,
             log_path=LOG_DIR,
             eval_freq=inline_eval_freq,
+            n_eval_episodes=_env_int("AGI_DRL_EVAL_EPISODES", 1),  # validation env is deterministic: more episodes repeat the same run
             deterministic=True,
             render=False,
             vec_env=env,

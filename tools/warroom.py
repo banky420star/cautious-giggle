@@ -7,6 +7,7 @@ it survives between frames.
 from __future__ import annotations
 
 import datetime as dt
+import os
 import time
 
 from rich import box
@@ -369,6 +370,15 @@ def cycle_stages(lines: list[str], symbols: list[str]) -> list[dict]:
                 row["status"] = "passed"
             elif row["kind"] == "exam" and (f"Candidate blocked for {s}" in l or f"Skipping evaluation for {s}" in l):
                 row["status"] = "failed"
+    # stages skipped because their model already exists count as done
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    for row in st:
+        if row["status"] != "pending":
+            continue
+        f = {"lstm": os.path.join(root, "models", "per_symbol", f"lstm_{row['symbol']}.pt"),
+             "dreamer": os.path.join(root, "models", "dreamer", f"dreamer_{row['symbol']}.pt")}.get(row["kind"])
+        if f and os.path.exists(f) and any(("PPO start" in l or "Evaluate" in l) for l in lines[start:]):
+            row["status"] = "done"
     return st
 
 
