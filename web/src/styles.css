@@ -801,7 +801,7 @@ button.sec-head:focus-visible { outline: 2px solid var(--cyan); outline-offset: 
 
 /* ===================================================== at a glance: reactor, story, radar, setup map */
 .acct-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 460px); gap: 12px; align-items: stretch; }
-.acct-row .tiles-2 { grid-template-columns: 1fr 1fr; height: 100%; }
+.acct-row .tiles-2 { grid-template-columns: 1fr 1fr; align-content: start; }
 @media (max-width: 980px) { .acct-row { grid-template-columns: 1fr; } }
 
 .reactor .card-head, .setmap .card-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
@@ -865,13 +865,13 @@ body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-i
 .fc-lean.flat { color: var(--muted); background: rgba(148,163,184,.12); }
 .fc-chart { width: 100%; height: auto; display: block; }
 .fc-zone { fill: rgba(245,184,61,.06); }
-.fc-lab { font: 9px var(--mono); fill: var(--muted); }
+.fc-lab { font: 10px var(--mono); fill: var(--muted); }
 .fc-c line { stroke-width: 1; } .fc-c.up line, .fc-c.up rect { stroke: #34d399; fill: #34d399; } .fc-c.dn line, .fc-c.dn rect { stroke: #f87171; fill: #f87171; }
 .fc-c.fut rect { fill-opacity: .15; stroke-dasharray: 2 1.5; stroke: #f5b83d !important; }
 .fc-c.fut line { stroke: #f5b83d !important; stroke-opacity: .7; }
 .reveal.in .fc-c.fut { animation: fc-in .5s ease-out backwards; }
 @keyframes fc-in { from { opacity: 0; transform: translateY(-4px); } }
-.fc-line line { stroke-width: 1; stroke-dasharray: 3 3; } .fc-line text { font: 9px var(--mono); }
+.fc-line line { stroke-width: 1; stroke-dasharray: 3 3; } .fc-line text { font: 10px var(--mono); }
 .fc-line.now line { stroke: #e6eaf2; } .fc-line.now text { fill: #e6eaf2; }
 .fc-line.buy line { stroke: #34d399; } .fc-line.buy text { fill: #34d399; }
 .fc-line.sell line { stroke: #f87171; } .fc-line.sell text { fill: #f87171; }
@@ -931,3 +931,31 @@ body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-i
 
 /* market cards now carry a forecast and a 48-voter matrix: 3 per row on a MacBook, so the readings fit */
 .war-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); }
+
+/* ===================================================== decluttered market cards + details drawer */
+.war-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.wcard.compact { display: flex; flex-direction: column; gap: 8px; }
+.wcard.compact .gauge, .wcard.compact svg.gauge { max-width: 200px; margin: 0 auto; }
+.w-candles.small { height: 70px; overflow: hidden; }
+.w-open { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(245,184,61,.25); font-size: 11px; color: var(--muted); transition: background .2s, color .2s; }
+.w-open b { color: var(--cyan); font: 700 11px var(--mono); white-space: nowrap; }
+.w-open:hover, .w-open:focus-visible { background: rgba(245,184,61,.08); color: #e6eaf2; }
+.drawer-wrap { position: fixed; inset: 0; z-index: 200; background: rgba(2,5,3,.55); backdrop-filter: blur(3px); animation: fade-in .2s ease-out; }
+.drawer { position: absolute; top: 0; right: 0; bottom: 0; width: min(620px, 100vw); overflow-y: auto; background: var(--bg2, #0b120c);
+  border-left: 1px solid rgba(245,184,61,.3); box-shadow: -20px 0 60px rgba(0,0,0,.5); animation: drawer-in .28s cubic-bezier(.2,.8,.2,1); }
+.drawer-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 18px;
+  background: inherit; border-bottom: 1px solid rgba(245,184,61,.15); }
+.drawer-x { all: unset; cursor: pointer; padding: 6px; border-radius: 8px; color: var(--muted); }
+.drawer-x:hover { background: rgba(255,255,255,.06); color: #fff; }
+.drawer-body { padding: 12px 18px 28px; display: flex; flex-direction: column; gap: 4px; }
+body.drawer-open { overflow: hidden; }
+@keyframes drawer-in { from { transform: translateX(40px); opacity: 0; } }
+@keyframes fade-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .drawer, .drawer-wrap { animation: none; } }
+.acct-row { align-items: start; }
+.acct-row .tiles-2 .tile { min-height: 0; }
+.acct-row { grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); align-items: stretch; }
+.acct-row .tiles-2 { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; align-content: stretch; }
+.acct-row .tiles-2 .tile { display: flex; flex-direction: column; justify-content: center; }
+.acct-row .tiles-2 .tile .tile-v, .acct-row .tiles-2 .tile [class*="value"] { font-size: 30px; }

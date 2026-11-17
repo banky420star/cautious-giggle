@@ -27,7 +27,7 @@ const isLive = (n) => n && ["prep", "armed", "in_trade"].includes(n.phase);
 
 /* ================================================================ section frame */
 const folded = {
-  get: (id) => { try { return localStorage.getItem(`cg_fold_${id}`) === "1"; } catch { return false; } },
+  get: (id, dflt = false) => { try { const v = localStorage.getItem(`cg_fold_${id}`); return v == null ? dflt : v === "1"; } catch { return dflt; } },
   set: (id, v) => { try { localStorage.setItem(`cg_fold_${id}`, v ? "1" : "0"); } catch { /* private mode */ } },
 };
 
@@ -46,9 +46,9 @@ function useReveal() {
   return [ref, seen];
 }
 
-export function Section({ id, no, title, sub, right, children }) {
+export function Section({ id, no, title, sub, right, children, folded: startFolded = false }) {
   const [ref, seen] = useReveal();
-  const [closed, setClosed] = useState(() => folded.get(id));
+  const [closed, setClosed] = useState(() => folded.get(id, startFolded));
   const toggle = () => { setClosed((c) => { folded.set(id, !c); return !c; }); };
   return (
     <section id={id} ref={ref} className={`sec reveal ${seen ? "in" : ""} ${closed ? "closed" : ""}`}>
@@ -346,18 +346,17 @@ function ForecastChart({ k }) {
   const real = k.recent || [], fut = k.candles || [];
   const all = real.concat(fut);
   if (!all.length) return null;
-  const W = 320, H = 130, padL = 4, padR = 54, top = 8, bot = 14;
+  const W = 540, H = 190, padL = 4, padR = 84, top = 8, bot = 16;
   const lo = Math.min(...all.map((c) => c.l)), hi = Math.max(...all.map((c) => c.h));
   const y = (v) => top + (hi === lo ? 0.5 : (hi - v) / (hi - lo)) * (H - top - bot);
   const step = (W - padL - padR) / all.length, bw = Math.max(2, step * 0.62);
   const x = (i) => padL + step * i + step / 2;
   const fx0 = padL + step * real.length;
-  const line = (v, cls, label) => (
-    <g className={`fc-line ${cls}`}>
-      <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} />
-      <text x={W - padR + 4} y={y(v) + 3}>{label}</text>
-    </g>
-  );
+  // price labels on the right, nudged apart so they never sit on top of each other
+  const lines = [["now", k.last, `now ${pxf(k.last)}`], ["buy", k.buy.best_entry, `buy ${pxf(k.buy.best_entry)}`],
+                 ["sell", k.sell.best_entry, `sell ${pxf(k.sell.best_entry)}`]]
+    .filter((l) => l[1] != null).map(([c, v, t]) => ({ c, v, t, ly: y(v) + 3 })).sort((a, b) => a.ly - b.ly);
+  for (let i = 1; i < lines.length; i++) lines[i].ly = Math.max(lines[i].ly, lines[i - 1].ly + 11);
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="fc-chart" role="img" aria-label="Recent candles and Kronos's forecast of the next ones">
       <rect x={fx0} y={0} width={W - padR - fx0} height={H - bot + 2} className="fc-zone" />
@@ -372,9 +371,12 @@ function ForecastChart({ k }) {
           </g>
         );
       })}
-      {line(k.last, "now", `now ${pxf(k.last)}`)}
-      {line(k.buy.best_entry, "buy", `buy ${pxf(k.buy.best_entry)}`)}
-      {line(k.sell.best_entry, "sell", `sell ${pxf(k.sell.best_entry)}`)}
+      {lines.map((l) => (
+        <g key={l.c} className={`fc-line ${l.c}`}>
+          <line x1={padL} x2={W - padR} y1={y(l.v)} y2={y(l.v)} />
+          <text x={W - padR + 4} y={l.ly}>{l.t}</text>
+        </g>
+      ))}
     </svg>
   );
 }
@@ -515,7 +517,7 @@ function Ballot({ rows }) {
   );
 }
 
-export function WarCard({ s }) {
+export function WarCard({ s, onOpen }) {
   const flash = useFlash(s.bid);
   const bars = (s.bars || []).map((v, i) => ({ i, v }));
   if (s.bid != null) bars.push({ i: bars.length, v: s.bid });
@@ -534,7 +536,7 @@ export function WarCard({ s }) {
   const live = isLive(s.news);
   const action = (s.briefing || []).find((r) => r.k === "Action" || r.k === "status");
   return (
-    <div className={`wcard hud ${p ? (p.side === "BUY" ? "in-long" : "in-short") : ""} ${live ? "news-live" : ""}`}>
+    <div className={`wcard hud compact ${p ? (p.side === "BUY" ? "in-long" : "in-short") : ""} ${live ? "news-live" : ""}`}>
       <div className="w-head">
         <div>
           <div className="w-name">{s.name}<span className="w-sym">{s.symbol}</span></div>
@@ -560,35 +562,59 @@ export function WarCard({ s }) {
         </div>
       </div>
 
-      <div className="w-mid">
-        <Gauge value={s.signal} threshold={s.threshold} marks={marks} />
-        <Briefing s={s} />
-      </div>
-
+      <Gauge value={s.signal} threshold={s.threshold} marks={marks} />
       {action && <div className="w-action"><Crosshair size={13} /> {action.text}</div>}
       {s.pending && (
-        <div className="w-pend">target entry <b>{fmtPx(s.pending.limit)}</b> · price at signal {fmtPx(s.pending.ref)} · now {fmtPx(s.pending.side === "BUY" ? s.ask : s.bid)}</div>
+        <div className="w-pend">target entry <b>{fmtPx(s.pending.limit)}</b> · now {fmtPx(s.pending.side === "BUY" ? s.ask : s.bid)}</div>
       )}
-      <Explain s={s} />
-
-      <KronosForecast k={s.kronos} record={(s.ballot || []).find((r) => r.key === "kronos")?.record} />
-      <Ballot rows={s.ballot} />
-
       <Slots trades={trades} max={s.stack_max} />
-
-      {s.news && (
-        <div className={`w-news ${live ? "live" : ""}`}>
-          <Newspaper size={13} /> {s.news.title.split(" + ")[0]} {until(s.news.t0)} · plan: {s.news.plan ? PLAY[s.news.plan] : "stand aside"}
-          {live && <b> · {s.news.phase.replace("_", " ").toUpperCase()}</b>}
-        </div>
-      )}
-      {s.grad && !["live", "graduated"].includes(s.grad.status) && (
-        <div className="w-grad"><GraduationCap size={13} /> AI {s.grad.label}</div>
-      )}
-
-      <div className="w-candles" title="Last 7 hours of 5-minute candles. Dashed: entry (gold), stop (red), target (green), price now (white).">
+      <div className="w-candles small" title="Last 7 hours of 5-minute candles. Dashed: entry (gold), stop (red), target (green), price now (white).">
         <Candles candles={s.candles} position={p} bid={s.bid} />
       </div>
+      <button type="button" className="w-open" onClick={() => onOpen?.(s.symbol)}>
+        <span>Kronos forecast · {(s.ballot || []).length} voters · how it decided</span><b>details →</b>
+      </button>
+    </div>
+  );
+}
+
+/* the full story for one market, in a panel that slides in from the right */
+export function MarketDrawer({ s, onClose }) {
+  useEffect(() => {
+    if (!s) return undefined;
+    const k = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", k);
+    document.body.classList.add("drawer-open");
+    return () => { window.removeEventListener("keydown", k); document.body.classList.remove("drawer-open"); };
+  }, [s?.symbol]);
+  if (!s) return null;
+  const p = s.position;
+  const live = isLive(s.news);
+  return (
+    <div className="drawer-wrap" onClick={onClose}>
+      <aside className="drawer hud" role="dialog" aria-label={`${s.name} details`} onClick={(e) => e.stopPropagation()}>
+        <div className="drawer-head">
+          <div>
+            <div className="w-name">{s.name}<span className="w-sym">{s.symbol}</span></div>
+            <div className="w-price">{fmtPx(s.bid)} {s.chg_pct != null && <span className={`w-chg ${s.chg_pct >= 0 ? "pos" : "neg"}`}>{s.chg_pct >= 0 ? "+" : ""}{s.chg_pct.toFixed(2)}% · 24h</span>}</div>
+          </div>
+          <button type="button" className="drawer-x" onClick={onClose} aria-label="Close"><X size={18} /></button>
+        </div>
+        <div className="drawer-body">
+          <div className="w-mid"><Gauge value={s.signal} threshold={s.threshold} marks={[]} /><Briefing s={s} /></div>
+          <Explain s={s} />
+          <KronosForecast k={s.kronos} record={(s.ballot || []).find((r) => r.key === "kronos")?.record} />
+          <Ballot rows={s.ballot} />
+          {s.news && (
+            <div className={`w-news ${live ? "live" : ""}`}>
+              <Newspaper size={13} /> {s.news.title.split(" + ")[0]} {until(s.news.t0)} · plan: {s.news.plan ? PLAY[s.news.plan] : "stand aside"}
+              {live && <b> · {s.news.phase.replace("_", " ").toUpperCase()}</b>}
+            </div>
+          )}
+          {s.grad && !["live", "graduated"].includes(s.grad.status) && <div className="w-grad"><GraduationCap size={13} /> AI {s.grad.label}</div>}
+          <div className="w-candles"><Candles candles={s.candles} position={p} bid={s.bid} /></div>
+        </div>
+      </aside>
     </div>
   );
 }

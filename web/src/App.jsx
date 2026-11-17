@@ -10,7 +10,7 @@ import {
 import {
   WarCard, MissionControl, OpsLog, CommandBar, Section, Clocks, Sitrep, NewsAlert, Tour, Glossary, HelpButtons, condition, ago,
   Tape, Blotter, FillAlerts, SoundButton,
-  Setups, Models, SectionNav, BackToTop,
+  Setups, Models, SectionNav, BackToTop, MarketDrawer,
 } from "./WarRoom.jsx";
 import { Boot, AccountSwitch, Logo } from "./Boot.jsx";
 import { RiskReactor, SetupMap } from "./Visuals.jsx";
@@ -335,8 +335,9 @@ function navItems(d) {
 export default function App() {
   const [d, err] = useApi(2000);
   const [booted, setBooted] = useState(() => { try { return window.location.hash === "#warroom" || sessionStorage.getItem("cg_booted") === "1"; } catch { return false; } });
-  const [explain, setExplainS] = useState(() => store.get("cg_explain", true));
-  const setExplain = (v) => { setExplainS(v); store.set("cg_explain", v); };
+  const [explain, setExplainS] = useState(() => store.get("cg_explain2", false));
+  const [openSym, setOpenSym] = useState(() => { try { return new URLSearchParams(window.location.search).get("m"); } catch { return null; } });
+  const setExplain = (v) => { setExplainS(v); store.set("cg_explain2", v); };
   const [sound, setSoundS] = useState(() => store.get("cg_sound", false));
   const setSound = (v) => { setSoundS(v); store.set("cg_sound", v); };
   const [tour, setTour] = useState(false);
@@ -376,34 +377,34 @@ export default function App() {
         <Blotter rows={d.blotter} />
       </Section>
 
-      <Section id="sec-setups" no="03" title="SETUPS"
+      <Section folded id="sec-setups" no="03" title="SETUPS"
                sub="which kinds of trade have earned normal size, which are still learning on the smallest lot, and which are blocked for losing">
         <SetupMap data={d.setups} />
         <Setups data={d.setups} />
       </Section>
 
-      <Section id="sec-models" no="04" title="YOUR MODELS"
+      <Section folded id="sec-models" no="04" title="YOUR MODELS"
                sub="your own models voting in every decision: what each says now, its live record, and how it did when replayed on history">
         <Models data={d.models} />
       </Section>
 
       <Section id="sec-markets" no="05" title="MARKETS"
                sub="one card per market: the needle is the final verdict, the bars are the voters, the line underneath is the next move">
-        <div className="war-grid">{d.symbols.map((s) => <WarCard key={s.symbol} s={s} />)}</div>
+        <div className="war-grid">{d.symbols.map((s) => <WarCard key={s.symbol} s={s} onOpen={setOpenSym} />)}</div>
       </Section>
 
-      <Section id="sec-ops" no="06" title="OPS LOG & EQUITY" sub="every action with its reason, and how the account has moved">
+      <Section folded id="sec-ops" no="06" title="OPS LOG & EQUITY" sub="every action with its reason, and how the account has moved">
         <div className="bottom">
           <OpsLog ops={d.ops} feed={d.feed} trades={d.trades} />
           <EquityChart series={d.equity} equity={d.account.equity} />
         </div>
       </Section>
 
-      <Section id="sec-training" no="07" title="TRAINING" sub="each market's AI: which reward style it is practising, and its exam record">
+      <Section folded id="sec-training" no="07" title="TRAINING" sub="each market's AI: which reward style it is practising, and its exam record">
         <MissionControl rows={d.mission} training={d.training} />
       </Section>
 
-      <Section id="sec-news" no="08" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
+      <Section folded id="sec-news" no="08" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
         <News news={d.news} />
       </Section>
 
@@ -412,6 +413,7 @@ export default function App() {
         <span className="muted right"><Clock size={12} /> updated {new Date(d.ts * 1000).toLocaleTimeString()}</span>
       </footer>
       <BackToTop />
+      <MarketDrawer s={openSym ? d.symbols.find((x) => x.symbol === openSym) : null} onClose={() => setOpenSym(null)} />
       <FillAlerts ops={d.ops} sound={sound} />
       <Tour open={tour} onClose={() => setTour(false)} />
       <Glossary open={gloss} onClose={() => setGloss(false)} terms={d.glossary} />

@@ -477,7 +477,7 @@ class _NewsLLM:
             if not m:
                 raise ValueError("no score in the model's reply")
             score = float(m.group(1))
-        return float(np.clip(score, -1, 1)), {"reason": reason or "No reason given.", "headlines": heads[-3:],
+        return float(np.clip(score, -1, 1)), {"reason": reason or "No reason given.", "headlines": list(dict.fromkeys(heads))[-3:],
                                               "n_headlines": len(heads)}
 
 
