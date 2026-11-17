@@ -331,13 +331,13 @@ def training_state() -> dict:
             st["last"] = line.split(" - ", 1)[-1][:150]
             break
     for line in reversed(tail_lines(LSTM_LOG, 80)):
-        m = re.search(r"\|\s*(\w+)\s*\|\s*epoch\s+(\d+)\s*/\s*(\d+)(.*)", line)
+        m = re.search(r"(\w+)\s*\|?\s*epoch\s+(\d+)\s*/\s*(\d+)(.*)", line)
         if m:
             st["lstm"] = {"symbol": m.group(1), "epoch": int(m.group(2)), "total": int(m.group(3)),
                           "detail": m.group(4).strip(" |")[:70]}
             break
     for line in reversed(tail_lines(PPO_LOG, 120)):
-        m = re.search(r"(\d[\d,]*)\s*/\s*(\d[\d,]*)\s*(?:timesteps|steps)", line)
+        m = re.search(r"step=(\d[\d,]*)/(\d[\d,]*)", line)
         if m:
             st["ppo"] = {"done": int(m.group(1).replace(",", "")), "total": int(m.group(2).replace(",", ""))}
             break
