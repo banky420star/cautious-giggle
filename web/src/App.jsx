@@ -15,6 +15,7 @@ const fmtMoney = (v, sign = false) => {
 };
 const fmtPx = (v) => (v == null ? "—" : v.toLocaleString(undefined, {
   minimumFractionDigits: v > 1000 ? 2 : 3, maximumFractionDigits: v > 1000 ? 2 : 3 }));
+const fmtDur = (s) => (s >= 3600 ? `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m` : `${Math.max(1, Math.round(s / 60))} min`);
 const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 function useApi(intervalMs = 2000) {
@@ -305,9 +306,23 @@ function Learning({ d }) {
       <div className="divider" />
       <div className="train-head">
         <span><GraduationCap size={15} /> Brain training</span>
-        <span className="muted">{t.running ? `${pct}% of this cycle` : "idle"}</span>
+        <span className="muted">{t.running ? `whole cycle ${pct}%${t.stage?.cycle_eta_s ? ` · ~${fmtDur(t.stage.cycle_eta_s)} left` : ""}` : "idle"}</span>
       </div>
-      <div className="progress"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+      <div className="progress thin"><div className="progress-fill" style={{ width: `${pct}%` }} /></div>
+      {t.current && t.stage?.stage_progress != null && (
+        <div className="stage-now">
+          <div className="stage-now-head">
+            <b>{t.current.name} · {t.current.symbol}</b>
+            <span className="stage-pct">{Math.round(t.stage.stage_progress * 100)}%</span>
+          </div>
+          <div className="progress big"><div className="progress-fill" style={{ width: `${t.stage.stage_progress * 100}%` }} /></div>
+          <div className="muted small">
+            {t.stage.step?.toLocaleString()} / {t.stage.total?.toLocaleString()} {t.stage.unit}
+            {t.stage.stage_eta_s ? ` · ~${fmtDur(t.stage.stage_eta_s)} left` : ""}
+            {t.stage.phase === "evaluating" ? " · running a quick test on validation data…" : ""}
+          </div>
+        </div>
+      )}
       <div className="stages">
         {(t.stages || []).map((st, i) => <span key={i} className={`stage ${st.status}`}>{st.label}</span>)}
       </div>

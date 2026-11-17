@@ -216,16 +216,12 @@ def improvement_panel(frame, broker, logs, symbols, cfg) -> Panel:
     lines.append(Text("BRAIN TRAINING", style="bold cyan"))
     if cur:
         miss = wr.MISSIONS[cur["kind"]]
-        frac = done / max(1, len(stages))
-        live = prog and not prog.get("done") and prog.get("kind") == cur["kind"] and \
-            time.time() - float(prog.get("ts", 0) or 0) < 600
-        if live and prog.get("total"):
-            frac = (done + int(prog.get("step", 0)) / max(1, int(prog["total"]))) / len(stages)
-        elif live and prog.get("epochs"):
-            frac = (done + int(prog.get("epoch", 0)) / max(1, int(prog["epochs"]))) / len(stages)
+        summ = wr.training_summary(prog, stages)
+        frac = summ["stage_progress"] if summ["stage_progress"] is not None else 0.0
         b = Text(" ")
         b.append_text(wr._bar(frac, 30, frame=frame))
-        b.append(f" {frac * 100:.0f}% of today's training   ", style="bold")
+        eta = summ["stage_eta_s"]
+        b.append(f" {frac * 100:.0f}%" + (f" · ~{int(eta // 60)} min left" if eta else "") + "   ", style="bold")
         b.append(f"now: {miss['name']} for {nm(cur['symbol']).title()}", style="yellow")
         lines.append(b)
         lines.append(Text(f" It's learning {miss['learn']}", style=""))

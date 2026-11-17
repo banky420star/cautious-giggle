@@ -558,3 +558,36 @@ def signal_history(hist: dict, symbols: list[str], chart, width: int) -> Group:
         else:
             parts.append(Text("  collecting decisions…\n", style="dim"))
     return Group(*parts)
+
+
+# rough minutes per stage on the M4, used to weight the overall bar by time instead of count
+STAGE_MINUTES = {"lstm": 9, "dreamer": 25, "ppo": 45, "exam": 5}
+
+
+def training_summary(prog: dict, stages: list[dict]) -> dict:
+    """Current stage progress (own %, steps, ETA, phase) and a time-weighted overall %."""
+    cur = next((r for r in stages if r["status"] == "running"), None)
+    live = bool(prog and cur and not prog.get("done") and prog.get("kind") == cur["kind"]
+                and time.time() - float(prog.get("ts", 0) or 0) < 600)
+    stage_frac, step, total, eta, unit = None, None, None, None, None
+    if live:
+        el = max(1.0, float(prog.get("ts", time.time())) - float(prog.get("started", time.time())))
+        if prog.get("total"):
+            step, total, unit = int(prog.get("step", 0)), max(1, int(prog["total"])), "steps"
+        elif prog.get("epochs"):
+            ep, eps = int(prog.get("epoch", 0)), max(1, int(prog["epochs"]))
+            b, nb = int(prog.get("batch", 0)), max(1, int(prog.get("n_batches", 1)))
+            step, total, unit = ep, eps, "passes"
+            stage_frac = ((ep - 1) + b / nb) / eps
+        if stage_frac is None and total:
+            stage_frac = step / total
+        if stage_frac and stage_frac > 0.01:
+            eta = el / stage_frac - el
+    w = [STAGE_MINUTES.get(r["kind"], 10) for r in stages]
+    done_w = sum(wi for wi, r in zip(w, stages) if r["status"] in ("done", "passed", "failed"))
+    cur_w = STAGE_MINUTES.get(cur["kind"], 10) * (stage_frac or 0) if cur else 0
+    overall = (done_w + cur_w) / max(1, sum(w))
+    left_w = sum(wi for wi, r in zip(w, stages) if r["status"] == "pending")
+    return {"stage_progress": stage_frac, "step": step, "total": total, "unit": unit,
+            "stage_eta_s": eta, "phase": (prog or {}).get("phase") if live else None, "overall": overall,
+            "cycle_eta_s": ((eta or 0) + left_w * 60) if cur else None}

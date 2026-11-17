@@ -201,19 +201,14 @@ class State:
         prog = m.read_progress()
         stages = wr.cycle_stages(m.tail_lines(m.CYCLE_LOG, 400), self.symbols)
         cur = next((r for r in stages if r["status"] == "running"), None)
-        done = sum(1 for r in stages if r["status"] in ("done", "passed"))
-        frac = done / max(1, len(stages))
-        live = bool(prog and cur and not prog.get("done") and prog.get("kind") == cur["kind"]
-                    and time.time() - float(prog.get("ts", 0) or 0) < 600)
-        if live and prog.get("total"):
-            frac = (done + int(prog.get("step", 0)) / max(1, int(prog["total"]))) / len(stages)
-        elif live and prog.get("epochs"):
-            frac = (done + int(prog.get("epoch", 0)) / max(1, int(prog["epochs"]))) / len(stages)
+        summ = wr.training_summary(prog, stages)
+        frac = summ["overall"]
         mission = wr.MISSIONS.get(cur["kind"]) if cur else None
         nxt = next((r for r in stages if r["status"] == "pending"), None)
         return {
             "running": bool(m.training_state().get("running")),
             "progress": frac,
+            "stage": summ,
             "stages": [{"label": r["label"], "status": r["status"]} for r in stages],
             "current": ({"name": mission["name"], "symbol": NAMES.get(cur["symbol"], cur["symbol"]),
                          "learn": mission["learn"], "goal": mission["goal"], "test": mission["test"]} if cur else None),
