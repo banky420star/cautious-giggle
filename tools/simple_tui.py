@@ -102,10 +102,10 @@ def markets_panel(broker) -> Panel:
             if r["pnl"] is not None:
                 c.append(f"{'+' if r['pnl'] >= 0 else '−'}${abs(r['pnl']):.2f}", style="green" if r["pnl"] >= 0 else "red")
         else:
-            g = r.get("grad")
-            if g and r["mode"] == "news only":
-                c.append(g["label"] + (f" ({g['attempts']}/3)" if g["status"] in ("training", "exam_failed") else ""),
-                         style="bold magenta" if g["status"] == "training" else "magenta")
+            gr = r.get("grad")
+            if gr and r["mode"] == "news only":
+                c.append(gr["label"] + (f" ({gr['attempts']}/3)" if gr["status"] in ("training", "exam_failed") else ""),
+                         style="bold magenta" if gr["status"] == "training" else "magenta")
             else:
                 c.append(r["mode"], style="grey50")
         c.append("\n")

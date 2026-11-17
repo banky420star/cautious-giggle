@@ -233,8 +233,10 @@ class NewsTrader:
                 if sym not in self.symbols:
                     continue
                 eid = f"{sym}|{int(e['t'])}"   # releases at the same minute are one event
-                if eid in self.events and e["title"] not in self.events[eid]["title"]:
-                    self.events[eid]["title"] += " + " + e["title"].replace("USD ", "")
+                short = e["title"].replace("USD ", "")
+                if eid in self.events and short not in self.events[eid]["title"].split(" + ") \
+                        and e["title"] != self.events[eid]["title"]:
+                    self.events[eid]["title"] += " + " + short
                 if eid not in self.events:
                     self.events[eid] = {"id": eid, "sym": sym, "t0": e["t"], "title": e["title"], "topic": topic,
                                         "phase": "scheduled"}
