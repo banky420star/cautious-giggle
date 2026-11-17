@@ -26,3 +26,7 @@
 2026-11-17 05:14:13.567 +02:00 | INFO     | __main__:main:1004 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
 2026-11-17 05:15:17.416 +02:00 | INFO     | __main__:main:1004 - DECISION BTCUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
 2026-11-17 05:15:19.483 +02:00 | INFO     | __main__:main:1004 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
+2026-11-17 05:20:02.953 +02:00 | INFO     | __main__:main:1004 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
+2026-11-17 05:20:25.588 +02:00 | INFO     | __main__:main:1004 - DECISION BTCUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
+2026-11-17 05:25:13.168 +02:00 | INFO     | __main__:main:1004 - DECISION BTCUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000
+2026-11-17 05:25:14.598 +02:00 | INFO     | __main__:main:1004 - DECISION XAUUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=0.0000 final=0.0000

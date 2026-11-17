@@ -215,13 +215,15 @@ def _train_one_symbol(
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     feat_t = torch.tensor(feat_scaled, dtype=torch.float32, device=device)
-    windows = feat_t.unfold(0, seq_len, 1)  # (n, F, seq_len) view, no copy
+    offsets = torch.arange(seq_len, device=device)
     y_all_t = torch.tensor(y_all, dtype=torch.long, device=device)
     train_idx = torch.arange(0, split_idx, device=device)
     val_idx = torch.arange(split_idx, n_seq, device=device)
 
     def batch(idx):
-        return windows[idx].permute(0, 2, 1).contiguous(), y_all_t[idx]
+        # Gather only the rows this batch needs: (B, seq_len, F). Indexing an unfold() view
+        # made MPS materialise every window (~3.6 GB per call).
+        return feat_t[idx[:, None] + offsets[None, :]], y_all_t[idx]
 
     # Class-weighted loss: HOLD dominates, and an unweighted model learns to always say HOLD.
     counts = np.bincount(y, minlength=3).astype(np.float64)
@@ -232,7 +234,7 @@ def _train_one_symbol(
     val_acc = 0.0
 
     batch_size = int(os.environ.get("AGI_LSTM_BATCH", "512"))
-    eval_batch = 4096
+    eval_batch = 2048
     patience = int(os.environ.get("AGI_LSTM_PATIENCE", "4"))
     stale = 0
     n_batches = max(1, (len(train_idx) + batch_size - 1) // batch_size)
@@ -240,8 +242,12 @@ def _train_one_symbol(
     from Python.train_progress import ProgressWriter
 
     prog = ProgressWriter("lstm", symbol)
+    vc = np.bincount(y_val, minlength=3) if len(y_val) else np.zeros(3)
     prog.update(force=True, epochs=epochs, epoch=0, batch=0, n_batches=n_batches, train_samples=int(len(train_idx)),
-                val_samples=int(len(val_idx)))
+                val_samples=int(len(val_idx)), patience=patience,
+                majority_val_acc=float(vc.max() / max(1, vc.sum()) * 100.0),
+                val_class_pct={"hold": float(vc[0] / max(1, vc.sum()) * 100), "up": float(vc[1] / max(1, vc.sum()) * 100),
+                               "down": float(vc[2] / max(1, vc.sum()) * 100)})
     t_train = time.time()
     model.train()
     last_loss = 0.0
@@ -274,6 +280,7 @@ def _train_one_symbol(
 
         last_loss = epoch_loss / max(1, n_batches)
         acc = (correct / max(1, total)) * 100.0
+        prog.update(force=True, phase="validating")
         model.eval()
         with torch.no_grad():
             if len(val_idx):

@@ -373,6 +373,108 @@ def read_progress() -> dict:
         return {}
 
 
+NAMES = {"BTCUSDm": "Bitcoin", "XAUUSDm": "gold"}
+
+
+def _nm(sym) -> str:
+    return NAMES.get(str(sym), str(sym))
+
+
+def explain(prog: dict, tr: dict, reg: dict, symbols: list[str], alive: bool, logs) -> list[Text]:
+    """Plain-English narration of what training and the bot are doing right now."""
+    out: list[Text] = []
+
+    def say(msg, style=""):
+        out.append(Text(msg, style=style))
+
+    live = bool(tr.get("running")) and prog and not prog.get("done") and time.time() - float(prog.get("ts", 0)) < 600
+    last = (tr.get("last") or "").lower()
+
+    # ---- training
+    if live and prog.get("kind") == "lstm":
+        sym, ep, eps = _nm(prog.get("symbol")), int(prog.get("epoch", 0)), int(prog.get("epochs", 1))
+        say(f"📚 Teaching the LSTM to read {sym} charts.", "bold")
+        say(f"It looks at the last 60 five-minute bars and guesses whether the next bar goes UP, DOWN or stays FLAT. "
+            f"It is on pass {ep} of up to {eps} through ~{int(prog.get('train_samples', 0)):,} past examples.")
+        if prog.get("phase") == "validating" or int(prog.get("batch", 0)) >= int(prog.get("n_batches", 1)):
+            say("🔍 Pass finished; now testing it on recent bars it was NOT trained on (the honest score).", "cyan")
+        hist = prog.get("history") or []
+        base = prog.get("majority_val_acc")
+        if base is not None:
+            cp = prog.get("val_class_pct") or {}
+            say(f"Yardstick: always guessing the most common outcome would score {base:.1f}% "
+                f"(flat {cp.get('hold', 0):.0f}% · up {cp.get('up', 0):.0f}% · down {cp.get('down', 0):.0f}% of test bars).", "dim")
+        if hist:
+            h = hist[-1]
+            va = float(h.get("val_acc", 0))
+            say(f"On bars it has never seen it got {va:.1f}% right after the last pass.")
+            if len(hist) >= 2:
+                prev = hist[-2]
+                tl, vl = float(h["loss"]) - float(prev["loss"]), float(h["val_loss"]) - float(prev["val_loss"])
+                if tl < 0 and vl < 0:
+                    say("✅ Error is falling on both practice and unseen data: it is genuinely learning.", "green")
+                elif tl < 0 <= vl:
+                    left = int(prog.get("patience", 4)) - sum(1 for x in reversed(hist) if not x.get("best"))
+                    say(f"⚠️  Better on practice data but worse on unseen data: it is starting to memorise. "
+                        f"Training stops early if this continues ({max(0, left)} more passes).", "yellow")
+                else:
+                    say("〰️  Error went up this pass; normal wobble. The best version so far is kept (★).", "dim")
+            best = [x for x in hist if x.get("best")]
+            if best:
+                say(f"Best version so far: pass {best[-1]['epoch']} ({float(best[-1]['val_acc']):.1f}% on unseen bars).", "dim")
+        else:
+            say("First pass in progress: early numbers are noisy.", "dim")
+        say("Note: the LSTM is only a helper; the PPO trader below makes most of the decision.", "dim")
+    elif live and prog.get("kind") == "ppo":
+        st, tot = int(prog.get("step", 0)), max(1, int(prog.get("total", 1)))
+        say(f"🎮 Training the PPO trader for {_nm(prog.get('symbol'))} in a simulator.", "bold")
+        say(f"It replays past market data and practises going long, short or flat, paying realistic spread, "
+            f"stop-loss and take-profit costs. {st:,} of {tot:,} practice steps done.")
+        r = prog.get("ep_reward_mean")
+        if r is not None:
+            say(f"Average score per practice run: {r:+.3f} (higher = it made money in practice; "
+                f"below zero = still losing to costs).", "green" if r > 0 else "yellow")
+        say("Practice scores flatter it: the real test is the unseen test window that comes next.", "dim")
+    elif "evaluate" in last or "backtest" in last:
+        say("🧪 Exam time: replaying the trained model on the last ~15% of history it never saw.", "bold")
+        say("To pass it must make money after costs, keep drawdown under 10%, have Sharpe ≥ 0.5, and beat "
+            "both buy-and-hold and a simple moving-average strategy.")
+    elif tr.get("running"):
+        if "dukascopy" in last or "fetch" in last or "data" in last:
+            say("⬇️  Downloading price history from Exness (cached after the first time).", "bold")
+        else:
+            say("⚙️  Preparing: loading price history and building the 150 indicators the models read.", "bold")
+    else:
+        say("💤 No training running. Type 'exness train' to start a new cycle.", "dim")
+
+    # ---- what happened at the gate
+    for line in tail_lines(CYCLE_LOG, 120):
+        l = line.lower()
+        if "demo exploration canary" in l:
+            say("🧭 " + line.split(" - ", 1)[-1].split(":")[0] + ": failed the exam, so it trades at half size on demo "
+                "to gather real results (never on a real account).", "magenta")
+        elif "canary set for" in l:
+            say("🏁 " + line.split(" - ", 1)[-1][:90] + ": passed the exam and is now trading.", "green")
+        elif "candidate blocked" in l:
+            say("🚫 " + line.split(" - ", 1)[-1][:90] + " (did not beat the benchmarks).", "yellow")
+
+    # ---- the bot
+    any_model = any(((reg.get("symbols") or {}).get(s) or {}).get("champion") or
+                    ((reg.get("symbols") or {}).get(s) or {}).get("canary") for s in symbols)
+    if not alive:
+        say("🔴 The bot is not running. Type 'exness' to start it.", "red")
+    elif not any_model:
+        say("🤖 Bot is running but holding flat: no trained model yet, so it has nothing to act on.", "cyan")
+    else:
+        sig = [((logs.last_signal.get(s) or {}).get("payload") or {}) for s in symbols]
+        acting = [s for s, p in zip(symbols, sig) if abs(float(p.get("exposure", 0) or 0)) > 0]
+        if acting:
+            say("🤖 Bot wants a position in " + ", ".join(_nm(s) for s in acting) + "; see the decision table.", "cyan")
+        else:
+            say("🤖 Bot is running and checking every 5 minutes; models currently see no trade worth the spread.", "cyan")
+    return out
+
+
 def memory_rows(symbol: str):
     try:
         from Python.model_memory import ModelMemory
@@ -576,7 +678,8 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
         else:
             line.append("no model yet", style="red")
         parts.append(line)
-    live_prog = prog and not prog.get("done") and time.time() - float(prog.get("ts", 0)) < 60
+    live_prog = (prog and not prog.get("done") and time.time() - float(prog.get("ts", 0)) < 600
+                 and bool(tr["running"]))
     if live_prog and prog.get("kind") == "lstm":
         ep, eps = int(prog.get("epoch", 0)), int(prog.get("epochs", 1))
         b, nb = int(prog.get("batch", 0)), max(1, int(prog.get("n_batches", 1)))
@@ -628,6 +731,8 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
         parts.append(Text("training: idle", style="dim"))
     parts.append(Text(tr["last"], style="dim", overflow="ellipsis", no_wrap=True))
     models_panel = Panel(Group(*parts), title="Models / training (live)", box=box.ROUNDED)
+    explain_panel = Panel(Group(*explain(prog, tr, reg, symbols, alive, logs)), title="What's happening (plain English)",
+                          box=box.ROUNDED, border_style="bright_blue")
 
     # ---- events
     ev = Table(box=None, expand=True, show_header=False, padding=(0, 1))
@@ -668,7 +773,8 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     )
     layout["mid"].split_row(Layout(acct_panel, ratio=2), Layout(Panel(dec, title="Latest decision per symbol",
                                                                       box=box.ROUNDED), ratio=5))
-    layout["low"].split_row(Layout(mem_panel, ratio=4), Layout(name="right", ratio=5))
+    layout["low"].split_row(Layout(name="left", ratio=4), Layout(name="right", ratio=5))
+    layout["left"].split_column(Layout(explain_panel, ratio=3), Layout(mem_panel, ratio=2))
     layout["right"].split_column(Layout(models_panel, size=21),
                                  Layout(Panel(ev, title="Trades / risk blocks", box=box.ROUNDED)),
                                  Layout(Panel(logt, title="Server log", box=box.ROUNDED), size=7))
