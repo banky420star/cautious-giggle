@@ -515,6 +515,27 @@ def _htf_frames(symbol: str) -> dict:
     return out
 
 
+_M15_CACHE: dict = {}
+
+
+def _m15_long(symbol: str, bars: int = 2000):
+    """Longer M15 history (with time and volume) for the external voters; cached per 15-min bar."""
+    bucket = int(time.time() // 900)
+    hit = _M15_CACHE.get(symbol)
+    if hit and hit[0] == bucket:
+        return hit[1]
+    try:
+        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 1, bars)
+        if rates is None or len(rates) < 100:
+            return None
+        df = pd.DataFrame(rates)
+        df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
+        _M15_CACHE[symbol] = (bucket, df)
+        return df
+    except Exception:
+        return None
+
+
 def _blend_symbol_decision(
     symbol: str,
     agi_meta: dict | None,
@@ -964,6 +985,16 @@ def main(live=False):
     smart_entry = _smart_entry_settings(cfg)
     pending_entries: dict = {}
     entry_skip: dict = {}  # symbol -> (side, until): pullback never came, don't chase that side for a while
+    ext_voters = None
+    try:
+        from Python.external_voters import ExternalVoters
+        _xv = ((cfg.get("trading") or {}).get("external_voters") or {})
+        if bool(_xv.get("enabled", True)):
+            ext_voters = ExternalVoters(_xv, logger)
+            logger.info(f"external voters ON: {ext_voters.weights()} (your models vote in the council; "
+                        f"ones that keep being wrong are ignored by the model memory)")
+    except Exception as exc:
+        logger.warning(f"external voters unavailable: {exc}")
     from Python.setup_gate import SetupGate
     setup_gate = SetupGate(((cfg.get("trading") or {}).get("setup_gate") or {}))
     _gate_logged: dict = {}
@@ -1246,10 +1277,17 @@ def main(live=False):
                         raise _CouncilOff()
                     vt = votes_mtf(df.tail(1500), _htf_frames(symbol))
                     ind_votes = {k: float(vt[k].iloc[-1]) for k in vt.columns}
-                    ind_assess = model_memory.multipliers(symbol, ctx["key"], names=[f"ind:{k}" for k in vt.columns])
-                    council_meta = council_vote(ind_votes, {k: ind_assess.get(f"ind:{k}") for k in vt.columns})
+                    if ext_voters is not None and ext_voters.enabled:
+                        try:
+                            ind_votes.update(ext_voters.votes(symbol, df, _m15_long(symbol)))
+                        except Exception as e:
+                            logger.warning(f"external voters failed for {symbol}: {e}")
+                    names_ = list(ind_votes)
+                    ind_assess = model_memory.multipliers(symbol, ctx["key"], names=[f"ind:{k}" for k in names_])
+                    council_meta = council_vote(ind_votes, {k: ind_assess.get(f"ind:{k}") for k in names_},
+                                                weights=(ext_voters.weights() if ext_voters is not None else None))
                     council_meta["votes"] = ind_votes
-                    council_meta["assess"] = {k: ind_assess.get(f"ind:{k}") for k in vt.columns}
+                    council_meta["assess"] = {k: ind_assess.get(f"ind:{k}") for k in names_}
                 except _CouncilOff:
                     pass
                 except Exception as e:

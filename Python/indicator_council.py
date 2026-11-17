@@ -133,13 +133,14 @@ def context_series(df: pd.DataFrame) -> pd.Series:
     return pd.Series([f"{t}|{v}|{s}" for t, v, s in zip(trend, vol, session)], index=df.index)
 
 
-def council_vote(latest_votes: dict, assessments: dict) -> dict:
-    """Combine the latest votes using the memory's verdict per strategy for the current context."""
+def council_vote(latest_votes: dict, assessments: dict, weights: dict | None = None) -> dict:
+    """Combine the latest votes using the memory's verdict per strategy for the current context.
+    `weights` gives some voters (the external models) more say than a single indicator."""
     num = den = 0.0
     used, ignored = [], []
     for name, v in latest_votes.items():
         a = assessments.get(name) or {}
-        mult = float(a.get("mult", 1.0))
+        mult = float(a.get("mult", 1.0)) * float((weights or {}).get(name, 1.0))
         if a.get("verdict") == "doesn't work":
             ignored.append(name)
             continue
@@ -210,5 +211,11 @@ def votes_mtf(m5: pd.DataFrame, htf: dict | None = None) -> pd.DataFrame:
 
 
 def describe(key: str) -> str:
+    try:
+        from Python.external_voters import NAMES as _EXT
+        if key in _EXT:
+            return _EXT[key]
+    except Exception:
+        pass
     name, _, tf = key.partition("@")
     return f"{STRATEGIES.get(name, name)} ({tf or 'M5'})"
