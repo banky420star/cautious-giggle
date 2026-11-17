@@ -422,17 +422,20 @@ class ExternalVoters:
         self.values: dict = {}      # (symbol, voter) -> (vote, computed_at)
         self.errors: dict = {}
         self._stamp: dict = {}      # (symbol, voter) -> input stamp last queued
+        # two workers: the price models are fast; the news model can take a minute and must not hold them up
         self._q: queue.Queue = queue.Queue()
-        self._worker = threading.Thread(target=self._run, name="external-voters", daemon=True)
+        self._q_slow: queue.Queue = queue.Queue()
         if self.enabled:
-            self._worker.start()
+            for q_, nm_ in ((self._q, "external-voters"), (self._q_slow, "external-voters-news")):
+                threading.Thread(target=self._run, args=(q_,), name=nm_, daemon=True).start()
 
     def weights(self) -> dict:
         return dict(self.cfg.get("weights") or {})
 
-    def _run(self):
+    def _run(self, q=None):
+        q = q or self._q
         while True:
-            name, symbol, fn = self._q.get()
+            name, symbol, fn = q.get()
             try:
                 v = fn()
                 if v is not None and np.isfinite(v):
@@ -447,7 +450,7 @@ class ExternalVoters:
     def _queue(self, name, symbol, stamp, fn):
         if self._stamp.get((symbol, name)) != stamp:
             self._stamp[(symbol, name)] = stamp
-            self._q.put((name, symbol, fn))
+            (self._q_slow if name == "news_llm" else self._q).put((name, symbol, fn))
 
     def votes(self, symbol: str, m5: pd.DataFrame, m15: pd.DataFrame | None) -> dict:
         """Latest finished votes for this market (fresh enough to use), and schedule the next ones."""
