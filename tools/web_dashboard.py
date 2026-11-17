@@ -332,13 +332,16 @@ class State:
             now = float(getattr(p, "price_current", 0) or 0) or (float(tick.bid if buy else tick.ask) if tick else None)
             entry, sl, tp = float(p.price_open), float(p.sl or 0), float(p.tp or 0)
             sgn = 1 if buy else -1
-            r = ((now - entry) * sgn / abs(entry - sl)) if (now and sl and entry != sl) else None
+            # once the stop has been moved to breakeven or past it the trade can no longer lose, and R measured
+            # against that tiny distance is meaningless: report it as locked
+            locked = bool(sl and tp and (sl - entry) * sgn >= -0.15 * abs(tp - entry))
+            r = ((now - entry) * sgn / abs(entry - sl)) if (now and sl and entry != sl and not locked) else None
             prog = None
             if now and sl and tp and tp != sl:
                 prog = max(0.0, min(1.0, (now - sl) / (tp - sl)))
             rows.append({"ticket": int(getattr(p, "ticket", 0) or 0), "symbol": s, "name": NAMES.get(s, s),
                          "side": "BUY" if buy else "SELL", "volume": float(p.volume), "entry": entry, "now": now,
-                         "sl": sl or None, "tp": tp or None, "pnl": round(float(p.profit), 2), "r": None if r is None else round(r, 2),
+                         "sl": sl or None, "tp": tp or None, "pnl": round(float(p.profit), 2), "r": None if r is None else round(r, 2), "locked": locked,
                          "progress": prog, "entry_pos": (max(0.0, min(1.0, (entry - sl) / (tp - sl))) if sl and tp and tp != sl else None),
                          "opened": int(getattr(p, "time", 0) or 0),
                          "dist_sl_pct": (abs(now - sl) / now * 100) if (now and sl) else None,
@@ -496,10 +499,15 @@ class Handler(BaseHTTPRequestHandler):
         if not self._same_origin():
             return self._json(403, {"ok": False, "error": "forbidden"})
         try:
-            n = min(int(self.headers.get("Content-Length") or 0), 4096)
+            n = min(int(self.headers.get("Content-Length") or 0), 16384)
             body = json.loads(self.rfile.read(n) or b"{}")
         except Exception:
             return self._json(400, {"ok": False, "error": "bad request"})
+        if path == "/api/account/live_setup":
+            if ap.active() == "live":
+                return self._json(409, {"ok": False, "error": "switch to demo before changing the live keys"})
+            return self._json(200, ap.save_live(*(str(body.get(k, "") or "")[:4000]
+                                                  for k in ("api_key", "account_id", "gateway", "private_key"))))
         prof = str(body.get("profile", ""))
         if path == "/api/account/check" and prof in ap.FILES:
             return self._json(200, ap.check(prof))
@@ -516,6 +524,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/account":
             ap.ensure_template()
             return self._json(200, {"active": ap.active(), "demo": ap.status("demo"), "live": ap.status("live"),
+                                    "form": ap.live_form(),
                                     "confirm": ap.CONFIRM, "live_rules": _live_rules(STATE.cfg if STATE else {})})
         if path == "/api/state":
             try:

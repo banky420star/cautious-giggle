@@ -697,3 +697,101 @@
 2026-11-17 11:05:06.402 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN ETHUSDm | waiting up to 15 min for 1811.6 (now 1810.3, 0.35 ATR pullback)
 2026-11-17 11:05:10.479 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for USOILm yet (default model is XAUUSDm); LSTM holds for USOILm
 2026-11-17 11:05:13.160 +02:00 | INFO     | __main__:main:1254 - DECISION USOILm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.0143 final=0.0000
+2026-11-17 11:06:10.198 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 11:06:10.706 +02:00 | SUCCESS  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:297 - Loaded PPO model from registry:BTCUSDm:canary: /Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_090107/ppo_trading.zip
+2026-11-17 11:06:10.818 +02:00 | SUCCESS  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:297 - Loaded PPO model from registry:XAUUSDm:canary: /Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_100243/ppo_trading.zip
+2026-11-17 11:06:10.818 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 11:06:10.915 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 11:06:10.915 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 11:06:10.990 +02:00 | WARNING  | Python.autonomy_loop:_canary_monitor:432 - Autonomy MT5 PnL check failed: No module named 'pytz'
+2026-11-17 11:06:11.020 +02:00 | WARNING  | Python.autonomy_loop:_canary_monitor:432 - Autonomy MT5 PnL check failed: No module named 'pytz'
+2026-11-17 11:06:11.653 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded default model on MPS
+2026-11-17 11:06:11.654 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded default feature scaler
+2026-11-17 11:06:11.677 +02:00 | INFO     | __main__:main:909 - demo: every market trades all day: ['BTCUSDm', 'XAUUSDm', 'EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] (no trained model yet -> indicator council decides)
+2026-11-17 11:06:11.703 +02:00 | INFO     | __main__:main:915 - demo: trade stacking on: up to 3 trades per market, adding when the open ones are in profit and the signal agrees (>= 10 min apart)
+2026-11-17 11:06:11.723 +02:00 | INFO     | __main__:main:938 - demo learning risk: 2.5% per trade (min-lot ceiling 4.0%), max_lots 0.2, daily loss stop $150, drawdown halt 40.0%
+2026-11-17 11:06:12.943 +02:00 | INFO     | __main__:main:952 - smart entry ON (pullback wait 15 min)
+2026-11-17 11:06:12.965 +02:00 | INFO     | __main__:main:958 - news trading ON
+2026-11-17 11:06:12.985 +02:00 | INFO     | __main__:main:962 - demo learning mode ON: trade threshold x0.50
+2026-11-17 11:06:13.012 +02:00 | INFO     | __main__:main:971 - indicator council ON
+2026-11-17 11:06:16.269 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 11:06:16.270 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 11:06:18.336 +02:00 | INFO     | __main__:main:1254 - DECISION BTCUSDm | regime=SELL conf=0.7117 risk=0.9000 agi_bias=-0.7117 ppo=0.0000 dreamer=0.0000 raw=-0.3189 final=-0.1435
+2026-11-17 11:06:20.344 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64234 (now 64179, 0.50 ATR pullback)
+2026-11-17 11:06:22.615 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[XAUUSDm] model on MPS
+2026-11-17 11:06:22.616 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[XAUUSDm] feature scaler
+2026-11-17 11:06:24.960 +02:00 | INFO     | __main__:main:1254 - DECISION XAUUSDm | regime=SELL conf=0.6680 risk=0.9000 agi_bias=-0.6680 ppo=0.0000 dreamer=0.0000 raw=-0.1212 final=-0.0545
+2026-11-17 11:06:26.739 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN XAUUSDm | waiting up to 15 min for 3869.4 (now 3868.6, 0.25 ATR pullback)
+2026-11-17 11:06:28.807 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for EURUSDm yet (default model is XAUUSDm); LSTM holds for EURUSDm
+2026-11-17 11:06:30.966 +02:00 | INFO     | __main__:main:1254 - DECISION EURUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.4281 final=-0.3425
+2026-11-17 11:06:44.014 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for USDJPYm yet (default model is XAUUSDm); LSTM holds for USDJPYm
+2026-11-17 11:06:53.608 +02:00 | INFO     | __main__:main:1254 - DECISION USDJPYm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.6244 final=-0.4995
+2026-11-17 11:06:56.983 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN USDJPYm | waiting up to 15 min for 159.02 (now 158.99, 0.35 ATR pullback)
+2026-11-17 11:07:12.072 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for XAGUSDm yet (default model is XAUUSDm); LSTM holds for XAGUSDm
+2026-11-17 11:07:14.397 +02:00 | INFO     | __main__:main:1254 - DECISION XAGUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.5609 final=-0.4487
+2026-11-17 11:07:20.417 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for ETHUSDm yet (default model is XAUUSDm); LSTM holds for ETHUSDm
+2026-11-17 11:07:22.921 +02:00 | INFO     | __main__:main:1254 - DECISION ETHUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.4759 final=-0.3807
+2026-11-17 11:07:25.154 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - ETHUSDm: using minimum lot 0.1 (stop risk 0.11% <= ceiling 4.0%)
+2026-11-17 11:07:25.155 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN ETHUSDm | waiting up to 15 min for 1816.9 (now 1815.5, 0.35 ATR pullback)
+2026-11-17 11:07:28.223 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for USOILm yet (default model is XAUUSDm); LSTM holds for USOILm
+2026-11-17 11:07:30.339 +02:00 | INFO     | __main__:main:1254 - DECISION USOILm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.0143 final=0.0000
+2026-11-17 11:07:43.644 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.02 price=64269.71 sl=64423.55 tp=64027.96 target=-0.1435 magic=51900 retcode=10009 ticket=381007484992622592
+2026-11-17 11:07:43.659 +02:00 | INFO     | __main__:main:1177 - ENTRY BTCUSDm | pullback after 83s | sell 0.02 @ 64267.090000000004 vs 64179.3 at signal (+13.68 bps better)
+2026-11-17 11:07:45.218 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND USDJPYm | action=open side=sell lots=0.07 price=159.024 sl=159.274 tp=158.574 target=-0.3500 magic=59900 retcode=10009 ticket=381007492970188800
+2026-11-17 11:07:45.220 +02:00 | INFO     | __main__:main:1177 - ENTRY USDJPYm | pullback after 48s | sell 0.07 @ 159.024 vs 158.994 at signal (+1.89 bps better)
+2026-11-17 11:10:02.643 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64284.99 tp=64027.96 target=0.0000 magic=51920 retcode=10009 ticket=381008068126707712
+2026-11-17 11:10:07.394 +02:00 | INFO     | __main__:main:1254 - DECISION XAUUSDm | regime=SELL conf=0.6701 risk=0.9000 agi_bias=-0.6701 ppo=0.0000 dreamer=0.0000 raw=-0.1269 final=-0.0571
+2026-11-17 11:10:16.763 +02:00 | INFO     | __main__:main:1254 - DECISION EURUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.4719 final=-0.3775
+2026-11-17 11:10:23.854 +02:00 | INFO     | __main__:main:1254 - DECISION USDJPYm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.5932 final=-0.4746
+2026-11-17 11:10:36.457 +02:00 | INFO     | __main__:main:1254 - DECISION XAGUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.5072 final=-0.4057
+2026-11-17 11:10:42.485 +02:00 | INFO     | __main__:main:1254 - DECISION ETHUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.4346 final=-0.3477
+2026-11-17 11:10:45.706 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - ETHUSDm: using minimum lot 0.1 (stop risk 0.12% <= ceiling 4.0%)
+2026-11-17 11:10:57.016 +02:00 | INFO     | __main__:main:1254 - DECISION USOILm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.1126 final=-0.0901
+2026-11-17 11:11:00.390 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN USOILm | waiting up to 15 min for 84.462 (now 84.395, 0.35 ATR pullback)
+2026-11-17 11:11:28.539 +02:00 | INFO     | __main__:main:1254 - DECISION BTCUSDm | regime=SELL conf=0.7006 risk=0.9000 agi_bias=-0.7006 ppo=0.0000 dreamer=0.0000 raw=-0.3723 final=-0.1675
+2026-11-17 11:11:31.850 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64222 (now 64163, 0.50 ATR pullback)
+2026-11-17 11:11:35.423 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=manage side= lots=0.00 price=None sl=64190.29 tp=64027.96 target=0.0000 magic=51920 retcode=10009 ticket=381008457232289792
+2026-11-17 11:12:37.011 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:282 - Skipping PPO artifact from best_eval due to load error: spaces must have the same shape: (16403,) != (2103,)
+2026-11-17 11:12:37.813 +02:00 | SUCCESS  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:297 - Loaded PPO model from registry:BTCUSDm:canary: /Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_090107/ppo_trading.zip
+2026-11-17 11:12:38.142 +02:00 | SUCCESS  | Python.hybrid_brain:_load_ppo_bundles_for_symbol:297 - Loaded PPO model from registry:XAUUSDm:canary: /Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_100243/ppo_trading.zip
+2026-11-17 11:12:38.143 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 11:12:38.375 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 11:12:38.376 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 11:12:38.546 +02:00 | WARNING  | Python.autonomy_loop:_canary_monitor:432 - Autonomy MT5 PnL check failed: No module named 'pytz'
+2026-11-17 11:12:38.701 +02:00 | WARNING  | Python.autonomy_loop:_canary_monitor:432 - Autonomy MT5 PnL check failed: No module named 'pytz'
+2026-11-17 11:12:40.108 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded default model on MPS
+2026-11-17 11:12:40.112 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded default feature scaler
+2026-11-17 11:12:40.170 +02:00 | INFO     | __main__:main:909 - demo: every market trades all day: ['BTCUSDm', 'XAUUSDm', 'EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] (no trained model yet -> indicator council decides)
+2026-11-17 11:12:40.209 +02:00 | INFO     | __main__:main:915 - demo: trade stacking on: up to 3 trades per market, adding when the open ones are in profit and the signal agrees (>= 10 min apart)
+2026-11-17 11:12:40.233 +02:00 | INFO     | __main__:main:938 - demo learning risk: 2.5% per trade (min-lot ceiling 4.0%), max_lots 0.2, daily loss stop $150, drawdown halt 40.0%
+2026-11-17 11:12:41.460 +02:00 | INFO     | __main__:main:952 - smart entry ON (pullback wait 15 min)
+2026-11-17 11:12:41.488 +02:00 | INFO     | __main__:main:958 - news trading ON
+2026-11-17 11:12:41.521 +02:00 | INFO     | __main__:main:962 - demo learning mode ON: trade threshold x0.50
+2026-11-17 11:12:41.542 +02:00 | INFO     | __main__:main:971 - indicator council ON
+2026-11-17 11:12:45.535 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 11:12:45.538 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 11:12:51.524 +02:00 | INFO     | __main__:main:1254 - DECISION BTCUSDm | regime=SELL conf=0.7006 risk=0.9000 agi_bias=-0.7006 ppo=0.0000 dreamer=0.0000 raw=-0.3824 final=-0.1721
+2026-11-17 11:13:13.332 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN BTCUSDm | waiting up to 15 min for 64265 (now 64206, 0.50 ATR pullback)
+2026-11-17 11:13:18.549 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[XAUUSDm] model on MPS
+2026-11-17 11:13:18.674 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[XAUUSDm] feature scaler
+2026-11-17 11:13:21.484 +02:00 | INFO     | __main__:main:1254 - DECISION XAUUSDm | regime=SELL conf=0.6701 risk=0.9000 agi_bias=-0.6701 ppo=0.0000 dreamer=0.0000 raw=-0.1281 final=-0.0576
+2026-11-17 11:13:53.901 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN XAUUSDm | waiting up to 15 min for 3868.1 (now 3867.3, 0.25 ATR pullback)
+2026-11-17 11:13:58.177 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for EURUSDm yet (default model is XAUUSDm); LSTM holds for EURUSDm
+2026-11-17 11:14:04.443 +02:00 | INFO     | __main__:main:1254 - DECISION EURUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.4719 final=-0.3775
+2026-11-17 11:14:10.875 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for USDJPYm yet (default model is XAUUSDm); LSTM holds for USDJPYm
+2026-11-17 11:14:16.676 +02:00 | INFO     | __main__:main:1254 - DECISION USDJPYm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.5932 final=-0.4746
+2026-11-17 11:14:56.348 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND USDJPYm | action=manage side= lots=0.00 price=None sl=159.018 tp=158.574 target=0.0000 magic=59920 retcode=10009 ticket=381009301465993216
+2026-11-17 11:14:58.327 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for XAGUSDm yet (default model is XAUUSDm); LSTM holds for XAGUSDm
+2026-11-17 11:15:03.376 +02:00 | INFO     | __main__:main:1254 - DECISION XAGUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.5072 final=-0.4057
+2026-11-17 11:15:09.603 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for ETHUSDm yet (default model is XAUUSDm); LSTM holds for ETHUSDm
+2026-11-17 11:15:11.605 +02:00 | INFO     | __main__:main:1254 - DECISION ETHUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.5720 final=-0.4576
+2026-11-17 11:15:15.765 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - ETHUSDm: using minimum lot 0.1 (stop risk 0.12% <= ceiling 4.0%)
+2026-11-17 11:15:19.394 +02:00 | INFO     | __main__:main:1348 - ENTRY PLAN ETHUSDm | waiting up to 15 min for 1811.8 (now 1810.3, 0.35 ATR pullback)
+2026-11-17 11:15:25.207 +02:00 | INFO     | Python.agi_brain:_default_for:233 - no LSTM trained for USOILm yet (default model is XAUUSDm); LSTM holds for USOILm
+2026-11-17 11:15:26.539 +02:00 | INFO     | __main__:main:1254 - DECISION USOILm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.0733 final=0.0000
+2026-11-17 11:15:58.788 +02:00 | INFO     | __main__:main:1254 - DECISION BTCUSDm | regime=SELL conf=0.6972 risk=0.9000 agi_bias=-0.6972 ppo=0.0000 dreamer=0.0000 raw=-0.4684 final=-0.2108
+2026-11-17 11:16:04.608 +02:00 | INFO     | __main__:main:1254 - DECISION XAUUSDm | regime=SELL conf=0.6494 risk=0.9000 agi_bias=-0.6494 ppo=0.0000 dreamer=0.0000 raw=-0.1840 final=-0.0828
+2026-11-17 11:16:16.766 +02:00 | INFO     | __main__:main:1254 - DECISION EURUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.4175 final=-0.3340
+2026-11-17 11:16:39.149 +02:00 | INFO     | __main__:main:1254 - DECISION USDJPYm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.6797 final=-0.5437
+2026-11-17 11:16:48.738 +02:00 | INFO     | __main__:main:1254 - DECISION XAGUSDm | regime=HOLD conf=0.0000 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.5166 final=-0.4133
+2026-11-17 11:16:56.489 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAGUSDm | action=manage side= lots=0.00 price=None sl=47.398 tp=47.067 target=0.0000 magic=59920 retcode=10009 ticket=381009805386452992

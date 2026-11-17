@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -151,6 +152,75 @@ def switch(profile: str, confirm: str = "") -> dict:
         f.write(profile)
     restart_bot()
     return {"ok": True, "profile": profile, "account": chk}
+
+
+LIVE_KEY_FILE = os.path.join(DIR, "live_api_private_key")
+_TOKEN = re.compile(r"^[A-Za-z0-9._:-]{4,200}$")
+_GATEWAY = re.compile(r"^(https?://)?[A-Za-z0-9.-]+(:\d+)?(/[A-Za-z0-9._/-]*)?$")
+
+
+def _write_private(path: str, text: str) -> None:
+    """Write a secret file readable only by this user (created 0600, swapped in atomically)."""
+    os.makedirs(DIR, exist_ok=True)
+    tmp = f"{path}.tmp{os.getpid()}"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
+
+
+def live_form() -> dict:
+    """What the setup form may show: which fields are already saved (never their values) and the gateway
+    host the demo account uses (a public address, not a secret) as a suggestion."""
+    env = parse_env(FILES["live"])
+    return {"saved": {"api_key": bool(env.get("EXNESS_API_KEY")), "account_id": bool(env.get("EXNESS_ACCOUNT_ID")),
+                      "gateway": bool(env.get("EXNESS_BASE_URL")), "private_key": os.path.isfile(LIVE_KEY_FILE)},
+            "gateway_hint": env.get("EXNESS_BASE_URL") or parse_env(FILES["demo"]).get("EXNESS_BASE_URL", "")}
+
+
+def save_live(api_key: str = "", account_id: str = "", gateway: str = "", private_key: str = "") -> dict:
+    """Save the live account settings typed into the dashboard. Blank fields keep what is already saved.
+    Values are validated, written 0600 to ~/.exness, and never returned."""
+    old = parse_env(FILES["live"])
+    api_key = (api_key or "").strip() or old.get("EXNESS_API_KEY", "")
+    account_id = (account_id or "").strip() or old.get("EXNESS_ACCOUNT_ID", "")
+    gateway = (gateway or "").strip().rstrip("/") or old.get("EXNESS_BASE_URL", "")
+    private_key = (private_key or "").strip()
+    errors = {}
+    if not _TOKEN.match(api_key):
+        errors["api_key"] = "Paste the API key ID from Key Management (letters, digits, - _ . only)."
+    if not re.match(r"^[A-Za-z0-9_-]{3,40}$", account_id):
+        errors["account_id"] = "Enter the trading account number of your REAL account."
+    if not _GATEWAY.match(gateway or ""):
+        errors["gateway"] = "Enter the gateway host shown in Key Management (for example api.exness.com)."
+    if private_key:
+        try:
+            sys.path.insert(0, ROOT)
+            from Python.exness_api import load_ed25519_private_key
+            load_ed25519_private_key(private_key)
+        except Exception:
+            errors["private_key"] = "That isn't a valid Exness private key (128 hex characters, or a PEM key)."
+        else:
+            demo_key = parse_env(FILES["demo"]).get("EXNESS_PRIVATE_KEY_FILE", "")
+            try:
+                if demo_key and open(demo_key, encoding="utf-8").read().strip() == private_key:
+                    errors["private_key"] = "This is your DEMO key. Create a separate key for the real account."
+            except OSError:
+                pass
+    elif not os.path.isfile(LIVE_KEY_FILE):
+        errors["private_key"] = "Paste the private key you downloaded when creating the API key."
+    if errors:
+        return {"ok": False, "errors": errors}
+    if private_key:
+        _write_private(LIVE_KEY_FILE, private_key + "\n")
+    _write_private(FILES["live"], "# LIVE (real money) Exness account, saved from the dashboard. Never share this file.\n"
+                   "export AGI_BROKER_BACKEND=exness_api\n"
+                   f"export EXNESS_API_KEY={shlex.quote(api_key)}\n"
+                   f"export EXNESS_PRIVATE_KEY_FILE={shlex.quote(LIVE_KEY_FILE)}\n"
+                   f"export EXNESS_ACCOUNT_ID={shlex.quote(account_id)}\n"
+                   f"export EXNESS_BASE_URL={shlex.quote(gateway)}\n")
+    return {"ok": True, "live": status("live")}
 
 
 def env_for(profile: str) -> dict:

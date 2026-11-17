@@ -709,6 +709,8 @@ class ExnessMT5:
             if tick is not None and info is not None:
                 px = tick.bid if is_buy else tick.ask
                 profit = (px - open_px) * (1 if is_buy else -1) * vol * info.trade_contract_size
+                # the move is in the quote currency (JPY for USDJPY): convert to the USD account currency
+                profit *= self._to_usd(sym, str(getattr(info, "currency_profit", "USD") or "USD"))
             out.append(SimpleNamespace(
                 ticket=str(p.get("position_id")), identifier=str(p.get("position_id")), symbol=sym,
                 volume=vol, type=self.ORDER_TYPE_BUY if is_buy else self.ORDER_TYPE_SELL,

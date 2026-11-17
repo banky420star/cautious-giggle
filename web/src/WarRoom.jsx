@@ -614,9 +614,15 @@ export function Tape({ symbols }) {
 export function Candles({ candles, position, bid, height = 70 }) {
   const cs = candles || [];
   if (cs.length < 2) return <div className="w-spark" />;
-  const levels = position ? [position.entry, position.sl, position.tp].filter(Boolean) : [];
-  const lo = Math.min(...cs.map((c) => c[3]), ...levels, bid ?? Infinity);
-  const hi = Math.max(...cs.map((c) => c[2]), ...levels, bid ?? -Infinity);
+  // scale to the candles (+ entry); a stop/target far outside would squash the chart flat,
+  // so those are pinned to the edge instead
+  let lo = Math.min(...cs.map((c) => c[3]), bid ?? Infinity, position?.entry || Infinity);
+  let hi = Math.max(...cs.map((c) => c[2]), bid ?? -Infinity, position?.entry || -Infinity);
+  const span = hi - lo || Math.abs(hi) * 1e-4 || 1;
+  for (const v of position ? [position.sl, position.tp] : []) {
+    if (v > 0 && v < hi + span * 0.35 && v > lo - span * 0.35) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  }
+  const pin = (v) => Math.min(hi, Math.max(lo, v));
   const W = cs.length * 6, H = height, pad = 3;
   const y = (v) => pad + (hi === lo ? H / 2 : ((hi - v) / (hi - lo)) * (H - 2 * pad));
   const line = (v, cls) => <line x1="0" x2={W} y1={y(v)} y2={y(v)} className={cls} vectorEffect="non-scaling-stroke" />;
@@ -635,8 +641,8 @@ export function Candles({ candles, position, bid, height = 70 }) {
         );
       })}
       {position && line(position.entry, "lv entry")}
-      {position && position.sl > 0 && line(position.sl, "lv sl")}
-      {position && position.tp > 0 && line(position.tp, "lv tp")}
+      {position && position.sl > 0 && line(pin(position.sl), `lv sl ${pin(position.sl) !== position.sl ? "off" : ""}`)}
+      {position && position.tp > 0 && line(pin(position.tp), `lv tp ${pin(position.tp) !== position.tp ? "off" : ""}`)}
       {bid != null && line(bid, "lv now")}
     </svg>
   );
@@ -679,13 +685,14 @@ export function Blotter({ rows }) {
                     </div>
                   ) : <span className="muted small">no stop/target</span>}
                 </td>
-                <td className={`r ${r.r >= 0 ? "pos" : "neg"}`}>{r.r == null ? "—" : `${r.r >= 0 ? "+" : ""}${r.r.toFixed(2)}R`}</td>
+                <td className={`r ${r.locked ? "cyan" : r.r >= 0 ? "pos" : "neg"}`} title={r.locked ? "Stop moved to breakeven or better: this trade can no longer lose" : "Profit in units of the risk taken"}>
+                  {r.locked ? "LOCKED" : r.r == null ? "—" : `${r.r >= 0 ? "+" : ""}${r.r.toFixed(2)}R`}</td>
                 <td className={`r ${r.pnl >= 0 ? "pos" : "neg"}`}><b>{money(r.pnl)}</b></td>
                 <td className="r muted">{held(r.opened)}</td>
               </tr>
             ))}
           </tbody>
-          <tfoot><tr><td colSpan={7} className="muted small ex">R = profit measured in units of the risk taken (−1R = stopped out, +1.6R ≈ target). Gold tick on the rail = entry.</td>
+          <tfoot><tr><td colSpan={7} className="muted small ex">R = profit in units of the risk taken (−1R = stopped out, about +1.6R = target). LOCKED = the stop has moved to breakeven or better, so the trade can no longer lose. Gold tick on the rail = entry.</td>
             <td className={`r ${tot >= 0 ? "pos" : "neg"}`}><b>{money(tot)}</b></td><td /></tr></tfoot>
         </table>
       )}
@@ -727,7 +734,7 @@ export function FillAlerts({ ops, sound }) {
   return (
     <div className="toasts">
       {toasts.map((t) => (
-        <div key={t.id} className={`toast ${t.kind}`}>
+        <div key={t.id} className={`toast ${t.kind}`} title="click to dismiss" onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}>
           <span className="toast-k">{t.kind === "entry" ? "FILLED" : t.kind === "close" ? "CLOSED" : "STACKED"}</span>
           <b>{t.title}</b>
           <span className="muted small">{t.text}</span>

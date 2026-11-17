@@ -115,9 +115,10 @@ export function AccountSwitch({ open, onClose }) {
   const [busy, setBusy] = useState("");
   const [phrase, setPhrase] = useState("");
   const [msg, setMsg] = useState(null);
+  const [editing, setEditing] = useState(false);
   useEffect(() => {
     if (!open) return;
-    setChk(null); setMsg(null); setPhrase("");
+    setChk(null); setMsg(null); setPhrase(""); setEditing(false);
     api("/api/account").then(setInfo).catch(() => setMsg({ bad: true, text: "Can't reach the dashboard server." }));
   }, [open]);
   if (!open) return null;
@@ -155,20 +156,13 @@ export function AccountSwitch({ open, onClose }) {
                 <p className="small">Switching back to demo restarts the bot on the practice account. Open live trades keep their stop-loss and take-profit at Exness.</p>
                 <button className="btn" disabled={!!busy} onClick={() => doSwitch("demo")}>{busy === "switch" ? "Switching…" : "Switch to DEMO"}</button>
               </>
-            ) : !live?.ready ? (
-              <div className="setup">
-                <p className="small"><b>Live isn't set up yet.</b> Your live keys stay on this Mac in a file only you edit; the dashboard never shows or sends them.</p>
-                <ol className="small">
-                  <li>In Exness Personal Area → <b>Key Management</b>, create an API key for your <b>real</b> trading account.</li>
-                  <li>Save its private key as <code>~/.exness/live_api_private_key</code>.</li>
-                  <li>Copy <code>~/.exness/live.env.example</code> to <code>~/.exness/live.env</code> and fill in the key id, account id and gateway.</li>
-                  <li>Come back here: the check runs a read-only connection test (no orders).</li>
-                </ol>
-                {live?.missing?.length > 0 && <div className="muted small">Missing: {live.missing.join(", ")}</div>}
-                <button className="btn ghost" onClick={() => api("/api/account").then(setInfo)}>I've done it, re-check</button>
-              </div>
+            ) : !live?.ready || editing ? (
+              <LiveForm form={info.form} onSaved={(r) => { setEditing(false); api("/api/account").then(setInfo); setChk(null); if (r.live?.ready) check(); }}
+                        onCancel={live?.ready ? () => setEditing(false) : null} />
             ) : (
               <>
+                <div className="saved-row small"><CheckCircle2 size={14} className="pos" /> Live keys saved on this Mac
+                  <button className="linkish" disabled={!!busy} onClick={() => setEditing(true)}>change</button></div>
                 <div className="rules">
                   <div className="rules-h"><ShieldCheck size={14} /> On a real-money account the bot automatically switches to:</div>
                   <ul>{(info.live_rules || []).map((r) => <li key={r}>{r}</li>)}</ul>
@@ -196,5 +190,66 @@ export function AccountSwitch({ open, onClose }) {
         )}
       </div>
     </div>
+  );
+}
+
+/* ================================================================ live key form (no files, no code) */
+function Field({ label, hint, err, saved, children }) {
+  return (
+    <label className={`fld ${err ? "bad" : ""}`}>
+      <span className="fld-l">{label}{saved && <em className="fld-saved">saved · leave blank to keep</em>}</span>
+      {children}
+      {err ? <span className="fld-err">{err}</span> : hint && <span className="fld-h">{hint}</span>}
+    </label>
+  );
+}
+
+function LiveForm({ form, onSaved, onCancel }) {
+  const saved = form?.saved || {};
+  const [v, setV] = useState({ api_key: "", account_id: "", gateway: form?.gateway_hint || "", private_key: "" });
+  const [errs, setErrs] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [fail, setFail] = useState("");
+  const set = (k) => (e) => { setV({ ...v, [k]: e.target.value }); setErrs({ ...errs, [k]: undefined }); };
+  const need = (k) => !saved[k] && !String(v[k]).trim();
+  const ready = !["api_key", "account_id", "gateway", "private_key"].some(need);
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setFail("");
+    try {
+      const r = await api("/api/account/live_setup", v);
+      if (r.ok) { setV({ ...v, private_key: "" }); onSaved(r); }
+      else if (r.errors) setErrs(r.errors);
+      else setFail(r.error || "could not save");
+    } catch { setFail("Can't reach the dashboard server."); }
+    setBusy(false);
+  };
+  return (
+    <form className="live-form" onSubmit={submit} autoComplete="off">
+      <p className="small"><b>Connect your real-money account.</b> Fill in the four boxes from Exness Personal Area → <b>Key Management</b>
+        (create an API key for your <b>real</b> account). They are saved only on this Mac, readable only by your user,
+        and never shown again or sent anywhere except Exness.</p>
+      <Field label="API key ID" hint="The key's ID in Key Management" err={errs.api_key} saved={saved.api_key}>
+        <input className="search" value={v.api_key} onChange={set("api_key")} spellCheck={false} placeholder={saved.api_key ? "••••••••" : "e.g. 3f9c…"} />
+      </Field>
+      <Field label="Account number" hint="Your REAL trading account (not the demo)" err={errs.account_id} saved={saved.account_id}>
+        <input className="search" value={v.account_id} onChange={set("account_id")} spellCheck={false} inputMode="numeric" placeholder={saved.account_id ? "••••••••" : "e.g. 12345678"} />
+      </Field>
+      <Field label="Gateway" hint="Filled in from your demo account; change it only if Key Management shows a different host" err={errs.gateway}>
+        <input className="search" value={v.gateway} onChange={set("gateway")} spellCheck={false} />
+      </Field>
+      <Field label="Private key" hint="Open the key file you downloaded, copy everything, paste it here" err={errs.private_key} saved={saved.private_key}>
+        <textarea className="search secret" rows={3} value={v.private_key} onChange={set("private_key")} spellCheck={false}
+                  placeholder={saved.private_key ? "saved · paste a new one to replace it" : "paste the private key"} />
+      </Field>
+      {fail && <div className="chk bad"><AlertTriangle size={15} /> {fail}</div>}
+      <div className="live-form-btns">
+        {onCancel && <button type="button" className="btn ghost" onClick={onCancel} disabled={busy}>Cancel</button>}
+        <button type="submit" className="btn" disabled={!ready || busy}>
+          {busy ? <><Loader2 size={14} className="spin-i" /> Saving…</> : "Save & test connection"}
+        </button>
+      </div>
+      <div className="muted small">Saving does not switch to live. Next you'll see a read-only connection test (no orders), then the GO LIVE confirmation.</div>
+    </form>
   );
 }

@@ -145,13 +145,33 @@ def _build_alerter(project_root: str):
     return TelegramAlerter(token, str(chat_id))
 
 
+def _early_stop_callback(drl_cfg: dict):
+    """Stop a run whose validation score has stalled (drl.early_stop), keeping its best checkpoint.
+    min_evals checks first, then stop after `patience` checks in a row without a new best."""
+    es = (drl_cfg or {}).get("early_stop") or {}
+    if not es.get("enabled", True):
+        return None
+    from stable_baselines3.common.callbacks import StopTrainingOnNoModelImprovement
+
+    class _Stop(StopTrainingOnNoModelImprovement):
+        def _on_step(self) -> bool:
+            go = super()._on_step()
+            if not go:
+                logger.warning(f"PPO early stop: validation score has not improved for {self.no_improvement_evals} "
+                               f"checks in a row; keeping the best checkpoint and moving on to the exam")
+            return go
+
+    return _Stop(max_no_improvement_evals=int(es.get("patience", 2)), min_evals=int(es.get("min_evals", 3)), verbose=0)
+
+
 def _resolve_inline_eval_freq(total_timesteps: int) -> int | None:
     if str(os.environ.get("AGI_DRL_DISABLE_INLINE_EVAL", "")).lower() == "true":
         return None
 
     # Each inline eval replays the whole validation window; doing it every 10k steps made a
-    # 500k-step run take hours. Default: ~8 evals per run.
-    default = max(50_000, int(total_timesteps) // 8)
+    # 500k-step run take hours. Default: ~5 evals per run (in timesteps; converted to callback
+    # calls below, since each call advances every parallel env).
+    default = max(50_000, int(total_timesteps) // 5)
     raw = os.environ.get("AGI_DRL_EVAL_FREQ")
     if raw is None or str(raw).strip() == "":
         return default
@@ -885,12 +905,13 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
             eval_env=eval_env,
             best_model_save_path=best_dir,
             log_path=LOG_DIR,
-            eval_freq=inline_eval_freq,
+            eval_freq=max(1, inline_eval_freq // max(1, n_envs)),
             n_eval_episodes=_env_int("AGI_DRL_EVAL_EPISODES", 1),  # validation env is deterministic: more episodes repeat the same run
             deterministic=True,
             render=False,
             vec_env=env,
             vec_save_path=best_vec_path,
+            callback_after_eval=_early_stop_callback(drl_cfg),
         )
     else:
         logger.warning("Inline PPO eval callback disabled; staging will use latest model artifacts.")

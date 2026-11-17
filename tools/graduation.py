@@ -283,13 +283,14 @@ def run():
         if not first and not again:
             time.sleep(1800)
             continue
-        # markets that already trade go first, then the newcomers; one cycle per reward scenario
+        # newcomers first (they have no AI model at all yet), then retries of markets that already
+        # have one; one cycle per reward scenario
         groups: dict[tuple, list[str]] = {}
         for syms, retrain in ((again, True), (first, False)):
             for s in syms:
                 scen, steps = scenario_for(st["symbols"][s], cfg)
                 groups.setdefault((retrain, scen, steps), []).append(s)
-        for (retrain, scen, steps), syms in sorted(groups.items(), key=lambda kv: not kv[0][0]):
+        for (retrain, scen, steps), syms in sorted(groups.items(), key=lambda kv: kv[0][0]):
             for s in syms:
                 v = st["symbols"][s]
                 v.update(status="training", attempts=v["attempts"] + 1, steps=steps, scenario=scen, started=time.time(),
