@@ -415,11 +415,9 @@ class AutonomyLoop:
         realized = 0.0
         try:
             from Python.mt5_compat import mt5
-            import pytz
 
             if mt5 is not None and mt5.initialize():
-                tz = pytz.timezone("Etc/UTC")
-                now_utc = datetime.datetime.now(tz)
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
                 lookback = now_utc - datetime.timedelta(days=7)
                 deals = mt5.history_deals_get(lookback, now_utc)
                 if deals:
@@ -444,7 +442,9 @@ class AutonomyLoop:
             symbol=(symbol if scope == "symbol" else None),
         )
 
-        if realized <= -self.canary_max_loss or dd_pct >= self.canary_max_dd:
+        # Roll a model back only for its OWN losses on its market. Account drawdown is not used here:
+        # withdrawals, manual trades and other markets move it, and the risk halt already covers it.
+        if realized <= -self.canary_max_loss:
             self.registry.rollback_to_champion(symbol=(symbol if scope == "symbol" else None))
             self._canary_start_trade_count_by_symbol.pop(symbol, None)
             self._canary_set_time_by_symbol.pop(symbol, None)

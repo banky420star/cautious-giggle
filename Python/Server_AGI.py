@@ -910,6 +910,16 @@ def main(live=False):
         if extra_:
             symbols = list(symbols) + extra_
             logger.info(f"demo: every market trades all day: {symbols} (no trained model yet -> indicator council decides)")
+    # The brain was built from config's market list (BTC/XAU). Give it every market that trades so the
+    # models trained for the newer markets are actually loaded and used.
+    if set(symbols) != set(getattr(brain, "active_symbols", None) or []):
+        brain.active_symbols = list(symbols)
+        try:
+            brain._load_ppo_from_registry()
+            loaded_ = sorted((getattr(brain, "ppo_bundles_by_symbol", None) or {}).keys())
+            logger.info(f"AI models loaded for: {loaded_ or 'none yet'}")
+        except Exception as exc:
+            logger.warning(f"model reload for all markets failed: {exc}")
     _stk = dict(_dl.get("stacking") or {}) if bool(_dl.get("enabled")) and demo_exploration.demo_rules_apply(mt5, cfg) else {}
     stacking = {"enabled": bool(_stk.get("enabled")), "max": int(_stk.get("max_per_symbol", 3)),
                 "cooldown_s": float(_stk.get("cooldown_min", 10)) * 60.0}
