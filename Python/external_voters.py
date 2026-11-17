@@ -393,7 +393,9 @@ class _NewsLLM:
         prompt = (f"You are a markets analyst. Read these recent headlines and judge the likely direction of "
                   f"{asset} over the next few hours. Reply with JSON only: {{\"score\": number from -1 (strongly down) "
                   f"to 1 (strongly up), 0 if unclear or unrelated}}.\n\n" + "\n".join(f"- {h}" for h in heads))
-        body = json.dumps({"model": self.cfg["model"], "prompt": prompt, "stream": False, "format": "json",
+        # a schema, not "json": with plain json mode the model echoes the headlines and runs out of tokens
+        schema = {"type": "object", "properties": {"score": {"type": "number", "minimum": -1, "maximum": 1}}, "required": ["score"]}
+        body = json.dumps({"model": self.cfg["model"], "prompt": prompt, "stream": False, "format": schema,
                            "think": False, "options": {"temperature": 0, "num_predict": 40}}).encode()
         req = urllib.request.Request(self.cfg["url"].rstrip("/") + "/api/generate", data=body,
                                      headers={"Content-Type": "application/json"})
