@@ -231,7 +231,9 @@ class NewsTrader:
             for sym in targets:
                 if sym not in self.symbols:
                     continue
-                eid = f"{sym}|{e['title']}|{int(e['t'])}"
+                eid = f"{sym}|{int(e['t'])}"   # releases at the same minute are one event
+                if eid in self.events and e["title"] not in self.events[eid]["title"]:
+                    self.events[eid]["title"] += " + " + e["title"].replace("USD ", "")
                 if eid not in self.events:
                     self.events[eid] = {"id": eid, "sym": sym, "t0": e["t"], "title": e["title"], "topic": topic,
                                         "phase": "scheduled"}
