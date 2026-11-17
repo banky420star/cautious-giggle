@@ -442,6 +442,11 @@ def _symbol_profile(symbol: str, cfg: dict | None = None) -> dict:
             base["max_abs_target"] = float(raw["max_policy_exposure"])
         if "min_trade_interval_sec" in raw:
             base["cooldown_sec"] = int(raw["min_trade_interval_sec"])
+    # Demo learning mode (set at startup only when the account is a demo): lower trade bar so the
+    # bot trades more often and its memory/models learn from more real outcomes.
+    scale = float(trading_cfg.get("_learning_threshold_scale", 1.0) or 1.0)
+    if 0 < scale < 1:
+        base["min_trade_threshold"] = float(base["min_trade_threshold"]) * scale
     return base
 
 
@@ -839,6 +844,12 @@ def main(live=False):
     model_memory = ModelMemory.from_cfg(cfg, LOG_DIR)
     explore_cfg = demo_exploration.settings(cfg)
     explore_demo_ok = bool(explore_cfg["enabled"]) and demo_exploration.account_is_demo(mt5)
+    learn_cfg = (cfg.get("trading", {}) or {}).get("demo_learning", {}) or {}
+    if bool(learn_cfg.get("enabled", False)) and demo_exploration.account_is_demo(mt5):
+        cfg.setdefault("trading", {})["_learning_threshold_scale"] = float(learn_cfg.get("threshold_scale", 0.5))
+        logger.info(f"demo learning mode ON: trade threshold x{float(learn_cfg.get('threshold_scale', 0.5)):.2f}")
+    else:
+        logger.info("demo learning mode OFF")
     explore_cache: dict = {}
     council_cfg = ((cfg.get("trading", {}) or {}).get("council", {}) or {})
     # Council weights are learned from history replay (in-sample), so on a real-money account it

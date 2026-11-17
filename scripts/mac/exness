@@ -47,8 +47,10 @@ case "${1:-start}" in
     fi
     echo "opening dashboard (Ctrl-C closes it; the bot keeps running)…"
     sleep 1
-    exec .venv/bin/python tools/monitor_tui.py
+    if [ "${2:-}" = "pro" ]; then exec .venv/bin/python tools/monitor_tui.py; fi
+    exec .venv/bin/python tools/simple_tui.py
     ;;
+  pro)    exec .venv/bin/python tools/monitor_tui.py ;;
   stop)   scripts/mac/stop_bot.sh ;;
   train)  if training_running; then echo "training already running"; else start_training; fi ;;
   status)

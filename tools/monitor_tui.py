@@ -202,6 +202,7 @@ class Broker:
         self.mt5 = mt5 if MT5_AVAILABLE else None
         self.ok, self.err = False, ""
         self.account, self.positions, self.pnl_today = None, [], None
+        self.deals = []
         self.ticks: dict[str, object] = {}
         self.prev_bid: dict[str, float] = {}
         self.bars: dict[str, list[float]] = {}
@@ -257,6 +258,7 @@ class Broker:
             if now - self._t["deals"] >= 60:
                 start = dt.datetime.now(dt.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
                 deals = self.mt5.history_deals_get(start, dt.datetime.now(dt.timezone.utc)) or []
+                self.deals = list(deals)
                 out_entry = int(getattr(self.mt5, "DEAL_ENTRY_OUT", 1))
                 self.pnl_today = sum(float(d.profit) + float(getattr(d, "commission", 0) or 0)
                                      + float(getattr(d, "swap", 0) or 0)

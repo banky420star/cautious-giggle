@@ -126,3 +126,24 @@
 2026-11-17 06:06:25.654 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[XAUUSDm] model on MPS
 2026-11-17 06:06:25.655 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[XAUUSDm] feature scaler
 2026-11-17 06:06:27.621 +02:00 | INFO     | __main__:main:1088 - DECISION XAUUSDm | regime=BUY conf=0.6571 risk=0.9000 agi_bias=0.6571 ppo=0.0000 dreamer=0.0000 raw=-0.1084 final=0.0000
+2026-11-17 06:10:06.777 +02:00 | INFO     | __main__:main:1088 - DECISION BTCUSDm | regime=BUY conf=0.6676 risk=0.9000 agi_bias=0.6676 ppo=0.0000 dreamer=0.0000 raw=-0.1865 final=0.0000
+2026-11-17 06:10:09.008 +02:00 | INFO     | __main__:main:1088 - DECISION XAUUSDm | regime=HOLD conf=0.6712 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.1376 final=0.0000
+2026-11-17 06:12:54.828 +02:00 | WARNING  | Python.hybrid_brain:_load_ppo_from_registry:326 - No PPO model found for live inference; using SmartAGI-only exposure
+2026-11-17 06:12:55.002 +02:00 | INFO     | Python.hybrid_brain:_start_autonomy_if_enabled:140 - AutonomyLoop background thread started
+2026-11-17 06:12:55.062 +02:00 | WARNING  | Python.autonomy_loop:start:519 - AutonomyLoop started
+2026-11-17 06:12:55.367 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded default model on MPS
+2026-11-17 06:12:55.369 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded default feature scaler
+2026-11-17 06:12:55.485 +02:00 | INFO     | __main__:main:850 - demo learning mode ON: trade threshold x0.50
+2026-11-17 06:12:55.503 +02:00 | INFO     | __main__:main:859 - indicator council ON
+2026-11-17 06:12:57.396 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[BTCUSDm] model on MPS
+2026-11-17 06:12:57.398 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[BTCUSDm] feature scaler
+2026-11-17 06:12:59.385 +02:00 | INFO     | __main__:main:1099 - DECISION BTCUSDm | regime=BUY conf=0.6676 risk=0.9000 agi_bias=0.6676 ppo=0.0000 dreamer=0.0000 raw=-0.1903 final=-0.1712
+2026-11-17 06:13:00.310 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - BTCUSDm: using minimum lot 0.01 (stop risk 0.41% <= ceiling 2.0%)
+2026-11-17 06:13:00.679 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=sell lots=0.01 price=64891.97 sl=65098.8 tp=64566.95 target=-0.1712 magic=51900 retcode=10009 ticket=380933317727358976
+2026-11-17 06:13:00.734 +02:00 | INFO     | __main__:main:1227 - ACTION BTCUSDm | req=open side=SELL volume=0.01 target=-0.1712 ppo=0.0000 dreamer=0.0000 agi=0.6676 magic=51900 comment=AGI|BTC|UN|O|P000000|P+00 ticket=380933317727358976 retcode=10009 TP=64566.95 SL=65098.8
+2026-11-17 06:13:02.887 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:154 - AGI Brain loaded symbol[XAUUSDm] model on MPS
+2026-11-17 06:13:02.888 +02:00 | SUCCESS  | Python.agi_brain:_load_bundle:166 - loaded symbol[XAUUSDm] feature scaler
+2026-11-17 06:13:05.098 +02:00 | INFO     | __main__:main:1099 - DECISION XAUUSDm | regime=HOLD conf=0.6712 risk=0.8000 agi_bias=0.0000 ppo=0.0000 dreamer=0.0000 raw=-0.1361 final=-0.1089
+2026-11-17 06:13:06.883 +02:00 | INFO     | Python.mt5_executor:risk_capped_lots:332 - XAUUSDm: using minimum lot 0.01 (stop risk 1.02% <= ceiling 2.0%)
+2026-11-17 06:13:06.955 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND XAUUSDm | action=open side=sell lots=0.01 price=3869.935 sl=3875.032 tp=3861.925 target=-0.1089 magic=52900 retcode=10009 ticket=380933345300713472
+2026-11-17 06:13:07.019 +02:00 | INFO     | __main__:main:1227 - ACTION XAUUSDm | req=open side=SELL volume=0.01 target=-0.1089 ppo=0.0000 dreamer=0.0000 agi=0.0000 magic=52900 comment=AGI|XAU|UN|O|P000000|P+00 ticket=380933345300713472 retcode=10009 TP=3861.925 SL=3875.032
