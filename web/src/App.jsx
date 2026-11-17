@@ -5,12 +5,12 @@ import {
 import {
   Activity, ArrowDownRight, ArrowUpRight, Brain, CircleDollarSign, Clock, GraduationCap, Lightbulb, Pause,
   Receipt, ShieldCheck, Target, TrendingUp, Trophy, Wallet, Zap, Sparkles, Cpu, FlaskConical, Database,
-  ArrowLeftRight, Moon, Newspaper, CalendarClock, LogOut,
+  ArrowLeftRight, Moon, Newspaper, CalendarClock, LogOut, LayoutGrid, ListChecks, Gauge,
 } from "lucide-react";
 import {
   WarCard, MissionControl, OpsLog, CommandBar, Section, Clocks, Sitrep, NewsAlert, Tour, Glossary, HelpButtons, condition, ago,
   Tape, Blotter, FillAlerts, SoundButton,
-  Setups, Models,
+  Setups, Models, SectionNav, BackToTop,
 } from "./WarRoom.jsx";
 import { Boot, AccountSwitch, Logo } from "./Boot.jsx";
 
@@ -47,9 +47,14 @@ function useApi(intervalMs = 2000) {
 
 function AnimatedNumber({ value, format }) {
   const [shown, setShown] = useState(value ?? 0);
+  const [flash, setFlash] = useState(null);
   const from = useRef(value ?? 0);
   useEffect(() => {
     if (value == null) return;
+    if (Math.abs(value - from.current) > 1e-9) {
+      setFlash(null);
+      requestAnimationFrame(() => setFlash(value > from.current ? "up" : "down"));
+    }
     const start = performance.now();
     const a = from.current;
     let raf;
@@ -63,7 +68,7 @@ function AnimatedNumber({ value, format }) {
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [value]);
-  return <>{format(shown)}</>;
+  return <span className={`num ${flash ? `flash-${flash}` : ""}`} onAnimationEnd={() => setFlash(null)}>{format(shown)}</span>;
 }
 
 function Countdown({ seconds }) {
@@ -294,6 +299,23 @@ function Header({ d, explain, setExplain, onTour, onGloss, onAccount, sound, set
   );
 }
 
+function navItems(d) {
+  const blot = (d.blotter?.rows || d.blotter || []);
+  const nPos = Array.isArray(blot) ? blot.length : 0;
+  const blocked = (d.setups?.rows || []).filter((r) => r.verdict === "block").length;
+  const nextNews = (d.news?.plan || []).filter((e) => e.t0 > Date.now() / 1000).length;
+  return [
+    { id: "sec-command", label: "Overview", Icon: Gauge },
+    { id: "sec-positions", label: "Positions", Icon: Wallet, badge: nPos || null, tone: "cyan" },
+    { id: "sec-setups", label: "Setups", Icon: ListChecks, badge: blocked ? `${blocked} blocked` : null, tone: "red" },
+    { id: "sec-models", label: "Your models", Icon: Brain, badge: d.models ? (d.models.live ? "live" : "off") : null, tone: d.models?.live ? "green" : "red" },
+    { id: "sec-markets", label: "Markets", Icon: LayoutGrid, badge: d.symbols?.length || null },
+    { id: "sec-ops", label: "Log & equity", Icon: Activity },
+    { id: "sec-training", label: "Training", Icon: GraduationCap },
+    { id: "sec-news", label: "News", Icon: Newspaper, badge: nextNews || null, tone: "amber" },
+  ];
+}
+
 export default function App() {
   const [d, err] = useApi(2000);
   const [booted, setBooted] = useState(() => { try { return window.location.hash === "#warroom" || sessionStorage.getItem("cg_booted") === "1"; } catch { return false; } });
@@ -321,6 +343,7 @@ export default function App() {
       <div className="scan" aria-hidden />
       <Header d={d} explain={explain} setExplain={setExplain} onTour={() => setTour(true)} onGloss={() => setGloss(true)} onAccount={() => setAcct(true)} sound={sound} setSound={setSound} onLogout={logout} />
       <Tape symbols={d.symbols} />
+      <SectionNav items={navItems(d)} />
       {err && <div className="banner">{err} · showing last known data</div>}
       <NewsAlert d={d} />
       <Sitrep d={d} />
@@ -368,6 +391,7 @@ export default function App() {
         <Lightbulb size={14} /> <b>{d.tip.term.replace(" ┃", "")}:</b> {d.tip.text}
         <span className="muted right"><Clock size={12} /> updated {new Date(d.ts * 1000).toLocaleTimeString()}</span>
       </footer>
+      <BackToTop />
       <FillAlerts ops={d.ops} sound={sound} />
       <Tour open={tour} onClose={() => setTour(false)} />
       <Glossary open={gloss} onClose={() => setGloss(false)} terms={d.glossary} />

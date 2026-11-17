@@ -21,6 +21,7 @@ MANAGE = re.compile(r"ORDER_SEND (\S+) \| action=manage .* sl=([\d.]+|None) tp=(
 MINLOT = re.compile(r"(\S+): using minimum lot ([\d.]+) \(stop risk ([\d.]+)% <= ceiling ([\d.]+)%\)")
 SIZEBLOCK = re.compile(r"SIZE BLOCK (\S+) \| minimum lot ([\d.]+) would risk ([\d.]+)% of \$([\d.]+) at the stop \(cap ([\d.]+)%\); needs about \$(\d+)")
 SETUPBLOCK = re.compile(r"SETUP BLOCK (\S+) \| (.*)")
+COSTBLOCK = re.compile(r"COST BLOCK (\S+) \| trades net ([-+\d.]+) bps after spread over (\d+) calls")
 SKIPPED = re.compile(r"ENTRY SKIPPED (\S+) \| the pullback to ([\d.]+) never came in (\d+) min \(now ([\d.]+)\)")
 LOST = re.compile(r"MT5 connection lost")
 HALT = re.compile(r"(risk halt|HALT|halted)[^\n]*", re.I)
@@ -105,6 +106,13 @@ def parse(line: str, names: dict) -> dict | None:
                         f"of the ${float(eq):.2f} account if the stop is hit, over the {float(cap):.0f}% safety cap. "
                         f"It trades this market once the account is about ${int(need):,}.", "tone": "neg", "need": int(need),
                 "risk": float(r)}
+    if m := COSTBLOCK.search(line):
+        s, net, n = m.groups()
+        return {"sym": s, "kind": "gate", "title": f"Held back on {nm(s)}: trades don't beat the spread",
+                "text": f"Over its last {n} calls this market's trades made {float(net):+.2f} bps each after paying the spread "
+                        f"(1 bp = 0.01%). That doesn't pay for itself, so the bot won't open or add here until the record turns "
+                        f"positive. Closing trades is never blocked.",
+                "tone": "neg"}
     if m := SETUPBLOCK.search(line):
         s, why = m.groups()
         return {"sym": s, "kind": "gate", "title": f"Held back on {nm(s)}: setup has a losing record",

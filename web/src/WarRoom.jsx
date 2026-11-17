@@ -26,17 +26,89 @@ const PLAY = { fade: "fade the sweep", breakout: "ride the breakout" };
 const isLive = (n) => n && ["prep", "armed", "in_trade"].includes(n.phase);
 
 /* ================================================================ section frame */
+const folded = {
+  get: (id) => { try { return localStorage.getItem(`cg_fold_${id}`) === "1"; } catch { return false; } },
+  set: (id, v) => { try { localStorage.setItem(`cg_fold_${id}`, v ? "1" : "0"); } catch { /* private mode */ } },
+};
+
+/* slides in the first time it scrolls into view */
+function useReveal() {
+  const ref = useRef(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || seen) return undefined;
+    if (typeof IntersectionObserver === "undefined") { setSeen(true); return undefined; }
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setSeen(true); io.disconnect(); } }, { rootMargin: "0px 0px -8% 0px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [seen]);
+  return [ref, seen];
+}
+
 export function Section({ id, no, title, sub, right, children }) {
+  const [ref, seen] = useReveal();
+  const [closed, setClosed] = useState(() => folded.get(id));
+  const toggle = () => { setClosed((c) => { folded.set(id, !c); return !c; }); };
   return (
-    <section id={id} className="sec">
-      <div className="sec-head">
+    <section id={id} ref={ref} className={`sec reveal ${seen ? "in" : ""} ${closed ? "closed" : ""}`}>
+      <button type="button" className="sec-head" onClick={toggle} aria-expanded={!closed} aria-controls={`${id}-body`}
+              title={closed ? "Show this section" : "Hide this section"}>
         <span className="sec-no">{no}</span>
         <h2>{title}</h2>
         {sub && <span className="ex sec-sub">{sub}</span>}
         {right && <span className="sec-right">{right}</span>}
-      </div>
-      {children}
+        <span className="sec-chev" aria-hidden>▾</span>
+      </button>
+      <div className="sec-body" id={`${id}-body`}><div className="sec-inner">{children}</div></div>
     </section>
+  );
+}
+
+/* sticky menu: jump to a section; the one on screen lights up */
+export function SectionNav({ items }) {
+  const [active, setActive] = useState(items[0]?.id);
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return undefined;
+    const vis = new Map();
+    const io = new IntersectionObserver((es) => {
+      es.forEach((e) => vis.set(e.target.id, e.isIntersecting ? e.intersectionRatio : 0));
+      const best = items.map((i) => [i.id, vis.get(i.id) || 0]).sort((a, b) => b[1] - a[1])[0];
+      if (best && best[1] > 0) setActive(best[0]);
+    }, { rootMargin: "-90px 0px -45% 0px", threshold: [0, 0.1, 0.3, 0.6] });
+    items.forEach((i) => { const el = document.getElementById(i.id); if (el) io.observe(el); });
+    return () => io.disconnect();
+  }, [items.map((i) => i.id).join()]);
+  const go = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.classList.contains("closed")) el.querySelector(".sec-head")?.click();
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActive(id);
+  };
+  return (
+    <nav className="secnav" aria-label="Sections">
+      {items.map(({ id, label, Icon, badge, tone }) => (
+        <button key={id} type="button" className={`secnav-i ${active === id ? "on" : ""}`} onClick={() => go(id)}>
+          {Icon && <Icon size={14} />}<span>{label}</span>
+          {badge != null && badge !== "" && <b key={String(badge)} className={`secnav-b ${tone || ""}`}>{badge}</b>}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+export function BackToTop() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const f = () => setShow(window.scrollY > 600);
+    f();
+    window.addEventListener("scroll", f, { passive: true });
+    return () => window.removeEventListener("scroll", f);
+  }, []);
+  return (
+    <button type="button" className={`totop ${show ? "show" : ""}`} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            aria-label="Back to top" title="Back to top">↑</button>
   );
 }
 
