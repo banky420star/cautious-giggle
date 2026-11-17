@@ -37,7 +37,11 @@ LOG_DIR = os.path.join(os.getcwd(), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "ppo_training.log"), rotation="10 MB", level="INFO")
 LOCK_DIR = os.path.join(os.getcwd(), ".tmp")
-LOCK_PATH = os.path.join(LOCK_DIR, "train_drl.lock")
+# Parallel per-symbol runs (champion_cycle ppo_parallel) each get their own lock and work folders.
+RUN_TAG = "".join(ch for ch in (os.environ.get("AGI_DRL_RUN_TAG") or "") if ch.isalnum() or ch in "_-")
+LOCK_PATH = os.path.join(LOCK_DIR, f"train_drl_{RUN_TAG}.lock" if RUN_TAG else "train_drl.lock")
+BEST_DIR = os.path.join("models", "best_eval_models", RUN_TAG) if RUN_TAG else os.path.join("models", "best_eval_models")
+LATEST_DIR = os.path.join("models", "latest_run", RUN_TAG) if RUN_TAG else os.path.join("models", "latest_run")
 
 
 def _require_training_stack() -> None:
@@ -497,9 +501,9 @@ def _build_model(env, feature_version: str, ppo_params: dict):
         use_sde=ppo_params["use_sde"],
         sde_sample_freq=ppo_params["sde_sample_freq"],
         tensorboard_log=os.path.join(LOG_DIR, "drl_joint"),
-        device="cuda"
-        if torch.cuda.is_available()
-        else ("mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available() else "cpu"),
+        device=os.environ.get("AGI_DRL_DEVICE")
+        or ("cuda" if torch.cuda.is_available()
+            else ("mps" if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available() else "cpu")),
         verbose=1,
     )
 
@@ -629,7 +633,7 @@ def _stage_candidate(
     from Python.model_registry import ModelRegistry
 
     registry = ModelRegistry()
-    best_dir = os.path.join("models", "best_eval_models")
+    best_dir = BEST_DIR
     src_model = src_model_path or os.path.join(best_dir, "best_model.zip")
     src_vec = src_vec_path or os.path.join(best_dir, "vec_normalize.pkl")
 
@@ -638,6 +642,8 @@ def _stage_candidate(
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     candidate_path = os.path.join(registry.candidates_dir, timestamp)
+    if os.path.exists(candidate_path):   # two parallel runs finishing in the same second
+        candidate_path = os.path.join(registry.candidates_dir, f"{timestamp}_{RUN_TAG or os.getpid()}")
     os.makedirs(candidate_path, exist_ok=True)
 
     shutil.copy2(src_model, os.path.join(candidate_path, "ppo_trading.zip"))
@@ -727,6 +733,8 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
             from Python.train_progress import ProgressWriter
 
             self._prog = ProgressWriter("ppo", ",".join(self.symbols))
+            self._prog.state["lane"] = "CPU" if os.environ.get("AGI_DRL_DEVICE") == "cpu" else "GPU"
+            self._prog.state["scenario"] = os.environ.get("AGI_DRL_SCENARIO") or "balanced"
             self._prog.update(force=True, step=0, total=self.total_timesteps)
             logger.info(
                 f"PPO progress | symbols={self.symbols} | step=0/{self.total_timesteps:,} | pct=0.00 | elapsed_s=0 | eta_s=unknown"
@@ -845,7 +853,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     )
     model = _build_model(env, feature_version, ppo_params)
 
-    best_dir = os.path.join("models", "best_eval_models")
+    best_dir = BEST_DIR
     os.makedirs(best_dir, exist_ok=True)
     best_vec_path = os.path.join(best_dir, "vec_normalize.pkl")
     inline_eval_freq = _resolve_inline_eval_freq(total_timesteps)
@@ -897,7 +905,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
     model.learn(total_timesteps=total_timesteps, callback=callbacks, progress_bar=True)
     best_score = float(eval_callback.best_mean_reward) if eval_callback is not None and eval_callback.best_mean_reward is not None else None
 
-    latest_dir = os.path.join("models", "latest_run")
+    latest_dir = LATEST_DIR
     os.makedirs(latest_dir, exist_ok=True)
     latest_model = os.path.join(latest_dir, "latest_model.zip")
     latest_vec = os.path.join(latest_dir, "latest_vec_normalize.pkl")

@@ -3,6 +3,7 @@ import concurrent.futures
 import json
 import os
 import subprocess
+import time
 import sys
 from pathlib import Path
 
@@ -185,10 +186,14 @@ def _write_cycle_report(report: dict, name: str = "champion_cycle_last_report.js
     path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
 
-def _run_train_drl(symbol: str | None = None):
+def _run_train_drl(symbol: str | None = None, device: str | None = None, tag: str | None = None):
     env = os.environ.copy()
     if symbol:
         env["AGI_DRL_SYMBOL"] = symbol
+    if device:
+        env["AGI_DRL_DEVICE"] = device
+    if tag:
+        env["AGI_DRL_RUN_TAG"] = tag
     subprocess.check_call([sys.executable, "training/train_drl.py"], cwd=PROJECT_ROOT, env=env)
 
 
@@ -353,14 +358,44 @@ def main():
             # but in serial mode an exception would propagate. Wrap individually so one bad
             # symbol does not abort the rest of the cycle.
             ppo_failures = []
-            for symbol in symbols:
+            # Two lanes: one run on the Apple GPU, one on the CPU (two GPU runs at once crash MPS).
+            # Measured 17 Nov: GPU ~175 steps/s, CPU ~120 steps/s -> ~1.7x the markets per hour.
+            lanes = int((cfg.get("cycle") or {}).get("ppo_lanes", 1) or 1)
+
+            def _ppo_one(symbol, device=None):
                 try:
-                    logger.info(f"PPO start | symbol={symbol}")
-                    _run_train_drl(symbol=symbol)
+                    logger.info(f"PPO start | symbol={symbol}" + (f" | lane={device}" if device else ""))
+                    _run_train_drl(symbol=symbol, device=device, tag=symbol if lanes > 1 else None)
                     logger.info(f"PPO complete | symbol={symbol}")
                 except Exception as exc:
                     logger.exception(f"PPO training failed | symbol={symbol} | error={exc}")
                     ppo_failures.append((symbol, exc))
+
+            if lanes > 1 and len(symbols) > 1:
+                import queue
+                import threading
+
+                todo = queue.Queue()
+                for symbol in symbols:
+                    todo.put(symbol)
+
+                def _lane(device):
+                    while True:
+                        try:
+                            sym = todo.get_nowait()
+                        except queue.Empty:
+                            return
+                        _ppo_one(sym, device)
+
+                workers = [threading.Thread(target=_lane, args=(dev,), daemon=True) for dev in ("mps", "cpu")[:lanes]]
+                for w in workers:
+                    w.start()
+                    time.sleep(20)   # stagger data loading
+                for w in workers:
+                    w.join()
+            else:
+                for symbol in symbols:
+                    _ppo_one(symbol)
 
             for symbol in symbols:
                 # Skip evaluation for symbols whose training already failed.

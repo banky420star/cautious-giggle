@@ -23,14 +23,18 @@ class ProgressWriter:
             return
         self._last = now
         self.state["ts"] = now
-        try:
-            os.makedirs(os.path.dirname(PATH), exist_ok=True)
-            tmp = PATH + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(self.state, f)
-            os.replace(tmp, PATH)
-        except Exception:
-            pass
+        # the shared file (latest writer wins) plus one per market, so parallel runs each keep a bar
+        for path in (PATH, symbol_path(self.state.get("symbol"))):
+            if not path:
+                continue
+            try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                tmp = f"{path}.{os.getpid()}.tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(self.state, f)
+                os.replace(tmp, path)
+            except Exception:
+                pass
 
     def epoch_done(self, **row) -> None:
         self.state["history"] = (self.state["history"] + [row])[-200:]
@@ -38,6 +42,19 @@ class ProgressWriter:
 
     def finish(self, **fields) -> None:
         self.update(force=True, done=True, **fields)
+
+
+def symbol_path(symbol) -> str | None:
+    safe = "".join(ch for ch in str(symbol or "") if ch.isalnum())
+    return os.path.join(os.path.dirname(PATH), f"training_progress_{safe}.json") if safe else None
+
+
+def read_symbol(symbol) -> dict:
+    try:
+        with open(symbol_path(symbol), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
 
 
 def read() -> dict:

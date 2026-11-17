@@ -454,9 +454,9 @@ def render(frame, broker, logs, cfg, symbols, width):
 
 def main():
     cfg = m._cfg()
-    symbols = [str(s) for s in ((cfg.get("trading") or {}).get("symbols") or ["BTCUSDm", "XAUUSDm"])]
+    symbols, news_extra = m.bot_symbols(cfg)
     console = Console()
-    broker = m.Broker(symbols, extra=[str(x) for x in (((cfg.get("trading") or {}).get("news_trading") or {}).get("symbols") or [])])
+    broker = m.Broker(symbols, extra=news_extra)
     logs = m.Logs()
     frame = 0
     with Live(console=console, screen=True, auto_refresh=False, transient=True, vertical_overflow="crop") as live:

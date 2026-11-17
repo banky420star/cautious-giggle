@@ -381,11 +381,18 @@ def cycle_stages(lines: list[str], symbols: list[str]) -> list[dict]:
     for s in symbols:
         st.append({"kind": "exam", "symbol": s, "label": f"Exam {s[:3]}", "status": "pending"})
     # only the most recent cycle
+    # a cycle that skips LSTM never logs "Cycle start": its "Skipping LSTM" line opens it
     start = 0
     for i, l in enumerate(lines):
-        if "Cycle start" in l:
+        if "Cycle start" in l or "Skipping LSTM" in l:
             start = i
     for l in lines[start:]:
+        for kind, key in (("lstm", "Skipping LSTM"), ("dreamer", "Skipping Dreamer")):
+            if key in l:
+                for row in st:
+                    if row["kind"] == kind and row["status"] == "pending":
+                        row["status"] = "done"
+                        row["label"] += " (kept)"
         for row in st:
             s = row["symbol"]
             tag = {"lstm": "LSTM", "dreamer": "Dreamer", "ppo": "PPO"}.get(row["kind"])

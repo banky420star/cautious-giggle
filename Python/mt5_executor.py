@@ -350,7 +350,9 @@ class MT5Executor:
         short_lots = sum(float(p.volume) for p in shorts)
 
         raw_target = float(target_exposure) * float(max_lots)
-        target_abs = self.normalize_volume(symbol, self.risk_capped_lots(symbol, abs(raw_target)))
+        # demo stacking: each stacked trade is sized like a single trade (its own stop, its own risk cap)
+        stack = max(1, int((execution_context or {}).get("stack", 1) or 1))
+        target_abs = self.normalize_volume(symbol, self.risk_capped_lots(symbol, abs(raw_target)) * stack)
         target_lots = math.copysign(target_abs, raw_target) if target_abs > 0 else 0.0
         step = self._volume_step(symbol)
 

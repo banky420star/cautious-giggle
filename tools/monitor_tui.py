@@ -190,6 +190,17 @@ def sparkline(values: list[float], width: int) -> str:
 
 
 # --------------------------------------------------------------------------- data
+def bot_symbols(cfg: dict) -> tuple[list[str], list[str]]:
+    """(markets the bot trades all day, markets it only trades on news) — mirrors Server_AGI."""
+    tr = (cfg or {}).get("trading") or {}
+    base = [str(x) for x in (tr.get("symbols") or ["BTCUSDm", "XAUUSDm"])]
+    news = [str(x) for x in ((tr.get("news_trading") or {}).get("symbols") or [])]
+    dl = tr.get("demo_learning") or {}
+    if dl.get("enabled") and dl.get("trade_all_markets"):
+        base += [x for x in news if x not in base]
+    return base, [x for x in news if x not in base]
+
+
 class Broker:
     """Read-only broker view polled in a background thread (never blocks drawing),
     throttled to stay well inside the API rate limits."""

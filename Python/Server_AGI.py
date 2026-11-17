@@ -834,6 +834,38 @@ def _scan_trade_events(alerter, risk, known_open_tickets, seen_closed_deals, las
     return current_tickets, seen_closed_deals, now_utc - datetime.timedelta(seconds=3), closed_events
 
 
+
+def _stack_level(symbol, exposure, executor, stacking, state) -> int:
+    """How many trades this market should hold in the signal's direction (demo stacking).
+
+    Starts at 1. Adds one when every open trade on that side is in profit, the signal still
+    points the same way and the last add was at least cooldown ago; drops back when the
+    signal flips or goes flat, or a stacked trade is closed.
+    """
+    if not stacking.get("enabled") or exposure == 0.0:
+        state.pop(symbol, None)
+        return 1
+    st = state.setdefault(symbol, {"n": 1, "t": 0.0, "side": 0})
+    side = 1 if exposure > 0 else -1
+    if st["side"] != side:
+        st.update(n=1, t=time.time(), side=side)
+    try:
+        longs, shorts = executor.get_positions(symbol)
+    except Exception:
+        return int(st["n"])
+    same, opp = (longs, shorts) if side > 0 else (shorts, longs)
+    if opp:
+        return int(st["n"])
+    st["n"] = max(1, min(int(st["n"]), len(same) + 1))     # a stacked trade hit its stop or target
+    if (len(same) >= st["n"] and st["n"] < int(stacking.get("max", 3))
+            and time.time() - float(st["t"]) >= float(stacking.get("cooldown_s", 600))
+            and same and all(float(getattr(p, "profit", 0.0) or 0.0) > 0 for p in same)):
+        st["n"] += 1
+        st["t"] = time.time()
+        logger.info(f"STACK {symbol} | {len(same)} trade(s) in profit and the signal still agrees -> "
+                    f"adding trade {st['n']} of {stacking.get('max')}")
+    return int(st["n"])
+
 def main(live=False):
     if not _acquire_single_instance_lock():
         raise RuntimeError("Server_AGI is already running (lock file exists)")
@@ -869,6 +901,19 @@ def main(live=False):
         pass
     except Exception as exc:
         logger.warning(f"graduation state unreadable: {exc}")
+    _dl = ((cfg.get("trading", {}) or {}).get("demo_learning", {}) or {})
+    if bool(_dl.get("enabled")) and bool(_dl.get("trade_all_markets")) and demo_exploration.account_is_demo(mt5):
+        extra_ = [s_ for s_ in (((cfg.get("trading") or {}).get("news_trading") or {}).get("symbols") or []) if s_ not in symbols]
+        if extra_:
+            symbols = list(symbols) + extra_
+            logger.info(f"demo: every market trades all day: {symbols} (no trained model yet -> indicator council decides)")
+    _stk = dict(_dl.get("stacking") or {}) if bool(_dl.get("enabled")) and demo_exploration.account_is_demo(mt5) else {}
+    stacking = {"enabled": bool(_stk.get("enabled")), "max": int(_stk.get("max_per_symbol", 3)),
+                "cooldown_s": float(_stk.get("cooldown_min", 10)) * 60.0}
+    stack_state: dict = {}
+    if stacking["enabled"]:
+        logger.info(f"demo: trade stacking on: up to {stacking['max']} trades per market, adding when the open "
+                    f"ones are in profit and the signal agrees (>= {stacking['cooldown_s'] / 60:.0f} min apart)")
     timeframe = _to_mt5_timeframe(trading_cfg.get("timeframe", "M5"))
     max_lots = float(cfg.get("risk", {}).get("max_lots", 1.0))
     # Demo learning mode may raise the risk limits, on demo accounts only (never carried to real money).
@@ -887,6 +932,9 @@ def main(live=False):
             supervisor.max_daily_loss = float(_lr["max_daily_loss"])
         if "max_drawdown_pct" in _lr and hasattr(supervisor, "max_drawdown_pct"):
             supervisor.max_drawdown_pct = float(_lr["max_drawdown_pct"])
+        for k_ in ("max_open_positions", "max_positions_per_symbol"):
+            if k_ in _lr:
+                setattr(supervisor, k_, int(_lr[k_]))
         logger.info(f"demo learning risk: {risk.risk_percent}% per trade (min-lot ceiling {risk.min_lot_max_risk_percent}%), "
                     f"max_lots {max_lots}, daily loss stop ${risk.max_daily_loss:.0f}, "
                     f"drawdown halt {getattr(supervisor, 'max_drawdown_pct', '?')}%")
@@ -1251,6 +1299,8 @@ def main(live=False):
                 sym_state["blend_exposure"] = float(exposure)
 
                 action_meta = ppo_meta or brain.get_last_action_meta(symbol=symbol)
+                stack = _stack_level(symbol, float(exposure), executor, stacking, stack_state)
+                sym_state["stack"] = stack
                 current_symbol_exposure, total_exposure, symbol_positions, total_positions = _position_exposure_state(
                     symbol, max_lots, executor
                 )
@@ -1280,7 +1330,7 @@ def main(live=False):
                     pend = pending_entries.get(symbol)
                     cur_lots = abs(float(current_symbol_exposure)) * float(max_lots)
                     want_lots = executor.normalize_volume(
-                        symbol, executor.risk_capped_lots(symbol, abs(float(exposure)) * float(max_lots))) if exposure else 0.0
+                        symbol, executor.risk_capped_lots(symbol, abs(float(exposure)) * float(max_lots)) * stack) if exposure else 0.0
                     same_side = float(current_symbol_exposure) == 0.0 or (float(exposure) > 0) == (float(current_symbol_exposure) > 0)
                     opening = float(exposure) != 0.0 and same_side and want_lots > cur_lots + 1e-9
                     if pend and (not opening or (float(exposure) > 0) != (pend["side"] > 0)):
@@ -1304,7 +1354,7 @@ def main(live=False):
                                 "ppo_target": float((ppo_meta or {}).get("target", 0.0) or 0.0),
                                 "dreamer_target": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
                                 "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
-                                "agi_risk_scalar": _risk_scalar(agi_meta)})
+                                "agi_risk_scalar": _risk_scalar(agi_meta), "stack": stack})
                             pending_now = True
                 news_block = news_trader.blocks_regular(symbol)
                 if news_block:
@@ -1331,6 +1381,7 @@ def main(live=False):
                             "dreamer_target": float((dreamer_meta or {}).get("target", 0.0) or 0.0),
                             "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
                             "agi_risk_scalar": _risk_scalar(agi_meta),
+                            "stack": stack,
                         },
                     )
                     req_action = str((order_meta or {}).get("request_action", "") or "")

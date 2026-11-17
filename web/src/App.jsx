@@ -7,6 +7,7 @@ import {
   Receipt, ShieldCheck, Target, TrendingUp, Trophy, Wallet, Zap, Sparkles, Cpu, FlaskConical, Database,
   ArrowLeftRight, Moon, Newspaper, CalendarClock,
 } from "lucide-react";
+import { WarCard, MissionControl, RiskStrip } from "./WarRoom.jsx";
 
 const fmtMoney = (v, sign = false) => {
   if (v == null || Number.isNaN(v)) return "—";
@@ -84,8 +85,8 @@ function Header({ d }) {
       <div className="brand">
         <img src="/icon.svg" alt="" className="logo" />
         <div>
-          <div className="brand-name">Cautious Giggle</div>
-          <div className="brand-sub">Exness demo · {d?.symbols?.length || 2} markets · 5-minute bars</div>
+          <div className="brand-name">Cautious Giggle <span className="wr-tag">WAR ROOM</span></div>
+          <div className="brand-sub">Exness demo · {d?.symbols?.length || 2} markets trading · 5-minute bars</div>
         </div>
       </div>
       <div className="header-right">
@@ -562,7 +563,7 @@ export default function App() {
   const a = d.account, st = d.stats;
   const winRate = st.closed ? Math.round((st.wins / st.closed) * 100) : null;
   const lossUsed = a.daily_loss_limit ? Math.max(0, Math.min(1, -a.today / a.daily_loss_limit)) : 0;
-  const open = d.symbols.filter((s) => s.position).length;
+  const open = d.symbols.reduce((n, s) => n + (s.trades || (s.position ? [1] : [])).length, 0);
   return (
     <div className="app">
       <Header d={d} />
@@ -581,17 +582,19 @@ export default function App() {
         </Kpi>
         <Kpi icon={Zap} label="Open trades" sub={`floating ${fmtMoney(a.floating, true)}`}>{open}</Kpi>
       </section>
-      <section className="main-full">
-        <EquityChart series={d.equity} equity={a.equity} />
-      </section>
-      <section className="symbols-grid">{d.symbols.map((s) => <SymbolCard key={s.symbol} s={s} />)}</section>
+      <RiskStrip d={d} />
+      <section className="war-grid">{d.symbols.map((s) => <WarCard key={s.symbol} s={s} />)}</section>
+      <MissionControl rows={d.mission} training={d.training} />
       <section className="bottom">
-        <Learning d={d} />
+        <EquityChart series={d.equity} equity={a.equity} />
         <Feed items={d.feed} />
       </section>
       <section className="bottom2">
         <News news={d.news} />
         <Trades trades={d.trades} />
+      </section>
+      <section className="main-full">
+        <Learning d={d} />
       </section>
       <footer className="footer">
         <Lightbulb size={14} /> <b>{d.tip.term}:</b> {d.tip.text}

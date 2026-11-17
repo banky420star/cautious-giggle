@@ -34,9 +34,8 @@ NAMES = m.MARKET_NAMES
 class State:
     def __init__(self):
         self.cfg = m._cfg()
-        self.symbols = [str(s) for s in ((self.cfg.get("trading") or {}).get("symbols") or ["BTCUSDm", "XAUUSDm"])]
-        news_syms = [str(x) for x in (((self.cfg.get("trading") or {}).get("news_trading") or {}).get("symbols") or [])]
-        self.broker = m.Broker(self.symbols, extra=news_syms)
+        self.symbols, news_extra = m.bot_symbols(self.cfg)
+        self.broker = m.Broker(self.symbols, extra=news_extra)
         self.logs = m.Logs()
         self.lock = threading.Lock()
         self.log_lock = threading.Lock()
@@ -181,7 +180,7 @@ class State:
             "account": {"equity": eq, "balance": float(getattr(acc, "balance", 0) or 0),
                         "free_margin": float(getattr(acc, "margin_free", 0) or 0), "floating": floating,
                         "today": today, "today_pct": (today / (eq - today) * 100) if eq and eq != today else 0.0,
-                        "daily_loss_limit": float(risk.get("max_daily_loss", 0) or 0)},
+                        "daily_loss_limit": self._loss_limit(risk)},
             "stats": {"closed": len(closed), "wins": sum(1 for x in closed if x > 0),
                       "losses": sum(1 for x in closed if x <= 0), "pnl_closed": sum(closed)},
             "equity": eq_series,
@@ -191,8 +190,23 @@ class State:
             "feed": self.narrator.feed(60),
             "news": self._news_snapshot(),
             "markets": m.market_rows(self.broker),
+            "mission": self._mission(),
             "tip": dict(zip(("term", "text"), wr.GLOSSARY[int(time.time() // 12) % len(wr.GLOSSARY)])),
         }
+
+    def _loss_limit(self, risk: dict) -> float:
+        """The daily loss stop the bot actually uses (demo learning overrides the default)."""
+        dl = ((self.cfg.get("trading") or {}).get("demo_learning") or {})
+        if dl.get("enabled") and "max_daily_loss" in (dl.get("risk") or {}) and self._is_demo():
+            return float(dl["risk"]["max_daily_loss"])
+        return float(risk.get("max_daily_loss", 0) or 0)
+
+    def _is_demo(self) -> bool:
+        try:
+            from Python import demo_exploration
+            return bool(demo_exploration.account_is_demo(self.broker.mt5))
+        except Exception:
+            return False
 
     def _symbol(self, s: str) -> dict:
         b, logs = self.broker, self.logs
@@ -244,7 +258,65 @@ class State:
             "up": up, "down": down, "voters": len(cv.get("votes") or {}), "ignored": len(cv.get("ignored") or []),
             "council": float(sg.get("council", 0) or 0), "lstm_conf": float(sg.get("confidence", 0) or 0),
             "trusts": trusts, "ignores": ignores, "signal_history": hist, "pending": pending,
+            "trades": [{"side": "BUY" if int(p.type) == 0 else "SELL", "volume": float(p.volume),
+                        "entry": float(p.price_open), "pnl": round(float(p.profit), 2)} for p in mine],
+            "stack_max": self._stack_max(),
+            "pipeline": {
+                "lstm": float(sg.get("agi_bias", 0) or 0),
+                "ppo": float(sg.get("ppo_exposure", 0) or 0),
+                "dreamer": float(sg.get("dreamer_exposure", 0) or 0),
+                "council": float(sg.get("council", 0) or 0),
+                "blend": float(sg.get("raw_target", 0) or 0),
+                "final": float(sg.get("exposure", 0) or 0),
+            } if sg else None,
+            "brain": ("AI models + indicators" if (float(sg.get("agi_bias", 0) or 0) or float(sg.get("ppo_exposure", 0) or 0))
+                      else "indicator council (AI still training)") if sg else None,
         }
+
+    def _stack_max(self) -> int:
+        st = (((self.cfg.get("trading") or {}).get("demo_learning") or {}).get("stacking") or {})
+        return int(st.get("max_per_symbol", 3)) if st.get("enabled") else 1
+
+    def _mission(self) -> list[dict]:
+        """Training mission board: every market's training status, reward scenario and exam record."""
+        try:
+            with open(os.path.join(m.LOG_DIR, "graduation.json"), encoding="utf-8") as f:
+                st = json.load(f).get("symbols") or {}
+        except Exception:
+            st = {}
+        gcfg = ((self.cfg.get("trading") or {}).get("graduation") or {})
+        order = [str(x) for x in ((self.cfg.get("drl") or {}).get("scenario_order") or [])]
+        about = {k: str((v or {}).get("about", "")) for k, v in (((self.cfg.get("drl") or {}).get("reward_scenarios") or {}).items())}
+        from Python import train_progress as tp
+        try:
+            running = bool(m.training_state().get("running"))
+        except Exception:
+            running = False
+        out = []
+        for s in list(self.symbols) + list(self.broker.extra):
+            v = st.get(s) or {}
+            hist = []
+            for h in (v.get("history") or [])[-6:]:
+                g = (((h.get("exam") or {}).get("gates") or [{}]) or [{}])[0]
+                hist.append({"scenario": h.get("scenario", "balanced"), "passed": bool(h.get("passed")),
+                             "ret": g.get("total_return"), "sharpe": g.get("sharpe"), "dd": g.get("max_drawdown")})
+            row = {"symbol": s, "name": NAMES.get(s, s), "status": v.get("status", "live"),
+                   "scenario": v.get("scenario"), "about": about.get(v.get("scenario") or "", ""),
+                   "attempt": v.get("attempts", 0), "max_attempts": int(gcfg.get("max_attempts", 5) or 5),
+                   "best": v.get("best_scenario"), "why": v.get("why", ""), "history": hist, "order": order,
+                   "progress": None}
+            pr = {}
+            if running and v.get("status") == "training":
+                pr = tp.read_symbol(s)
+                shared = tp.read()
+                if str(shared.get("symbol")) == s and float(shared.get("ts", 0)) > float(pr.get("ts", 0) or 0):
+                    pr = shared
+            if pr and pr.get("kind") == "ppo" and not pr.get("done") and time.time() - float(pr.get("ts", 0)) < 300:
+                row["progress"] = {"step": pr.get("step"), "total": pr.get("total"), "eta_s": pr.get("eta_s"),
+                                   "fps": pr.get("fps"), "reward": pr.get("ep_reward_mean"),
+                                   "lane": pr.get("lane", "GPU")}
+            out.append(row)
+        return out
 
     def _trades(self, deals, out_entry) -> list[dict]:
         rows = []
