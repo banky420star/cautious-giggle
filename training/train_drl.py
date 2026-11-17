@@ -658,6 +658,10 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
             self._start_step = int(getattr(self.model, "num_timesteps", 0) or 0)
             self._last_log_step = 0
             self._start_time = time.time()
+            from Python.train_progress import ProgressWriter
+
+            self._prog = ProgressWriter("ppo", ",".join(self.symbols))
+            self._prog.update(force=True, step=0, total=self.total_timesteps)
             logger.info(
                 f"PPO progress | symbols={self.symbols} | step=0/{self.total_timesteps:,} | pct=0.00 | elapsed_s=0 | eta_s=unknown"
             )
@@ -667,6 +671,18 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
             current = max(0, current_total - self._start_step)
             if current <= 0:
                 return True
+            try:
+                el = max(0.001, time.time() - (self._start_time or time.time()))
+                rew = None
+                infos = self.locals.get("rewards") if hasattr(self, "locals") else None
+                if infos is not None:
+                    rew = float(sum(infos) / max(1, len(infos)))
+                ep = [float(e.get("r", 0.0)) for e in list(getattr(self.model, "ep_info_buffer", []) or [])][-20:]
+                self._prog.update(recent=rew, step=current, total=self.total_timesteps, fps=current / el,
+                                  eta_s=(self.total_timesteps - current) / max(1e-6, current / el),
+                                  ep_reward_mean=(sum(ep) / len(ep)) if ep else None, phase="train")
+            except Exception:
+                pass
             if current - self._last_log_step < self.log_interval and current < self.total_timesteps:
                 return True
 

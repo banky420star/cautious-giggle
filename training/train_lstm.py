@@ -1,4 +1,5 @@
 import json
+import time
 import os
 import sys
 
@@ -236,9 +237,16 @@ def _train_one_symbol(
     stale = 0
     n_batches = max(1, (len(train_idx) + batch_size - 1) // batch_size)
 
+    from Python.train_progress import ProgressWriter
+
+    prog = ProgressWriter("lstm", symbol)
+    prog.update(force=True, epochs=epochs, epoch=0, batch=0, n_batches=n_batches, train_samples=int(len(train_idx)),
+                val_samples=int(len(val_idx)))
+    t_train = time.time()
     model.train()
     last_loss = 0.0
     for epoch in range(epochs):
+        t_epoch = time.time()
         perm = train_idx[torch.randperm(len(train_idx), device=device)]
         correct = 0
         total = 0
@@ -255,9 +263,14 @@ def _train_one_symbol(
             loss.backward()
             optimizer.step()
 
-            epoch_loss += float(loss.item())
+            lv = float(loss.item())
+            epoch_loss += lv
             correct += int((logits.argmax(dim=1) == yb).sum().item())
             total += int(yb.size(0))
+            el = max(1e-6, time.time() - t_epoch)
+            prog.update(recent=lv, epoch=epoch + 1, batch=b + 1, run_loss=epoch_loss / (b + 1),
+                        run_acc=correct / max(1, total) * 100.0, samples_per_s=total / el,
+                        epoch_eta_s=(n_batches - b - 1) * el / (b + 1), phase="train")
 
         last_loss = epoch_loss / max(1, n_batches)
         acc = (correct / max(1, total)) * 100.0
@@ -293,10 +306,13 @@ def _train_one_symbol(
                 )
             except Exception:
                 pass
+        prog.epoch_done(epoch=epoch + 1, loss=last_loss, acc=acc, val_loss=v_loss, val_acc=v_acc,
+                        best=bool(stale == 0), secs=time.time() - t_epoch)
         if stale >= patience:
             logger.info(f"{symbol} | early stop: no val improvement for {patience} epochs")
             break
 
+    prog.finish(phase="done", best_val_loss=best_val_loss, best_val_acc=val_acc, total_s=time.time() - t_train)
     os.makedirs(out_dir, exist_ok=True)
     safe = symbol.replace("/", "_")
     model_path = os.path.join(out_dir, f"lstm_{safe}.pt")

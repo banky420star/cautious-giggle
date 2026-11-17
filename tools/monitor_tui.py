@@ -202,6 +202,7 @@ class Broker:
         self.ticks: dict[str, object] = {}
         self.prev_bid: dict[str, float] = {}
         self.bars: dict[str, list[float]] = {}
+        self.flash: dict[str, float] = {}
         self._t = {"acc": 0.0, "tick": 0.0, "deals": 0.0, "bars": 0.0}
         if self.mt5 is not None:
             try:
@@ -233,13 +234,14 @@ class Broker:
                 self.account = self.mt5.account_info()
                 self.positions = list(self.mt5.positions_get() or [])
                 self._t["acc"] = now
-            if now - self._t["tick"] >= 5:
+            if now - self._t["tick"] >= 3:
                 for s in self.symbols:
                     t = self.mt5.symbol_info_tick(s)
                     if t is not None:
                         old = self.ticks.get(s)
-                        if old is not None:
+                        if old is not None and float(old.bid) != float(t.bid):
                             self.prev_bid[s] = float(old.bid)
+                            self.flash[s] = time.time()
                         self.ticks[s] = t
                 self._t["tick"] = now
             if now - self._t["bars"] >= 60:
@@ -362,6 +364,15 @@ def training_state() -> dict:
     return st
 
 
+def read_progress() -> dict:
+    try:
+        from Python.train_progress import read
+
+        return read()
+    except Exception:
+        return {}
+
+
 def memory_rows(symbol: str):
     try:
         from Python.model_memory import ModelMemory
@@ -393,16 +404,31 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     if broker.err:
         head.append(f"   BROKER: {broker.err}", style="red")
 
-    tick_txt = ""
+    ticker = Text()
     for s in symbols:
         t = broker.ticks.get(s)
-        if t:
-            prev = broker.prev_bid.get(s, t.bid)
-            arrow = "▲" if t.bid > prev else ("▼" if t.bid < prev else "•")
-            tick_txt += f"  {s} {t.bid:,.{price_digits(t.bid)}f} {arrow}   "
-    tick_txt = (tick_txt or "  waiting for prices…  ") * 4
-    off = (frame // 2) % max(1, len(tick_txt) // 4)
-    ticker = Text(tick_txt[off: off + max(20, width - 4)], style="bold yellow")
+        if not t:
+            ticker.append(f"  {s} …   ", style="dim")
+            continue
+        prev = broker.prev_bid.get(s, t.bid)
+        up = t.bid >= prev
+        arrow = "▲" if t.bid > prev else ("▼" if t.bid < prev else "•")
+        fresh = time.time() - broker.flash.get(s, 0) < 1.5
+        col = "green" if up else "red"
+        style = (f"bold black on {col}" if fresh and frame % 2 == 0 else f"bold {col}") if t.bid != prev else "bold yellow"
+        ticker.append(f"  {s} ", style="bold white")
+        ticker.append(f" {t.bid:,.{price_digits(t.bid)}f} {arrow} ", style=style)
+        ticker.append(f" spr {(t.ask - t.bid):.{price_digits(t.bid)}f}   ", style="dim")
+    now_s = time.time()
+    left = 300 - (now_s % 300)
+    frac = 1 - left / 300
+    w = 30
+    ticker.append("  next M5 decision ", style="dim")
+    ticker.append(f"{int(left // 60)}:{int(left % 60):02d} ", style="bold cyan")
+    full = int(frac * w)
+    ticker.append("━" * full, style="cyan")
+    ticker.append("╸" if full < w else "", style="bold white")
+    ticker.append("─" * max(0, w - full - 1), style="grey30")
 
     # ---- trade flash
     banner = Text(" ", style="dim")
@@ -535,33 +561,73 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     except Exception:
         pass
     tr = training_state()
-    mt = Table(box=None, expand=True, show_header=False, padding=(0, 1))
-    mt.add_column()
-    mt.add_column()
+    prog = read_progress()
+    tw = 44
+    parts = []
     for s in symbols:
         e = (reg.get("symbols") or {}).get(s) or {}
         ch, ca = e.get("champion"), e.get("canary")
-        mt.add_row(s, Text("champion " + os.path.basename(str(ch)), style="green") if ch else
-                   (Text("canary " + os.path.basename(str(ca)), style="yellow") if ca else Text("no model yet", style="red")))
-    parts = [mt]
-    if tr["running"]:
+        line = Text(f"{s:<9}", style="bold")
+        if ch:
+            line.append("champion " + os.path.basename(str(ch)), style="green")
+        elif ca:
+            expl = os.path.exists(os.path.join(str(ca), "exploration.json"))
+            line.append(("exploring " if expl else "canary ") + os.path.basename(str(ca)), style="magenta" if expl else "yellow")
+        else:
+            line.append("no model yet", style="red")
+        parts.append(line)
+    live_prog = prog and not prog.get("done") and time.time() - float(prog.get("ts", 0)) < 60
+    if live_prog and prog.get("kind") == "lstm":
+        ep, eps = int(prog.get("epoch", 0)), int(prog.get("epochs", 1))
+        b, nb = int(prog.get("batch", 0)), max(1, int(prog.get("n_batches", 1)))
+        parts.append(Text(f"{spin} LSTM {prog.get('symbol')}  epoch {ep}/{eps}", style="bold cyan"))
+        bar = Text("epoch  ")
+        bar.append_text(tbar(b / nb, tw, "cyan"))
+        bar.append(f" {b / nb * 100:5.1f}%", style="bold")
+        parts.append(bar)
+        tot = Text("total  ")
+        tot.append_text(tbar(((ep - 1) + b / nb) / max(1, eps), tw, "blue"))
+        parts.append(tot)
+        parts.append(Text(f"batch {b}/{nb} · {prog.get('samples_per_s', 0):,.0f} samples/s · "
+                          f"epoch ETA {int(prog.get('epoch_eta_s', 0))}s · loss {prog.get('run_loss', 0):.4f} · "
+                          f"acc {prog.get('run_acc', 0):.1f}%", style="cyan"))
+        parts.append(Text("live batch loss", style="dim"))
+        parts.append(braille_chart(prog.get("recent") or [], tw + 8, 3, color="magenta"))
+        hist = prog.get("history") or []
+        if hist:
+            ht = Table(box=None, padding=(0, 1), show_header=True, header_style="dim")
+            for c in ("ep", "loss", "val_loss", "val_acc", ""):
+                ht.add_column(c, justify="right")
+            for h in hist[-4:]:
+                ht.add_row(str(h.get("epoch")), f"{h.get('loss', 0):.4f}", f"{h.get('val_loss', 0):.4f}",
+                           f"{h.get('val_acc', 0):.1f}%", Text("★ best" if h.get("best") else "", style="yellow"))
+            parts.append(ht)
+            parts.append(Text("val_loss " + sparkline([h.get("val_loss", 0) for h in hist], 40), style="green"))
+    elif live_prog and prog.get("kind") == "ppo":
+        st, tot_ = int(prog.get("step", 0)), max(1, int(prog.get("total", 1)))
+        parts.append(Text(f"{spin} PPO {prog.get('symbol')}", style="bold cyan"))
+        bar = Text("steps  ")
+        bar.append_text(tbar(st / tot_, tw, "cyan"))
+        bar.append(f" {st / tot_ * 100:5.1f}%", style="bold")
+        parts.append(bar)
+        parts.append(Text(f"{st:,}/{tot_:,} · {prog.get('fps', 0):,.0f} steps/s · ETA {int(prog.get('eta_s', 0)) // 60}m"
+                          + (f" · ep reward {prog['ep_reward_mean']:.3f}" if prog.get("ep_reward_mean") is not None else ""),
+                          style="cyan"))
+        parts.append(Text("live step reward", style="dim"))
+        parts.append(braille_chart(prog.get("recent") or [], tw + 8, 3, color="magenta"))
+    elif tr["running"]:
         parts.append(Text(f"{spin} training: {', '.join(tr['running'])}", style="bold cyan"))
         if tr["lstm"]:
             l = tr["lstm"]
             parts.append(Text(f"LSTM {l['symbol']} epoch {l['epoch']}/{l['total']}", style="cyan"))
-            parts.append(tbar(l["epoch"] / max(1, l["total"]), 34))
+            parts.append(tbar(l["epoch"] / max(1, l["total"]), tw))
             parts.append(Text(l["detail"], style="dim", no_wrap=True, overflow="ellipsis"))
-        if tr["ppo"]:
-            pp = tr["ppo"]
-            parts.append(Text(f"PPO {pp['done']:,}/{pp['total']:,} steps", style="cyan"))
-            parts.append(tbar(pp["done"] / max(1, pp["total"]), 34))
-        if not tr["lstm"] and not tr["ppo"]:
-            k = (frame // 2) % 30
-            parts.append(Text("░" * k + "███" + "░" * (30 - k), style="cyan"))
+        k = (frame // 2) % 30
+        parts.append(Text("░" * k + "███" + "░" * (30 - k), style="cyan"))
     else:
         parts.append(Text("training: idle", style="dim"))
     parts.append(Text(tr["last"], style="dim", overflow="ellipsis", no_wrap=True))
-    models_panel = Panel(Group(*parts), title="Models / training", box=box.ROUNDED, height=12)
+    models_panel = Panel(Group(*parts), title="Models / training (live)", box=box.ROUNDED)
 
     # ---- events
     ev = Table(box=None, expand=True, show_header=False, padding=(0, 1))
@@ -588,7 +654,7 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     logt = Text(no_wrap=True, overflow="ellipsis")
     for l in log_lines[-5:]:
         st = "red" if "ERROR" in l else ("yellow" if "WARNING" in l else ("bold green" if "ACTION" in l else "dim"))
-        logt.append(re.sub(r"^\S+ \S+ \| \w+\s+\| ", "", l)[: width - 6] + "\n", style=st)
+        logt.append(re.sub(r"^\S+ (\S+)\.\d+ \S+ \| (\w+)\s+\| \S+ - ", r"\1 ", l)[: width - 6] + "\n", style=st)
 
     # ---- layout
     layout = Layout()
@@ -602,8 +668,8 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     )
     layout["mid"].split_row(Layout(acct_panel, ratio=2), Layout(Panel(dec, title="Latest decision per symbol",
                                                                       box=box.ROUNDED), ratio=5))
-    layout["low"].split_row(Layout(mem_panel, ratio=5), Layout(name="right", ratio=4))
-    layout["right"].split_column(Layout(models_panel, size=12),
+    layout["low"].split_row(Layout(mem_panel, ratio=4), Layout(name="right", ratio=5))
+    layout["right"].split_column(Layout(models_panel, size=21),
                                  Layout(Panel(ev, title="Trades / risk blocks", box=box.ROUNDED)),
                                  Layout(Panel(logt, title="Server log", box=box.ROUNDED), size=7))
     return layout
