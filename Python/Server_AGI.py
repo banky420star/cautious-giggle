@@ -857,6 +857,25 @@ def main(live=False):
     symbols = resolve_trading_symbols(cfg, env_keys=("AGI_RUNTIME_SYMBOLS",), fallback=DEFAULT_TRADING_SYMBOLS)
     timeframe = _to_mt5_timeframe(trading_cfg.get("timeframe", "M5"))
     max_lots = float(cfg.get("risk", {}).get("max_lots", 1.0))
+    # Demo learning mode may raise the risk limits, on demo accounts only (never carried to real money).
+    _lr = (((cfg.get("trading", {}) or {}).get("demo_learning", {}) or {}).get("risk", {}) or {})
+    if _lr and bool(((cfg.get("trading", {}) or {}).get("demo_learning", {}) or {}).get("enabled")) \
+            and demo_exploration.account_is_demo(mt5):
+        if "max_lots" in _lr:
+            max_lots = float(_lr["max_lots"])
+            risk.max_lots = max_lots
+        if "risk_percent" in _lr:
+            risk.risk_percent = float(_lr["risk_percent"])
+        if "min_lot_max_risk_percent" in _lr:
+            risk.min_lot_max_risk_percent = float(_lr["min_lot_max_risk_percent"])
+        if "max_daily_loss" in _lr:
+            risk.max_daily_loss = float(_lr["max_daily_loss"])
+            supervisor.max_daily_loss = float(_lr["max_daily_loss"])
+        if "max_drawdown_pct" in _lr and hasattr(supervisor, "max_drawdown_pct"):
+            supervisor.max_drawdown_pct = float(_lr["max_drawdown_pct"])
+        logger.info(f"demo learning risk: {risk.risk_percent}% per trade (min-lot ceiling {risk.min_lot_max_risk_percent}%), "
+                    f"max_lots {max_lots}, daily loss stop ${risk.max_daily_loss:.0f}, "
+                    f"drawdown halt {getattr(supervisor, 'max_drawdown_pct', '?')}%")
     _ensure_symbols_selected(symbols)
 
     token, chat_id = _load_telegram_cfg(cfg)
