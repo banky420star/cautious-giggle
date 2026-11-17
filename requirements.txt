@@ -16,3 +16,4 @@ pyarrow
 optuna
 dukascopy-python
 cryptography
+rich

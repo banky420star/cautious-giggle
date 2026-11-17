@@ -18,3 +18,7 @@ logs/*
 !logs/server.log
 
 backups/
+
+config.windows-mt5.yaml
+.venv/
+data/exness_cache/

@@ -229,7 +229,7 @@ class ExnessClient:
         path_q = path + self._qs(query)
         url = (base or self.base_url) + path_q
         last_exc = None
-        for attempt in range(3):
+        for attempt in range(7):
             with self._lock:
                 self._pace(method, path)
             ts = int(time.time() * 1000) + self.clock_offset_ms - _TIMESTAMP_SAFETY_MS
@@ -252,8 +252,8 @@ class ExnessClient:
             if attempt == 0 and (code in (1000, 1001) or "timestamp" in msg.lower()):
                 continue
             # Rate limited despite pacing (shared limits / other clients): back off once.
-            if attempt < 2 and (code in (1, 1003, 3015) or resp.status_code == 429):
-                time.sleep(1.0 + attempt)
+            if attempt < 6 and (code in (1, 1003, 3015) or resp.status_code == 429):
+                time.sleep(min(8.0, 1.0 + attempt * 1.5))
                 continue
             raise last_exc
         raise last_exc
@@ -527,33 +527,89 @@ class ExnessMT5:
             out[i] = (int(_to_dt(r.get("time")).timestamp()), o, h, l, c, int(_f(r.get("volume"))), 0, 0)
         return out
 
+    _CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "exness_cache")
+
+    def _cache_path(self, inst: str, tf_name: str) -> str:
+        return os.path.join(self._CACHE_DIR, f"{inst}_{tf_name}.npy")
+
+    def _load_cache(self, inst: str, tf_name: str) -> np.ndarray | None:
+        try:
+            arr = np.load(self._cache_path(inst, tf_name))
+            return arr if arr.dtype == RATES_DTYPE and len(arr) else None
+        except Exception:
+            return None
+
+    def _save_cache(self, inst: str, tf_name: str, arr: np.ndarray) -> None:
+        try:
+            os.makedirs(self._CACHE_DIR, exist_ok=True)
+            tmp = self._cache_path(inst, tf_name) + ".tmp.npy"
+            np.save(tmp, arr)
+            os.replace(tmp, self._cache_path(inst, tf_name))
+        except Exception:
+            pass
+
     def copy_rates_from_pos(self, symbol, timeframe, start_pos, count):
-        """MT5 semantics: position 0 is the bar currently forming."""
+        """MT5 semantics: position 0 is the bar currently forming.
+
+        Large requests (training) use an on-disk cache under data/exness_cache and only
+        download bars newer than the cache, or older than it if more history is needed.
+        A rate-limited page keeps what was already downloaded instead of starting over."""
         tf_name, tf_sec = self._TF.get(int(timeframe), ("M5", 300))
         inst = self.instrument(symbol)
         need = int(start_pos) + int(count)
-        rows: dict[int, dict] = {}
-        cursor = datetime.now(timezone.utc)
-        try:
-            while len(rows) < need:
-                batch = self._candle_rows(inst, tf_name, cursor, -min(1000, need - len(rows) + 1))
+        use_cache = need > 2000
+        cached = self._load_cache(inst, tf_name) if use_cache else None
+        rows: dict[int, tuple] = {}
+
+        def page_back(cursor: datetime, stop_ts: int | None, limit: int) -> None:
+            got = 0
+            while got < limit:
+                batch = None
+                for _ in range(3):
+                    try:
+                        batch = self._candle_rows(inst, tf_name, cursor, -min(1000, limit - got + 1))
+                        break
+                    except Exception:
+                        time.sleep(2.0)
                 if not batch:
-                    break
+                    return
+                new = 0
                 for r in batch:
-                    rows[int(_to_dt(r.get("time")).timestamp())] = r
+                    ts = int(_to_dt(r.get("time")).timestamp())
+                    if ts not in rows:
+                        o, h, l, c = self._row_ohlc(r)
+                        rows[ts] = (ts, o, h, l, c, int(_f(r.get("volume"))), 0, 0)
+                        new += 1
+                got += new
                 earliest = min(_to_dt(r.get("time")) for r in batch)
+                if stop_ts is not None and earliest.timestamp() <= stop_ts:
+                    return
                 new_cursor = earliest - timedelta(seconds=1)
-                if new_cursor >= cursor:
-                    break
+                if new_cursor >= cursor or len(batch) < 2 or new == 0:
+                    return
                 cursor = new_cursor
-                if len(batch) < 2:
-                    break
-        except Exception:
-            return None
+
+        now = datetime.now(timezone.utc)
+        if cached is not None:
+            # Refresh: newest bars back to (and overlapping) the cache's last bar, which may have been forming.
+            last_ts = int(cached["time"][-1])
+            page_back(now, last_ts - tf_sec, need)
+            merged = {int(r["time"]): tuple(r) for r in cached}
+            merged.update(rows)  # fresh data wins for overlapping bars
+            rows = merged
+            if len(rows) < need:  # extend further back in time
+                oldest = datetime.fromtimestamp(min(rows), tz=timezone.utc) - timedelta(seconds=1)
+                page_back(oldest, None, need - len(rows))
+        else:
+            page_back(now, None, need)
         if not rows:
             return None
-        ordered = [rows[k] for k in sorted(rows)]
-        rates = self._rows_to_rates(ordered)
+        rates = np.array([rows[k] for k in sorted(rows)], dtype=RATES_DTYPE)
+        if use_cache:
+            # Never cache the forming bar.
+            closed = rates[rates["time"] + tf_sec <= int(now.timestamp())]
+            if len(closed):
+                self._save_cache(inst, tf_name, closed)
         end = len(rates) - int(start_pos)
         if end <= 0:
             return None

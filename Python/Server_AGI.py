@@ -10,6 +10,7 @@ from Python.mt5_compat import mt5  # MetaTrader5 terminal or Exness API backend
 import pandas as pd
 from loguru import logger
 
+from Python.model_memory import ModelMemory, market_context
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -308,7 +309,25 @@ def _acquire_single_instance_lock():
         os.write(fd, str(os.getpid()).encode("utf-8"))
         os.close(fd)
     except FileExistsError:
-        return False
+        # Take over a stale lock left by a crashed process.
+        try:
+            pid = int(open(LOCK_PATH).read().strip() or 0)
+        except Exception:
+            pid = 0
+        alive = False
+        if pid:
+            try:
+                os.kill(pid, 0)
+                alive = True
+            except Exception:
+                alive = False
+        if alive:
+            return False
+        try:
+            os.remove(LOCK_PATH)
+        except Exception:
+            return False
+        return _acquire_single_instance_lock()
 
     def _cleanup_lock():
         try:
@@ -439,6 +458,7 @@ def _blend_symbol_decision(
     ppo_meta: dict | None,
     dreamer_meta: dict | None,
     cfg: dict | None = None,
+    memory_mult: dict | None = None,
 ) -> dict:
     profile = _symbol_profile(symbol, cfg=cfg)
 
@@ -462,6 +482,12 @@ def _blend_symbol_decision(
     agi_w = float(profile["agi_weight"])
     if bool(trading_cfg.get("redistribute_missing_weight", False)):
         agi_w = max(agi_w, 1.0 - ppo_w - dreamer_w)
+
+    # Model memory: scale each model's say by how well it has done in this market context.
+    mm = memory_mult or {}
+    ppo_w *= float((mm.get("ppo") or {}).get("mult", 1.0))
+    dreamer_w *= float((mm.get("dreamer") or {}).get("mult", 1.0))
+    agi_w *= float((mm.get("lstm") or {}).get("mult", 1.0))
 
     raw = ppo_w * ppo_target + dreamer_w * dreamer_target + agi_w * agi_bias
 
@@ -756,6 +782,8 @@ def main(live=False):
     alerter = runtime["TelegramAlerter"](token, chat_id)
     event_intel = runtime["EventIntel"](cfg, LOG_DIR)
 
+    model_memory = ModelMemory.from_cfg(cfg, LOG_DIR)
+    memory_on = bool(((cfg.get("trading", {}) or {}).get("model_memory", {}) or {}).get("enabled", True))
     alerter.online("Trading engine initialized")
 
     def _notify_offline():
@@ -927,8 +955,25 @@ def main(live=False):
 
                 ppo_meta = brain.predict_ppo_action(symbol, df)
                 dreamer_meta = brain.predict_dreamer_action(symbol, df)
-                decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, cfg=cfg)
+                ctx = market_context(df)
+                mem_mult = model_memory.multipliers(symbol, ctx["key"]) if memory_on else {}
+                decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, cfg=cfg,
+                                                  memory_mult=mem_mult)
                 exposure = float(decision["target"])
+                try:
+                    scored = model_memory.observe(
+                        symbol, df.index[-1], float(df["close"].iloc[-1]), ctx,
+                        {
+                            "ppo": None if ppo_meta is None else float(ppo_meta.get("target", 0.0) or 0.0),
+                            "lstm": None if agi_meta is None else float(agi_meta.get("trend_bias", 0.0) or 0.0),
+                            "dreamer": None if dreamer_meta is None else float(dreamer_meta.get("target", 0.0) or 0.0),
+                            "blend": float(exposure),
+                        },
+                    )
+                    _append_audit("model_memory", {"symbol": symbol, "context": ctx, "scored": scored,
+                                                   "multipliers": mem_mult, "enabled": memory_on})
+                except Exception as e:
+                    logger.warning(f"model memory update failed for {symbol}: {e}")
 
                 logger.info(
                     "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f"

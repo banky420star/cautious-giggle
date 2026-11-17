@@ -26,6 +26,12 @@ trading:
   max_drawdown: 10.0
   confidence_threshold: 0.85
   magic_number: 505
+  model_memory:              # each model's record per market context (trend|vol|session)
+    enabled: true            # scale model weights by what has worked; false = record only
+    half_life_bars: 1200     # ~4 days of M5; older results fade
+    prior_bars: 150          # shrink thin contexts toward the model's overall record
+    floor: 0.25              # weakest multiplier for a model that keeps being wrong
+    cap: 1.5                 # strongest multiplier for one that keeps being right
 risk:
   max_daily_loss: 1000
   max_daily_trades: 500
@@ -144,4 +150,5 @@ registry:
 data:
   source: auto        # mt5 = broker backend | dukascopy = free history, no account | auto = broker then Dukascopy
 cycle:
+  parallel_symbols: false   # Apple MPS crashes with two GPU trainings at once
   skip_completed_training: false
