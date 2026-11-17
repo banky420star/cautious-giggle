@@ -34,6 +34,21 @@ def _point(sym):
         return None
 
 
+def _live_spread_bps(sym):
+    try:
+        from Python.mt5_compat import mt5
+        mt5.symbol_select(sym, True)
+        t = mt5.symbol_info_tick(sym)
+        if t is not None and float(t.bid) > 0 and float(t.ask) > float(t.bid):
+            return (float(t.ask) - float(t.bid)) / float(t.bid) * 1e4
+        info = mt5.symbol_info(sym)
+        if info is not None and float(info.spread or 0) > 0:
+            return float(info.spread) * float(info.point) / float(info.bid or info.ask) * 1e4
+    except Exception:
+        pass
+    return None
+
+
 def main():
     cfg = load_project_config(ROOT)
     mem = ModelMemory.from_cfg(cfg, os.path.join(ROOT, "logs"))
@@ -51,12 +66,16 @@ def main():
         ret_bps = (np.log(df["close"]).shift(-h) - np.log(df["close"])) * 1e4   # move from t to t+h
         gap_ok = (df.index.to_series().shift(-h) - df.index.to_series() <= pd.Timedelta(hours=4))
         pt = _point(sym)
-        if pt is None:
-            print(f"{sym}: point size unknown (MT5 not reachable) — scoring BEFORE costs")
-            cost = np.zeros(len(df))
-        else:
-            cost = arr["spread"].astype(float) * pt / df["close"].to_numpy() * 1e4
+        cost = arr["spread"].astype(float) * pt / df["close"].to_numpy() * 1e4 if pt else np.zeros(len(df))
+        if np.median(cost) > 0.01:
             print(f"{sym}: charging the recorded spread, median {np.median(cost):.2f} bps")
+        else:
+            live = _live_spread_bps(sym)
+            if live is None:
+                print(f"{sym}: no recorded or live spread — skipped (would score before costs)")
+                continue
+            cost = np.full(len(df), live)
+            print(f"{sym}: history has no spread; charging today's live spread {live:.2f} bps on every bar")
         ok = (ret_bps.notna() & gap_ok).to_numpy().copy()
         ok[:300] = False                                               # indicator warm-up
         for name in v.columns:
