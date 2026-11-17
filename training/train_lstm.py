@@ -72,6 +72,7 @@ def create_sequences(
     rsi_col: int,
     seq_len: int = 60,
     label_data: np.ndarray | None = None,
+    labels_only: bool = False,
 ):
     """X = scaled feature windows; y computed from *raw* (unscaled) prices.
 
@@ -81,7 +82,8 @@ def create_sequences(
     raw = data if label_data is None else label_data
     X, y = [], []
     for i in range(seq_len, len(data) - 1):
-        X.append(data[i - seq_len : i])
+        if not labels_only:
+            X.append(data[i - seq_len : i])
 
         prev_close = raw[i - 1, close_col]
         next_close = raw[i, close_col]
@@ -192,12 +194,14 @@ def _train_one_symbol(
     feat_scaled = scaler.transform(feat)
 
     label_raw = _raw_label_matrix(df, fdf)
-    X, y = create_sequences(feat_scaled, 0, 1, 2, seq_len=seq_len, label_data=label_raw)
-    # Sequence k's label is bar k+seq_len; it belongs to train if that bar is a train row.
-    split_idx = max(1, min(len(X) - 1, n_train_rows - seq_len))
-    X_val, y_val = X[split_idx:], y[split_idx:]
-    X, y = X[:split_idx], y[:split_idx]
-    if len(X) == 0:
+    # Labels only; windows are sliced on the fly from one copy of the feature matrix
+    # (materialising every overlapping window used ~3.6 GB and exhausted MPS memory).
+    _, y_all = create_sequences(feat_scaled, 0, 1, 2, seq_len=seq_len, label_data=label_raw, labels_only=True)
+    n_seq = len(y_all)
+    # Sequence k = rows [k, k+seq_len); its label is bar k+seq_len. Train if that bar is a train row.
+    split_idx = max(1, min(n_seq - 1, n_train_rows - seq_len))
+    y, y_val = y_all[:split_idx], y_all[split_idx:]
+    if n_seq <= 1 or len(y) == 0:
         logger.warning(f"no sequences for {symbol}")
         if alerter is not None:
             try:
@@ -209,10 +213,15 @@ def _train_one_symbol(
     model = AGIModel(input_dim=len(feature_columns)).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
-    y_tensor = torch.tensor(y, dtype=torch.long).to(device)
-    Xv_tensor = torch.tensor(X_val, dtype=torch.float32).to(device)
-    yv_tensor = torch.tensor(y_val, dtype=torch.long).to(device)
+    feat_t = torch.tensor(feat_scaled, dtype=torch.float32, device=device)
+    windows = feat_t.unfold(0, seq_len, 1)  # (n, F, seq_len) view, no copy
+    y_all_t = torch.tensor(y_all, dtype=torch.long, device=device)
+    train_idx = torch.arange(0, split_idx, device=device)
+    val_idx = torch.arange(split_idx, n_seq, device=device)
+
+    def batch(idx):
+        return windows[idx].permute(0, 2, 1).contiguous(), y_all_t[idx]
+
     # Class-weighted loss: HOLD dominates, and an unweighted model learns to always say HOLD.
     counts = np.bincount(y, minlength=3).astype(np.float64)
     weights = torch.tensor(counts.sum() / (3.0 * np.maximum(counts, 1.0)), dtype=torch.float32).to(device)
@@ -221,28 +230,25 @@ def _train_one_symbol(
     best_state = None
     val_acc = 0.0
 
-    batch_size = 64
-    n_batches = max(1, len(X_tensor) // batch_size)
+    batch_size = int(os.environ.get("AGI_LSTM_BATCH", "512"))
+    eval_batch = 4096
+    patience = int(os.environ.get("AGI_LSTM_PATIENCE", "4"))
+    stale = 0
+    n_batches = max(1, (len(train_idx) + batch_size - 1) // batch_size)
 
     model.train()
     last_loss = 0.0
     for epoch in range(epochs):
-        perm = torch.randperm(len(X_tensor))
-        X_epoch = X_tensor[perm]
-        y_epoch = y_tensor[perm]
-
+        perm = train_idx[torch.randperm(len(train_idx), device=device)]
         correct = 0
         total = 0
         epoch_loss = 0.0
 
         for b in range(n_batches):
-            start = b * batch_size
-            end = min(start + batch_size, len(X_epoch))
-            xb = X_epoch[start:end]
-            yb = y_epoch[start:end]
-            if len(xb) == 0:
+            idx = perm[b * batch_size:(b + 1) * batch_size]
+            if len(idx) == 0:
                 continue
-
+            xb, yb = batch(idx)
             optimizer.zero_grad()
             logits = model(xb)
             loss = criterion(logits, yb)
@@ -250,18 +256,22 @@ def _train_one_symbol(
             optimizer.step()
 
             epoch_loss += float(loss.item())
-            preds = logits.argmax(dim=1)
-            correct += int((preds == yb).sum().item())
+            correct += int((logits.argmax(dim=1) == yb).sum().item())
             total += int(yb.size(0))
 
         last_loss = epoch_loss / max(1, n_batches)
         acc = (correct / max(1, total)) * 100.0
         model.eval()
         with torch.no_grad():
-            v_logits = model(Xv_tensor) if len(Xv_tensor) else None
-            if v_logits is not None:
-                v_loss = float(criterion(v_logits, yv_tensor).item())
-                v_acc = float((v_logits.argmax(dim=1) == yv_tensor).float().mean().item()) * 100.0
+            if len(val_idx):
+                tot_loss, tot_ok = 0.0, 0
+                for vs in range(0, len(val_idx), eval_batch):
+                    xv, yv = batch(val_idx[vs:vs + eval_batch])
+                    vl = model(xv)
+                    tot_loss += float(criterion(vl, yv).item()) * len(yv)
+                    tot_ok += int((vl.argmax(dim=1) == yv).sum().item())
+                v_loss = tot_loss / len(val_idx)
+                v_acc = tot_ok / len(val_idx) * 100.0
             else:
                 v_loss, v_acc = last_loss, acc
         model.train()
@@ -269,6 +279,9 @@ def _train_one_symbol(
             best_val_loss = v_loss
             val_acc = v_acc
             best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+            stale = 0
+        else:
+            stale += 1
         logger.info(
             f"{symbol} | epoch {epoch + 1}/{epochs} | loss {last_loss:.4f} | acc {acc:.2f}% | val_loss {v_loss:.4f} | val_acc {v_acc:.2f}%"
         )
@@ -280,6 +293,9 @@ def _train_one_symbol(
                 )
             except Exception:
                 pass
+        if stale >= patience:
+            logger.info(f"{symbol} | early stop: no val improvement for {patience} epochs")
+            break
 
     os.makedirs(out_dir, exist_ok=True)
     safe = symbol.replace("/", "_")
@@ -303,8 +319,8 @@ def _train_one_symbol(
                 "feature_columns": feature_columns,
                 "seq_len": int(seq_len),
                 "epochs": int(epochs),
-                "samples": int(len(X)),
-                "val_samples": int(len(X_val)),
+                "samples": int(len(y)),
+                "val_samples": int(len(y_val)),
                 "val_loss": float(best_val_loss),
                 "val_acc": float(val_acc),
                 "val_majority_acc": majority_val_acc,
@@ -316,7 +332,7 @@ def _train_one_symbol(
         )
     if alerter is not None:
         try:
-            alerter.training("LSTM", f"Complete {symbol} | loss={last_loss:.4f} | samples={int(len(X))}")
+            alerter.training("LSTM", f"Complete {symbol} | loss={last_loss:.4f} | samples={int(len(y))}")
         except Exception:
             pass
 
@@ -327,7 +343,7 @@ def _train_one_symbol(
         "meta_path": meta_path,
         "loss": float(best_val_loss),
         "train_loss": last_loss,
-        "samples": int(len(X)),
+        "samples": int(len(y)),
     }
 
 
