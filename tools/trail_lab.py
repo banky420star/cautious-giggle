@@ -6,8 +6,7 @@ method fires again. Costs are real: buy at the ask, sell at the bid, stops fille
 
 Entry methods ("votes", computed fast):
   random      coin flip every 60 s (the baseline: what the exit alone is worth)
-  council15   the 12-indicator council on 15-second bars, when it leans |c| >= 0.2
-  council30   the same on 30-second bars
+  council5s / 15s / 30s / 45s / 1m / 2m / 3m / 4m   the 12-indicator council on that bar size, when it leans |c| >= 0.2
   burst_go    price moved >= K spreads in the last 10 s: follow it
   burst_fade  the same: bet against it
 Exit (all in multiples of the spread, net of costs):
@@ -70,7 +69,7 @@ def signals(idx, bid, ask, live, sp_med, rng) -> dict[str, np.ndarray]:
     r[pick] = np.where(rng.random(len(pick)) < 0.5, 1, -1)
     out["random"] = r
     ser = pd.Series(mid, index=idx)
-    for name, rule in (("council15", "15s"), ("council30", "30s")):
+    for name, rule in (("council5s", "5s"), ("council15s", "15s"), ("council30s", "30s"), ("council45s", "45s"), ("council1m", "1min"), ("council2m", "2min"), ("council3m", "3min"), ("council4m", "4min")):
         g = ser.resample(rule, label="right", closed="left")       # bar is known at its right edge
         b = pd.DataFrame({"open": g.first(), "high": g.max(), "low": g.min(), "close": g.last()}).dropna()
         c = np.tanh(2 * votes(b).to_numpy(float).mean(axis=1))
