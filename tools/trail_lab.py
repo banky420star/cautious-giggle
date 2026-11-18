@@ -47,6 +47,7 @@ from Python.indicator_council import votes  # noqa: E402
 
 TICKS = os.path.join(ROOT, "data", "ticks")
 EXTRA: dict = {}
+MID_ONLY = False
 ONLY: list | None = None
 MARKETS = ["XAUUSDm", "BTCUSDm", "EURUSDm", "USDJPYm", "XAGUSDm", "ETHUSDm", "USOILm"]
 CORE = list(itertools.product((3, 6, 12), (0.5, 1, 2), (0.5, 1, 2)))      # SL, BE, TRAIL
@@ -72,7 +73,11 @@ def load(sym: str, month: str):
     live = live[-len(s):]
     global EXTRA
     EXTRA = {"imb": s["imb"].fillna(0).to_numpy(), "rate": s["n"].fillna(0).to_numpy()}
-    return s.index, s["Bid"].to_numpy(), s["Ask"].to_numpy(), live
+    b, a = s["Bid"].to_numpy(), s["Ask"].to_numpy()
+    if MID_ONLY:                                # best case: trade at the mid price, pay only commission
+        m = (b + a) / 2
+        b, a = m, m.copy()
+    return s.index, b, a, live
 
 
 def signals(idx, bid, ask, live, sp_med, rng) -> dict[str, np.ndarray]:
@@ -172,8 +177,10 @@ def run(month: str, markets: list[str]) -> dict:
         sprd = (ask - bid) / ((ask + bid) / 2) * 1e4
         spm = float(np.median(sprd[live]))
         comm = float(COMM.get(sym.rstrip("m") if COMM else sym, 0.0)) if COMM else 0.0
+        if MID_ONLY:
+            spm = 0.0
         sp = spm + comm                         # cost unit: what one trade costs (spread + commission)
-        okspr = (sprd <= max(1.5 * spm, spm + 0.3 * sp)) & live
+        okspr = live if MID_ONLY else (sprd <= max(1.5 * spm, spm + 0.3 * sp)) & live
         sigs = signals(idx, bid, ask, live, sp, rng)
         n = len(bid)
         half = n // 2
@@ -225,10 +232,13 @@ if __name__ == "__main__":
     ap.add_argument("--markets", nargs="*", default=MARKETS)
     ap.add_argument("--methods", nargs="*")
     ap.add_argument("--zero", action="store_true", help="Zero account: no-suffix ticks + measured commission")
+    ap.add_argument("--zero-mid", action="store_true", help="best case for Zero: no spread at all, commission only")
     a = ap.parse_args()
     ONLY = a.methods
+    if a.zero_mid:
+        a.zero, MID_ONLY = True, True
     if a.zero:
-        TAG = "zero"
+        TAG = "zero_mid" if MID_ONLY else "zero"
         COMM = {k: v["commission_bps"] for k, v in json.load(open(os.path.join(ROOT, "data", "zero_costs.json"))).items()}
         a.markets = [m.rstrip("m") for m in a.markets]
     run(a.month, a.markets)
