@@ -360,7 +360,7 @@ def main():
             ppo_failures = []
             # Two lanes: one run on the Apple GPU, one on the CPU (two GPU runs at once crash MPS).
             # Measured 17 Nov: GPU ~175 steps/s, CPU ~120 steps/s -> ~1.7x the markets per hour.
-            lanes = int((cfg.get("cycle") or {}).get("ppo_lanes", 1) or 1)
+            lanes = int(os.environ.get("AGI_CYCLE_PPO_LANES") or (cfg.get("cycle") or {}).get("ppo_lanes", 1) or 1)
 
             def _ppo_one(symbol, device=None):
                 try:
