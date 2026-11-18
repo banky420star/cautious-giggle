@@ -58,7 +58,7 @@ export function Section({ id, no, title, sub, right, children, folded: startFold
         <h2>{title}</h2>
         {sub && <span className="ex sec-sub">{sub}</span>}
         {right && <span className="sec-right">{right}</span>}
-        <span className="sec-chev" aria-hidden>▾</span>
+        <span className="sec-chev" aria-hidden><em>{closed ? "show" : "hide"}</em><i>▾</i></span>
       </button>
       <div className="sec-body" id={`${id}-body`}><div className="sec-inner">{children}</div></div>
     </section>
@@ -306,6 +306,7 @@ function Explain({ s }) {
 }
 
 function Slots({ trades, max }) {
+  if (!trades.length) return null;  // nothing open: no empty placeholders
   const n = Math.max(max || 1, trades.length);
   return (
     <div className="slots" title="Up to 3 trades per market. A new one is added only while the open ones are in profit and the signal agrees.">
@@ -572,7 +573,7 @@ export function WarCard({ s, onOpen }) {
         <Candles candles={s.candles} position={p} bid={s.bid} />
       </div>
       <button type="button" className="w-open" onClick={() => onOpen?.(s.symbol)}>
-        <span>Kronos forecast · {(s.ballot || []).length} voters · how it decided</span><b>details →</b>
+        <span>Forecast · {(s.ballot || []).length} voters · reasons</span><b>details →</b>
       </button>
     </div>
   );
@@ -1102,7 +1103,7 @@ export function Blotter({ rows }) {
               </tr>
             ))}
           </tbody>
-          <tfoot><tr><td colSpan={7} className="muted small ex">R = profit in units of the risk taken (−1R = stopped out, about +1.6R = target). LOCKED = the stop has moved to breakeven or better, so the trade can no longer lose. Gold tick on the rail = entry.</td>
+          <tfoot><tr><td colSpan={7} className="muted small"><span className="ex">R = profit in units of the risk taken (−1R = stopped out, about +1.6R = target). LOCKED = the stop has moved to breakeven or better, so the trade can no longer lose. Gold tick on the rail = entry.</span><span className="tot-l">Total open</span></td>
             <td className={`r ${tot >= 0 ? "pos" : "neg"}`}><b>{money(tot)}</b></td><td /></tr></tfoot>
         </table>
       )}

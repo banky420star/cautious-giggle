@@ -959,3 +959,32 @@ body.drawer-open { overflow: hidden; }
 .acct-row .tiles-2 { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; align-content: stretch; }
 .acct-row .tiles-2 .tile { display: flex; flex-direction: column; justify-content: center; }
 .acct-row .tiles-2 .tile .tile-v, .acct-row .tiles-2 .tile [class*="value"] { font-size: 30px; }
+
+/* ===================================================== polish pass */
+/* headings always visible; only the content fades in */
+.reveal { opacity: 1; }
+.reveal .sec-inner { opacity: 0; transition: opacity .6s ease-out, transform .6s cubic-bezier(.2,.8,.2,1); }
+.reveal.in .sec-inner { opacity: 1; }
+/* folded sections read as clickable bars */
+.sec-head { cursor: pointer; border-radius: 10px; transition: background .2s, border-color .2s; }
+.sec-head:hover { background: rgba(245,184,61,.05); }
+.sec.closed .sec-head { padding: 12px 14px; border: 1px solid rgba(245,184,61,.16); background: rgba(255,255,255,.022); }
+.sec.closed .sec-head:hover { border-color: rgba(245,184,61,.4); background: rgba(245,184,61,.06); }
+.sec.closed { gap: 0; }
+.sec-chev { display: inline-flex; align-items: center; gap: 6px; }
+.sec-chev em { font: 600 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; font-style: normal; color: var(--muted); }
+.sec-head:hover .sec-chev em { color: var(--cyan); }
+/* market cards: same layout in every card, bottoms aligned */
+.wcard.compact .w-head { flex-wrap: nowrap; min-height: 64px; }
+.wcard.compact .w-head > div:first-child { min-width: 0; }
+.wcard.compact .w-state { flex-shrink: 0; }
+.wcard.compact .w-badge { white-space: nowrap; font-size: 10.5px; padding: 3px 9px; }
+.wcard.compact .w-open { margin-top: auto; }
+.wcard.compact .w-open span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wcard.compact .w-action { min-height: 3.2em; }
+/* positions: total sits under P&L */
+tfoot .tot-l { display: none; }
+.explain-off tfoot .tot-l { display: inline; font: 600 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+.sec.closed .sec-chev { transform: none; }
+.sec-chev i { font-style: normal; display: inline-block; transition: transform .3s cubic-bezier(.4,0,.2,1); }
+.sec.closed .sec-chev i { transform: rotate(-90deg); }
