@@ -68,7 +68,7 @@ class SetupGate:
         self.retest_s = float(c.get("retest_hours", 4)) * 3600.0
         self.conf_hi = float(c.get("confidence_high", 0.72))
         acct = "".join(ch for ch in str(account_id or os.environ.get("EXNESS_ACCOUNT_ID", "")) if ch.isalnum())
-        self.path = os.path.join(ROOT, "logs", f"setups_{acct}.json" if acct else "setups.json")
+        self.path = os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(ROOT, "logs"), f"setups_{acct}.json" if acct else "setups.json")
         self.state = {"stats": {}, "open": [], "retest": {}}
         self._last_resolve = 0.0
         self._load()

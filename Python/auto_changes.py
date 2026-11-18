@@ -13,7 +13,7 @@ import os
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOG = os.path.join(ROOT, "logs")
+LOG = os.environ.get("AGI_LOG_DIR") or os.path.join(ROOT, "logs")
 OUT = os.path.join(LOG, "auto_changes.jsonl")
 STATE = os.path.join(LOG, "auto_changes_state.json")
 NAMES = {"BTCUSDm": "Bitcoin", "XAUUSDm": "Gold", "EURUSDm": "EUR/USD", "USDJPYm": "USD/JPY", "XAGUSDm": "Silver",

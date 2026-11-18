@@ -1,3 +1,4 @@
+import time
 import hashlib
 import json
 import os
@@ -406,6 +407,7 @@ class ModelRegistry:
             cur["canary"] = version_dir
             cur["canary_policy"] = merged
             cur["canary_state"] = {"passed": False, "reason": "no_metrics"}
+            cur["canary_set_at"] = time.time()   # the trial only counts trades closed after this
             symbols[symbol] = cur
             self._write_active(active)
             logger.warning(f"Canary set for {symbol}: {version_dir}")

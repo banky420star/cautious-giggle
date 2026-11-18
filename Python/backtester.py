@@ -37,7 +37,7 @@ from Python.data_feed import fetch_training_data
 from Python.feature_pipeline import ENGINEERED_V2, feature_count_for_version
 from drl.trading_env import TradingEnv
 
-LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+LOG_DIR = os.environ.get("AGI_LOG_DIR") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 try:
     # Avoid Windows rotation file-lock contention when multiple backtests run in parallel.

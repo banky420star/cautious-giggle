@@ -21,7 +21,7 @@ import os
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOG = os.path.join(ROOT, "logs")
+LOG = os.environ.get("AGI_LOG_DIR") or os.path.join(ROOT, "logs")
 ENTRIES = os.path.join(LOG, "trade_entries.jsonl")
 CARD = os.path.join(LOG, "voter_scorecard.jsonl")
 SUMMARY = os.path.join(LOG, "voter_scorecard_summary.json")

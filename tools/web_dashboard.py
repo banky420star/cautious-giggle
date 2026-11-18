@@ -205,6 +205,7 @@ class State:
             "mission": self._mission(),
             "scorecard": self._scorecard(),
             "changes": __import__("Python.auto_changes", fromlist=["recent"]).recent(40),
+            "learning": __import__("learning_view").learning_snapshot(),
             "blotter": self._blotter(),
             "setups": self._setups(),
             "models": self._models(),
@@ -780,6 +781,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"active": ap.active(), "demo": ap.status("demo"), "live": ap.status("live"),
                                     "form": ap.live_form(),
                                     "confirm": ap.CONFIRM, "live_rules": _live_rules(STATE.cfg if STATE else {})})
+        if path == "/api/indicator_map":
+            p = os.path.join(ROOT, "logs", "indicator_map_ui.json")
+            if not os.path.exists(p):
+                return self._send(404, b'{"error": "run tools/indicator_map.py"}', "application/json")
+            with open(p, "rb") as f:
+                return self._send(200, f.read(), "application/json")
         if path == "/api/state":
             try:
                 body = json.dumps(STATE.snapshot()).encode()
@@ -798,6 +805,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     global STATE
+    __import__("learning_view").start_audit_thread()
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=8788)
     args = ap.parse_args()

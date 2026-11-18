@@ -28,7 +28,7 @@ import time
 import numpy as np
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PLAYBOOK = os.path.join(ROOT, "logs", "news_playbook.json")
+PLAYBOOK = os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(ROOT, "logs"), "news_playbook.json")
 
 PREP_MIN = 10
 PRE_RANGE_MIN = 30

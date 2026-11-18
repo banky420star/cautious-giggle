@@ -19,7 +19,7 @@ from alerts.telegram_alerts import TelegramAlerter
 torch = None
 _TORCH_IMPORT_ERROR = None
 
-LOG_DIR = os.path.join(PROJECT_ROOT, "logs")
+LOG_DIR = os.environ.get("AGI_LOG_DIR") or os.path.join(PROJECT_ROOT, "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "dreamer_training.log"), rotation="10 MB", level="INFO")
 

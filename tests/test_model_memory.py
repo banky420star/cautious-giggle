@@ -104,3 +104,13 @@ def test_extra_buckets_grade_models_separately_without_touching_main_key(tmp_pat
     assert mem.assess("XAUUSDm", "ppo", "mf:go")["edge_bps"] > 0
     assert mem.assess("XAUUSDm", "ppo", "mf:stop")["edge_bps"] < 0
     assert mem.assess("XAUUSDm", "ppo", "k")["n"] > 0          # main context still graded
+
+
+def test_trade_memory_only_ever_shrinks_size():
+    from Python.Server_AGI import _trade_memory_scale
+    assert _trade_memory_scale({"trades": 5, "profit_factor": 0.2})[0] == 1.0          # too few trades to judge
+    assert _trade_memory_scale({"trades": 40, "profit_factor": 0.6})[0] == 0.5         # losing record
+    assert _trade_memory_scale({"trades": 40, "profit_factor": 1.8})[0] == 1.0         # winning: normal, never more
+    assert _trade_memory_scale({"trades": 2, "recent_loss_streak": 5})[0] == 0.5       # losing streak
+    assert _trade_memory_scale({"trades": 40, "profit_factor": 0.6},
+                               {"trading": {"trade_memory_scale": {"enabled": False}}})[0] == 1.0

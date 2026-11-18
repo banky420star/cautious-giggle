@@ -1017,3 +1017,48 @@ tfoot .tot-l { display: none; }
   border-top: 1px solid rgba(148,163,184,.08); font-size: 12px; }
 .chg-text { color: #d6dbe6; line-height: 1.45; }
 .chg-t { white-space: nowrap; }
+
+/* learning + indicator map */
+.lrn-wrap { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.lrn { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lrn .card-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; justify-content: space-between; }
+.lrn-layers { display: flex; flex-direction: column; }
+.lrn-layer { display: grid; grid-template-columns: 82px 150px minmax(0, 1fr) 18px minmax(0, 1.2fr); gap: 10px; align-items: baseline;
+  padding: 7px 0; border-top: 1px solid rgba(148,163,184,.08); font-size: 12.5px; }
+.lrn-arrow { color: var(--muted); text-align: center; }
+@media (max-width: 860px) { .lrn-layer { grid-template-columns: 82px minmax(0, 1fr); } .lrn-arrow { display: none; } }
+.tw { overflow-x: auto; }
+.lrn-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.lrn-table th { text-align: left; font-size: 11px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid rgba(148,163,184,.12); white-space: nowrap; }
+.lrn-table td { padding: 8px; border-bottom: 1px solid rgba(148,163,184,.07); vertical-align: top; }
+.lrn-table .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lrn-table th .muted { font-weight: 400; font-size: 10px; }
+.mono { font-family: var(--mono); }
+.lrn-secs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; align-items: start; }
+.lrn-sec { border: 1px solid rgba(148,163,184,.1); border-radius: 8px; padding: 2px 8px 6px; min-width: 0; }
+.lrn-sec:has(.lrn-row) { grid-column: 1 / -1; }
+.lrn-sec-head { all: unset; box-sizing: border-box; cursor: pointer; width: 100%; display: flex; gap: 8px; align-items: center; padding: 6px 0; font-size: 13px; }
+.lrn-sec-head:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; border-radius: 4px; }
+.lrn-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.lrn-dot.red { background: var(--neg); } .lrn-dot.amber { background: #fbbf24; } .lrn-dot.green { background: var(--pos); }
+.lrn-row { display: grid; grid-template-columns: 50px 60px minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 5px 0; border-top: 1px solid rgba(148,163,184,.07); line-height: 1.45; }
+.imap-verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.imap-verdict .card { padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; }
+.imap-verdict b { font-size: 19px; }
+.imap-heat { overflow: auto; max-height: 560px; border: 1px solid rgba(148,163,184,.1); border-radius: 8px; }
+.imap-grid { display: grid; min-width: 520px; font: 11px var(--mono); }
+.imap-hd { position: sticky; top: 0; z-index: 1; background: var(--bg2); padding: 6px 4px; text-align: center; font-weight: 600; border-bottom: 1px solid rgba(148,163,184,.12); }
+.imap-hd:first-child { text-align: left; }
+.imap-fn { padding: 1px 6px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid rgba(148,163,184,.1); }
+.imap-fn.grp { border-top: 1px solid rgba(148,163,184,.15); color: var(--text); }
+.imap-c { height: 14px; border-bottom: 1px solid var(--bg); }
+.imap-c.hold { outline: 2px solid var(--text); outline-offset: -2px; }
+.imap-tl { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 14px; }
+@media (max-width: 900px) { .imap-tl { grid-template-columns: 1fr; } }
+.imap-tl svg { width: 100%; height: auto; display: block; }
+.imap-ax { font: 10px var(--mono); fill: var(--muted); }
+.imap-insp { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.imap-bar { display: grid; grid-template-columns: minmax(0, 1fr) 70px 40px; gap: 6px; align-items: center; }
+.imap-bar .mono { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.imap-bar i { display: block; height: 7px; border-radius: 2px; background: var(--violet); }
+.imap-back { align-self: flex-start; background: none; border: 1px solid rgba(148,163,184,.2); color: var(--cyan); border-radius: 6px; padding: 4px 9px; cursor: pointer; font-size: 12px; }

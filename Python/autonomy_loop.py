@@ -102,7 +102,7 @@ class AutonomyLoop:
 
     def _load_evaluation_config(self) -> dict:
         try:
-            cfg = load_project_config(PROJECT_ROOT, live_mode=True)
+            cfg = load_project_config(PROJECT_ROOT, live_mode=False)  # settings only; the live secret check made this fall back to defaults
             return cfg.get("evaluation", {}) or {}
         except Exception:
             return {}
@@ -128,8 +128,13 @@ class AutonomyLoop:
         self.registry.update_metadata(candidate_dir, payload)
 
     def _load_symbols_cfg(self):
+        # the markets the bot actually trades (config list + graduated + demo-learning markets, set at startup);
+        # config's trading.symbols alone is only BTC/XAU, which left the other markets untrained and their trials unmeasured
+        live = list(getattr(getattr(self, "brain", None), "active_symbols", None) or [])
+        if live:
+            return live
         try:
-            cfg = load_project_config(PROJECT_ROOT, live_mode=True)
+            cfg = load_project_config(PROJECT_ROOT, live_mode=False)  # settings only; the live secret check made this fall back to defaults
             return resolve_trading_symbols(
                 cfg,
                 env_keys=("AGI_AUTONOMY_SYMBOLS", "AGI_RUNTIME_SYMBOLS"),
@@ -397,42 +402,34 @@ class AutonomyLoop:
             logger.info(f"candidate not promoted: {detail}")
             self._notify(f"Candidate blocked {symbol}: {detail} | {summary}")
 
+    def _canary_set_at(self, symbol: str, canary: str) -> float:
+        """When this canary started: recorded by the registry; for older canaries, the time in the candidate's
+        folder name (YYYYMMDD_HHMMSS), else its folder time."""
+        cur = ((self.registry._read_active().get("symbols") or {}).get(symbol) or {})
+        if cur.get("canary_set_at") and cur.get("canary") == canary:
+            return float(cur["canary_set_at"])
+        base = os.path.basename(str(canary).rstrip("/"))
+        try:
+            return datetime.datetime.strptime(base[:15], "%Y%m%d_%H%M%S").timestamp()
+        except ValueError:
+            try:
+                return os.path.getmtime(canary)
+            except OSError:
+                return time.time()
+
     def _canary_monitor(self, symbol: str):
         canary, scope = self._resolve_canary_target(symbol)
         if not canary:
             return
 
+        # The trial measures only THIS model: trades closed on this market since it became the canary, read from
+        # the trade log (survives restarts; the risk engine's daily counter reset at midnight/restart, and a
+        # 7-day P/L window charged it with trades made before it existed).
+        set_at = self._canary_set_at(symbol, canary)
+        trades_since, realized = _closed_since(symbol, set_at)
         risk = getattr(self.brain, "risk_engine", None)
-        by_symbol = getattr(risk, "daily_trades_by_symbol", {}) if risk is not None else {}
-        trades_now = int(by_symbol.get(symbol, 0))
-
-        if symbol not in self._canary_start_trade_count_by_symbol:
-            self._canary_start_trade_count_by_symbol[symbol] = trades_now
-            self._canary_set_time_by_symbol[symbol] = time.time()
-
-        trades_since = trades_now - int(self._canary_start_trade_count_by_symbol.get(symbol, 0))
-
-        realized = 0.0
-        try:
-            from Python.mt5_compat import mt5
-
-            if mt5 is not None and mt5.initialize():
-                now_utc = datetime.datetime.now(datetime.timezone.utc)
-                lookback = now_utc - datetime.timedelta(days=7)
-                deals = mt5.history_deals_get(lookback, now_utc)
-                if deals:
-                    realized = sum(
-                        deal.profit
-                        for deal in deals
-                        if deal.entry == mt5.DEAL_ENTRY_OUT and str(getattr(deal, "symbol", "")) == str(symbol)
-                    )
-        except Exception as exc:
-            logger.warning(f"Autonomy MT5 PnL check failed: {exc}")
-
         dd_pct = float(getattr(risk, "current_dd", 0.0)) / 100.0
-        runtime_minutes = 0.0
-        if symbol in self._canary_set_time_by_symbol:
-            runtime_minutes = max(0.0, (time.time() - float(self._canary_set_time_by_symbol[symbol])) / 60.0)
+        runtime_minutes = max(0.0, (time.time() - set_at) / 60.0)
 
         self.registry.update_canary_metrics(
             trades=trades_since,
@@ -446,7 +443,6 @@ class AutonomyLoop:
         # withdrawals, manual trades and other markets move it, and the risk halt already covers it.
         if realized <= -self.canary_max_loss:
             self.registry.rollback_to_champion(symbol=(symbol if scope == "symbol" else None))
-            self._canary_start_trade_count_by_symbol.pop(symbol, None)
             self._canary_set_time_by_symbol.pop(symbol, None)
             self._maybe_reload_brain()
             self._notify(f"Canary rollback {symbol}. realized={realized:.2f}, dd={dd_pct:.3f}")
@@ -488,7 +484,7 @@ class AutonomyLoop:
 
         while True:
             try:
-                self._canary_monitor(symbol)
+                # trial metrics: measured by _monitor_trials on its own clock
 
                 candidate = self._latest_candidate_dir(symbol=symbol)
                 if candidate:
@@ -515,14 +511,60 @@ class AutonomyLoop:
                 logger.info(f"Symbol lane {symbol}: backing off {backoff}s before retry")
                 await asyncio.sleep(backoff)
 
+    async def _monitor_trials(self, symbols, every_s: float = 120.0):
+        while True:
+            for symbol in (self._load_symbols_cfg() or symbols):
+                try:
+                    await asyncio.to_thread(self._canary_monitor, symbol)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"trial check failed for {symbol}: {exc}")
+            await asyncio.sleep(every_s)
+
     async def start(self):
         logger.warning("AutonomyLoop started")
         self._notify("AutonomyLoop started")
 
+        # the bot extends its market list right after building the brain (which starts this loop): wait for it
+        await asyncio.sleep(float(os.environ.get("AGI_AUTONOMY_START_DELAY", "60")))
         symbols = self._load_symbols_cfg()
+        logger.info(f"AutonomyLoop markets: {symbols}")
         self._symbol_tasks = [asyncio.create_task(self._run_symbol_lane(symbol)) for symbol in symbols]
+        # Trials are measured on their own clock: each lane waits for its (serial, hours-long) training first,
+        # which left most markets' trials never measured.
+        self._symbol_tasks.append(asyncio.create_task(self._monitor_trials(symbols)))
 
         if self._symbol_tasks:
             await asyncio.gather(*self._symbol_tasks)
 
 
+def _closed_since(symbol: str, since_ts: float, log_path: str | None = None) -> tuple[int, float]:
+    """Closed trades and realized P/L on `symbol` after `since_ts`, from logs/trade_events.jsonl
+    (live closes only; backfilled history is excluded). One entry per deal id."""
+    log_path = log_path or os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs"), "trade_events.jsonl")
+    seen, n, pnl = set(), 0, 0.0
+    try:
+        with open(log_path, encoding="utf-8") as f:
+            for ln in f:
+                if '"trade_closed"' not in ln:
+                    continue
+                try:
+                    e = json.loads(ln)
+                except ValueError:
+                    continue
+                p = e.get("payload") or {}
+                if p.get("backfill") or str(p.get("symbol")) != str(symbol):
+                    continue
+                try:
+                    t = datetime.datetime.fromisoformat(str(e.get("ts"))).timestamp()
+                except ValueError:
+                    continue
+                did = p.get("deal_id")
+                if t < since_ts or (did and did in seen):
+                    continue
+                seen.add(did)
+                n += 1
+                pnl += float(p.get("profit") or 0.0)
+    except OSError:
+        pass
+    return n, round(pnl, 2)

@@ -52,7 +52,7 @@ class RiskSupervisor:
         # One halt file per broker account, so a halt on the live account never blocks demo (and vice versa).
         acct = "".join(c for c in str(os.environ.get("EXNESS_ACCOUNT_ID", "")) if c.isalnum())
         name = f"risk_supervisor_state_{acct}.json" if acct else "risk_supervisor_state.json"
-        return os.path.join(project_root, "logs", name)
+        return os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(project_root, "logs"), name)
 
     def _save_state(self) -> None:
         try:

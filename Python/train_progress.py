@@ -5,7 +5,7 @@ import json
 import os
 import time
 
-PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "training_progress.json")
+PATH = os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs"), "training_progress.json")
 
 
 class ProgressWriter:

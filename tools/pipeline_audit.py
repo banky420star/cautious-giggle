@@ -193,8 +193,10 @@ def check_external(now):
     # ob_gold: has it ever said anything?
     hist = []
     try:
-        for ln in open(os.path.join(LOG, "audit_events.jsonl"), encoding="utf-8"):
-            if '"council"' in ln and "XAUUSDm" in ln and "ob_gold" in ln:
+        # the audit log rotates (audit_events.jsonl.1 holds the older part): read both, oldest first
+        paths = [os.path.join(LOG, n) for n in ("audit_events.jsonl.1", "audit_events.jsonl")]
+        for ln in (x for pth in paths if os.path.exists(pth) for x in open(pth, encoding="utf-8")):
+            if '"event": "council"' in ln and "XAUUSDm" in ln and "ob_gold" in ln:
                 e = json.loads(ln)
                 if e.get("event") == "council":
                     hist.append(float((e["payload"].get("votes") or {}).get("ob_gold", 0) or 0))

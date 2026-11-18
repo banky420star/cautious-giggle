@@ -5,7 +5,7 @@ import {
 import {
   Activity, ArrowDownRight, ArrowUpRight, Brain, CircleDollarSign, Clock, GraduationCap, Lightbulb, Pause,
   Receipt, ShieldCheck, Target, TrendingUp, Trophy, Wallet, Zap, Sparkles, Cpu, FlaskConical, Database,
-  ArrowLeftRight, Moon, Newspaper, CalendarClock, LogOut, LayoutGrid, ListChecks, Gauge,
+  ArrowLeftRight, Moon, Newspaper, CalendarClock, LogOut, LayoutGrid, ListChecks, Gauge, BookOpen, Grid3x3,
 } from "lucide-react";
 import {
   WarCard, MissionControl, OpsLog, CommandBar, Section, Clocks, Sitrep, NewsAlert, Tour, Glossary, HelpButtons, condition, ago,
@@ -14,6 +14,7 @@ import {
 } from "./WarRoom.jsx";
 import { Boot, AccountSwitch, Logo } from "./Boot.jsx";
 import { RiskReactor, SetupMap } from "./Visuals.jsx";
+import { Learning, IndicatorMap } from "./Learning.jsx";
 
 const fmtMoney = (v, sign = false) => {
   if (v == null || Number.isNaN(v)) return "—";
@@ -330,6 +331,8 @@ function navItems(d) {
     { id: "sec-calls", label: "Who called it", Icon: Target, badge: d.scorecard?.recent?.length || null },
     { id: "sec-training", label: "Training", Icon: GraduationCap },
     { id: "sec-news", label: "News", Icon: Newspaper, badge: nextNews || null, tone: "amber" },
+    { id: "sec-learning", label: "Learning", Icon: BookOpen, badge: (() => { const f = (d.learning?.audit?.sections || []).reduce((a, x) => a + x.fail, 0); return f ? `${f} fail` : null; })(), tone: "red" },
+    { id: "sec-imap", label: "Indicator map", Icon: Grid3x3 },
   ];
 }
 
@@ -412,6 +415,14 @@ export default function App() {
 
       <Section folded id="sec-news" no="09" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
         <News news={d.news} />
+      </Section>
+
+      <Section folded id="sec-learning" no="10" title="LEARNING" sub="what each part of the bot has learned, which layer uses it, and the audit of every section">
+        <Learning data={d.learning} />
+      </Section>
+
+      <Section folded id="sec-imap" no="11" title="INDICATOR MAP" sub="all 164 indicators on every market, graded on unseen data: which ones called direction, which ones warned of big moves">
+        <IndicatorMap />
       </Section>
 
       <footer className="footer">

@@ -15,12 +15,13 @@ from Python.indicator_council import council_vote, readings_mtf, votes_mtf
 from Python import demo_exploration
 from Python import trade_scorecard
 from Python import auto_changes
+from Python.trade_memory_scale import trade_memory_scale as _trade_memory_scale
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOCK_DIR = os.path.join(BASE_DIR, ".tmp")
 LOCK_PATH = os.path.join(LOCK_DIR, "server_agi.lock")
-LOG_DIR = os.path.join(BASE_DIR, "logs")
+LOG_DIR = os.environ.get("AGI_LOG_DIR") or os.path.join(BASE_DIR, "logs")
 SERVER_LOG = os.path.join(LOG_DIR, "server.log")
 AUDIT_LOG = os.path.join(LOG_DIR, "audit_events.jsonl")
 TRADE_EVENTS_LOG = os.path.join(LOG_DIR, "trade_events.jsonl")
@@ -93,6 +94,27 @@ def _append_audit(event: str, payload: dict):
             "payload": payload,
         },
     )
+
+
+def _recorded_close_deals(max_bytes: int = 20_000_000) -> set:
+    """Deal ids of every trade_closed event already in the trade log."""
+    out = set()
+    try:
+        with open(TRADE_EVENTS_LOG, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - max_bytes))
+            for ln in f.read().decode("utf-8", "replace").splitlines():
+                if '"trade_closed"' not in ln:
+                    continue
+                try:
+                    did = int((json.loads(ln).get("payload") or {}).get("deal_id") or 0)
+                except (ValueError, TypeError):
+                    continue
+                if did > 0:
+                    out.add(did)
+    except OSError:
+        pass
+    return out
 
 
 def _append_trade_event(event: str, payload: dict):
@@ -1100,7 +1122,9 @@ def main(live=False):
     atexit.register(_notify_offline)
 
     known_open_tickets = set()
-    seen_closed_deals = set()
+    # closes already recorded survive a restart: without this the last 30 minutes of closes were recorded
+    # again on every restart (double-counted in trade learning, the scorecard and the risk engine's daily loss)
+    seen_closed_deals = _recorded_close_deals()
     last_deal_check = _utc_now() - datetime.timedelta(minutes=30)
 
     start_time = time.time()
@@ -1362,6 +1386,13 @@ def main(live=False):
                 if explore_scale != 1.0:
                     decision["target"] = float(decision["target"]) * explore_scale
                     decision["exploration_scale"] = explore_scale
+                # trade memory -> size: the market's own record of real closed trades now reaches the decision.
+                # It can only make the bot more careful (never bigger than normal).
+                tm_scale, tm_why = _trade_memory_scale(trade_memory, cfg)
+                if tm_scale != 1.0:
+                    decision["target"] = float(decision["target"]) * tm_scale
+                decision["trade_memory_scale"] = tm_scale
+                decision["trade_memory_why"] = tm_why
                 exposure = float(decision["target"])
                 spread_now = _tick_spread_bps(symbol)
                 if spread_now is not None:
@@ -1440,6 +1471,8 @@ def main(live=False):
                         "raw_target": float(decision["raw_target"]),
                         "exposure": float(exposure),
                         "decision_profile": dict(decision["profile"]),
+                        "trade_memory_scale": decision.get("trade_memory_scale", 1.0),
+                        "trade_memory_why": decision.get("trade_memory_why"),
                         "trade_memory": {
                             "trades": int(trade_memory.get("trades", 0) or 0),
                             "expectancy": float(trade_memory.get("expectancy", 0.0) or 0.0),

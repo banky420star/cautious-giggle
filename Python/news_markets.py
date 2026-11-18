@@ -28,7 +28,7 @@ import numpy as np
 import requests
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STORE = os.path.join(ROOT, "logs", "news_items.jsonl")
+STORE = os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(ROOT, "logs"), "news_items.jsonl")
 UA = {"User-Agent": "Mozilla/5.0 (compatible; trading-dashboard/1.0)"}
 
 CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
@@ -87,7 +87,7 @@ def _id(*parts) -> str:
     return hashlib.sha1("|".join(map(str, parts)).encode()).hexdigest()[:16]
 
 
-CAL_CACHE = os.path.join(ROOT, "logs", "calendar_cache.json")
+CAL_CACHE = os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(ROOT, "logs"), "calendar_cache.json")
 CAL_MAX_AGE = 1800  # the calendar host rate-limits hard: one fetch per 30 min shared by all processes
 
 

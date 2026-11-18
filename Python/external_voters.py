@@ -419,7 +419,7 @@ class _NewsLLM:
         self.error = None
 
     def _headlines(self, symbol: str) -> list[str]:
-        path = os.path.join(ROOT, "logs", "news_items.jsonl")
+        path = os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(ROOT, "logs"), "news_items.jsonl")
         cutoff = time.time() - float(self.cfg.get("lookback_h", 6)) * 3600
         base = symbol.rstrip("m")
         words = {"BTCUSD": ["bitcoin", "btc", "crypto"], "ETHUSD": ["ether", "eth", "crypto"],

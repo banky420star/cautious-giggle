@@ -161,6 +161,24 @@ def run():
               flush=True)
     with open(os.path.join(ROOT, "logs", "indicator_map.json"), "w", encoding="utf-8") as fh:
         json.dump(out, fh)
+    write_ui(out)
+
+
+def write_ui(d):
+    """Compact copy for the war-room dashboard (served at /api/indicator_map)."""
+    import collections
+    ui = {"z_bar": d["z_bar"], "markets": {}}
+    for s, m in d["markets"].items():
+        ev = m["timeline"]["events"]
+        ui["markets"][s] = {
+            "name": m["name"], "test_from": m["test_from"][:10], "up_pct": m["impactful_up_pct"], "dn_pct": m["impactful_dn_pct"],
+            "features": [{k: x[k] for k in ("f", "g", "dir_train", "dir_test", "big_test", "holds")} for x in m["features"]],
+            "combos": {k: m["combos"][k] for k in ("tested", "pass_train", "hold_test")},
+            "t": [x[5:16] for x in m["timeline"]["t"]], "p": m["timeline"]["p"],
+            "events": [{"t": e["t"][5:16], "dir": e["dir"], "mv": e["move_bps"], "top": e["top"]} for e in ev],
+            "flagcount": collections.Counter(t["f"] for e in ev for t in e["top"]).most_common(10)}
+    with open(os.path.join(ROOT, "logs", "indicator_map_ui.json"), "w", encoding="utf-8") as fh:
+        json.dump(ui, fh, separators=(",", ":"))
 
 
 if __name__ == "__main__":

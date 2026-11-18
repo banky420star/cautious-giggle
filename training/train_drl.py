@@ -33,7 +33,7 @@ EvalCallback = object
 _TORCH_IMPORT_ERROR = None
 _SB3_IMPORT_ERROR = None
 
-LOG_DIR = os.path.join(os.getcwd(), "logs")
+LOG_DIR = os.environ.get("AGI_LOG_DIR") or os.path.join(os.getcwd(), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 logger.add(os.path.join(LOG_DIR, "ppo_training.log"), rotation="10 MB", level="INFO")
 LOCK_DIR = os.path.join(os.getcwd(), ".tmp")
