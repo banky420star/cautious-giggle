@@ -645,6 +645,28 @@ def _low_volatility_memory_base(trade_memory: dict | None) -> float:
 _TF_SECONDS = {1: 60, 5: 300, 15: 900, 30: 1800, 60: 3600, 240: 14400, 1440: 86400}
 
 
+_MOVE_FILTER_CACHE: dict = {}
+
+
+def _move_filter_watch(symbol: str):
+    """Watch-only "big move coming" filter (Python/move_filter.py). Recomputed once per new 5-minute bar;
+    needs ~6000 M5 bars for its daily inputs (1000 bars disagreed with full history up to 30% of the time)."""
+    from Python import move_filter
+    probe = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 1, 1)
+    if probe is None or len(probe) == 0:
+        return None
+    last = int(probe[-1]["time"])
+    hit = _MOVE_FILTER_CACHE.get(symbol)
+    if hit is not None and hit[0] == last:
+        return hit[1]
+    d = _fetch_symbol_df(symbol, mt5.TIMEFRAME_M5, bars=move_filter.HISTORY_BARS)
+    out = move_filter.prob(symbol, d)
+    if out is not None:
+        out["bar_time"] = last
+    _MOVE_FILTER_CACHE[symbol] = (last, out)
+    return out
+
+
 def _fetch_symbol_df(symbol: str, timeframe, bars=None):
     """Closed bars only (start_pos=1); None if the feed is missing or stale.
 
@@ -1372,6 +1394,13 @@ def main(live=False):
                         auto_changes.observe_slow(setup_gate.table() if setup_gate is not None else None)
                 except Exception as e:
                     logger.warning(f"model memory update failed for {symbol}: {e}")
+                try:
+                    mf = _move_filter_watch(symbol)
+                    if mf is not None:
+                        _append_audit("move_filter", {"symbol": symbol, **mf, "blend": float(exposure),
+                                                      "watch_only": True})
+                except Exception as e:
+                    logger.warning(f"move filter failed for {symbol}: {e}")
 
                 logger.info(
                     "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f"
