@@ -155,7 +155,50 @@ def tsmom_weekly_blend(c, ret, scale):
     return _weekly(s) * scale
 
 
-IDEAS = {"xs_momentum": xs_momentum, "xs_reversal": xs_reversal, "turn_of_month": turn_of_month,
+def trend_filtered_long(c, ret, scale):
+    """Indices + gold long only while above their 200-day average (weekly check), flat otherwise: keeps the
+    market's drift but sits out long falls, so less swap is paid."""
+    sig = pd.DataFrame(0.0, index=c.index, columns=c.columns)
+    for m in INDICES + ["XAUUSD"]:
+        if m in sig:
+            sig[m] = (c[m] > c[m].rolling(200).mean()).astype(float)
+    return _weekly(sig) * scale
+
+
+def crypto_trend_long(c, ret, scale):
+    """Bitcoin and Ether long only while their 50-day average is above the 200-day, flat otherwise."""
+    sig = pd.DataFrame(0.0, index=c.index, columns=c.columns)
+    for m in ("BTCUSD", "ETHUSD"):
+        if m in sig:
+            sig[m] = (c[m].rolling(50).mean() > c[m].rolling(200).mean()).astype(float)
+    return _weekly(sig) * scale
+
+
+def fx_free_side(c, ret, scale):
+    """FX on the swap-free side only (long USDJPY, USDCHF, USDCAD, AUDUSD, EURJPY, GBPJPY), held while the
+    60-day trend agrees with that side, flat otherwise."""
+    sig = pd.DataFrame(0.0, index=c.index, columns=c.columns)
+    for m in ("USDJPY", "USDCHF", "USDCAD", "AUDUSD", "EURJPY", "GBPJPY"):
+        if m in sig:
+            sig[m] = (c[m].pct_change(60) > 0).astype(float)
+    return _weekly(sig) * scale
+
+
+def index_dip_buy(c, ret, scale):
+    """Indices: buy after a 3-day fall of more than 1.5x normal volatility while above the 200-day average,
+    hold 5 days (short-term mean reversion inside up-trends)."""
+    sig = pd.DataFrame(0.0, index=c.index, columns=c.columns)
+    for m in INDICES:
+        if m in sig:
+            z = c[m].pct_change(3) / (ret[m].rolling(60).std() * np.sqrt(3))
+            trig = ((z < -1.5) & (c[m] > c[m].rolling(200).mean())).astype(float)
+            sig[m] = trig.rolling(5, min_periods=1).max()
+    return sig * scale
+
+
+IDEAS = {"trend_filtered_long": trend_filtered_long, "crypto_trend_long": crypto_trend_long,
+         "fx_free_side": fx_free_side, "index_dip_buy": index_dip_buy,
+         "xs_momentum": xs_momentum, "xs_reversal": xs_reversal, "turn_of_month": turn_of_month,
          "volmanaged_long": volmanaged_long, "tsmom_weekly_blend": tsmom_weekly_blend}
 BENCH = "volmanaged_long"   # long-only market exposure: a benchmark, not an "edge"
 
