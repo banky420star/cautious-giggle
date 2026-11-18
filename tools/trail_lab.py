@@ -11,6 +11,8 @@ Entry methods ("votes", computed fast):
   burst_fade  the same: bet against it
   pressure_go / pressure_fade      net upticks among the last 30 quote changes >= 50%: follow / fade
   busy_burst_go / busy_burst_fade  bursts only while quotes arrive at >= 2x their usual pace
+--zero: Zero account (no-suffix Exness ticks, near-zero spread) plus the commission measured on the account
+(data/zero_costs.json); the cost unit becomes spread + commission.
 Exit (all in multiples of the spread, net of costs):
   SL     initial stop
   BE     once the trade could be closed at this profit, the stop jumps to break-even
@@ -109,7 +111,7 @@ def signals(idx, bid, ask, live, sp_med, rng) -> dict[str, np.ndarray]:
     return out
 
 
-def trade(bid, ask, i, side, sp, SL, BE, TR, TP, HOLD):
+def trade(bid, ask, i, side, sp, SL, BE, TR, TP, HOLD, comm=0.0):
     end = min(len(bid), i + 1 + HOLD)
     if end <= i + 1:
         return len(bid), 0.0
@@ -117,6 +119,7 @@ def trade(bid, ask, i, side, sp, SL, BE, TR, TP, HOLD):
         net = (bid[i + 1:end] - ask[i]) / ask[i] * 1e4
     else:
         net = (bid[i] - ask[i + 1:end]) / bid[i] * 1e4
+    net = net - comm                       # commission paid per trade (Zero account), so "profit" is real
     best = np.maximum.accumulate(np.concatenate([[-sp], net]))[:-1]
     stop = np.where(best >= BE * sp, np.maximum(0.0, best - TR * sp), -SL * sp)
     hit = net <= stop
@@ -128,7 +131,7 @@ def trade(bid, ask, i, side, sp, SL, BE, TR, TP, HOLD):
     return end - 1, float(net[-1])
 
 
-def simulate(bid, ask, sig, okspr, sp, lo, hi, SL, BE, TR, TP, HOLD):
+def simulate(bid, ask, sig, okspr, sp, lo, hi, SL, BE, TR, TP, HOLD, comm=0.0):
     """Sequential trades between seconds lo..hi; returns per-trade net bps."""
     cand = np.flatnonzero(sig[lo:hi] != 0) + lo
     cand = cand[okspr[cand]]
@@ -138,7 +141,7 @@ def simulate(bid, ask, sig, okspr, sp, lo, hi, SL, BE, TR, TP, HOLD):
             k = np.searchsorted(cand, i)
             continue
         e = cand[k]
-        j, r = trade(bid, ask, e, int(sig[e]), sp, SL, BE, TR, TP, min(HOLD, hi - e))
+        j, r = trade(bid, ask, e, int(sig[e]), sp, SL, BE, TR, TP, min(HOLD, hi - e), comm)
         res.append(r)
         i = j + 1
         k += 1
@@ -156,6 +159,10 @@ def summ(r: np.ndarray, sp: float) -> dict:
             "total_bps": round(float(r.sum()), 1)}
 
 
+COMM: dict = {}      # market -> commission bps per round trip (Zero account), empty = Standard account
+TAG = ""
+
+
 def run(month: str, markets: list[str]) -> dict:
     rng = np.random.default_rng(11)
     out = {}
@@ -163,18 +170,20 @@ def run(month: str, markets: list[str]) -> dict:
         t0 = time.time()
         idx, bid, ask, live = load(sym, month)
         sprd = (ask - bid) / ((ask + bid) / 2) * 1e4
-        sp = float(np.median(sprd[live]))
-        okspr = (sprd <= 1.5 * sp) & live
+        spm = float(np.median(sprd[live]))
+        comm = float(COMM.get(sym.rstrip("m") if COMM else sym, 0.0)) if COMM else 0.0
+        sp = spm + comm                         # cost unit: what one trade costs (spread + commission)
+        okspr = (sprd <= max(1.5 * spm, spm + 0.3 * sp)) & live
         sigs = signals(idx, bid, ask, live, sp, rng)
         n = len(bid)
         half = n // 2
-        res = {"spread_bps": round(sp, 3), "methods": {}}
+        res = {"spread_bps": round(spm, 3), "commission_bps": round(comm, 3), "cost_per_trade_bps": round(sp, 3), "methods": {}}
         for mname, sig in sigs.items():
             if ONLY and mname not in ONLY:
                 continue
             best = None
             for SL, BE, TR in CORE:
-                r = simulate(bid, ask, sig, okspr, sp, 0, half, SL, BE, TR, None, 900)
+                r = simulate(bid, ask, sig, okspr, sp, 0, half, SL, BE, TR, None, 900, comm)
                 if len(r) < 200:
                     continue
                 s = summ(r, sp)
@@ -184,28 +193,28 @@ def run(month: str, markets: list[str]) -> dict:
                 continue
             SL, BE, TR, _, _ = best[0]
             for TP, HOLD in ((None, 120), (None, 3600), (BE + TR + 1, 900), (2 * BE + 2, 900)):   # refine exits
-                r = simulate(bid, ask, sig, okspr, sp, 0, half, SL, BE, TR, TP, HOLD)
+                r = simulate(bid, ask, sig, okspr, sp, 0, half, SL, BE, TR, TP, HOLD, comm)
                 if len(r) >= 200:
                     s = summ(r, sp)
                     if s["per_trade_bps"] > best[1]["per_trade_bps"]:
                         best = ((SL, BE, TR, TP, HOLD), s)
             cfg = best[0]
-            test = summ(simulate(bid, ask, sig, okspr, sp, half, n, *cfg), sp)
+            test = summ(simulate(bid, ask, sig, okspr, sp, half, n, *cfg, comm), sp)
             gross = round(test["per_trade_bps"] + sp, 3)
             row = {"config": dict(zip(("SL", "BE", "TRAIL", "TP", "HOLD_s"), cfg)), "train": best[1], "test": test,
                    "test_gross_edge_bps": gross, "passes": bool(test["t"] >= 2 and best[1]["per_trade_bps"] > 0
                                                                and test["per_trade_bps"] > 0)}
             res["methods"][mname] = row
             with open(LEDGER, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"t": time.time(), "month": month, "market": sym, "method": mname, **row}) + "\n")
+                f.write(json.dumps({"t": time.time(), "month": month, "account": TAG or "standard", "market": sym, "method": mname, **row}) + "\n")
             c = row["config"]
             print(f"{sym:8} {mname:10} SL {c['SL']:>4}x BE {c['BE']:>3}x trail {c['TRAIL']:>3}x TP {str(c['TP']):>4} hold {c['HOLD_s']:>4}s | "
                   f"TRAIN {best[1]['per_trade_spreads']:+.2f} spr/trade ({best[1]['trades']} tr, win {best[1]['win_pct']}%) | "
                   f"TEST {test.get('per_trade_spreads', 0):+.2f} spr/trade ({test['trades']} tr, win {test['win_pct']}%, t={test['t']:+.1f})"
                   f"{'  PASS' if row['passes'] else ''}", flush=True)
         out[sym] = res
-        print(f"  [{sym}: spread {sp:.2f} bps, {time.time() - t0:.0f}s]", flush=True)
-        with open(os.path.join(ROOT, "logs", f"trail_lab_{month}.json"), "w", encoding="utf-8") as f:
+        print(f"  [{sym}: spread {spm:.2f} + commission {comm:.2f} = {sp:.2f} bps per trade, {time.time() - t0:.0f}s]", flush=True)
+        with open(os.path.join(ROOT, "logs", f"trail_lab_{TAG + '_' if TAG else ''}{month}.json"), "w", encoding="utf-8") as f:
             json.dump(out, f, indent=1)
     return out
 
@@ -215,6 +224,11 @@ if __name__ == "__main__":
     ap.add_argument("--month", default="2026_10")
     ap.add_argument("--markets", nargs="*", default=MARKETS)
     ap.add_argument("--methods", nargs="*")
+    ap.add_argument("--zero", action="store_true", help="Zero account: no-suffix ticks + measured commission")
     a = ap.parse_args()
     ONLY = a.methods
+    if a.zero:
+        TAG = "zero"
+        COMM = {k: v["commission_bps"] for k, v in json.load(open(os.path.join(ROOT, "data", "zero_costs.json"))).items()}
+        a.markets = [m.rstrip("m") for m in a.markets]
     run(a.month, a.markets)
