@@ -13,6 +13,8 @@ from loguru import logger
 from Python.model_memory import ModelMemory, market_context
 from Python.indicator_council import council_vote, readings_mtf, votes_mtf
 from Python import demo_exploration
+from Python import trade_scorecard
+from Python import auto_changes
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -792,6 +794,7 @@ def _scan_trade_events(alerter, risk, known_open_tickets, seen_closed_deals, las
             "tp": float(getattr(p, "tp", 0.0) or 0.0),
         }
         _append_trade_event("trade_open", payload)
+        trade_scorecard.on_open(payload)  # who voted which way, and why, at entry
 
         snap = _account_snapshot()
         alerter.trade(
@@ -834,6 +837,11 @@ def _scan_trade_events(alerter, risk, known_open_tickets, seen_closed_deals, las
             }
             _append_trade_event("trade_closed", payload)
             closed_events.append(payload)
+            card = trade_scorecard.on_close(payload)  # which voters called it right
+            if card:
+                right = [c["name"] for c in card["calls"] if c["call"] == "right"][:4]
+                logger.info(f"SCORECARD {payload['symbol']} #{payload['ticket']} {card['outcome']} ${pnl:+.2f}: "
+                            f"right = {', '.join(right) or 'nobody'}")
             try:
                 risk.record_trade_result(payload["symbol"], pnl)
             except Exception:
@@ -1360,6 +1368,8 @@ def main(live=False):
                                                   "down": council_meta["down"], "flat": council_meta["flat"],
                                                   "ignored": council_meta["ignored"], "votes": council_meta["votes"],
                                                   "assess": council_meta["assess"]})
+                        auto_changes.observe_council(symbol, ctx.get("key"), council_meta["ignored"], council_meta["assess"])
+                        auto_changes.observe_slow(setup_gate.table() if setup_gate is not None else None)
                 except Exception as e:
                     logger.warning(f"model memory update failed for {symbol}: {e}")
 

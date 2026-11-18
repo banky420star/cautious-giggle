@@ -1164,3 +1164,88 @@ export function SoundButton({ on, set }) {
     </button>
   );
 }
+
+/* ================================================================ who called it */
+export function ScoreCard({ sc }) {
+  const [open, setOpen] = useState(null);
+  const recent = sc?.recent || [];
+  const board = sc?.board || [];
+  if (!recent.length) {
+    return <div className="card hud muted small" style={{ padding: 14 }}>
+      No scored trades yet. From now on every trade saves who voted which way at entry; when it closes, each voter is
+      marked right or wrong here, with the reason it gave.</div>;
+  }
+  return (
+    <div className="calls">
+      <div className="card hud calls-list">
+        <div className="card-head"><b>Closed trades</b><span className="muted small">click a trade to see every voter's call and reason</span></div>
+        {recent.map((r) => {
+          const isOpen = open === `${r.ticket}-${r.t}`;
+          return (
+            <div key={`${r.ticket}-${r.t}`} className={`call-row ${r.outcome}`}>
+              <button type="button" className="call-sum" onClick={() => setOpen(isOpen ? null : `${r.ticket}-${r.t}`)}>
+                <span className={`call-out ${r.outcome}`}>{r.outcome === "win" ? "WIN" : "LOSS"}</span>
+                <b>{r.name}</b><span className={`bal-side ${r.side === "BUY" ? "buy" : "sell"}`}>{r.side}</span>
+                <span className={r.profit >= 0 ? "pos" : "neg"}>{money(r.profit)}</span>
+                {r.move_bps != null && <span className="muted small">{r.move_bps >= 0 ? "+" : ""}{r.move_bps} bps</span>}
+                <span className="call-tally"><span className="pos">{r.n_right} right</span> · <span className="neg">{r.n_wrong} wrong</span></span>
+                <span className="muted small">{new Date(r.t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+              </button>
+              {isOpen && (
+                <div className="call-detail">
+                  {r.calls.map((c) => (
+                    <div key={c.key} className={`call-v ${c.call}`}>
+                      <span className={`call-mark ${c.call}`}>{c.call === "right" ? "✓" : "✗"}</span>
+                      <b>{c.name}</b>{c.ignored && <span className="muted small"> (not counted)</span>}
+                      <span className="muted small"> · {c.why}{c.reading ? ` · ${c.reading}` : ""}</span>
+                      {c.reason && <div className="call-reason">{c.reason}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="card hud calls-board">
+        <div className="card-head"><b>Leaderboard</b><span className="muted small">how often each voter called it right</span></div>
+        <table className="tbl small">
+          <thead><tr><th>Voter</th><th className="r">Calls</th><th className="r">Right</th></tr></thead>
+          <tbody>
+            {board.map((v) => (
+              <tr key={v.key} title={Object.entries(v.markets || {}).map(([m, x]) => `${m}: ${x.right}/${x.calls}`).join(" · ")}>
+                <td>{v.name}</td><td className="r">{v.calls}</td>
+                <td className={`r ${v.hit >= 0.55 ? "pos" : v.hit < 0.45 ? "neg" : ""}`}>{v.hit != null ? `${Math.round(v.hit * 100)}%` : "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="muted small" style={{ marginTop: 6 }}>Under about 30 calls a voter's hit rate is mostly luck.</div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================ changes the bot made to itself */
+const CHG = { muted: ["MUTED", "red"], restored: ["BACK", "green"], setup: ["TRADE TYPE", "amber"], training: ["TRAINING", "violet"] };
+
+export function ChangeLog({ rows }) {
+  return (
+    <div className="card hud chg">
+      <div className="card-head"><b>Bot changes</b>
+        <span className="muted small">the bot updates itself as results come in; risk limits are only ever changed by you</span></div>
+      {!rows?.length ? <div className="muted small">No changes yet. Muted or restored voters, trade types moving between learning,
+        proven and blocked, and AI training results will appear here as they happen.</div> :
+        rows.map((r, i) => {
+          const [lab, tone] = CHG[r.kind] || [r.kind.toUpperCase(), "grey"];
+          return (
+            <div key={i} className="chg-row">
+              <span className={`op-tag ${tone}`}>{lab}</span>
+              <span className="chg-text">{r.text}</span>
+              <span className="muted small chg-t">{new Date(r.t * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+            </div>
+          );
+        })}
+    </div>
+  );
+}

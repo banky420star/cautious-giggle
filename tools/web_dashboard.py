@@ -203,6 +203,8 @@ class State:
             "news": self._news_snapshot(),
             "markets": m.market_rows(self.broker),
             "mission": self._mission(),
+            "scorecard": self._scorecard(),
+            "changes": __import__("Python.auto_changes", fromlist=["recent"]).recent(40),
             "blotter": self._blotter(),
             "setups": self._setups(),
             "models": self._models(),
@@ -570,6 +572,20 @@ class State:
                          "dist_tp_pct": (abs(tp - now) / now * 100) if (now and tp) else None})
         rows.sort(key=lambda x: -x["opened"])
         return rows
+
+    def _scorecard(self) -> dict:
+        """Who called it: recent closed trades with every voter's call, and the running tally."""
+        from Python import trade_scorecard as tc
+        summ = (tc._json(tc.SUMMARY).get("voters") or {})
+        board = sorted(({"key": k, **v} for k, v in summ.items() if v.get("calls")),
+                       key=lambda r: (-(r.get("hit") or 0), -r["calls"]))
+        recent = []
+        for r in tc.recent(25):
+            calls = [c for c in r.get("calls", []) if c.get("call") != "no view"]
+            calls.sort(key=lambda c: (c["call"] != "right", -abs(c.get("vote", 0))))
+            recent.append({**r, "name": NAMES.get(r.get("symbol"), r.get("symbol")), "calls": calls,
+                           "n_right": sum(c["call"] == "right" for c in calls), "n_wrong": sum(c["call"] == "wrong" for c in calls)})
+        return {"recent": recent, "board": board[:60]}
 
     def _stack_max(self) -> int:
         st = (((self.cfg.get("trading") or {}).get("demo_learning") or {}).get("stacking") or {})

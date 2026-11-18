@@ -10,7 +10,7 @@ import {
 import {
   WarCard, MissionControl, OpsLog, CommandBar, Section, Clocks, Sitrep, NewsAlert, Tour, Glossary, HelpButtons, condition, ago,
   Tape, Blotter, FillAlerts, SoundButton,
-  Setups, Models, SectionNav, BackToTop, MarketDrawer,
+  Setups, Models, SectionNav, BackToTop, MarketDrawer, ScoreCard, ChangeLog,
 } from "./WarRoom.jsx";
 import { Boot, AccountSwitch, Logo } from "./Boot.jsx";
 import { RiskReactor, SetupMap } from "./Visuals.jsx";
@@ -327,6 +327,7 @@ function navItems(d) {
     { id: "sec-models", label: "Your models", Icon: Brain, badge: d.models ? (d.models.live ? "live" : "off") : null, tone: d.models?.live ? "green" : "red" },
     { id: "sec-markets", label: "Markets", Icon: LayoutGrid, badge: d.symbols?.length || null },
     { id: "sec-ops", label: "Log & equity", Icon: Activity },
+    { id: "sec-calls", label: "Who called it", Icon: Target, badge: d.scorecard?.recent?.length || null },
     { id: "sec-training", label: "Training", Icon: GraduationCap },
     { id: "sec-news", label: "News", Icon: Newspaper, badge: nextNews || null, tone: "amber" },
   ];
@@ -400,11 +401,16 @@ export default function App() {
         </div>
       </Section>
 
-      <Section folded id="sec-training" no="07" title="TRAINING" sub="each market's AI: which reward style it is practising, and its exam record">
+      <Section folded id="sec-calls" no="07" title="WHO CALLED IT · BOT CHANGES" sub="which voters were right on each closed trade, and every change the bot made to itself">
+        <ScoreCard sc={d.scorecard} />
+        <ChangeLog rows={d.changes} />
+      </Section>
+
+      <Section folded id="sec-training" no="08" title="TRAINING" sub="each market's AI: which reward style it is practising, and its exam record">
         <MissionControl rows={d.mission} training={d.training} />
       </Section>
 
-      <Section folded id="sec-news" no="08" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
+      <Section folded id="sec-news" no="09" title="NEWS" sub="scheduled releases, what moved markets, and the news playbook's track record">
         <News news={d.news} />
       </Section>
 
