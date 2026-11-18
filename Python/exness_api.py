@@ -792,7 +792,8 @@ class ExnessMT5:
                     d = item.get("deal") or {}
                     inst = str(d.get("instrument") or "")
                     deals.append(SimpleNamespace(
-                        ticket=str(d.get("deal_id")), order=str(d.get("order_id") or ""),
+                        # MT5 deals carry their id as both .ticket and .deal; Server_AGI reads .deal
+                        ticket=str(d.get("deal_id")), deal=int(d.get("deal_id") or 0), order=str(d.get("order_id") or ""),
                         position_id=str(d.get("position_id") or ""), symbol=reverse.get(inst, inst),
                         type=self.ORDER_TYPE_BUY if str(d.get("direction")) == "buy" else self.ORDER_TYPE_SELL,
                         entry=self.DEAL_ENTRY_OUT if str(d.get("type")) == "close" else self.DEAL_ENTRY_IN,
