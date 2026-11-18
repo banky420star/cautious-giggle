@@ -1,5 +1,6 @@
 """Demo exploration: let a model that failed the promotion gates trade small on a DEMO account
-so the model memory can learn from real fills. Never active on a real-money account and never
+so the model memory can learn from real fills. Active wherever the demo rules apply: a demo account,
+and a real-money account too when trading.demo_learning.same_on_live is set. Never
 promotable to champion (the candidate dir carries an exploration.json marker)."""
 from __future__ import annotations
 

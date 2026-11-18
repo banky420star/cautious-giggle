@@ -81,7 +81,6 @@ const api = (path, body) => fetch(path, {
 /* ================================================================ boot / login screen */
 function bootLines(d, err) {
   if (!d) return [[err ? "FAIL" : "WAIT", err ? `Command server unreachable: ${err}` : "Linking to command server…"]];
-  const ai = d.symbols.filter((s) => (s.brain || "").startsWith("AI")).length;
   const tr = (d.mission || []).find((r) => r.progress) || (d.mission || []).find((r) => r.status === "training");
   const nxt = (d.news?.plan || []).filter((e) => e.t0 > Date.now() / 1000).sort((a, b) => a.t0 - b.t0)[0];
   const mins = nxt ? Math.round((nxt.t0 - Date.now() / 1000) / 60) : null;
@@ -89,7 +88,7 @@ function bootLines(d, err) {
     ["OK", "Command server linked"],
     [d.bot.broker_ok ? "OK" : "FAIL", `Broker link · Exness ${d.account_mode === "live" ? "LIVE" : "DEMO"} · $${d.account.equity.toFixed(2)}`],
     [d.bot.running ? "OK" : "FAIL", `Trading bot ${d.bot.running ? "online · next check in " + Math.floor(d.bot.next_check_s / 60) + ":" + String(d.bot.next_check_s % 60).padStart(2, "0") : "OFFLINE"}`],
-    ["OK", `${d.symbols.length} markets armed · ${ai} on AI models · ${d.symbols.length - ai} on indicator council`],
+    ["OK", `${d.symbols.length} markets armed · ${d.ai_line || "AI status unknown"}`],
     [tr ? "OK" : "IDLE", tr ? `Training lane · ${tr.name}${tr.scenario ? " · " + tr.scenario + " reward" : ""}${tr.progress?.total ? " · " + Math.round((tr.progress.step / tr.progress.total) * 100) + "%" : ""}` : "Training lanes idle"],
     ["OK", nxt ? `News desk · ${nxt.title.split(" + ")[0]} in ${mins >= 60 ? Math.floor(mins / 60) + "h " + (mins % 60) + "m" : mins + " min"}` : "News desk · no big US release in the next 36 h"],
     ["OK", `Risk limits armed · $${(d.account.daily_loss_limit || 0).toFixed(0)} daily stop · max 14 trades`],

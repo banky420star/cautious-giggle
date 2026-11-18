@@ -988,3 +988,10 @@ tfoot .tot-l { display: none; }
 .sec.closed .sec-chev { transform: none; }
 .sec-chev i { font-style: normal; display: inline-block; transition: transform .3s cubic-bezier(.4,0,.2,1); }
 .sec.closed .sec-chev i { transform: rotate(-90deg); }
+
+/* ===================================================== one story per market: AI status + training */
+.w-brain.ai-passed, .w-brain.ai-trial { color: var(--pos); border-color: rgba(52,211,153,.45); border-style: solid; }
+.w-brain.ai-unproven { color: var(--amber, #fbbf24); border-color: rgba(251,191,36,.4); border-style: dashed; }
+.w-brain.ai-none, .w-brain.ai-unknown { color: var(--muted); }
+.chip.crash { color: var(--muted); border-style: dashed !important; text-decoration: line-through; opacity: .7; }
+.chip-n { font-style: normal; margin-left: 5px; opacity: .8; font-size: .9em; }

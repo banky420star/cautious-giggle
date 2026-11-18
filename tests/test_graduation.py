@@ -27,6 +27,9 @@ def test_graduated_and_retraining_live_symbols_keep_trading(tmp_path, monkeypatc
     assert sorted(g.graduated_symbols()) == ["EURUSDm", "USDJPYm"]
 
 
+FAILED_EXAM = {"gates": [{"total_return": -0.01, "sharpe": -3.0, "max_drawdown": 0.02, "steps": 15000}]}
+
+
 def _cfg():
     return {"candidates": ["EURUSDm"], "live": ["BTCUSDm"], "max_attempts": 3, "base_steps": 1000,
             "step_growth": 2.0, "scenarios": ["balanced", "patient", "hunter"],
@@ -36,7 +39,7 @@ def _cfg():
 def test_failed_attempts_rotate_scenarios_then_grow_steps(tmp_path, monkeypatch):
     g = _grad(tmp_path, monkeypatch)
     monkeypatch.setattr(g, "exam_passed", lambda s: (False, "no model passed"))
-    monkeypatch.setattr(g, "last_exam", lambda s: {})
+    monkeypatch.setattr(g, "last_exam", lambda s: FAILED_EXAM)
     monkeypatch.setattr(g, "log", lambda m: None)
     cfg = _cfg()
     st = {"symbols": {"EURUSDm": {"status": "queued", "attempts": 0, "history": []}}}
@@ -70,7 +73,7 @@ def test_passing_scenario_is_remembered_for_retrains(tmp_path, monkeypatch):
 def test_live_market_failing_retrain_keeps_trading_and_tries_next(tmp_path, monkeypatch):
     g = _grad(tmp_path, monkeypatch)
     monkeypatch.setattr(g, "exam_passed", lambda s: (False, "no model passed"))
-    monkeypatch.setattr(g, "last_exam", lambda s: {})
+    monkeypatch.setattr(g, "last_exam", lambda s: FAILED_EXAM)
     monkeypatch.setattr(g, "log", lambda m: None)
     cfg = _cfg()
     st = {"symbols": {"BTCUSDm": {"status": "training", "attempts": 1, "scenario": "balanced", "was_live": True,
@@ -88,3 +91,22 @@ def test_interrupted_attempt_is_retried_with_same_scenario(tmp_path, monkeypatch
     g.requeue_interrupted(v, cfg)
     assert v["status"] == "retrain_queued" and v["attempts"] == 1
     assert g.scenario_for(v, cfg)[0] == "patient"
+
+
+def test_crashed_run_is_not_a_failed_exam(tmp_path, monkeypatch):
+    """A run that never reached its exam (crash, no data) gives the attempt back, keeps the same reward
+    scenario, and pauses before retrying so an outage cannot burn every attempt in minutes."""
+    g = _grad(tmp_path, monkeypatch)
+    monkeypatch.setattr(g, "exam_passed", lambda s: (False, "no model passed"))
+    monkeypatch.setattr(g, "last_exam", lambda s: {"error": "PPO training failed: ... returned non-zero exit status 1."})
+    monkeypatch.setattr(g, "log", lambda m: None)
+    cfg = _cfg()
+    v = {"status": "training", "attempts": 2, "scenario": "patient", "scenario_idx": 1, "history": []}
+    st = {"symbols": {"EURUSDm": v}}
+    g.finish(st, "EURUSDm", cfg, 0, [])
+    assert v["attempts"] == 1 and v["status"] == "exam_failed"
+    assert g.scenario_for(v, cfg)[0] == "patient" and v["history"][-1]["crashed"]
+    assert "never reached its exam" in v["why"]
+    assert g.plan(st, cfg) == ([], [])            # pausing after the crash
+    v["retry_after"] = 0
+    assert g.plan(st, cfg) == ([], ["EURUSDm"])

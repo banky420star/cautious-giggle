@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import monitor_tui as m
 import ops_log  # noqa: E402
 import account_profiles as ap  # noqa: E402
+import market_truth as mtruth  # noqa: E402
 import warroom as wr  # noqa: E402
 from narrator import Narrator  # noqa: E402
 from Python.indicator_council import describe  # noqa: E402
@@ -159,16 +160,20 @@ class State:
                   for d in deals if int(getattr(d, "entry", -1)) == out_entry]
 
         infos = {r["symbol"]: r for r in m.market_rows(self.broker)}
+        all_syms = list(self.symbols) + list(self.broker.extra)
+        truth = mtruth.overview(all_syms, self.cfg, ap.active())
         symbols = []
-        for s in list(self.symbols) + list(self.broker.extra):
+        for s in all_syms:
             row = self._symbol(s)
             inf = infos.get(s) or {}
-            row.update(mode=inf.get("mode", "signals + news"), grad=inf.get("grad"), news=inf.get("news"),
-                       chg_pct=inf.get("chg_pct"))
+            t = truth["markets"][s]
+            grad = dict(inf.get("grad") or {}) or None
+            if grad is not None:
+                grad.update(why=t["training"]["why"], summary=t["training"]["summary"])
+            row.update(mode=t["trades"]["mode"], ai=t["ai"], brain=t["ai"]["short"], training=t["training"]["summary"],
+                       grad=grad, news=inf.get("news"), chg_pct=inf.get("chg_pct"))
             if row["mode"] == "news only" and not row.get("position"):
-                g = inf.get("grad") or {}
-                w = str(g.get("why") or "")
-                row["why"] = ("Trades news releases only for now. " + (w[:1].upper() + w[1:])).strip()
+                row["why"] = t["trades"]["text"]
             symbols.append(row)
 
         with self.lock:
@@ -202,6 +207,7 @@ class State:
             "setups": self._setups(),
             "models": self._models(),
             "account_mode": ap.active(),
+            "ai_line": truth["line"],
             "ops": ops_log.events(os.path.join(m.LOG_DIR, "server.log"), NAMES, 50),
             "tip": dict(zip(("term", "text"), wr.GLOSSARY[int(time.time() // 12) % len(wr.GLOSSARY)])),
             "glossary": [{"term": t, "text": x} for t, x in wr.GLOSSARY],
@@ -226,6 +232,7 @@ class State:
         tick = b.ticks.get(s)
         sg = (logs.last_signal.get(s) or {}).get("payload") or {}
         cv = (logs.last_council.get(s) or {}).get("payload") or {}
+        said = self._models_said(s, sg) or {"lstm": {"counted": 0.0, "raw": 0.0}, "ppo": {"counted": 0.0}}
         mine = [p for p in b.positions if str(getattr(p, "symbol", "")) in (s, s.rstrip("m"))]
         prof = sg.get("decision_profile") if isinstance(sg.get("decision_profile"), dict) else {}
         thr = float(prof.get("min_trade_threshold", 0.15) or 0.15)
@@ -278,18 +285,17 @@ class State:
             "candles": (b.ohlc.get(s) or [])[-84:],
             "stack_max": self._stack_max(),
             "pipeline": {
-                "lstm": float(sg.get("agi_bias", 0) or 0),
-                "ppo": float(sg.get("ppo_exposure", 0) or 0),
+                "lstm": said["lstm"]["counted"],
+                "lstm_raw": said["lstm"]["raw"],
+                "ppo": said["ppo"]["counted"],
                 "dreamer": float(sg.get("dreamer_exposure", 0) or 0),
                 "council": float(sg.get("council", 0) or 0),
                 "blend": float(sg.get("raw_target", 0) or 0),
                 "final": float(sg.get("exposure", 0) or 0),
             } if sg else None,
             "briefing": self._briefing(s, sg, cv, thr, pos, pending),
-            "ballot": self._ballot(s, cv),
+            "ballot": self._ballot(s, cv, said),
             "kronos": ((self._xv().get("details") or {}).get(f"{s}:kronos")),
-            "brain": ("AI models + indicators" if (float(sg.get("agi_bias", 0) or 0) or float(sg.get("ppo_exposure", 0) or 0))
-                      else "indicator council (AI still training)") if sg else None,
         }
 
     _xv_cache: tuple = (0.0, {})
@@ -320,7 +326,43 @@ class State:
         self._rd_cache = (time.time(), v)
         return v
 
-    def _ballot(self, s: str, cv: dict) -> list[dict]:
+    def _models_said(self, s: str, sg: dict) -> dict:
+        """The AI models' part of the last decision, exactly as it went into the blend. Used by the gauge,
+        the step-by-step briefing and the voter list, so they cannot disagree."""
+        if not sg:
+            return {}
+        tr = self.cfg.get("trading") or {}
+        bar = float(tr.get("confidence_threshold", 0) or 0)
+        w = sg.get("weights_used") or {}
+        conf = float(sg.get("agi_confidence", sg.get("confidence", 0)) or 0)
+        raw = float(sg.get("agi_bias", 0) or 0)
+        counted = float(sg["agi_counted"]) if "agi_counted" in sg else (raw if conf >= bar else 0.0)
+        ai = mtruth.ai(s, self.cfg, ap.active())
+        side = lambda v: "BUY" if v > 0 else "SELL" if v < 0 else "no view"  # noqa: E731
+        if not raw:
+            lt = "No view this bar (or no pattern model for this market yet)."
+        elif not counted:
+            lt = (f"Leans {side(raw)} {raw:+.2f} but is only {conf:.0%} sure, below the {bar:.0%} it needs, "
+                  f"so it is NOT counted.")
+        elif w.get("lstm") == 0:
+            lt = f"Leans {side(raw)} {raw:+.2f}, but its record here is losing, so it is ignored."
+        else:
+            lt = f"Leans {side(raw)} {raw:+.2f}, {conf:.0%} sure (bar {bar:.0%}): counted."
+        lt += " The pattern model has no exam of its own; it reads the last 60 bars."
+        ppo = float(sg.get("ppo_exposure", 0) or 0)
+        tag = {"passed": "passed its exam", "trial": "passed its exam, on trial",
+               "unproven": "FAILED its exam; exploration model", "none": "no model loaded"}.get(ai["state"], ai["state"])
+        if ppo:
+            pt = f"Trader model ({tag}) wants {side(ppo)} {ppo:+.2f}."
+        elif ai["state"] in ("none", "unknown"):
+            pt = "No trader model for this market, so it has no vote."
+        else:
+            pt = f"Trader model ({tag}) has no view this bar."
+        return {"lstm": {"raw": raw, "counted": counted, "conf": conf, "bar": bar, "weight": w.get("lstm"), "text": lt},
+                "ppo": {"v": ppo, "counted": ppo if w.get("ppo", 1) else 0.0, "weight": w.get("ppo"), "text": pt,
+                        "state": ai["state"]}}
+
+    def _ballot(self, s: str, cv: dict, said: dict | None = None) -> list[dict]:
         """Every voter in this market's last council: what it said, how much it counts, its record, and why."""
         votes, assess = cv.get("votes") or {}, cv.get("assess") or {}
         rd = ((self._readings().get(s) or {}).get("readings") or {})
@@ -359,6 +401,26 @@ class State:
                                            "fmt": 2, "short": f"{float(v):+.2f}",
                                            "text": "vote from −1 (strong sell) to +1 (strong buy)"},
                         "headlines": (det or {}).get("headlines")})
+        for k, name in (("lstm", "LSTM pattern model"), ("ppo", "PPO trader model")):
+            m_ = (said or {}).get(k)
+            if not m_:
+                continue
+            v = m_["raw"] if k == "lstm" else m_["v"]
+            if not v:
+                continue
+            counted = m_["counted"]
+            a = assess.get(k) or {}
+            n = float(a.get("n_all", 0) or 0)
+            out.append({"key": k, "name": name, "model": True, "vote": round(v, 3),
+                        "side": "BUY" if v > 0.05 else "SELL" if v < -0.05 else "no view",
+                        "weight": m_.get("weight") or 0, "base": m_.get("weight") or 0, "mult": 1.0,
+                        "stage": "blend", "pull": round(counted * float(m_.get("weight") or 0), 3),
+                        "ignored": not counted or m_.get("weight") == 0,
+                        "record": {"n": round(n), "net_bps": a.get("edge_bps"), "hit": a.get("hit_rate"),
+                                   "verdict": a.get("verdict") if n >= 60 else "learning"},
+                        "reason": m_["text"], "tf": None, "strategy": k,
+                        "meter": {"v": round(v, 3), "min": -1, "max": 1, "buy": [0.05, 1], "sell": [-1, -0.05], "fmt": 2,
+                                  "short": f"{v:+.2f}", "text": ""}})
         out.sort(key=lambda r: -abs(r["pull"]))
         return out
 
@@ -380,18 +442,14 @@ class State:
         if not sg:
             return [{"k": "status", "text": "Waiting for the first 5-minute check on this market."}]
         side = lambda v: "BUY" if v > 0 else "SELL" if v < 0 else "no view"  # noqa: E731
-        lstm, ppo = float(sg.get("agi_bias", 0) or 0), float(sg.get("ppo_exposure", 0) or 0)
         council, raw = float(sg.get("council", 0) or 0), float(sg.get("raw_target", 0) or 0)
         final, conf = float(sg.get("exposure", 0) or 0), float(sg.get("confidence", 0) or 0)
         rs = float(sg.get("risk_scalar", 1) or 1)
         up, down = int(cv.get("up", 0) or 0), int(cv.get("down", 0) or 0)
         out = []
-        out.append({"k": "LSTM", "v": lstm, "text": (
-            f"Pattern reader leans {side(lstm)} {lstm:+.2f} ({conf:.0%} sure) from the last 60 bars." if lstm else
-            "No pattern reader for this market yet: it trains in the queue below, so it sits this one out.")})
-        out.append({"k": "PPO", "v": ppo, "text": (
-            f"Trader model wants {side(ppo)} {ppo:+.2f}." if ppo else
-            "Trader model has no approved version yet (it must pass the exam first), so it has no vote.")})
+        said = self._models_said(s, sg)
+        out.append({"k": "LSTM", "v": said["lstm"]["counted"], "text": said["lstm"]["text"]})
+        out.append({"k": "PPO", "v": said["ppo"]["counted"], "text": said["ppo"]["text"]})
         out.append({"k": "Council", "v": council, "text": (
             f"{up} indicator views say up, {down} say down (5m to 4h). Weighted by each one's recent record, the council "
             f"says {side(council)} {council:+.2f}.")})
@@ -536,14 +594,17 @@ class State:
         for s in list(self.symbols) + list(self.broker.extra):
             v = st.get(s) or {}
             hist = []
-            for h in (v.get("history") or [])[-6:]:
+            for h in (v.get("history") or [])[-8:]:
                 g = (((h.get("exam") or {}).get("gates") or [{}]) or [{}])[0]
                 hist.append({"scenario": h.get("scenario", "balanced"), "passed": bool(h.get("passed")),
+                             "crashed": mtruth.crashed(h),
                              "ret": g.get("total_return"), "sharpe": g.get("sharpe"), "dd": g.get("max_drawdown")})
+            tr = mtruth.training(s, st)
             row = {"symbol": s, "name": NAMES.get(s, s), "status": v.get("status", "live"),
                    "scenario": v.get("scenario"), "about": about.get(v.get("scenario") or "", ""),
                    "attempt": v.get("attempts", 0), "max_attempts": int(gcfg.get("max_attempts", 5) or 5),
-                   "best": v.get("best_scenario"), "why": v.get("why", ""), "history": hist, "order": order,
+                   "best": v.get("best_scenario"), "why": tr["why"], "summary": tr["summary"], "history": hist, "order": order,
+                   "ai": mtruth.ai(s, self.cfg, ap.active()),
                    "progress": None}
             pr = {}
             if running and v.get("status") == "training":

@@ -427,12 +427,13 @@ function Meter({ m }) {
     <svg viewBox={`0 0 ${W} ${H}`} className="meter" role="img" aria-label={`reading ${m.short}`}>
       <rect x={L} width={R - L} y={10} height={10} rx="3" className="mz track" />
       {zone(m.sell, "sell")}{zone(m.buy, "buy")}
-      <text x={L} y={32} className="m-tick">{f(m.min)}</text>
-      <text x={R} y={32} className="m-tick" textAnchor="end">{f(m.max)}</text>
+      {sx(m.v) - L > 46 && <text x={L} y={32} className="m-tick">{f(m.min)}</text>}
+      {R - sx(m.v) > 46 && <text x={R} y={32} className="m-tick" textAnchor="end">{f(m.max)}</text>}
       <g className="m-pin" style={{ transform: `translateX(${sx(m.v)}px)` }}>
         <line x1={0} x2={0} y1={4} y2={24} /><circle cx={0} cy={4} r={3} />
       </g>
-      <text x={sx(m.v)} y={32} className="m-val" textAnchor="middle">{m.short}</text>
+      <text x={Math.min(R - 2, Math.max(L + 2, sx(m.v)))} y={32} className="m-val"
+            textAnchor={sx(m.v) - L < 30 ? "start" : R - sx(m.v) < 30 ? "end" : "middle"}>{m.short}</text>
     </svg>
   );
 }
@@ -488,7 +489,7 @@ function Ballot({ rows }) {
         <div className="vmodels">
           {models.map((r) => (
             <button type="button" key={r.key} className={`vmodel ${cur?.key === r.key ? "on" : ""} ${r.ignored ? "ign" : ""}`} onClick={() => setSel(r.key)} style={cellStyle(r)}>
-              <span className="vm-tag">YOUR MODEL · ×{r.base}</span>
+              <span className="vm-tag">{r.stage === "blend" ? `AI MODEL · ${r.ignored ? "not counted" : "blend ×" + r.weight}` : `YOUR MODEL · ×${r.base}`}</span>
               <b>{r.name.split(" (")[0]}</b>
               <span className="vm-side">{r.side} {r.meter?.short}</span>
             </button>
@@ -556,10 +557,7 @@ export function WarCard({ s, onOpen }) {
           ) : (
             <span className="w-badge idle"><Pause size={13} /> WATCHING</span>
           )}
-          {s.brain && <span className={`w-brain ${s.brain.startsWith("AI") ? "ai" : ""}`}
-                            title={s.brain.startsWith("AI") ? "Its trained AI models vote together with the indicators."
-                              : "No AI model has passed its exam for this market yet, so the indicator council decides alone."}>
-            {s.brain.startsWith("AI") ? "AI + indicators" : "indicators only"}</span>}
+          {s.ai && <span className={`w-brain ai-${s.ai.state}`} title={`${s.ai.text}${s.training ? " Training: " + s.training + "." : ""}`}>{s.ai.short}</span>}
         </div>
       </div>
 
@@ -612,7 +610,7 @@ export function MarketDrawer({ s, onClose }) {
               {live && <b> · {s.news.phase.replace("_", " ").toUpperCase()}</b>}
             </div>
           )}
-          {s.grad && !["live", "graduated"].includes(s.grad.status) && <div className="w-grad"><GraduationCap size={13} /> AI {s.grad.label}</div>}
+          {s.ai && <div className={`w-grad ai-${s.ai.state}`}><GraduationCap size={13} /> {s.ai.text}{s.training && <> Training so far: {s.training}.</>}</div>}
           <div className="w-candles"><Candles candles={s.candles} position={p} bid={s.bid} /></div>
         </div>
       </aside>
@@ -834,8 +832,8 @@ export function OpsLog({ ops, feed, trades }) {
 
 /* ================================================================ training mission control */
 const STATUS = {
-  live: "trading · keeps its model", graduated: "graduated · AI trading", training: "in training", queued: "queued",
-  exam_failed: "failed exam · next scenario queued", retrain_queued: "next scenario queued", needs_work: "needs work · retry in 24h",
+  live: "no pass yet · keeps its current model", graduated: "passed · AI trading", training: "in training", queued: "queued",
+  exam_failed: "no pass yet · next reward queued", retrain_queued: "no pass yet · next reward queued", needs_work: "no pass yet · retry in 24h",
 };
 
 export function MissionControl({ rows, training }) {
@@ -847,15 +845,17 @@ export function MissionControl({ rows, training }) {
       <div className="card hud mission">
         <div className="m-legend ex">
           <span className="chip pass">passed</span><span className="chip fail">failed</span><span className="chip cur">training now</span>
-          <span className="muted small">Each market gets its own AI. A model only trades after it passes an exam on 2 months of data it never saw. A fail retrains it with the next reward scenario.</span>
+          <span className="chip crash">crashed (not counted)</span>
+          <span className="muted small">Each market gets its own AI, tested on about two months of history it never saw. Passing = it made money there.
+            A model that failed can still vote at half size while the learning settings are on, to gather real evidence. A run that crashed before its exam is retried, not counted.</span>
         </div>
         <div className="m-grid">
           {rows.map((r) => {
             const tried = {};
-            (r.history || []).forEach((h) => { tried[h.scenario] = h; });
+            (r.history || []).forEach((h) => { if (!h.crashed || !tried[h.scenario]) tried[h.scenario] = h; });
             const pr = r.progress;
             const pct = pr && pr.total ? Math.min(100, (pr.step / pr.total) * 100) : null;
-            const last = (r.history || [])[r.history.length - 1];
+            const last = [...(r.history || [])].reverse().find((h) => !h.crashed);
             return (
               <div key={r.symbol} className={`m-row ${r.status}`}>
                 <div className="m-name"><b>{r.name}</b><span className={`m-status ${r.status}`}>{STATUS[r.status] || r.status}</span></div>
@@ -863,8 +863,10 @@ export function MissionControl({ rows, training }) {
                   {(r.order || []).map((sc) => {
                     const h = tried[sc];
                     const isCur = r.status === "training" && r.scenario === sc;
-                    const cls = isCur ? "cur" : h ? (h.passed ? "pass" : "fail") : r.best === sc ? "pass" : "";
-                    return <span key={sc} className={`chip ${cls}`} title={h ? `${sc}: exam return ${h.ret != null ? (h.ret * 100).toFixed(2) + "%" : "?"}, Sharpe ${h.sharpe != null ? h.sharpe.toFixed(2) : "?"}` : sc}>{sc.replace("_", " ")}</span>;
+                    const cls = isCur ? "cur" : h ? (h.crashed ? "crash" : h.passed ? "pass" : "fail") : r.best === sc ? "pass" : "";
+                    const tip = !h ? `${sc}: not tried yet` : h.crashed ? `${sc}: crashed before its exam (not counted)`
+                      : `${sc}: exam return ${h.ret != null ? (h.ret * 100).toFixed(2) + "%" : "?"}, Sharpe ${h.sharpe != null ? h.sharpe.toFixed(1) : "?"}`;
+                    return <span key={sc} className={`chip ${cls}`} title={tip}>{sc.replace("_", " ")}{h && !h.crashed && h.ret != null && <i className="chip-n">{(h.ret * 100).toFixed(1)}%</i>}</span>;
                   })}
                 </div>
                 <div className="m-prog">
@@ -877,7 +879,7 @@ export function MissionControl({ rows, training }) {
                     : last ? <span className="small">last exam ({last.scenario}) <b className={last.ret >= 0 ? "pos" : "neg"}>{last.ret != null ? `${(last.ret * 100).toFixed(2)}%` : "—"}</b>{last.sharpe != null && <span className="muted"> · Sharpe {last.sharpe.toFixed(1)}</span>}</span>
                     : <span className="small muted">no exam yet</span>}
                 </div>
-                <div className="m-why small muted ex">{r.status === "training" && r.about ? `${r.scenario}: ${r.about}` : r.why}</div>
+                <div className="m-why small muted">{r.status === "training" && r.about ? `${r.scenario}: ${r.about}` : r.summary}</div>
               </div>
             );
           })}

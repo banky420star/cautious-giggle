@@ -1018,7 +1018,7 @@ def main(live=False):
     news_trader = NewsTrader(mt5, executor, cfg, logger, _append_audit)
     news_trader.halted = lambda: bool(supervisor.halt_until is not None and supervisor.halt_until > _utc_now())
     if news_trader.enabled and not demo_exploration.demo_rules_apply(mt5, cfg):
-        news_trader.enabled = False  # demo only, like the other learning features
+        news_trader.enabled = False  # learning feature: demo, or live when same_on_live
     logger.info(f"news trading {'ON' if news_trader.enabled else 'OFF'}")
     learn_cfg = (cfg.get("trading", {}) or {}).get("demo_learning", {}) or {}
     if bool(learn_cfg.get("enabled", False)) and demo_exploration.demo_rules_apply(mt5, cfg):
@@ -1385,6 +1385,12 @@ def main(live=False):
                         "confidence": conf,
                         "risk_scalar": _risk_scalar(agi_meta),
                         "agi_bias": float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
+                        # what actually went into the blend (the LSTM is zeroed below its confidence bar)
+                        "agi_counted": float(decision.get("agi_bias", 0.0) or 0.0),
+                        "agi_confidence": float(decision.get("agi_confidence", 0.0) or 0.0),
+                        "weights_used": {"lstm": decision.get("agi_weight_used"), "ppo": decision.get("ppo_weight_used"),
+                                         "dreamer": decision.get("dreamer_weight_used"),
+                                         "council": decision.get("council_weight_used")},
                         "council": float(decision.get("council_target", 0.0) or 0.0),
                         "ppo_exposure": float((ppo_meta or {}).get("target", 0.0) or 0.0),
                         "dreamer_exposure": float((dreamer_meta or {}).get("target", 0.0) or 0.0),

@@ -166,10 +166,12 @@ def plan(st: dict, cfg: dict) -> tuple[list[str], list[str]]:
     first, again = [], []
     for s in cfg.get("live", []):
         v = st["symbols"].get(s) or {}
-        if v.get("status") == "retrain_queued":
+        if v.get("status") == "retrain_queued" and time.time() >= float(v.get("retry_after", 0)):
             again.append(s)
     for s in cfg["candidates"]:
         v = st["symbols"].setdefault(s, {"status": "queued", "attempts": 0, "history": []})
+        if time.time() < float(v.get("retry_after", 0)):
+            continue                   # pausing after a crash (e.g. the network is down)
         if v["status"] in ("queued",):
             first.append(s)
         elif v["status"] == "exam_failed" and v["attempts"] < cfg["max_attempts"]:
@@ -215,13 +217,41 @@ def requeue_interrupted(v: dict, cfg: dict):
     log(f"interrupted attempt re-queued ({v.get('scenario')})")
 
 
+def _crash_reason(err: str) -> str:
+    e = str(err or "")
+    if "SIGSEGV" in e:
+        return "the training process crashed (memory fault)"
+    if "data" in e.lower() or "exit status 1" in e:
+        return "the training script stopped with an error (usually: no price history while the network was down)"
+    return "training stopped before its exam" + (f": {e[:120]}" if e else "")
+
+
 def finish(st: dict, s: str, cfg: dict, rc: int | None, newly: list):
     """Record the result of a finished attempt and decide what comes next."""
     v = st["symbols"][s]
     scen, steps = v.get("scenario", "default"), v.get("steps")
     ok, how = exam_passed(s)
-    v["history"].append({"t": time.time(), "attempt": v["attempts"], "scenario": scen, "steps": steps,
-                         "passed": ok, "how": how, "rc": rc, "exam": last_exam(s)})
+    exam = last_exam(s)
+    entry = {"t": time.time(), "attempt": v["attempts"], "scenario": scen, "steps": steps,
+             "passed": ok, "how": how, "rc": rc, "exam": exam}
+    if not ok and (exam.get("error") or not exam.get("gates")):
+        # No exam happened (crash, no data, killed): not a failed attempt. Same scenario again, with a
+        # growing pause so an outage cannot burn through every attempt in minutes.
+        entry["crashed"] = True
+        v["history"].append(entry)
+        v["crash_streak"] = int(v.get("crash_streak", 0)) + 1
+        wait = min(6 * 3600, 900 * 2 ** (v["crash_streak"] - 1))
+        v["retry_after"] = time.time() + wait
+        v["attempts"] = max(0, int(v.get("attempts", 1)) - 1)
+        was_live = bool(v.get("was_live")) or s in cfg["live"]
+        v["status"] = "retrain_queued" if was_live else ("queued" if v["attempts"] == 0 else "exam_failed")
+        v["why"] = (f"the '{scen}' run never reached its exam: {_crash_reason(exam.get('error'))}. Not counted as an "
+                    f"attempt; it retries the same reward in {wait // 60} min")
+        log(f"{s}: crashed, not counted — {v['why']}")
+        return
+    v["crash_streak"] = 0
+    v.pop("retry_after", None)
+    v["history"].append(entry)
     v["last_retrain"] = time.time()
     v["scenario_idx"] = int(v.get("scenario_idx", 0)) + 1      # next attempt tries the next scenario
     live_sym = s in cfg["live"]
@@ -241,8 +271,9 @@ def finish(st: dict, s: str, cfg: dict, rc: int | None, newly: list):
         v["why"] = f"tried {v['attempts']} reward scenarios without beating the exam; keeps the model it had"
     else:
         v["status"] = "needs_work"
-        v["why"] = (f"failed the exam with all {v['attempts']} reward scenarios: trades news only; the next "
-                    f"round trains longer")
+        from tools.market_truth import training as _tr
+        v["why"] = (f"failed the exam with all {v['attempts']} reward scenarios ({_tr(s, st['symbols'])['summary']}); "
+                    f"the next round in 24 h trains longer")
     if v["status"] in ("graduated", "live"):
         v["attempts"] = 0
         v.pop("was_live", None)

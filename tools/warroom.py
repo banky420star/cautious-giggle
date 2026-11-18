@@ -258,7 +258,8 @@ GLOSSARY = [
     ("Stop-loss", "a pre-set exit that caps the loss on a trade; sized so one stop costs ≤ ~1.5% of the account."),
     ("Daily loss limit", "if the day's loss reaches the limit the bot halts new trades until tomorrow."),
     ("val_loss", "error on data the model never trained on; falling = genuinely learning, rising = memorising."),
-    ("Demo exploration", "a model that failed its exam may trade half-size on demo only, to collect real evidence."),
+    ("Exploration", "a model that failed its exam may trade half-size while the learning settings are on "
+                    "(demo, and real money too when same_on_live is set), to collect real evidence."),
     ("Context", "trend | volatility | session; the memory keeps a separate scorecard for each kind of market."),
 ]
 
@@ -335,8 +336,8 @@ MISSIONS = {
         "name": "Exam (out-of-sample backtest)",
         "learn": "nothing. This is the test.",
         "goal": "prove the new PPO trader would have made money on unseen data, safely, and better than simple rules.",
-        "test": "the gates below. Pass → it starts trading on demo (canary). Fail → it may trade half-size on demo "
-                "only, to collect real evidence.",
+        "test": "the gates below. Pass → it starts trading on demo (canary). Fail → it may trade half-size while the "
+                "learning settings are on (also on real money when same_on_live is set), to collect real evidence.",
         "role": "",
     },
 }
