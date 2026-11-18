@@ -25,3 +25,4 @@ data/exness_cache/
 web/node_modules/
 web/dist/
 .venv.usb/
+data/ticks/
