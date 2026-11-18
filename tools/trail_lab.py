@@ -9,6 +9,8 @@ Entry methods ("votes", computed fast):
   council5s / 15s / 30s / 45s / 1m / 2m / 3m / 4m   the 12-indicator council on that bar size, when it leans |c| >= 0.2
   burst_go    price moved >= K spreads in the last 10 s: follow it
   burst_fade  the same: bet against it
+  pressure_go / pressure_fade      net upticks among the last 30 quote changes >= 50%: follow / fade
+  busy_burst_go / busy_burst_fade  bursts only while quotes arrive at >= 2x their usual pace
 Exit (all in multiples of the spread, net of costs):
   SL     initial stop
   BE     once the trade could be closed at this profit, the stop jumps to break-even
@@ -42,6 +44,8 @@ sys.path.insert(0, ROOT)
 from Python.indicator_council import votes  # noqa: E402
 
 TICKS = os.path.join(ROOT, "data", "ticks")
+EXTRA: dict = {}
+ONLY: list | None = None
 MARKETS = ["XAUUSDm", "BTCUSDm", "EURUSDm", "USDJPYm", "XAGUSDm", "ETHUSDm", "USOILm"]
 CORE = list(itertools.product((3, 6, 12), (0.5, 1, 2), (0.5, 1, 2)))      # SL, BE, TRAIL
 LEDGER = os.path.join(ROOT, "logs", "trail_lab_ledger.jsonl")
@@ -53,10 +57,19 @@ def load(sym: str, month: str):
         df = pd.read_csv(z.open(n), usecols=["Timestamp", "Bid", "Ask"])
     df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True, format="mixed")
     df = df[(df.Ask >= df.Bid) & (df.Bid > 0)]
-    s = df.set_index("Timestamp").sort_index().resample("1s").last()
+    df = df.set_index("Timestamp").sort_index()
+    m = (df["Bid"] + df["Ask"]) / 2
+    d = np.sign(m.diff().fillna(0.0))
+    df["imb"] = d.rolling(30, min_periods=10).sum() / d.abs().rolling(30, min_periods=10).sum().clip(lower=1)
+    g = df.resample("1s")
+    s = g.last()
+    s["n"] = g["Bid"].count()
     live = s["Bid"].notna().to_numpy()                     # a real quote arrived this second
-    s = s.ffill().dropna()
+    s[["Bid", "Ask", "imb"]] = s[["Bid", "Ask", "imb"]].ffill()
+    s = s.dropna(subset=["Bid"])
     live = live[-len(s):]
+    global EXTRA
+    EXTRA = {"imb": s["imb"].fillna(0).to_numpy(), "rate": s["n"].fillna(0).to_numpy()}
     return s.index, s["Bid"].to_numpy(), s["Ask"].to_numpy(), live
 
 
@@ -84,6 +97,15 @@ def signals(idx, bid, ask, live, sp_med, rng) -> dict[str, np.ndarray]:
     go = np.where(mv >= k, 1, np.where(mv <= -k, -1, 0)).astype(np.int8)
     out["burst_go"] = go
     out["burst_fade"] = (-go).astype(np.int8)
+    # tick pressure: net share of upticks among the last 30 quote changes
+    imb = EXTRA["imb"]
+    ig = np.where(imb >= 0.5, 1, np.where(imb <= -0.5, -1, 0)).astype(np.int8)
+    out["pressure_go"], out["pressure_fade"] = ig, (-ig).astype(np.int8)
+    # bursts only while quotes arrive at >= 2x the usual pace (a busy market)
+    rate = pd.Series(EXTRA["rate"]).rolling(10, min_periods=1).sum().to_numpy()
+    busy = rate >= 2 * np.median(rate[rate > 0])
+    bg = np.where(busy, go, 0).astype(np.int8)
+    out["busy_burst_go"], out["busy_burst_fade"] = bg, (-bg).astype(np.int8)
     return out
 
 
@@ -148,6 +170,8 @@ def run(month: str, markets: list[str]) -> dict:
         half = n // 2
         res = {"spread_bps": round(sp, 3), "methods": {}}
         for mname, sig in sigs.items():
+            if ONLY and mname not in ONLY:
+                continue
             best = None
             for SL, BE, TR in CORE:
                 r = simulate(bid, ask, sig, okspr, sp, 0, half, SL, BE, TR, None, 900)
@@ -190,5 +214,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--month", default="2026_10")
     ap.add_argument("--markets", nargs="*", default=MARKETS)
+    ap.add_argument("--methods", nargs="*")
     a = ap.parse_args()
+    ONLY = a.methods
     run(a.month, a.markets)
