@@ -183,10 +183,13 @@ class ModelMemory:
         return f"{symbol}|{model}|{ctx}"
 
     def observe(self, symbol: str, bar_time, close: float, context: dict, targets: dict,
-                cost_bps: float | None = 0.0) -> list[dict]:
+                cost_bps: float | None = 0.0, extra_ctx: list | None = None) -> list[dict]:
         """Store this bar's calls (with the round-trip cost of acting on them now), then score
         the calls made `horizon` bars ago against the move since, net of that cost.
-        Returns the scored rows (for logging/UI)."""
+        Returns the scored rows (for logging/UI).
+        extra_ctx: additional grading buckets for this bar (e.g. "mf:go" / "mf:stop" from the big-move filter);
+        every model is scored in them too, so each model's edge is known per bucket. They never replace
+        the market-context key, so existing grades and mutes are unchanged."""
         bar_ts = int(bar_time.timestamp()) if hasattr(bar_time, "timestamp") else int(bar_time or 0)
         # unknown cost (no tick) -> the call is stored but never scored: scoring it at 0 would flatter it
         cost = None if cost_bps is None else max(0.0, float(cost_bps))
@@ -216,11 +219,12 @@ class ModelMemory:
                         continue
                     x = float(tgt) * ret_bps - abs(float(tgt)) * c
                     active = abs(float(tgt)) > ACTIVE
-                    for ctx in (p.get("ctx", "na"), "*"):
+                    for ctx in (p.get("ctx", "na"), "*", *(p.get("extra") or [])):
                         self.stats.setdefault(self._key(symbol, model, ctx), _Stat()).update(x, active, self.decay)
                     scored.append({"model": model, "target": float(tgt), "ret_bps": ret_bps, "cost_bps": c,
                                    "score": x, "ctx": p.get("ctx")})
             keep.append({"bar_ts": bar_ts, "close": float(close), "ctx": context.get("key", "na"), "cost": cost,
+                         "extra": [str(x) for x in (extra_ctx or [])],
                          "targets": {k: (None if v is None else float(v)) for k, v in targets.items()}})
             self.pending[symbol] = keep
         if scored:

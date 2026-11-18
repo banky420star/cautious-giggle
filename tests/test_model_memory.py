@@ -87,3 +87,20 @@ def test_unknown_cost_is_never_scored_as_free(tmp_path):
     mem.observe("BTCUSDm", t0, 100.0, {"key": "c"}, {"ppo": 1.0}, cost_bps=None)
     rows = mem.observe("BTCUSDm", t0 + dt.timedelta(minutes=5), 101.0, {"key": "c"}, {"ppo": 1.0}, cost_bps=1.0)
     assert rows == []
+
+
+def test_extra_buckets_grade_models_separately_without_touching_main_key(tmp_path):
+    mem = ModelMemory(str(tmp_path / "m.json"), half_life_bars=2000, prior_bars=50, min_samples=30)
+    rng = np.random.default_rng(1)
+    price, t0 = 100.0, dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc)
+    nxt = rng.normal(0, 0.001)
+    for i in range(800):
+        go = i % 2 == 0
+        call = float(np.sign(nxt)) if go else float(-np.sign(nxt))       # right in GO bars, wrong in STOP bars
+        mem.observe("XAUUSDm", t0 + dt.timedelta(minutes=5 * i), price, {"key": "k"}, {"ppo": call},
+                    cost_bps=0.0, extra_ctx=["mf:go" if go else "mf:stop"])
+        price *= np.exp(nxt)
+        nxt = rng.normal(0, 0.001)
+    assert mem.assess("XAUUSDm", "ppo", "mf:go")["edge_bps"] > 0
+    assert mem.assess("XAUUSDm", "ppo", "mf:stop")["edge_bps"] < 0
+    assert mem.assess("XAUUSDm", "ppo", "k")["n"] > 0          # main context still graded

@@ -10,6 +10,9 @@ Checks, per market where it applies:
   news      headlines present and recent
   signal    each market decided recently; LSTM counted?; PPO contributing?; council sane
   learning  closed-trade results reaching trade memory and the scorecard
+  filter    the baseline big-move filter: trained, skill on unseen data, live and fresh, GO share
+  learning  (process) live closes recorded, model memory updating, GO/STOP grades, what each model has learned
+  lstm/ppo  does each trained model beat doing nothing; is the canary trial measuring correctly; training logs
 Each line is PASS / WARN / FAIL with the reason. Writes logs/pipeline_audit.json.
     source scripts/mac/account_env.sh; PYTHONPATH=. .venv/bin/python tools/pipeline_audit.py
 """
@@ -279,6 +282,156 @@ def check_mapping():
         pass
 
 
+def check_move_filter(now):
+    """The baseline: per-market big-move filter. Trained? good enough on unseen data? live and fresh? sane GO share?"""
+    mdir = os.path.join(ROOT, "models", "move_filter")
+    ev = [e for e in tail_events(os.path.join(LOG, "audit_events.jsonl"), 20_000_000) if e.get("event") == "move_filter"]
+    by = defaultdict(list)
+    for e in ev:
+        by[e["payload"].get("symbol")].append(e)
+    rep_path = os.path.join(LOG, "move_filter_report.json")
+    report = json.load(open(rep_path)) if os.path.exists(rep_path) else {}
+    for s in MARKETS:
+        base = s[:-1]
+        mp = os.path.join(mdir, f"{base}.npz.pkl")
+        if not os.path.exists(mp):
+            rep("filter", s, "FAIL", "no trained move filter (run tools/train_move_filter.py then export_move_filter.py)")
+            continue
+        age_d = (now - os.path.getmtime(mp)) / 86400
+        r = report.get(base, {})
+        auc = r.get("auc")
+        if auc is None or auc < 0.6:
+            rep("filter", s, "WARN", f"unseen-data skill {auc} is weak (want >= 0.60)")
+        if age_d > 30:
+            rep("filter", s, "WARN", f"model is {age_d:.0f} days old: retrain on recent data")
+        rows = by.get(s, [])
+        if not rows:
+            rep("filter", s, "WARN" if market_open(s, now) else "PASS",
+                "no live readings yet" + ("" if market_open(s, now) else " (market closed)"))
+            continue
+        last_age = now - _ts(rows[-1]["ts"])
+        day = [x for x in rows if now - _ts(x["ts"]) < 86400]
+        go = np.mean([x["payload"]["go"] for x in day]) if day else float("nan")
+        ps = [x["payload"]["p"] for x in day]
+        bad = [p for p in ps if not (0 <= p <= 1)]
+        if bad:
+            rep("filter", s, "FAIL", f"{len(bad)} readings outside 0..1")
+        elif market_open(s, now) and last_age > 900:
+            rep("filter", s, "FAIL", f"last reading {last_age/60:.0f} min old while the market is open")
+        elif day and not (0.10 <= go <= 0.60) and len(day) >= 24:
+            rep("filter", s, "WARN", f"GO {go:.0%} of the last day (trained for ~30%): live inputs may differ from training")
+        else:
+            rep("filter", s, "PASS", f"skill {auc} on unseen data, model {age_d:.0f} d old, last reading {last_age/60:.0f} min ago, "
+                                     f"GO {go:.0%} of {len(day)} readings today (watch-only)")
+
+
+def _ts(iso):
+    import datetime as _dt
+    return _dt.datetime.fromisoformat(str(iso).replace("Z", "+00:00")).timestamp()
+
+
+def check_learning_process(now):
+    """Does each learner actually learn from correct results, and does what it learned beat doing nothing?"""
+    # 1. results reach the learners: live closes recorded since the deal-id fix
+    te = os.path.join(LOG, "trade_events.jsonl")
+    opens, closes, live_closes = [], [], []
+    for e in tail_events(te, 50_000_000):
+        if e.get("event") == "trade_open":
+            opens.append(e)
+        elif e.get("event") == "trade_closed":
+            closes.append(e)
+            if not (e.get("payload") or e).get("backfill") and "backfill" not in json.dumps(e):
+                live_closes.append(e)
+    day_open = [e for e in opens if now - _ts(e.get("ts")) < 86400]
+    day_close = [e for e in live_closes if now - _ts(e.get("ts")) < 86400]
+    if day_open and not day_close:
+        rep("learning", "-", "FAIL", f"{len(day_open)} trades opened in 24 h but no live close recorded")
+    else:
+        rep("learning", "-", "PASS", f"results reach the learners: {len(day_close)} live closes recorded in 24 h "
+                                     f"({len(live_closes)} live + {len(closes) - len(live_closes)} backfilled overall)")
+    # 2. model memory (grades every model's calls after costs) is updating, and the GO/STOP baseline is in it
+    mm = os.path.join(LOG, "memory", "model_memory.json")
+    try:
+        mem = json.load(open(mm))
+        age = now - os.path.getmtime(mm)
+        stats = mem.get("stats", {})
+        rep("learning", "-", "PASS" if age < 900 else "FAIL",
+            f"model memory updated {age/60:.0f} min ago, {len(stats)} grade buckets, horizon {mem.get('horizon_bars')} bars")
+        n_mf = sum("|mf:" in k for k in stats)
+        rep("learning", "-", "PASS" if n_mf else "WARN",
+            f"{n_mf} GO/STOP grade buckets: every model is graded per big-move state" if n_mf
+            else "no GO/STOP grades yet (they appear one scoring horizon after the first filter readings)")
+        # 3. what each learner has learned, per market, after costs (all contexts)
+        for s in MARKETS:
+            parts = []
+            for m in ("lstm", "ppo", "council", "blend", "trade"):
+                st = stats.get(f"{s}|{m}|*")
+                if st and st.get("w", 0) > 30:
+                    parts.append(f"{m} {st['m']:+.2f}")
+            inds = sorted(((k.split("|")[1][4:], v["m"]) for k, v in stats.items()
+                           if k.startswith(f"{s}|ind:") and k.endswith("|*") and v.get("w", 0) > 200), key=lambda x: -x[1])
+            if inds:
+                parts.append(f"best voter {inds[0][0]} {inds[0][1]:+.2f}, worst {inds[-1][0]} {inds[-1][1]:+.2f}")
+            tr = stats.get(f"{s}|trade|*")
+            status = "WARN" if tr and tr.get("w", 0) > 30 and tr["m"] < 0 else "PASS"
+            rep("learning", s, status, "learned edge per call after costs (bps): " + (", ".join(parts) or "not enough calls yet")
+                + (" -> the bot's own trades lose after costs" if status == "WARN" else ""))
+    except (OSError, ValueError) as e:
+        rep("learning", "-", "FAIL", f"model memory unreadable: {e}")
+    # 4. LSTM: does each trained model beat always-HOLD on its own validation data?
+    pdir = os.path.join(ROOT, "models", "per_symbol")
+    for s in MARKETS:
+        mp = os.path.join(pdir, f"lstm_{s}.meta.json")
+        if not os.path.exists(mp):
+            rep("lstm", s, "WARN", "no per-market LSTM trained; the shared one is used")
+            continue
+        m = json.load(open(mp))
+        acc, base = m.get("val_acc"), m.get("val_majority_acc")
+        if acc is not None and base is not None and acc < base:
+            rep("lstm", s, "FAIL", f"validation accuracy {acc:.1f}% is below always-HOLD {base:.1f}%: it learned nothing usable "
+                                   "(it predicts the next 5-min bar from price/indicators only, which the indicator map shows "
+                                   "carries no direction signal)")
+        else:
+            rep("lstm", s, "PASS", f"validation accuracy {acc} vs always-HOLD {base}")
+    # 5. PPO model registry: new models graduate only through a canary trial; is that trial measuring correctly?
+    try:
+        act = json.load(open(os.path.join(ROOT, "models", "registry", "active.json")))
+        for s, v in (act.get("symbols") or {}).items():
+            cs = v.get("canary_state") or {}
+            champ = v.get("champion")
+            if not champ and not v.get("canary"):
+                rep("ppo", s, "WARN", "no champion and no canary model")
+                continue
+            msg = (f"champion {'none' if not champ else os.path.basename(champ)}; canary {os.path.basename(v.get('canary') or '-')}: "
+                   f"{cs.get('trades')} trades, P/L {cs.get('realized_pnl')}, {cs.get('reason')}")
+            if cs.get("reason") == "no_metrics":
+                rep("ppo", s, "WARN", msg + " -> the trial has never been measured")
+            elif cs.get("trades") == 0 and (cs.get("realized_pnl") or 0) != 0:
+                rep("ppo", s, "FAIL", msg + " -> P/L without trades: the trial counts trades from the risk engine's DAILY counter "
+                                         "(resets at midnight and on restart) and P/L over 7 days (includes trades made before "
+                                         "this model), so it can neither graduate nor be judged fairly")
+            else:
+                rep("ppo", s, "WARN" if not champ else "PASS", msg)
+    except (OSError, ValueError) as e:
+        rep("ppo", "-", "FAIL", f"registry unreadable: {e}")
+    # 6. training runs: did the last one get its data, and are the logs trustworthy?
+    for name, area in (("ppo_training.log", "ppo"), ("lstm_training.log", "lstm")):
+        pth = os.path.join(LOG, name)
+        if not os.path.exists(pth):
+            continue
+        with open(pth, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 2_000_000))
+            tail = f.read().decode("utf-8", "replace")
+        if "pytest-of-" in tail or "test_reason" in tail or "registry_symbol_test" in tail:
+            rep(area, "-", "WARN", f"{name} contains lines written by the test suite (fake promotions, test halts): "
+                                   "tests must log to a temp file, or this log can't be trusted when reading training history")
+        dns = tail.count("NameResolutionError")
+        if dns:
+            rep(area, "-", "WARN", f"{name}: {dns} data downloads failed on name lookup (no internet/DNS) in recent runs: "
+                                   "training may have used old cached bars or skipped markets")
+
+
 def main():
     now = time.time()
     live = {}
@@ -297,12 +450,21 @@ def main():
     check_external(now)
     check_signals(now)
     check_learning()
+    check_move_filter(now)
+    check_learning_process(now)
     order = {"FAIL": 0, "WARN": 1, "PASS": 2}
-    results.sort(key=lambda r: (order[r["status"]], r["area"], r["market"]))
+    sections = ["feed", "live", "council", "kronos", "ob_gold", "catboost", "news", "signal", "filter", "learning", "lstm", "ppo"]
+    results.sort(key=lambda r: (sections.index(r["area"]) if r["area"] in sections else 99, order[r["status"]], r["market"]))
     with open(os.path.join(LOG, "pipeline_audit.json"), "w", encoding="utf-8") as f:
         json.dump({"t": now, "results": results}, f, indent=1)
+    last = None
     for r in results:
-        print(f"{r['status']:4} {r['area']:9} {r['market']:8} {r['what']}")
+        if r["area"] != last:
+            sec = [x for x in results if x["area"] == r["area"]]
+            print(f"\n== {r['area'].upper()}  ({sum(x['status'] == 'FAIL' for x in sec)} fail, "
+                  f"{sum(x['status'] == 'WARN' for x in sec)} warn, {sum(x['status'] == 'PASS' for x in sec)} pass)")
+            last = r["area"]
+        print(f"  {r['status']:4} {r['market']:8} {r['what']}")
     c = {k: sum(r["status"] == k for r in results) for k in order}
     print(f"\n{c['FAIL']} FAIL, {c['WARN']} WARN, {c['PASS']} PASS")
 

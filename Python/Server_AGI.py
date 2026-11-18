@@ -1367,6 +1367,16 @@ def main(live=False):
                 if spread_now is not None:
                     last_spread[symbol] = spread_now
                 cost_spread = spread_now if spread_now is not None else last_spread.get(symbol)
+                # baseline for every model: the big-move filter's GO/STOP is recorded with each bar so every
+                # model (LSTM, PPO, council, each indicator, external voters) is also graded per GO / STOP
+                mf = None
+                try:
+                    mf = _move_filter_watch(symbol)
+                    if mf is not None:
+                        _append_audit("move_filter", {"symbol": symbol, **mf, "blend": float(exposure),
+                                                      "watch_only": True})
+                except Exception as e:
+                    logger.warning(f"move filter failed for {symbol}: {e}")
                 try:
                     scored = model_memory.observe(
                         symbol, pd.Timestamp(df["time"].iloc[-1]).tz_localize("UTC") if "time" in df.columns else df.index[-1],
@@ -1380,6 +1390,7 @@ def main(live=False):
                             **{f"ind:{k}": v for k, v in ind_votes.items()},
                         },
                         cost_bps=None if cost_spread is None else cost_spread + cost_gate["extra_cost_bps"],
+                        extra_ctx=None if mf is None else ["mf:go" if mf["go"] else "mf:stop"],
                     )
                     _append_audit("model_memory", {"symbol": symbol, "context": ctx,
                                                    "scored": [r for r in scored if not str(r.get("model", "")).startswith("ind:")],
@@ -1394,13 +1405,6 @@ def main(live=False):
                         auto_changes.observe_slow(setup_gate.table() if setup_gate is not None else None)
                 except Exception as e:
                     logger.warning(f"model memory update failed for {symbol}: {e}")
-                try:
-                    mf = _move_filter_watch(symbol)
-                    if mf is not None:
-                        _append_audit("move_filter", {"symbol": symbol, **mf, "blend": float(exposure),
-                                                      "watch_only": True})
-                except Exception as e:
-                    logger.warning(f"move filter failed for {symbol}: {e}")
 
                 logger.info(
                     "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f"
