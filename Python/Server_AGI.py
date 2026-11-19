@@ -16,6 +16,7 @@ from Python import demo_exploration
 from Python import trade_scorecard
 from Python import auto_changes
 from Python.trade_memory_scale import trade_memory_scale as _trade_memory_scale
+from Python.trend_gate import TrendGate
 from Python.config_utils import DEFAULT_TRADING_SYMBOLS, load_project_config, resolve_trading_symbols
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -1052,6 +1053,12 @@ def main(live=False):
     _readings_dumped = [0.0]
     from Python.setup_gate import SetupGate
     setup_gate = SetupGate(((cfg.get("trading") or {}).get("setup_gate") or {}))
+    trend_gate = TrendGate(((cfg.get("trading") or {}).get("trend_gate") or {}), mt5)
+    _stops = (cfg.get("trading") or {}).get("stops") or {}
+    executor.sl_atr_mult = float(_stops.get("sl_atr_mult", 2.0))
+    executor.tp_atr_mult = float(_stops.get("tp_atr_mult", 3.2))
+    logger.info(f"trend gate {'on' if trend_gate.enabled else 'off'} ({'+'.join(trend_gate.tfs)} EMA{trend_gate.span}); "
+                f"stops {executor.sl_atr_mult}x ATR, targets {executor.tp_atr_mult}x ATR")
     _cg = ((cfg.get("trading") or {}).get("cost_gate") or {})
     cost_gate = {"enabled": bool(_cg.get("enabled", True)), "margin_bps": float(_cg.get("margin_bps", 0.2)),
                  "extra_cost_bps": float(_cg.get("extra_cost_bps", 0.0))}
@@ -1565,6 +1572,22 @@ def main(live=False):
                             vmin_ = float(getattr(info_, "volume_min", 0.01) or 0.01)
                             same_ = cur_x != 0.0 and (cur_x > 0) == (side_ > 0)
                             lot_cap = (abs(cur_x) * float(max_lots) if same_ else 0.0) + vmin_
+                # ---- trend gate: no new risk against BOTH the 4h and 1h trend (closes always pass)
+                cur_x = float(current_symbol_exposure)
+                if trend_gate.enabled and supervisor_decision.allowed and float(exposure) != 0.0 and (
+                        cur_x == 0.0 or (float(exposure) > 0) != (cur_x > 0) or abs(float(exposure)) > abs(cur_x) + 1e-9):
+                    side_ = 1 if float(exposure) > 0 else -1
+                    tv_, twhy_, ttr_ = trend_gate.check(symbol, side_)
+                    sym_state["trend_gate"] = {"verdict": tv_, "why": twhy_, "trends": ttr_}
+                    if tv_ == "block":
+                        exposure = 0.0 if (cur_x != 0.0 and (cur_x > 0) != (side_ > 0)) else cur_x
+                        held_by_gate = True
+                        gate_entry = None
+                        if time.time() - _gate_logged.get(f"trend:{symbol}:{side_}", 0) > 900:
+                            _gate_logged[f"trend:{symbol}:{side_}"] = time.time()
+                            logger.info(f"TREND BLOCK {symbol} | {twhy_}")
+                        if pending_entries.pop(symbol, None):
+                            _append_audit("entry_cancelled", {"symbol": symbol, "reason": "trend gate"})
                 skip_ = entry_skip.get(symbol)
                 if skip_ and skip_[1] > time.time() and float(exposure) != 0.0 and (float(exposure) > 0) == (skip_[0] > 0) \
                         and gate_entry is not None and pending_entries.get(symbol) is None:

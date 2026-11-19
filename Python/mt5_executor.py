@@ -56,6 +56,8 @@ class MT5Executor:
     def __init__(self, risk):
         self.risk = risk
         self._atr_cache = {}
+        self.sl_atr_mult = 1.4   # set from trading.stops by the server
+        self.tp_atr_mult = 2.2
 
     # ------------------------------------------------------------------ helpers
     def _symbol_info(self, symbol):
@@ -559,8 +561,8 @@ class MT5Executor:
         if atr_points is None:
             return base_sl, base_tp
 
-        dyn_sl = max(base_sl, int(atr_points * 1.4))
-        dyn_tp = max(base_tp, int(atr_points * 2.2))
+        dyn_sl = max(base_sl, int(atr_points * float(getattr(self, "sl_atr_mult", 1.4))))
+        dyn_tp = max(base_tp, int(atr_points * float(getattr(self, "tp_atr_mult", 2.2))))
         return dyn_sl, dyn_tp
 
     def _get_sl_tp(self, symbol, order_type, entry_price):

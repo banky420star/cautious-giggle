@@ -16,6 +16,13 @@ exness_api:
   symbol_map: {}            # e.g. {BTCUSDm: BTCUSD}; auto-detected from the account's instruments
 
 trading:
+  trend_gate:                      # no new trades against BOTH the 4h and 1h trend (2026-11-19 post-mortem)
+    enabled: true
+    ema: 50
+    timeframes: ["4h", "1h"]
+  stops:                           # broker stop/target distance in M5 ATR(14); was 1.4 / 2.2 (stops <1.5 ATR hit 36%)
+    sl_atr_mult: 2.0               # lot size shrinks to keep the risk_percent cap
+    tp_atr_mult: 3.2
   symbols: &id001
   - BTCUSDm
   - XAUUSDm
