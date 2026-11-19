@@ -1,0 +1,82 @@
+{
+  "type": "ppo",
+  "symbol": "ETHUSDm",
+  "symbols": [
+    "ETHUSDm"
+  ],
+  "timeframe": "5m",
+  "period": "90d",
+  "candles": 100000,
+  "timesteps": 250000,
+  "data_source": "auto",
+  "feature_set_version": "ultimate_150",
+  "normalization_version": "vecnorm_v1",
+  "reward": {
+    "version": "v2_risk_adjusted",
+    "weights": {
+      "growth": 8.0,
+      "payoff": 2.0,
+      "sharpe_bonus": 1.0,
+      "drawdown_penalty": 3.0,
+      "cost_penalty": 5.0,
+      "churn_penalty": 0.5,
+      "memory_expectancy_bonus": 0.5,
+      "loss_streak_penalty": 0.4
+    }
+  },
+  "reward_version": "v2_risk_adjusted",
+  "action_config": {},
+  "ppo_params": {
+    "learning_rate": 0.0001,
+    "n_steps": 4096,
+    "batch_size": 512,
+    "n_epochs": 10,
+    "gamma": 0.998,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "ent_coef": 0.005,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "target_kl": 0.03,
+    "use_sde": false,
+    "sde_sample_freq": 4
+  },
+  "policy_extractor": "adaptive_lstm",
+  "window_size": 100,
+  "windows": {
+    "train": "90d",
+    "validate": "120d",
+    "forward": []
+  },
+  "source": "EvalCallback best_model.zip + matching VecNormalize",
+  "date": "2026-11-17T20:47:26.303008+00:00",
+  "split_rows": {
+    "train": 70000,
+    "val": 15000,
+    "test": 15000
+  },
+  "holdout_start": "2026-09-26 17:30:00+00:00",
+  "val_start": "2026-08-05 15:30:00+00:00",
+  "env_kwargs": {
+    "execution_mode": "target",
+    "spread_bps": 2.0,
+    "commission_rate": 0.0002,
+    "slippage_bps": 1.0,
+    "sl_atr_mult": 1.4,
+    "tp_atr_mult": 2.2,
+    "min_rebalance": 0.12,
+    "window_size": 100
+  },
+  "best_val_reward": -0.7199848890304565,
+  "reward_scenario": "patient",
+  "reward_weights": {
+    "growth": 8.0,
+    "payoff": 2.0,
+    "sharpe_bonus": 1.0,
+    "drawdown_penalty": 3.0,
+    "cost_penalty": 9.0,
+    "churn_penalty": 2.0,
+    "memory_expectancy_bonus": 0.5,
+    "loss_streak_penalty": 0.4
+  }
+}

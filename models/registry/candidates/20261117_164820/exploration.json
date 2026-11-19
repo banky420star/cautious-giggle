@@ -1,0 +1,1 @@
+{"ts": 1794928105.7752519, "reason": "failed promotion gates; demo exploration only", "gates": [{"symbol": "ETHUSDm", "score": -87.04356231181455, "max_drawdown": 0.027398320156960927, "sharpe": -13.235479284430733, "total_return": -0.026920598740593604, "steps": 15018, "passes": false, "checks": {"dd_ok": true, "sharpe_ok": false, "return_ok": false, "steps_ok": true}}]}

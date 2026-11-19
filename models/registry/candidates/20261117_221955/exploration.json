@@ -1,0 +1,1 @@
+{"ts": 1794948491.454596, "reason": "failed promotion gates; demo exploration only", "gates": [{"symbol": "USDJPYm", "score": -240.0355075195934, "max_drawdown": 0.017415042127437115, "sharpe": -39.1925319277723, "total_return": -0.017414698409027762, "steps": 15032, "passes": false, "checks": {"dd_ok": true, "sharpe_ok": false, "return_ok": false, "steps_ok": true}}]}

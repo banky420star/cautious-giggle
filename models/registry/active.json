@@ -4,7 +4,7 @@
   "symbols": {
     "XAUUSDm": {
       "champion": null,
-      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_124025",
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_015218",
       "canary_policy": {
         "min_trades": 30,
         "min_realized_pnl": 0.0,
@@ -14,17 +14,18 @@
       "canary_state": {
         "trades": 0,
         "realized_pnl": 0.0,
-        "drawdown": 0.0,
-        "runtime_minutes": 4.434585571289063e-06,
-        "checked_at": "2026-11-17T10:43:21.152725+00:00",
+        "drawdown": 0.005084289330532694,
+        "runtime_minutes": 169.57156410217286,
+        "checked_at": "2026-11-19T11:42:33.187397+00:00",
         "passed": false,
         "reason": "trades 0 < min_trades 30"
       },
-      "champion_history": []
+      "champion_history": [],
+      "canary_set_at": 1795078378.8935108
     },
     "BTCUSDm": {
       "champion": null,
-      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_121708",
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261118_215551",
       "canary_policy": {
         "min_trades": 60,
         "min_realized_pnl": 0.0,
@@ -34,21 +35,127 @@
       "canary_state": {
         "trades": 0,
         "realized_pnl": 0.0,
-        "drawdown": 0.0,
-        "runtime_minutes": 4.450480143229167e-06,
-        "checked_at": "2026-11-17T10:43:21.127822+00:00",
+        "drawdown": 0.005084289330532694,
+        "runtime_minutes": 946.1222856561343,
+        "checked_at": "2026-11-19T11:42:33.026665+00:00",
         "passed": false,
         "reason": "trades 0 < min_trades 60"
       },
-      "champion_history": []
+      "champion_history": [],
+      "canary_set_at": 1795031785.6893508
+    },
+    "EURUSDm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_023530",
+      "canary_policy": {
+        "min_trades": 40,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.15,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "trades": 0,
+        "realized_pnl": 0.0,
+        "drawdown": 0.005084289330532694,
+        "runtime_minutes": 169.062202445666,
+        "checked_at": "2026-11-19T11:42:33.201672+00:00",
+        "passed": false,
+        "reason": "trades 0 < min_trades 40"
+      },
+      "champion_history": [],
+      "canary_set_at": 1795078409.4694872
+    },
+    "USDJPYm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_030727",
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "trades": 1,
+        "realized_pnl": 0.73,
+        "drawdown": 0.005084289330532694,
+        "runtime_minutes": 168.55112419923145,
+        "checked_at": "2026-11-19T11:42:33.215258+00:00",
+        "passed": false,
+        "reason": "trades 1 < min_trades 30"
+      },
+      "champion_history": [],
+      "canary_set_at": 1795078440.147768
+    },
+    "XAGUSDm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_033554",
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "trades": 0,
+        "realized_pnl": 0.0,
+        "drawdown": 0.005084289330532694,
+        "runtime_minutes": 168.04479454755784,
+        "checked_at": "2026-11-19T11:42:33.228458+00:00",
+        "passed": false,
+        "reason": "trades 0 < min_trades 30"
+      },
+      "champion_history": [],
+      "canary_set_at": 1795078470.540749
+    },
+    "ETHUSDm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_101954",
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "trades": 0,
+        "realized_pnl": 0.0,
+        "drawdown": 0.005084289330532694,
+        "runtime_minutes": 167.31140824953715,
+        "checked_at": "2026-11-19T11:42:33.242565+00:00",
+        "passed": false,
+        "reason": "trades 0 < min_trades 30"
+      },
+      "champion_history": [],
+      "canary_set_at": 1795078514.558033
+    },
+    "USOILm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_105223",
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "trades": 1,
+        "realized_pnl": 1.05,
+        "drawdown": 0.005084289330532694,
+        "runtime_minutes": 166.81024250189463,
+        "checked_at": "2026-11-19T11:42:33.256022+00:00",
+        "passed": false,
+        "reason": "trades 1 < min_trades 30"
+      },
+      "champion_history": [],
+      "canary_set_at": 1795078544.6414368
     }
   },
   "canary_policy": {},
   "canary_state": {},
   "champion_history": [],
   "registry_metadata": {
-    "updated_at": "2026-11-17T10:43:21.152752+00:00",
-    "git_commit": "a19c5cfb8902cea44f448caeca9449f52aeef740",
+    "updated_at": "2026-11-19T11:42:33.256040+00:00",
+    "git_commit": "bd3f5826ffc2195124272e83df97f32acb99f0d1",
     "champion_metadata": {},
     "canary_metadata": {}
   }

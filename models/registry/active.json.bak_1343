@@ -1,0 +1,114 @@
+{
+  "champion": null,
+  "canary": null,
+  "symbols": {
+    "XAUUSDm": {
+      "champion": null,
+      "canary": null,
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {},
+      "champion_history": []
+    },
+    "BTCUSDm": {
+      "champion": null,
+      "canary": null,
+      "canary_policy": {
+        "min_trades": 60,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.08,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {},
+      "champion_history": []
+    },
+    "EURUSDm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_152523",
+      "canary_policy": {
+        "min_trades": 40,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.15,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "passed": false,
+        "reason": "no_metrics"
+      },
+      "champion_history": []
+    },
+    "USDJPYm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_153443",
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "passed": false,
+        "reason": "no_metrics"
+      },
+      "champion_history": []
+    },
+    "XAGUSDm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_161919",
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "passed": false,
+        "reason": "no_metrics"
+      },
+      "champion_history": []
+    },
+    "ETHUSDm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_164820",
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "passed": false,
+        "reason": "no_metrics"
+      },
+      "champion_history": []
+    },
+    "USOILm": {
+      "champion": null,
+      "canary": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261117_170612",
+      "canary_policy": {
+        "min_trades": 30,
+        "min_realized_pnl": 0.0,
+        "max_drawdown": 0.12,
+        "min_runtime_minutes": 45
+      },
+      "canary_state": {
+        "passed": false,
+        "reason": "no_metrics"
+      },
+      "champion_history": []
+    }
+  },
+  "canary_policy": {},
+  "canary_state": {},
+  "champion_history": [],
+  "registry_metadata": {
+    "updated_at": "2026-11-17T15:08:54.323480+00:00",
+    "git_commit": "819f054052ac2e41950ea5576328f46c89a9168b",
+    "champion_metadata": {},
+    "canary_metadata": {}
+  }
+}

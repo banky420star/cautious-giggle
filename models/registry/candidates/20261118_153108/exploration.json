@@ -1,0 +1,1 @@
+{"ts": 1795008729.887577, "reason": "failed promotion gates; demo exploration only", "gates": [{"symbol": "USOILm", "score": -48.6441929844316, "max_drawdown": 0.019174576257178395, "sharpe": -7.225069146935661, "total_return": -0.018365696502221307, "steps": 15010, "passes": false, "checks": {"dd_ok": true, "sharpe_ok": false, "return_ok": false, "steps_ok": true}}]}

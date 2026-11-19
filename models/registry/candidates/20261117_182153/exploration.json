@@ -1,0 +1,1 @@
+{"ts": 1794932611.541217, "reason": "failed promotion gates; demo exploration only", "gates": [{"symbol": "XAUUSDm", "score": -60.084378749313046, "max_drawdown": 0.009489997404336994, "sharpe": -9.583258503775646, "total_return": -0.008691435453789698, "steps": 15014, "passes": false, "checks": {"dd_ok": true, "sharpe_ok": false, "return_ok": false, "steps_ok": true}}]}

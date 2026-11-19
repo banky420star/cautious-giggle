@@ -1,0 +1,1 @@
+{"ts": 1795031785.688504, "reason": "failed promotion gates; demo exploration only", "gates": [{"symbol": "BTCUSDm", "score": -78.35887077371015, "max_drawdown": 0.019216616345228428, "sharpe": -12.179791399068641, "total_return": -0.018140654252509214, "steps": 15009, "passes": false, "checks": {"dd_ok": true, "sharpe_ok": false, "return_ok": false, "steps_ok": true}}]}
