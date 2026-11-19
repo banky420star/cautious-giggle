@@ -1,0 +1,289 @@
+{
+ "t": 1794949465.496425,
+ "days": 14,
+ "horizon_min": 10,
+ "net_of_cost": true,
+ "markets": {
+  "BTCUSDm": {
+   "voters": {
+    "catboost": {
+     "n": 4030,
+     "active": 3634,
+     "hit": 0.482,
+     "edge_bps": -0.574,
+     "follow_bps": -1.113,
+     "gross_edge_bps": -0.229,
+     "cost_bps": 1.0
+    },
+    "kronos": {
+     "n": 672,
+     "active": 632,
+     "hit": 0.454,
+     "edge_bps": -0.446,
+     "follow_bps": -1.799,
+     "gross_edge_bps": 0.007,
+     "cost_bps": 1.0
+    },
+    "indicators_only": {
+     "n": 672,
+     "active": 635,
+     "hit": 0.494,
+     "edge_bps": 0.15,
+     "follow_bps": 0.399,
+     "gross_edge_bps": 0.609,
+     "cost_bps": 1.0
+    },
+    "indicators_plus_models": {
+     "n": 672,
+     "active": 637,
+     "hit": 0.499,
+     "edge_bps": 0.104,
+     "follow_bps": 0.469,
+     "gross_edge_bps": 0.472,
+     "cost_bps": 1.0
+    }
+   },
+   "spread_bps": 1.0,
+   "bars": 4030,
+   "from": "2026-11-03 21:00:00+00:00",
+   "to": "2026-11-17 20:55:00+00:00",
+   "seconds": 471
+  },
+  "XAUUSDm": {
+   "voters": {
+    "ob_gold": {
+     "n": 4030,
+     "active": 270,
+     "hit": 0.504,
+     "edge_bps": -0.051,
+     "follow_bps": -0.983,
+     "gross_edge_bps": -0.015,
+     "cost_bps": 0.623
+    },
+    "kronos": {
+     "n": 672,
+     "active": 639,
+     "hit": 0.505,
+     "edge_bps": -0.426,
+     "follow_bps": -0.712,
+     "gross_edge_bps": -0.113,
+     "cost_bps": 0.623
+    },
+    "indicators_only": {
+     "n": 672,
+     "active": 634,
+     "hit": 0.484,
+     "edge_bps": -0.112,
+     "follow_bps": -0.272,
+     "gross_edge_bps": 0.165,
+     "cost_bps": 0.623
+    },
+    "indicators_plus_models": {
+     "n": 672,
+     "active": 632,
+     "hit": 0.491,
+     "edge_bps": -0.099,
+     "follow_bps": -0.178,
+     "gross_edge_bps": 0.112,
+     "cost_bps": 0.623
+    }
+   },
+   "spread_bps": 0.62,
+   "bars": 4030,
+   "from": "2026-10-28 06:10:00+00:00",
+   "to": "2026-11-17 21:05:00+00:00",
+   "seconds": 512
+  },
+  "EURUSDm": {
+   "voters": {
+    "kronos": {
+     "n": 672,
+     "active": 637,
+     "hit": 0.38,
+     "edge_bps": -0.366,
+     "follow_bps": -0.757,
+     "gross_edge_bps": -0.024,
+     "cost_bps": 0.727
+    },
+    "indicators_only": {
+     "n": 672,
+     "active": 642,
+     "hit": 0.385,
+     "edge_bps": -0.264,
+     "follow_bps": -0.648,
+     "gross_edge_bps": 0.058,
+     "cost_bps": 0.727
+    },
+    "indicators_plus_models": {
+     "n": 672,
+     "active": 637,
+     "hit": 0.394,
+     "edge_bps": -0.221,
+     "follow_bps": -0.618,
+     "gross_edge_bps": 0.049,
+     "cost_bps": 0.727
+    }
+   },
+   "spread_bps": 0.73,
+   "bars": 4030,
+   "from": "2026-10-28 19:45:00+00:00",
+   "to": "2026-11-17 21:15:00+00:00",
+   "seconds": 705
+  },
+  "USDJPYm": {
+   "voters": {
+    "kronos": {
+     "n": 672,
+     "active": 635,
+     "hit": 0.444,
+     "edge_bps": -0.192,
+     "follow_bps": -0.512,
+     "gross_edge_bps": 0.072,
+     "cost_bps": 0.627
+    },
+    "indicators_only": {
+     "n": 672,
+     "active": 623,
+     "hit": 0.396,
+     "edge_bps": -0.307,
+     "follow_bps": -0.8,
+     "gross_edge_bps": -0.084,
+     "cost_bps": 0.627
+    },
+    "indicators_plus_models": {
+     "n": 672,
+     "active": 603,
+     "hit": 0.396,
+     "edge_bps": -0.243,
+     "follow_bps": -0.839,
+     "gross_edge_bps": -0.063,
+     "cost_bps": 0.627
+    }
+   },
+   "spread_bps": 0.63,
+   "bars": 4030,
+   "from": "2026-10-28 19:25:00+00:00",
+   "to": "2026-11-17 21:25:00+00:00",
+   "seconds": 640
+  },
+  "XAGUSDm": {
+   "voters": {
+    "kronos": {
+     "n": 672,
+     "active": 647,
+     "hit": 0.433,
+     "edge_bps": -1.468,
+     "follow_bps": -3.552,
+     "gross_edge_bps": 1.211,
+     "cost_bps": 5.271
+    },
+    "indicators_only": {
+     "n": 672,
+     "active": 640,
+     "hit": 0.362,
+     "edge_bps": -2.501,
+     "follow_bps": -5.247,
+     "gross_edge_bps": -0.075,
+     "cost_bps": 5.271
+    },
+    "indicators_plus_models": {
+     "n": 672,
+     "active": 638,
+     "hit": 0.37,
+     "edge_bps": -1.909,
+     "follow_bps": -5.29,
+     "gross_edge_bps": 0.164,
+     "cost_bps": 5.271
+    }
+   },
+   "spread_bps": 5.27,
+   "bars": 4030,
+   "from": "2026-10-28 06:15:00+00:00",
+   "to": "2026-11-17 21:35:00+00:00",
+   "seconds": 519
+  },
+  "ETHUSDm": {
+   "voters": {
+    "catboost": {
+     "n": 4030,
+     "active": 3547,
+     "hit": 0.384,
+     "edge_bps": -2.087,
+     "follow_bps": -5.896,
+     "gross_edge_bps": -0.374,
+     "cost_bps": 5.548
+    },
+    "kronos": {
+     "n": 672,
+     "active": 635,
+     "hit": 0.422,
+     "edge_bps": -2.686,
+     "follow_bps": -5.804,
+     "gross_edge_bps": -0.216,
+     "cost_bps": 5.548
+    },
+    "indicators_only": {
+     "n": 672,
+     "active": 651,
+     "hit": 0.413,
+     "edge_bps": -1.043,
+     "follow_bps": -2.496,
+     "gross_edge_bps": 1.563,
+     "cost_bps": 5.548
+    },
+    "indicators_plus_models": {
+     "n": 672,
+     "active": 651,
+     "hit": 0.409,
+     "edge_bps": -0.92,
+     "follow_bps": -2.861,
+     "gross_edge_bps": 1.233,
+     "cost_bps": 5.548
+    }
+   },
+   "spread_bps": 5.55,
+   "bars": 4030,
+   "from": "2026-11-03 21:50:00+00:00",
+   "to": "2026-11-17 21:45:00+00:00",
+   "seconds": 465
+  },
+  "USOILm": {
+   "voters": {
+    "kronos": {
+     "n": 672,
+     "active": 615,
+     "hit": 0.429,
+     "edge_bps": -1.718,
+     "follow_bps": -3.227,
+     "gross_edge_bps": -0.968,
+     "cost_bps": 1.659
+    },
+    "indicators_only": {
+     "n": 672,
+     "active": 627,
+     "hit": 0.501,
+     "edge_bps": -0.062,
+     "follow_bps": -0.281,
+     "gross_edge_bps": 0.631,
+     "cost_bps": 1.659
+    },
+    "indicators_plus_models": {
+     "n": 672,
+     "active": 645,
+     "hit": 0.481,
+     "edge_bps": -0.26,
+     "follow_bps": -0.66,
+     "gross_edge_bps": 0.34,
+     "cost_bps": 1.659
+    }
+   },
+   "spread_bps": 1.66,
+   "bars": 4030,
+   "from": "2026-10-28 06:55:00+00:00",
+   "to": "2026-11-17 21:50:00+00:00",
+   "seconds": 519
+  }
+ },
+ "note": "news reader is judged live only; scores are after the market's spread",
+ "done": true
+}

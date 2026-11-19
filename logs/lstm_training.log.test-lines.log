@@ -1,0 +1,72 @@
+2026-11-17 21:56:32.486 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T19:56:32.485541+00:00
+2026-11-17 21:56:32.526 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T20:56:32.526566+00:00
+2026-11-17 21:56:32.574 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:56:32.574 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 21:56:32.575 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:56:32.575 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:57:59.126 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T19:57:59.125864+00:00
+2026-11-17 21:57:59.135 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T20:57:59.134633+00:00
+2026-11-17 21:57:59.177 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:57:59.178 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 21:57:59.179 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:57:59.179 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:00:10.972 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T21:00:10.971489+00:00
+2026-11-17 23:00:10.977 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T22:00:10.977234+00:00
+2026-11-17 23:00:10.999 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:00:11.000 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 23:00:11.000 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:00:11.001 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:17:11.199 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T21:17:11.198892+00:00
+2026-11-17 23:17:11.213 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T22:17:11.212821+00:00
+2026-11-17 23:17:11.250 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:17:11.250 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 23:17:11.251 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:17:11.252 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:18:21.002 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T21:18:21.001339+00:00
+2026-11-17 23:18:21.017 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T22:18:21.016847+00:00
+2026-11-17 23:18:21.069 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:18:21.070 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 23:18:21.073 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:18:21.074 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:32:17.553 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T21:32:17.552963+00:00
+2026-11-17 23:32:17.561 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T22:32:17.560574+00:00
+2026-11-17 23:32:17.593 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:32:17.593 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 23:32:17.594 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:32:17.595 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 00:07:36.479 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T22:07:36.478766+00:00
+2026-11-18 00:07:36.488 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T23:07:36.487924+00:00
+2026-11-18 00:07:36.524 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 00:07:36.525 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 00:07:36.526 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 00:07:36.526 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:37:01.881 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T12:37:01.870851+00:00
+2026-11-18 14:37:01.884 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T13:37:01.883832+00:00
+2026-11-18 14:37:01.896 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:37:01.896 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 14:37:01.897 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:37:01.897 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:39:59.648 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T12:39:59.647347+00:00
+2026-11-18 14:39:59.669 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T13:39:59.668410+00:00
+2026-11-18 14:39:59.725 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:39:59.725 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 14:39:59.727 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:39:59.727 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 15:52:42.714 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T13:52:42.713508+00:00
+2026-11-18 15:52:42.716 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T14:52:42.716820+00:00
+2026-11-18 15:52:42.729 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 15:52:42.729 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 15:52:42.730 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 15:52:42.730 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 17:11:09.092 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T15:11:09.087269+00:00
+2026-11-18 17:11:09.097 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T16:11:09.097023+00:00
+2026-11-18 17:11:09.119 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 17:11:09.119 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 17:11:09.119 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 17:11:09.120 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 19:39:45.841 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T17:39:45.840357+00:00
+2026-11-18 19:39:45.850 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T18:39:45.850181+00:00
+2026-11-18 19:39:45.888 | INFO     | Python.Server_AGI:_stack_level:917 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 19:39:45.889 | INFO     | Python.Server_AGI:_stack_level:917 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 19:39:45.890 | INFO     | Python.Server_AGI:_stack_level:917 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 19:39:45.890 | INFO     | Python.Server_AGI:_stack_level:917 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3

@@ -1,0 +1,296 @@
+{
+ "XAUUSD": {
+  "spread_cost_usd": 0.24,
+  "trade_size": "0.01 lot",
+  "targets": {
+   "$0.05": {
+    "green_pct": 70.0,
+    "miss_avg_usd": -1.09,
+    "per_trade_usd": -0.292,
+    "per_2000_trades_usd": -584
+   },
+   "$0.10": {
+    "green_pct": 69.6,
+    "miss_avg_usd": -1.19,
+    "per_trade_usd": -0.292,
+    "per_2000_trades_usd": -583
+   },
+   "$0.20": {
+    "green_pct": 68.8,
+    "miss_avg_usd": -1.36,
+    "per_trade_usd": -0.285,
+    "per_2000_trades_usd": -571
+   },
+   "$0.30": {
+    "green_pct": 67.9,
+    "miss_avg_usd": -1.53,
+    "per_trade_usd": -0.288,
+    "per_2000_trades_usd": -576
+   },
+   "$0.50": {
+    "green_pct": 66.3,
+    "miss_avg_usd": -1.82,
+    "per_trade_usd": -0.282,
+    "per_2000_trades_usd": -565
+   },
+   "$1.00": {
+    "green_pct": 62.4,
+    "miss_avg_usd": -2.36,
+    "per_trade_usd": -0.263,
+    "per_2000_trades_usd": -525
+   }
+  }
+ },
+ "BTCUSD": {
+  "spread_cost_usd": 0.064,
+  "trade_size": "0.01 lot",
+  "targets": {
+   "$0.05": {
+    "green_pct": 93.7,
+    "miss_avg_usd": -2.49,
+    "per_trade_usd": -0.11,
+    "per_2000_trades_usd": -220
+   },
+   "$0.10": {
+    "green_pct": 91.7,
+    "miss_avg_usd": -2.42,
+    "per_trade_usd": -0.109,
+    "per_2000_trades_usd": -218
+   },
+   "$0.20": {
+    "green_pct": 87.4,
+    "miss_avg_usd": -2.25,
+    "per_trade_usd": -0.108,
+    "per_2000_trades_usd": -216
+   },
+   "$0.30": {
+    "green_pct": 83.2,
+    "miss_avg_usd": -2.14,
+    "per_trade_usd": -0.109,
+    "per_2000_trades_usd": -217
+   },
+   "$0.50": {
+    "green_pct": 74.9,
+    "miss_avg_usd": -1.94,
+    "per_trade_usd": -0.113,
+    "per_2000_trades_usd": -225
+   },
+   "$1.00": {
+    "green_pct": 57.0,
+    "miss_avg_usd": -1.58,
+    "per_trade_usd": -0.111,
+    "per_2000_trades_usd": -222
+   }
+  }
+ },
+ "EURUSD": {
+  "spread_cost_usd": 0.08,
+  "trade_size": "0.01 lot",
+  "targets": {
+   "$0.05": {
+    "green_pct": 58.0,
+    "miss_avg_usd": -0.33,
+    "per_trade_usd": -0.108,
+    "per_2000_trades_usd": -217
+   },
+   "$0.10": {
+    "green_pct": 53.0,
+    "miss_avg_usd": -0.35,
+    "per_trade_usd": -0.111,
+    "per_2000_trades_usd": -222
+   },
+   "$0.20": {
+    "green_pct": 44.8,
+    "miss_avg_usd": -0.36,
+    "per_trade_usd": -0.11,
+    "per_2000_trades_usd": -220
+   },
+   "$0.30": {
+    "green_pct": 37.8,
+    "miss_avg_usd": -0.36,
+    "per_trade_usd": -0.11,
+    "per_2000_trades_usd": -220
+   },
+   "$0.50": {
+    "green_pct": 27.0,
+    "miss_avg_usd": -0.33,
+    "per_trade_usd": -0.107,
+    "per_2000_trades_usd": -214
+   },
+   "$1.00": {
+    "green_pct": 11.5,
+    "miss_avg_usd": -0.24,
+    "per_trade_usd": -0.101,
+    "per_2000_trades_usd": -201
+   }
+  }
+ },
+ "USDJPY": {
+  "spread_cost_usd": 0.063,
+  "trade_size": "0.01 lot",
+  "targets": {
+   "$0.05": {
+    "green_pct": 59.5,
+    "miss_avg_usd": -0.34,
+    "per_trade_usd": -0.107,
+    "per_2000_trades_usd": -213
+   },
+   "$0.10": {
+    "green_pct": 54.9,
+    "miss_avg_usd": -0.35,
+    "per_trade_usd": -0.105,
+    "per_2000_trades_usd": -209
+   },
+   "$0.20": {
+    "green_pct": 46.3,
+    "miss_avg_usd": -0.36,
+    "per_trade_usd": -0.103,
+    "per_2000_trades_usd": -206
+   },
+   "$0.30": {
+    "green_pct": 38.8,
+    "miss_avg_usd": -0.36,
+    "per_trade_usd": -0.101,
+    "per_2000_trades_usd": -203
+   },
+   "$0.50": {
+    "green_pct": 26.6,
+    "miss_avg_usd": -0.32,
+    "per_trade_usd": -0.103,
+    "per_2000_trades_usd": -206
+   },
+   "$1.00": {
+    "green_pct": 10.0,
+    "miss_avg_usd": -0.23,
+    "per_trade_usd": -0.108,
+    "per_2000_trades_usd": -216
+   }
+  }
+ },
+ "XAGUSD": {
+  "spread_cost_usd": 1.25,
+  "trade_size": "0.01 lot",
+  "targets": {
+   "$0.05": {
+    "green_pct": 63.3,
+    "miss_avg_usd": -3.73,
+    "per_trade_usd": -1.338,
+    "per_2000_trades_usd": -2675
+   },
+   "$0.10": {
+    "green_pct": 63.1,
+    "miss_avg_usd": -3.76,
+    "per_trade_usd": -1.324,
+    "per_2000_trades_usd": -2648
+   },
+   "$0.20": {
+    "green_pct": 62.4,
+    "miss_avg_usd": -3.85,
+    "per_trade_usd": -1.323,
+    "per_2000_trades_usd": -2645
+   },
+   "$0.30": {
+    "green_pct": 62.1,
+    "miss_avg_usd": -3.9,
+    "per_trade_usd": -1.292,
+    "per_2000_trades_usd": -2584
+   },
+   "$0.50": {
+    "green_pct": 60.8,
+    "miss_avg_usd": -4.06,
+    "per_trade_usd": -1.286,
+    "per_2000_trades_usd": -2571
+   },
+   "$1.00": {
+    "green_pct": 58.1,
+    "miss_avg_usd": -4.33,
+    "per_trade_usd": -1.235,
+    "per_2000_trades_usd": -2469
+   }
+  }
+ },
+ "ETHUSD": {
+  "spread_cost_usd": 0.1,
+  "trade_size": "0.1 lot",
+  "targets": {
+   "$0.05": {
+    "green_pct": 83.5,
+    "miss_avg_usd": -0.96,
+    "per_trade_usd": -0.116,
+    "per_2000_trades_usd": -232
+   },
+   "$0.10": {
+    "green_pct": 78.5,
+    "miss_avg_usd": -0.9,
+    "per_trade_usd": -0.116,
+    "per_2000_trades_usd": -231
+   },
+   "$0.20": {
+    "green_pct": 68.8,
+    "miss_avg_usd": -0.81,
+    "per_trade_usd": -0.114,
+    "per_2000_trades_usd": -229
+   },
+   "$0.30": {
+    "green_pct": 59.5,
+    "miss_avg_usd": -0.73,
+    "per_trade_usd": -0.117,
+    "per_2000_trades_usd": -234
+   },
+   "$0.50": {
+    "green_pct": 44.7,
+    "miss_avg_usd": -0.62,
+    "per_trade_usd": -0.12,
+    "per_2000_trades_usd": -240
+   },
+   "$1.00": {
+    "green_pct": 23.0,
+    "miss_avg_usd": -0.44,
+    "per_trade_usd": -0.111,
+    "per_2000_trades_usd": -222
+   }
+  }
+ },
+ "USOIL": {
+  "spread_cost_usd": 0.2,
+  "trade_size": "0.01 lot",
+  "targets": {
+   "$0.05": {
+    "green_pct": 67.4,
+    "miss_avg_usd": -0.93,
+    "per_trade_usd": -0.271,
+    "per_2000_trades_usd": -542
+   },
+   "$0.10": {
+    "green_pct": 66.7,
+    "miss_avg_usd": -1.0,
+    "per_trade_usd": -0.267,
+    "per_2000_trades_usd": -533
+   },
+   "$0.20": {
+    "green_pct": 65.1,
+    "miss_avg_usd": -1.13,
+    "per_trade_usd": -0.265,
+    "per_2000_trades_usd": -530
+   },
+   "$0.30": {
+    "green_pct": 63.5,
+    "miss_avg_usd": -1.25,
+    "per_trade_usd": -0.265,
+    "per_2000_trades_usd": -529
+   },
+   "$0.50": {
+    "green_pct": 59.9,
+    "miss_avg_usd": -1.44,
+    "per_trade_usd": -0.276,
+    "per_2000_trades_usd": -552
+   },
+   "$1.00": {
+    "green_pct": 51.5,
+    "miss_avg_usd": -1.65,
+    "per_trade_usd": -0.283,
+    "per_2000_trades_usd": -567
+   }
+  }
+ }
+}

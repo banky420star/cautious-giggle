@@ -1,0 +1,216 @@
+2026-11-17 04:43:25.114 +02:00 | INFO     | __main__:train_lstm:354 - LSTM per-symbol training on MPS | symbols=['BTCUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 04:43:25.117 +02:00 | INFO     | __main__:train_lstm:354 - LSTM per-symbol training on MPS | symbols=['XAUUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 04:52:59.252 +02:00 | INFO     | __main__:train_lstm:354 - LSTM per-symbol training on MPS | symbols=['XAUUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 04:52:59.252 +02:00 | INFO     | __main__:train_lstm:354 - LSTM per-symbol training on MPS | symbols=['BTCUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 04:59:30.599 +02:00 | INFO     | __main__:train_lstm:354 - LSTM per-symbol training on MPS | symbols=['BTCUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 05:06:37.410 +02:00 | INFO     | __main__:_train_one_symbol:272 - BTCUSDm | epoch 1/20 | loss 0.7810 | acc 27.69% | val_loss 1.1002 | val_acc 11.17%
+2026-11-17 05:11:37.608 +02:00 | INFO     | train_lstm:_train_one_symbol:285 - BTCUSDm | epoch 1/2 | loss 0.8479 | acc 27.21% | val_loss 0.7445 | val_acc 28.78%
+2026-11-17 05:13:43.651 +02:00 | INFO     | train_lstm:_train_one_symbol:285 - BTCUSDm | epoch 2/2 | loss 0.7296 | acc 28.52% | val_loss 0.7255 | val_acc 28.03%
+2026-11-17 05:15:04.175 +02:00 | INFO     | __main__:train_lstm:370 - LSTM per-symbol training on MPS | symbols=['BTCUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 05:15:37.376 +02:00 | INFO     | __main__:_train_one_symbol:285 - BTCUSDm | epoch 1/20 | loss 0.8454 | acc 27.18% | val_loss 0.8363 | val_acc 27.54%
+2026-11-17 05:17:09.517 +02:00 | INFO     | __main__:_train_one_symbol:285 - BTCUSDm | epoch 2/20 | loss 0.7331 | acc 28.31% | val_loss 0.7122 | val_acc 28.55%
+2026-11-17 05:19:55.626 +02:00 | INFO     | __main__:train_lstm:386 - LSTM per-symbol training on MPS | symbols=['BTCUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 05:20:47.219 +02:00 | INFO     | __main__:_train_one_symbol:298 - BTCUSDm | epoch 1/20 | loss 0.8581 | acc 26.88% | val_loss 0.7293 | val_acc 29.14%
+2026-11-17 05:21:29.374 +02:00 | INFO     | __main__:_train_one_symbol:298 - BTCUSDm | epoch 2/20 | loss 0.7292 | acc 28.54% | val_loss 0.7084 | val_acc 30.35%
+2026-11-17 05:23:14.412 +02:00 | INFO     | __main__:_train_one_symbol:298 - BTCUSDm | epoch 3/20 | loss 0.7141 | acc 28.14% | val_loss 0.6894 | val_acc 29.15%
+2026-11-17 05:25:49.970 +02:00 | INFO     | __main__:_train_one_symbol:298 - BTCUSDm | epoch 4/20 | loss 0.6917 | acc 28.75% | val_loss 0.7004 | val_acc 29.33%
+2026-11-17 05:26:33.896 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['BTCUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 05:27:16.296 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 1/20 | loss 0.8394 | acc 27.75% | val_loss 0.8202 | val_acc 26.44%
+2026-11-17 05:27:50.106 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 2/20 | loss 0.7269 | acc 28.78% | val_loss 0.7204 | val_acc 28.27%
+2026-11-17 05:28:11.970 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 3/20 | loss 0.7098 | acc 29.15% | val_loss 0.6943 | val_acc 27.83%
+2026-11-17 05:28:33.223 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 4/20 | loss 0.6911 | acc 28.96% | val_loss 0.6757 | val_acc 29.82%
+2026-11-17 05:28:54.370 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 5/20 | loss 0.6841 | acc 29.24% | val_loss 0.6829 | val_acc 30.25%
+2026-11-17 05:29:15.964 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 6/20 | loss 0.6818 | acc 29.00% | val_loss 0.6947 | val_acc 29.00%
+2026-11-17 05:29:37.035 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 7/20 | loss 0.6673 | acc 29.74% | val_loss 0.6568 | val_acc 30.42%
+2026-11-17 05:30:25.739 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 8/20 | loss 0.6522 | acc 30.59% | val_loss 0.6868 | val_acc 30.44%
+2026-11-17 05:30:47.173 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 9/20 | loss 0.6466 | acc 30.66% | val_loss 0.6402 | val_acc 30.52%
+2026-11-17 05:31:07.777 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 10/20 | loss 0.6381 | acc 30.97% | val_loss 0.6374 | val_acc 32.66%
+2026-11-17 05:31:38.054 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 11/20 | loss 0.6354 | acc 31.04% | val_loss 0.6625 | val_acc 29.67%
+2026-11-17 05:31:58.093 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 12/20 | loss 0.6346 | acc 30.65% | val_loss 0.6352 | val_acc 30.83%
+2026-11-17 05:32:18.387 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 13/20 | loss 0.6348 | acc 30.89% | val_loss 0.6585 | val_acc 30.55%
+2026-11-17 05:32:51.984 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 14/20 | loss 0.6335 | acc 30.84% | val_loss 0.7154 | val_acc 28.67%
+2026-11-17 05:33:25.892 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 15/20 | loss 0.6299 | acc 31.18% | val_loss 0.6821 | val_acc 29.55%
+2026-11-17 05:33:46.373 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 16/20 | loss 0.6356 | acc 30.28% | val_loss 0.6338 | val_acc 31.18%
+2026-11-17 05:34:06.907 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 17/20 | loss 0.6268 | acc 31.01% | val_loss 0.6679 | val_acc 30.65%
+2026-11-17 05:34:27.699 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 18/20 | loss 0.6289 | acc 31.30% | val_loss 0.6497 | val_acc 31.68%
+2026-11-17 05:34:48.438 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 19/20 | loss 0.6264 | acc 31.24% | val_loss 0.6285 | val_acc 30.40%
+2026-11-17 05:35:08.531 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 20/20 | loss 0.6277 | acc 30.96% | val_loss 0.6249 | val_acc 32.44%
+2026-11-17 05:35:09.851 +02:00 | SUCCESS  | __main__:train_lstm:440 - default lstm artifacts now point to best symbol model: BTCUSDm
+2026-11-17 05:35:13.980 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['XAUUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 05:35:58.158 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 1/20 | loss 0.8469 | acc 27.32% | val_loss 0.7446 | val_acc 33.55%
+2026-11-17 05:36:18.963 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 2/20 | loss 0.7258 | acc 30.12% | val_loss 0.7099 | val_acc 29.29%
+2026-11-17 05:36:39.174 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 3/20 | loss 0.7029 | acc 30.14% | val_loss 0.6780 | val_acc 32.28%
+2026-11-17 05:37:10.178 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 4/20 | loss 0.6916 | acc 30.52% | val_loss 0.6717 | val_acc 30.90%
+2026-11-17 05:37:29.620 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 5/20 | loss 0.6788 | acc 30.54% | val_loss 0.6708 | val_acc 29.51%
+2026-11-17 05:37:49.801 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 6/20 | loss 0.6703 | acc 31.06% | val_loss 0.7084 | val_acc 30.28%
+2026-11-17 05:38:33.242 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 7/20 | loss 0.6689 | acc 31.31% | val_loss 0.6693 | val_acc 29.76%
+2026-11-17 05:38:54.056 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 8/20 | loss 0.6620 | acc 31.52% | val_loss 0.6671 | val_acc 30.56%
+2026-11-17 05:39:16.196 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 9/20 | loss 0.6565 | acc 31.47% | val_loss 0.6668 | val_acc 30.84%
+2026-11-17 05:39:37.831 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 10/20 | loss 0.6481 | acc 32.00% | val_loss 0.6343 | val_acc 33.00%
+2026-11-17 05:40:00.003 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 11/20 | loss 0.6438 | acc 32.02% | val_loss 0.7181 | val_acc 28.74%
+2026-11-17 05:40:21.069 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 12/20 | loss 0.6540 | acc 30.90% | val_loss 0.6353 | val_acc 31.70%
+2026-11-17 05:41:01.293 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 13/20 | loss 0.6376 | acc 32.22% | val_loss 0.6519 | val_acc 30.65%
+2026-11-17 05:41:25.493 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 14/20 | loss 0.6401 | acc 31.73% | val_loss 0.6319 | val_acc 32.21%
+2026-11-17 05:41:44.524 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 15/20 | loss 0.6308 | acc 32.32% | val_loss 0.6239 | val_acc 32.83%
+2026-11-17 05:42:17.681 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 16/20 | loss 0.6262 | acc 32.48% | val_loss 0.6318 | val_acc 31.44%
+2026-11-17 05:42:41.146 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 17/20 | loss 0.6308 | acc 32.24% | val_loss 0.6304 | val_acc 32.04%
+2026-11-17 05:43:02.923 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 18/20 | loss 0.6280 | acc 32.40% | val_loss 0.6466 | val_acc 32.04%
+2026-11-17 05:43:38.651 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 19/20 | loss 0.6304 | acc 31.97% | val_loss 0.6284 | val_acc 31.50%
+2026-11-17 05:43:38.654 +02:00 | INFO     | __main__:_train_one_symbol:319 - XAUUSDm | early stop: no val improvement for 4 epochs
+2026-11-17 05:43:39.504 +02:00 | SUCCESS  | __main__:train_lstm:440 - default lstm artifacts now point to best symbol model: XAUUSDm
+2026-11-17 07:55:51.515 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['BTCUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 07:56:14.158 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 1/20 | loss 0.8541 | acc 26.55% | val_loss 0.7380 | val_acc 28.59%
+2026-11-17 07:56:29.637 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 2/20 | loss 0.7273 | acc 28.59% | val_loss 0.7180 | val_acc 31.07%
+2026-11-17 07:56:55.233 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 3/20 | loss 0.7109 | acc 28.54% | val_loss 0.7028 | val_acc 29.00%
+2026-11-17 07:57:22.521 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 4/20 | loss 0.6968 | acc 28.67% | val_loss 0.6745 | val_acc 28.77%
+2026-11-17 07:57:38.527 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 5/20 | loss 0.6881 | acc 28.74% | val_loss 0.6810 | val_acc 31.75%
+2026-11-17 07:57:56.133 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 6/20 | loss 0.6747 | acc 29.71% | val_loss 0.6616 | val_acc 30.63%
+2026-11-17 07:58:15.665 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 7/20 | loss 0.6728 | acc 29.51% | val_loss 0.6622 | val_acc 29.61%
+2026-11-17 12:42:13.682 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['EURUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 12:43:38.544 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 1/20 | loss 0.8395 | acc 29.85% | val_loss 0.7288 | val_acc 36.59%
+2026-11-17 12:43:51.912 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 2/20 | loss 0.7076 | acc 32.74% | val_loss 0.6736 | val_acc 41.65%
+2026-11-17 12:44:04.460 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 3/20 | loss 0.6806 | acc 34.27% | val_loss 0.6562 | val_acc 41.98%
+2026-11-17 12:44:31.592 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 4/20 | loss 0.6650 | acc 34.83% | val_loss 0.6548 | val_acc 38.57%
+2026-11-17 12:44:44.170 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 5/20 | loss 0.6555 | acc 34.88% | val_loss 0.6927 | val_acc 43.51%
+2026-11-17 12:44:57.137 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 6/20 | loss 0.6489 | acc 35.37% | val_loss 0.6407 | val_acc 49.43%
+2026-11-17 12:45:09.698 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 7/20 | loss 0.6354 | acc 36.64% | val_loss 0.6302 | val_acc 47.51%
+2026-11-17 12:45:22.240 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 8/20 | loss 0.6349 | acc 36.09% | val_loss 0.6258 | val_acc 49.44%
+2026-11-17 12:45:34.821 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 9/20 | loss 0.6275 | acc 37.61% | val_loss 0.6303 | val_acc 37.86%
+2026-11-17 12:45:48.843 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 10/20 | loss 0.6190 | acc 37.34% | val_loss 0.6158 | val_acc 50.27%
+2026-11-17 12:46:03.906 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 11/20 | loss 0.6162 | acc 37.52% | val_loss 0.6214 | val_acc 36.50%
+2026-11-17 12:46:19.429 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 12/20 | loss 0.6078 | acc 37.02% | val_loss 0.6205 | val_acc 49.47%
+2026-11-17 12:46:42.158 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 13/20 | loss 0.6032 | acc 37.47% | val_loss 0.6067 | val_acc 45.88%
+2026-11-17 12:47:07.622 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 14/20 | loss 0.6028 | acc 37.51% | val_loss 0.6251 | val_acc 50.69%
+2026-11-17 12:47:45.116 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 15/20 | loss 0.6033 | acc 38.15% | val_loss 0.6233 | val_acc 40.85%
+2026-11-17 12:48:00.430 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 16/20 | loss 0.6226 | acc 36.79% | val_loss 0.6329 | val_acc 41.66%
+2026-11-17 12:48:15.801 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 17/20 | loss 0.5989 | acc 38.45% | val_loss 0.6001 | val_acc 51.45%
+2026-11-17 12:48:31.338 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 18/20 | loss 0.5980 | acc 38.23% | val_loss 0.6124 | val_acc 38.79%
+2026-11-17 12:48:46.711 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 19/20 | loss 0.5944 | acc 38.48% | val_loss 0.6136 | val_acc 42.50%
+2026-11-17 12:49:02.620 +02:00 | INFO     | __main__:_train_one_symbol:305 - EURUSDm | epoch 20/20 | loss 0.5933 | acc 38.50% | val_loss 0.5959 | val_acc 47.50%
+2026-11-17 12:49:03.984 +02:00 | SUCCESS  | __main__:train_lstm:440 - default lstm artifacts now point to best symbol model: EURUSDm
+2026-11-17 12:49:10.745 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['USDJPYm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 12:50:40.369 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 1/20 | loss 0.8272 | acc 32.50% | val_loss 0.7121 | val_acc 32.26%
+2026-11-17 12:50:54.929 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 2/20 | loss 0.7148 | acc 32.91% | val_loss 0.6795 | val_acc 30.19%
+2026-11-17 12:51:08.973 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 3/20 | loss 0.6889 | acc 33.88% | val_loss 0.6794 | val_acc 37.75%
+2026-11-17 12:51:23.339 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 4/20 | loss 0.6727 | acc 35.28% | val_loss 0.6700 | val_acc 24.41%
+2026-11-17 12:51:57.321 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 5/20 | loss 0.6656 | acc 35.14% | val_loss 0.6687 | val_acc 37.89%
+2026-11-17 12:52:12.275 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 6/20 | loss 0.6581 | acc 35.56% | val_loss 0.6535 | val_acc 30.89%
+2026-11-17 12:52:26.583 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 7/20 | loss 0.6595 | acc 35.62% | val_loss 0.6490 | val_acc 35.08%
+2026-11-17 12:53:01.348 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 8/20 | loss 0.6498 | acc 36.06% | val_loss 0.6728 | val_acc 28.51%
+2026-11-17 12:53:16.689 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 9/20 | loss 0.6415 | acc 36.88% | val_loss 0.6543 | val_acc 31.74%
+2026-11-17 12:53:33.447 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 10/20 | loss 0.6396 | acc 36.83% | val_loss 0.6551 | val_acc 38.55%
+2026-11-17 12:53:49.634 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 11/20 | loss 0.6418 | acc 36.44% | val_loss 0.6426 | val_acc 33.67%
+2026-11-17 12:54:17.298 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 12/20 | loss 0.6309 | acc 37.74% | val_loss 0.6338 | val_acc 35.84%
+2026-11-17 12:54:41.611 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 13/20 | loss 0.6296 | acc 37.36% | val_loss 0.6404 | val_acc 33.27%
+2026-11-17 12:54:56.947 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 14/20 | loss 0.6263 | acc 37.48% | val_loss 0.6585 | val_acc 42.68%
+2026-11-17 12:55:12.203 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 15/20 | loss 0.6282 | acc 37.64% | val_loss 0.7115 | val_acc 24.97%
+2026-11-17 12:55:28.213 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 16/20 | loss 0.6233 | acc 37.77% | val_loss 0.6199 | val_acc 31.52%
+2026-11-17 12:55:43.478 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 17/20 | loss 0.6142 | acc 38.05% | val_loss 0.6129 | val_acc 32.16%
+2026-11-17 12:56:00.502 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 18/20 | loss 0.6103 | acc 37.93% | val_loss 0.6339 | val_acc 46.73%
+2026-11-17 12:56:19.740 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 19/20 | loss 0.6107 | acc 38.02% | val_loss 0.6220 | val_acc 44.81%
+2026-11-17 12:56:44.140 +02:00 | INFO     | __main__:_train_one_symbol:305 - USDJPYm | epoch 20/20 | loss 0.6054 | acc 38.55% | val_loss 0.6135 | val_acc 37.32%
+2026-11-17 12:56:45.664 +02:00 | SUCCESS  | __main__:train_lstm:440 - default lstm artifacts now point to best symbol model: USDJPYm
+2026-11-17 12:56:50.896 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['XAGUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 12:58:48.584 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 1/20 | loss 0.8536 | acc 28.74% | val_loss 0.7432 | val_acc 31.46%
+2026-11-17 12:59:17.367 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 2/20 | loss 0.7283 | acc 29.35% | val_loss 0.7079 | val_acc 30.12%
+2026-11-17 12:59:38.818 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 3/20 | loss 0.7029 | acc 29.79% | val_loss 0.7164 | val_acc 30.88%
+2026-11-17 12:59:52.296 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 4/20 | loss 0.6862 | acc 30.69% | val_loss 0.6916 | val_acc 29.71%
+2026-11-17 13:00:06.041 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 5/20 | loss 0.6802 | acc 30.86% | val_loss 0.6751 | val_acc 31.57%
+2026-11-17 13:00:20.492 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 6/20 | loss 0.6743 | acc 31.01% | val_loss 0.6969 | val_acc 31.73%
+2026-11-17 13:00:35.072 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 7/20 | loss 0.6684 | acc 31.24% | val_loss 0.6613 | val_acc 30.49%
+2026-11-17 13:00:50.342 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 8/20 | loss 0.6576 | acc 31.57% | val_loss 0.6792 | val_acc 31.13%
+2026-11-17 13:01:06.150 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 9/20 | loss 0.6460 | acc 32.25% | val_loss 0.6688 | val_acc 31.51%
+2026-11-17 13:01:22.494 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 10/20 | loss 0.6415 | acc 32.31% | val_loss 0.6307 | val_acc 33.75%
+2026-11-17 13:02:04.914 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 11/20 | loss 0.6353 | acc 32.58% | val_loss 0.6323 | val_acc 31.55%
+2026-11-17 13:02:25.203 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 12/20 | loss 0.6339 | acc 32.56% | val_loss 0.6583 | val_acc 31.22%
+2026-11-17 13:02:43.400 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 13/20 | loss 0.6341 | acc 32.48% | val_loss 0.6349 | val_acc 32.60%
+2026-11-17 13:03:01.358 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 14/20 | loss 0.6302 | acc 32.79% | val_loss 0.6298 | val_acc 32.59%
+2026-11-17 13:03:20.857 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 15/20 | loss 0.6258 | acc 33.03% | val_loss 0.6274 | val_acc 31.91%
+2026-11-17 13:03:38.926 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 16/20 | loss 0.6352 | acc 32.10% | val_loss 0.6347 | val_acc 31.40%
+2026-11-17 13:04:13.456 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 17/20 | loss 0.6303 | acc 32.44% | val_loss 0.6330 | val_acc 32.35%
+2026-11-17 13:04:44.840 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 18/20 | loss 0.6268 | acc 32.81% | val_loss 0.6271 | val_acc 32.60%
+2026-11-17 13:05:01.395 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 19/20 | loss 0.6243 | acc 32.83% | val_loss 0.6452 | val_acc 31.78%
+2026-11-17 13:05:18.399 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAGUSDm | epoch 20/20 | loss 0.6227 | acc 32.76% | val_loss 0.6449 | val_acc 31.99%
+2026-11-17 13:05:19.743 +02:00 | SUCCESS  | __main__:train_lstm:440 - default lstm artifacts now point to best symbol model: XAGUSDm
+2026-11-17 13:05:23.754 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['ETHUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 13:07:06.677 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 1/20 | loss 0.8519 | acc 26.66% | val_loss 0.7423 | val_acc 27.98%
+2026-11-17 13:07:21.038 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 2/20 | loss 0.7290 | acc 28.42% | val_loss 0.7221 | val_acc 27.85%
+2026-11-17 13:07:34.460 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 3/20 | loss 0.7120 | acc 28.41% | val_loss 0.7467 | val_acc 27.36%
+2026-11-17 13:07:47.863 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 4/20 | loss 0.6961 | acc 29.18% | val_loss 0.6858 | val_acc 31.08%
+2026-11-17 13:08:01.444 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 5/20 | loss 0.6874 | acc 29.30% | val_loss 0.6974 | val_acc 31.09%
+2026-11-17 13:08:15.767 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 6/20 | loss 0.6823 | acc 29.25% | val_loss 0.6757 | val_acc 31.52%
+2026-11-17 13:08:30.311 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 7/20 | loss 0.6662 | acc 30.35% | val_loss 0.6527 | val_acc 31.06%
+2026-11-17 13:08:45.688 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 8/20 | loss 0.6532 | acc 30.72% | val_loss 0.6648 | val_acc 32.02%
+2026-11-17 13:09:14.186 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 9/20 | loss 0.6416 | acc 31.50% | val_loss 0.6332 | val_acc 31.15%
+2026-11-17 13:09:47.104 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 10/20 | loss 0.6379 | acc 31.20% | val_loss 0.6222 | val_acc 31.77%
+2026-11-17 13:10:05.681 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 11/20 | loss 0.6344 | acc 31.31% | val_loss 0.6195 | val_acc 32.90%
+2026-11-17 13:10:24.073 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 12/20 | loss 0.6347 | acc 31.12% | val_loss 0.6170 | val_acc 33.04%
+2026-11-17 13:10:41.924 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 13/20 | loss 0.6291 | acc 31.47% | val_loss 0.6129 | val_acc 32.72%
+2026-11-17 13:10:59.072 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 14/20 | loss 0.6296 | acc 31.41% | val_loss 0.6162 | val_acc 32.11%
+2026-11-17 13:11:33.643 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 15/20 | loss 0.6246 | acc 31.53% | val_loss 0.6210 | val_acc 32.57%
+2026-11-17 13:11:55.401 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 16/20 | loss 0.6295 | acc 31.52% | val_loss 0.6340 | val_acc 32.39%
+2026-11-17 13:12:11.718 +02:00 | INFO     | __main__:_train_one_symbol:305 - ETHUSDm | epoch 17/20 | loss 0.6258 | acc 31.36% | val_loss 0.6199 | val_acc 32.88%
+2026-11-17 13:12:11.720 +02:00 | INFO     | __main__:_train_one_symbol:319 - ETHUSDm | early stop: no val improvement for 4 epochs
+2026-11-17 13:12:12.593 +02:00 | SUCCESS  | __main__:train_lstm:440 - default lstm artifacts now point to best symbol model: ETHUSDm
+2026-11-17 13:12:17.059 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['USOILm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-17 13:13:43.012 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 1/20 | loss 0.8411 | acc 28.04% | val_loss 0.8008 | val_acc 25.25%
+2026-11-17 13:14:13.334 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 2/20 | loss 0.7276 | acc 28.85% | val_loss 0.7143 | val_acc 27.61%
+2026-11-17 13:14:26.857 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 3/20 | loss 0.7046 | acc 29.31% | val_loss 0.6864 | val_acc 29.97%
+2026-11-17 13:15:23.175 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 4/20 | loss 0.6885 | acc 30.30% | val_loss 0.6674 | val_acc 29.77%
+2026-11-17 13:15:47.746 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 5/20 | loss 0.6830 | acc 30.31% | val_loss 0.6732 | val_acc 30.11%
+2026-11-17 13:16:03.476 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 6/20 | loss 0.6729 | acc 30.60% | val_loss 0.6635 | val_acc 31.36%
+2026-11-17 13:16:30.246 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 7/20 | loss 0.6621 | acc 31.29% | val_loss 0.7165 | val_acc 28.89%
+2026-11-17 13:16:58.588 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 8/20 | loss 0.6528 | acc 31.47% | val_loss 0.6368 | val_acc 33.81%
+2026-11-17 13:17:14.524 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 9/20 | loss 0.6425 | acc 32.06% | val_loss 0.6315 | val_acc 31.34%
+2026-11-17 13:17:30.772 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 10/20 | loss 0.6343 | acc 32.21% | val_loss 0.7101 | val_acc 29.18%
+2026-11-17 13:17:48.208 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 11/20 | loss 0.6432 | acc 31.33% | val_loss 0.6304 | val_acc 31.98%
+2026-11-17 13:18:07.898 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 12/20 | loss 0.6360 | acc 32.19% | val_loss 0.6359 | val_acc 30.65%
+2026-11-17 13:18:26.533 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 13/20 | loss 0.6298 | acc 32.43% | val_loss 0.6247 | val_acc 31.15%
+2026-11-17 13:18:44.296 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 14/20 | loss 0.6366 | acc 31.78% | val_loss 0.6232 | val_acc 31.85%
+2026-11-17 13:19:24.903 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 15/20 | loss 0.6252 | acc 32.89% | val_loss 0.6563 | val_acc 29.97%
+2026-11-17 13:19:42.699 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 16/20 | loss 0.6245 | acc 32.57% | val_loss 0.6247 | val_acc 32.29%
+2026-11-17 13:20:00.015 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 17/20 | loss 0.6253 | acc 32.47% | val_loss 0.6328 | val_acc 31.67%
+2026-11-17 13:20:18.455 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 18/20 | loss 0.6251 | acc 32.56% | val_loss 0.6179 | val_acc 31.95%
+2026-11-17 13:20:52.859 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 19/20 | loss 0.6231 | acc 32.72% | val_loss 0.6218 | val_acc 32.74%
+2026-11-17 13:21:07.677 +02:00 | INFO     | __main__:_train_one_symbol:305 - USOILm | epoch 20/20 | loss 0.6239 | acc 32.58% | val_loss 0.6595 | val_acc 29.97%
+2026-11-17 13:21:09.011 +02:00 | SUCCESS  | __main__:train_lstm:440 - default lstm artifacts now point to best symbol model: USOILm
+2026-11-18 20:34:39.428 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['BTCUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-18 20:36:00.881 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 1/20 | loss 0.8641 | acc 26.78% | val_loss 0.7518 | val_acc 30.36%
+2026-11-18 20:37:12.769 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 2/20 | loss 0.7362 | acc 28.26% | val_loss 0.7101 | val_acc 29.72%
+2026-11-18 20:37:43.839 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 3/20 | loss 0.7070 | acc 28.77% | val_loss 0.6931 | val_acc 29.22%
+2026-11-18 20:38:10.237 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 4/20 | loss 0.6920 | acc 29.11% | val_loss 0.7667 | val_acc 28.84%
+2026-11-18 20:38:37.283 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 5/20 | loss 0.6915 | acc 29.15% | val_loss 0.6777 | val_acc 29.50%
+2026-11-18 20:39:21.558 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 6/20 | loss 0.6727 | acc 29.96% | val_loss 0.6644 | val_acc 28.90%
+2026-11-18 20:39:46.898 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 7/20 | loss 0.6661 | acc 29.51% | val_loss 0.6640 | val_acc 31.35%
+2026-11-18 20:40:10.031 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 8/20 | loss 0.6598 | acc 30.33% | val_loss 0.6429 | val_acc 30.30%
+2026-11-18 20:45:33.735 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 9/20 | loss 0.6596 | acc 31.16% | val_loss 0.6670 | val_acc 28.31%
+2026-11-18 20:46:45.279 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 10/20 | loss 0.6445 | acc 30.55% | val_loss 0.6332 | val_acc 32.28%
+2026-11-18 20:47:46.517 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 11/20 | loss 0.6364 | acc 31.03% | val_loss 0.6275 | val_acc 32.13%
+2026-11-18 20:48:08.730 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 12/20 | loss 0.6375 | acc 30.95% | val_loss 0.6312 | val_acc 31.54%
+2026-11-18 20:48:29.902 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 13/20 | loss 0.6351 | acc 30.84% | val_loss 0.6337 | val_acc 31.39%
+2026-11-18 20:48:51.969 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 14/20 | loss 0.6358 | acc 31.06% | val_loss 0.6649 | val_acc 30.92%
+2026-11-18 20:49:14.194 +02:00 | INFO     | __main__:_train_one_symbol:305 - BTCUSDm | epoch 15/20 | loss 0.6315 | acc 31.29% | val_loss 0.6313 | val_acc 32.84%
+2026-11-18 20:49:15.062 +02:00 | INFO     | __main__:_train_one_symbol:319 - BTCUSDm | early stop: no val improvement for 4 epochs
+2026-11-18 20:49:16.341 +02:00 | SUCCESS  | __main__:train_lstm:440 - default lstm artifacts now point to best symbol model: BTCUSDm
+2026-11-18 20:49:25.955 +02:00 | INFO     | __main__:train_lstm:393 - LSTM per-symbol training on MPS | symbols=['XAUUSDm'] | epochs=20 | period=90d | tf=M5 | candles=100,000 | features=ultimate_150
+2026-11-18 20:50:13.047 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 1/20 | loss 0.8420 | acc 28.17% | val_loss 0.7338 | val_acc 30.27%
+2026-11-18 20:51:29.785 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 2/20 | loss 0.7189 | acc 29.78% | val_loss 0.7536 | val_acc 30.41%
+2026-11-18 20:53:42.371 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 3/20 | loss 0.6942 | acc 30.06% | val_loss 0.7004 | val_acc 29.10%
+2026-11-18 20:54:11.116 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 4/20 | loss 0.6849 | acc 30.76% | val_loss 0.6784 | val_acc 31.40%
+2026-11-18 20:54:24.310 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 5/20 | loss 0.6811 | acc 30.76% | val_loss 0.6772 | val_acc 29.70%
+2026-11-18 20:54:38.229 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 6/20 | loss 0.6771 | acc 30.53% | val_loss 0.6888 | val_acc 30.51%
+2026-11-18 20:54:51.958 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 7/20 | loss 0.6696 | acc 31.21% | val_loss 0.6675 | val_acc 30.41%
+2026-11-18 20:55:06.496 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 8/20 | loss 0.6622 | acc 31.25% | val_loss 0.6730 | val_acc 30.55%
+2026-11-18 20:55:36.289 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 9/20 | loss 0.6600 | acc 31.29% | val_loss 0.6503 | val_acc 32.59%
+2026-11-18 20:56:12.650 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 10/20 | loss 0.6531 | acc 31.91% | val_loss 0.6456 | val_acc 31.25%
+2026-11-18 20:56:52.610 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 11/20 | loss 0.6557 | acc 31.13% | val_loss 0.6361 | val_acc 32.67%
+2026-11-18 20:57:13.085 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 12/20 | loss 0.6391 | acc 32.21% | val_loss 0.6290 | val_acc 31.71%
+2026-11-18 20:57:32.522 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 13/20 | loss 0.6385 | acc 31.89% | val_loss 0.6333 | val_acc 32.50%
+2026-11-18 20:57:52.116 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 14/20 | loss 0.6324 | acc 32.22% | val_loss 0.6286 | val_acc 32.73%
+2026-11-18 20:58:11.746 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 15/20 | loss 0.6341 | acc 31.76% | val_loss 0.6649 | val_acc 30.29%
+2026-11-18 20:58:31.753 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 16/20 | loss 0.6352 | acc 31.98% | val_loss 0.6245 | val_acc 33.04%
+2026-11-18 20:59:13.810 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 17/20 | loss 0.6284 | acc 32.36% | val_loss 0.6300 | val_acc 32.06%
+2026-11-18 20:59:32.570 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 18/20 | loss 0.6286 | acc 32.15% | val_loss 0.6233 | val_acc 32.13%
+2026-11-18 20:59:50.989 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 19/20 | loss 0.6254 | acc 32.34% | val_loss 0.6546 | val_acc 32.20%
+2026-11-18 21:00:08.913 +02:00 | INFO     | __main__:_train_one_symbol:305 - XAUUSDm | epoch 20/20 | loss 0.6261 | acc 32.27% | val_loss 0.6469 | val_acc 31.19%
+2026-11-18 21:00:10.521 +02:00 | SUCCESS  | __main__:train_lstm:440 - default lstm artifacts now point to best symbol model: XAUUSDm

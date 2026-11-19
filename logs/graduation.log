@@ -1,0 +1,105 @@
+2026-11-17 08:13:54 graduation manager started
+2026-11-17 08:13:54 graduation manager started
+2026-11-17 08:13:54 training ['BTCUSDm', 'XAUUSDm'] | PPO steps 500,000 | retrain
+2026-11-17 08:13:54 training ['BTCUSDm', 'XAUUSDm'] | PPO steps 500,000 | retrain
+2026-11-17 09:01:43 graduation manager started
+2026-11-17 10:04:46 BTCUSDm: retrain_queued — failed the exam with the 'balanced' reward (attempt 1/5); next: 'patient' — fewer, longer trades; big penalty for paying the spread too often
+2026-11-17 10:04:46 XAUUSDm: retrain_queued — failed the exam with the 'balanced' reward (attempt 1/5); next: 'patient' — fewer, longer trades; big penalty for paying the spread too often
+2026-11-17 10:04:46 training ['BTCUSDm', 'XAUUSDm'] | reward scenario 'patient' | PPO steps 500,000 | retrain
+2026-11-17 10:52:16 graduation manager started
+2026-11-17 10:52:16 graduation manager started
+2026-11-17 10:52:16 interrupted attempt re-queued (patient)
+2026-11-17 10:52:16 interrupted attempt re-queued (patient)
+2026-11-17 10:52:16 interrupted attempt re-queued (patient)
+2026-11-17 10:52:16 interrupted attempt re-queued (patient)
+2026-11-17 10:52:16 training ['BTCUSDm', 'XAUUSDm'] | reward scenario 'patient' | PPO steps 500,000 | retrain
+2026-11-17 10:52:16 training ['BTCUSDm', 'XAUUSDm'] | reward scenario 'patient' | PPO steps 500,000 | retrain
+2026-11-17 11:14:04 graduation manager started
+2026-11-17 12:42:11 BTCUSDm: retrain_queued — failed the exam with the 'patient' reward (attempt 2/5); next: 'hunter' — must take positions; penalised for sitting flat while price moves
+2026-11-17 12:42:11 XAUUSDm: retrain_queued — failed the exam with the 'patient' reward (attempt 2/5); next: 'hunter' — must take positions; penalised for sitting flat while price moves
+2026-11-17 12:42:11 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'balanced' | PPO steps 250,000 | first training
+2026-11-17 17:08:55 EURUSDm: exam_failed — failed the exam with the 'balanced' reward (attempt 1/5); next: 'patient' — fewer, longer trades; big penalty for paying the spread too often
+2026-11-17 17:08:55 USDJPYm: exam_failed — failed the exam with the 'balanced' reward (attempt 1/5); next: 'patient' — fewer, longer trades; big penalty for paying the spread too often
+2026-11-17 17:08:55 XAGUSDm: exam_failed — failed the exam with the 'balanced' reward (attempt 1/5); next: 'patient' — fewer, longer trades; big penalty for paying the spread too often
+2026-11-17 17:08:55 ETHUSDm: exam_failed — failed the exam with the 'balanced' reward (attempt 1/5); next: 'patient' — fewer, longer trades; big penalty for paying the spread too often
+2026-11-17 17:08:55 USOILm: exam_failed — failed the exam with the 'balanced' reward (attempt 1/5); next: 'patient' — fewer, longer trades; big penalty for paying the spread too often
+2026-11-17 17:08:55 training ['BTCUSDm', 'XAUUSDm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-17 18:23:32 BTCUSDm: retrain_queued — failed the exam with the 'hunter' reward (attempt 3/5); next: 'steady' — smooth equity; rewards a high Sharpe, punishes drawdowns hard
+2026-11-17 18:23:32 XAUUSDm: retrain_queued — failed the exam with the 'hunter' reward (attempt 3/5); next: 'steady' — smooth equity; rewards a high Sharpe, punishes drawdowns hard
+2026-11-17 18:23:32 training ['BTCUSDm', 'XAUUSDm'] | reward scenario 'steady' | PPO steps 250,000 | retrain
+2026-11-17 20:01:16 BTCUSDm: retrain_queued — failed the exam with the 'steady' reward (attempt 4/5); next: 'trend_rider' — rewarded for staying in while the move continues, cutting when it turns
+2026-11-17 20:01:16 XAUUSDm: retrain_queued — failed the exam with the 'steady' reward (attempt 4/5); next: 'trend_rider' — rewarded for staying in while the move continues, cutting when it turns
+2026-11-17 20:01:16 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'patient' | PPO steps 250,000 | retrain
+2026-11-17 22:49:44 EURUSDm: exam_failed — failed the exam with the 'patient' reward (attempt 2/5); next: 'hunter' — must take positions; penalised for sitting flat while price moves
+2026-11-17 22:49:44 USDJPYm: exam_failed — failed the exam with the 'patient' reward (attempt 2/5); next: 'hunter' — must take positions; penalised for sitting flat while price moves
+2026-11-17 22:49:44 XAGUSDm: exam_failed — failed the exam with the 'patient' reward (attempt 2/5); next: 'hunter' — must take positions; penalised for sitting flat while price moves
+2026-11-17 22:49:44 ETHUSDm: exam_failed — failed the exam with the 'patient' reward (attempt 2/5); next: 'hunter' — must take positions; penalised for sitting flat while price moves
+2026-11-17 22:49:44 USOILm: exam_failed — failed the exam with the 'patient' reward (attempt 2/5); next: 'hunter' — must take positions; penalised for sitting flat while price moves
+2026-11-17 22:49:44 training ['BTCUSDm', 'XAUUSDm'] | reward scenario 'trend_rider' | PPO steps 250,000 | retrain
+2026-11-18 00:36:52 BTCUSDm: live — tried 5 reward scenarios without beating the exam; keeps the model it had
+2026-11-18 00:36:52 XAUUSDm: live — tried 5 reward scenarios without beating the exam; keeps the model it had
+2026-11-18 00:36:52 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-18 00:38:32 EURUSDm: exam_failed — failed the exam with the 'hunter' reward (attempt 3/5); next: 'steady' — smooth equity; rewards a high Sharpe, punishes drawdowns hard
+2026-11-18 00:38:32 USDJPYm: exam_failed — failed the exam with the 'hunter' reward (attempt 3/5); next: 'steady' — smooth equity; rewards a high Sharpe, punishes drawdowns hard
+2026-11-18 00:38:32 XAGUSDm: exam_failed — failed the exam with the 'hunter' reward (attempt 3/5); next: 'steady' — smooth equity; rewards a high Sharpe, punishes drawdowns hard
+2026-11-18 00:38:32 ETHUSDm: exam_failed — failed the exam with the 'hunter' reward (attempt 3/5); next: 'steady' — smooth equity; rewards a high Sharpe, punishes drawdowns hard
+2026-11-18 00:38:32 USOILm: exam_failed — failed the exam with the 'hunter' reward (attempt 3/5); next: 'steady' — smooth equity; rewards a high Sharpe, punishes drawdowns hard
+2026-11-18 00:38:32 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'steady' | PPO steps 250,000 | retrain
+2026-11-18 00:40:13 EURUSDm: exam_failed — failed the exam with the 'steady' reward (attempt 4/5); next: 'trend_rider' — rewarded for staying in while the move continues, cutting when it turns
+2026-11-18 00:40:13 USDJPYm: exam_failed — failed the exam with the 'steady' reward (attempt 4/5); next: 'trend_rider' — rewarded for staying in while the move continues, cutting when it turns
+2026-11-18 00:40:13 XAGUSDm: exam_failed — failed the exam with the 'steady' reward (attempt 4/5); next: 'trend_rider' — rewarded for staying in while the move continues, cutting when it turns
+2026-11-18 00:40:13 ETHUSDm: exam_failed — failed the exam with the 'steady' reward (attempt 4/5); next: 'trend_rider' — rewarded for staying in while the move continues, cutting when it turns
+2026-11-18 00:40:13 USOILm: exam_failed — failed the exam with the 'steady' reward (attempt 4/5); next: 'trend_rider' — rewarded for staying in while the move continues, cutting when it turns
+2026-11-18 00:40:13 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'trend_rider' | PPO steps 250,000 | retrain
+2026-11-18 00:41:55 EURUSDm: needs_work — failed the exam with all 5 reward scenarios: trades news only; the next round trains longer
+2026-11-18 00:41:55 USDJPYm: needs_work — failed the exam with all 5 reward scenarios: trades news only; the next round trains longer
+2026-11-18 00:41:55 XAGUSDm: needs_work — failed the exam with all 5 reward scenarios: trades news only; the next round trains longer
+2026-11-18 00:41:55 ETHUSDm: needs_work — failed the exam with all 5 reward scenarios: trades news only; the next round trains longer
+2026-11-18 00:41:55 USOILm: needs_work — failed the exam with all 5 reward scenarios: trades news only; the next round trains longer
+2026-11-18 14:37:21 graduation manager started
+2026-11-18 14:37:21 training ['EURUSDm', 'USOILm'] | reward scenario 'patient' | PPO steps 250,000 | retrain
+2026-11-18 15:32:11 EURUSDm: exam_failed — failed the exam with the 'patient' reward (attempt 2/5); next: 'hunter' — must take positions; penalised for sitting flat while price moves
+2026-11-18 15:32:11 USOILm: exam_failed — failed the exam with the 'patient' reward (attempt 2/5); next: 'hunter' — must take positions; penalised for sitting flat while price moves
+2026-11-18 15:32:11 training ['USDJPYm', 'XAGUSDm', 'ETHUSDm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-18 15:33:29 USDJPYm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 15 min
+2026-11-18 15:33:29 XAGUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 15 min
+2026-11-18 15:33:29 ETHUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 15 min
+2026-11-18 15:33:29 training ['EURUSDm', 'USOILm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-18 15:34:09 EURUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 15 min
+2026-11-18 15:34:09 USOILm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 15 min
+2026-11-18 16:04:09 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-18 16:05:48 EURUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 30 min
+2026-11-18 16:05:48 USDJPYm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 30 min
+2026-11-18 16:05:48 XAGUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 30 min
+2026-11-18 16:05:48 ETHUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 30 min
+2026-11-18 16:05:48 USOILm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 30 min
+2026-11-18 16:35:48 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-18 16:37:27 EURUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 60 min
+2026-11-18 16:37:27 USDJPYm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 60 min
+2026-11-18 16:37:27 XAGUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 60 min
+2026-11-18 16:37:27 ETHUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 60 min
+2026-11-18 16:37:27 USOILm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 60 min
+2026-11-18 17:37:28 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-18 17:39:19 EURUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 120 min
+2026-11-18 17:39:19 USDJPYm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 120 min
+2026-11-18 17:39:19 XAGUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 120 min
+2026-11-18 17:39:19 ETHUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 120 min
+2026-11-18 17:39:19 USOILm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 120 min
+2026-11-18 19:39:19 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-18 19:41:03 EURUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 240 min
+2026-11-18 19:41:03 USDJPYm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 240 min
+2026-11-18 19:41:03 XAGUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 240 min
+2026-11-18 19:41:03 ETHUSDm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 240 min
+2026-11-18 19:41:03 USOILm: crashed, not counted — the 'hunter' run never reached its exam: the training script stopped with an error (usually: no price history while the network was down). Not counted as an attempt; it retries the same reward in 240 min
+2026-11-19 01:48:32 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-19 01:48:32 EURUSDm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min
+2026-11-19 01:48:32 USDJPYm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min
+2026-11-19 01:48:32 XAGUSDm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min
+2026-11-19 01:48:32 ETHUSDm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min
+2026-11-19 01:48:32 USOILm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min
+2026-11-19 09:55:48 training ['EURUSDm', 'USDJPYm', 'XAGUSDm', 'ETHUSDm', 'USOILm'] | reward scenario 'hunter' | PPO steps 250,000 | retrain
+2026-11-19 09:55:49 EURUSDm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min
+2026-11-19 09:55:49 USDJPYm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min
+2026-11-19 09:55:49 XAGUSDm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min
+2026-11-19 09:55:49 ETHUSDm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min
+2026-11-19 09:55:49 USOILm: crashed, not counted — the 'hunter' run never reached its exam: training stopped before its exam. Not counted as an attempt; it retries the same reward in 360 min

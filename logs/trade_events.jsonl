@@ -1,0 +1,776 @@
+{"ts": "2026-11-17T03:36:33.058374+00:00", "event": "trade_open", "payload": {"ticket": 38019919, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3874.743, "sl": 3867.512, "tp": 3886.425}}
+{"ts": "2026-11-17T03:38:10.409626+00:00", "event": "trade_open", "payload": {"ticket": 38019919, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3874.743, "sl": 3867.512, "tp": 3886.425}}
+{"ts": "2026-11-17T04:13:07.921741+00:00", "event": "trade_open", "payload": {"ticket": 38022477, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 64887.15, "sl": 65098.8, "tp": 64566.95}}
+{"ts": "2026-11-17T04:13:07.969951+00:00", "event": "trade_open", "payload": {"ticket": 38022497, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3870.178, "sl": 3875.032, "tp": 3861.925}}
+{"ts": "2026-11-17T04:19:27.999066+00:00", "event": "position_removed", "payload": {"ticket": 38022497}}
+{"ts": "2026-11-17T04:20:16.913913+00:00", "event": "trade_open", "payload": {"ticket": 38023461, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3868.046, "sl": 3872.378, "tp": 3860.326}}
+{"ts": "2026-11-17T04:28:24.698567+00:00", "event": "trade_open", "payload": {"ticket": 38022477, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 64887.15, "sl": 65098.8, "tp": 64566.95}}
+{"ts": "2026-11-17T04:28:24.761026+00:00", "event": "trade_open", "payload": {"ticket": 38023461, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3868.046, "sl": 3866.091, "tp": 3860.326}}
+{"ts": "2026-11-17T04:29:41.242529+00:00", "event": "position_removed", "payload": {"ticket": 38023461}}
+{"ts": "2026-11-17T04:33:39.137136+00:00", "event": "trade_open", "payload": {"ticket": 38024805, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3866.378, "sl": 3870.79, "tp": 3859.645}}
+{"ts": "2026-11-17T04:38:29.431302+00:00", "event": "position_removed", "payload": {"ticket": 38024805}}
+{"ts": "2026-11-17T04:41:48.705859+00:00", "event": "trade_open", "payload": {"ticket": 38025636, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3872.905, "sl": 3876.966, "tp": 3865.559}}
+{"ts": "2026-11-17T04:50:23.092512+00:00", "event": "position_removed", "payload": {"ticket": 38025636}}
+{"ts": "2026-11-17T04:52:16.531756+00:00", "event": "trade_open", "payload": {"ticket": 38022477, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 64887.15, "sl": 65098.8, "tp": 64566.95}}
+{"ts": "2026-11-17T04:52:58.458384+00:00", "event": "trade_open", "payload": {"ticket": 38022477, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 64887.15, "sl": 65098.8, "tp": 64566.95}}
+{"ts": "2026-11-17T04:55:22.890722+00:00", "event": "trade_open", "payload": {"ticket": 38027510, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.03, "open_price": 64975.24, "sl": 65085.87, "tp": 64801.34}}
+{"ts": "2026-11-17T05:02:50.170441+00:00", "event": "position_removed", "payload": {"ticket": 38022477}}
+{"ts": "2026-11-17T05:02:50.170886+00:00", "event": "position_removed", "payload": {"ticket": 38027510}}
+{"ts": "2026-11-17T05:05:19.584412+00:00", "event": "trade_open", "payload": {"ticket": 38028606, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.05, "open_price": 64838.84, "sl": 64963.62, "tp": 64654.2}}
+{"ts": "2026-11-17T05:06:48.486195+00:00", "event": "trade_open", "payload": {"ticket": 38028606, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.05, "open_price": 64838.84, "sl": 64963.62, "tp": 64654.2}}
+{"ts": "2026-11-17T05:11:01.919835+00:00", "event": "position_removed", "payload": {"ticket": 38028606}}
+{"ts": "2026-11-17T05:18:49.699063+00:00", "event": "trade_open", "payload": {"ticket": 38030109, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.07, "open_price": 64795.35, "sl": 64909.87, "tp": 64614.79}}
+{"ts": "2026-11-17T05:20:15.666055+00:00", "event": "trade_open", "payload": {"ticket": 38030109, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.06, "open_price": 64795.35, "sl": 64909.87, "tp": 64614.79}}
+{"ts": "2026-11-17T05:21:21.236234+00:00", "event": "trade_open", "payload": {"ticket": 38030403, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.06, "open_price": 64959.54, "sl": 65103.58, "tp": 64795.78}}
+{"ts": "2026-11-17T05:21:56.818476+00:00", "event": "position_removed", "payload": {"ticket": 38030403}}
+{"ts": "2026-11-17T05:34:18.706277+00:00", "event": "trade_open", "payload": {"ticket": 38032181, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.03, "open_price": 64977.08, "sl": 65107.84, "tp": 64771.65}}
+{"ts": "2026-11-17T05:39:07.613120+00:00", "event": "position_removed", "payload": {"ticket": 38032181}}
+{"ts": "2026-11-17T05:40:30.937306+00:00", "event": "trade_open", "payload": {"ticket": 38033162, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.02, "open_price": 3881.407, "sl": 3875.892, "tp": 3889.549}}
+{"ts": "2026-11-17T05:47:14.132549+00:00", "event": "position_removed", "payload": {"ticket": 38033162}}
+{"ts": "2026-11-17T05:50:29.139842+00:00", "event": "trade_open", "payload": {"ticket": 38034782, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.07, "open_price": 64788.47, "sl": 64923.09, "tp": 64587.11}}
+{"ts": "2026-11-17T05:56:39.762603+00:00", "event": "trade_open", "payload": {"ticket": 38034782, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.07, "open_price": 64788.47, "sl": 64923.09, "tp": 64587.11}}
+{"ts": "2026-11-17T06:02:15.776799+00:00", "event": "trade_open", "payload": {"ticket": 38036326, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.02, "open_price": 3879.207, "sl": 3873.743, "tp": 3887.814}}
+{"ts": "2026-11-17T06:03:46.970869+00:00", "event": "position_removed", "payload": {"ticket": 38034782}}
+{"ts": "2026-11-17T06:10:21.855847+00:00", "event": "position_removed", "payload": {"ticket": 38036326}}
+{"ts": "2026-11-17T06:26:57.232466+00:00", "event": "trade_open", "payload": {"ticket": 38040407, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.07, "open_price": 64560.53, "sl": 64685.94, "tp": 64362.12}}
+{"ts": "2026-11-17T06:30:26.289192+00:00", "event": "trade_open", "payload": {"ticket": 38040922, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.02, "open_price": 3876.655, "sl": 3882.444, "tp": 3867.156}}
+{"ts": "2026-11-17T06:32:17.662655+00:00", "event": "position_removed", "payload": {"ticket": 38040407}}
+{"ts": "2026-11-17T06:35:41.693171+00:00", "event": "position_removed", "payload": {"ticket": 38040922}}
+{"ts": "2026-11-17T06:41:01.462341+00:00", "event": "trade_open", "payload": {"ticket": 38042725, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.03, "open_price": 64351.12, "sl": 64488.85, "tp": 64137.36}}
+{"ts": "2026-11-17T06:51:05.764258+00:00", "event": "trade_open", "payload": {"ticket": 38043967, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.05, "open_price": 64424.45, "sl": 64562.59, "tp": 64206.09}}
+{"ts": "2026-11-17T06:52:05.520531+00:00", "event": "position_removed", "payload": {"ticket": 38042725}}
+{"ts": "2026-11-17T06:55:15.707712+00:00", "event": "trade_open", "payload": {"ticket": 38044438, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.02, "open_price": 3872.514, "sl": 3877.561, "tp": 3863.971}}
+{"ts": "2026-11-17T07:01:25.212138+00:00", "event": "position_removed", "payload": {"ticket": 38044438}}
+{"ts": "2026-11-17T07:01:46.092282+00:00", "event": "trade_open", "payload": {"ticket": 38045513, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.07, "open_price": 64582.34, "sl": 64722.8, "tp": 64357.34}}
+{"ts": "2026-11-17T07:01:46.172406+00:00", "event": "position_removed", "payload": {"ticket": 38043967}}
+{"ts": "2026-11-17T07:05:39.934870+00:00", "event": "trade_open", "payload": {"ticket": 38046230, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3876.94, "sl": 3882.215, "tp": 3868.831}}
+{"ts": "2026-11-17T07:07:30.676629+00:00", "event": "position_removed", "payload": {"ticket": 38045513}}
+{"ts": "2026-11-17T07:10:25.957647+00:00", "event": "position_removed", "payload": {"ticket": 38046230}}
+{"ts": "2026-11-17T07:16:52.364443+00:00", "event": "trade_open", "payload": {"ticket": 38047978, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.02, "open_price": 3876.827, "sl": 3872.102, "tp": 3884.607}}
+{"ts": "2026-11-17T07:25:27.712453+00:00", "event": "trade_open", "payload": {"ticket": 38049705, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.03, "open_price": 64624.81, "sl": 64789.39, "tp": 64367.47}}
+{"ts": "2026-11-17T07:35:09.787001+00:00", "event": "position_removed", "payload": {"ticket": 38047978}}
+{"ts": "2026-11-17T07:39:05.556194+00:00", "event": "position_removed", "payload": {"ticket": 38049705}}
+{"ts": "2026-11-17T07:45:42.293836+00:00", "event": "trade_open", "payload": {"ticket": 38054979, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.07, "open_price": 64518.58, "sl": 64656.46, "tp": 64303.42}}
+{"ts": "2026-11-17T07:51:56.776657+00:00", "event": "trade_open", "payload": {"ticket": 38056186, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3872.944, "sl": 3877.708, "tp": 3866.638}}
+{"ts": "2026-11-17T07:54:24.978871+00:00", "event": "position_removed", "payload": {"ticket": 38054979}}
+{"ts": "2026-11-17T08:00:24.797654+00:00", "event": "trade_open", "payload": {"ticket": 38057196, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.06, "open_price": 64683.69, "sl": 64818.96, "tp": 64471.14}}
+{"ts": "2026-11-17T08:01:28.092238+00:00", "event": "position_removed", "payload": {"ticket": 38056186}}
+{"ts": "2026-11-17T08:03:45.861989+00:00", "event": "position_removed", "payload": {"ticket": 38057196}}
+{"ts": "2026-11-17T08:10:28.790109+00:00", "event": "trade_open", "payload": {"ticket": 38060020, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.02, "open_price": 3866.629, "sl": 3871.234, "tp": 3859.657}}
+{"ts": "2026-11-17T08:12:18.650397+00:00", "event": "position_removed", "payload": {"ticket": 38060020}}
+{"ts": "2026-11-17T08:20:39.933838+00:00", "event": "trade_open", "payload": {"ticket": 38062871, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.04, "open_price": 64489.63, "sl": 64620.02, "tp": 64282.88}}
+{"ts": "2026-11-17T08:30:28.726555+00:00", "event": "position_removed", "payload": {"ticket": 38062871}}
+{"ts": "2026-11-17T08:33:30.211411+00:00", "event": "trade_open", "payload": {"ticket": 38064986, "symbol": "EURUSDm", "side": "SELL", "volume": 0.05, "open_price": 1.10043, "sl": 1.10293, "tp": 1.09593}}
+{"ts": "2026-11-17T08:33:30.256653+00:00", "event": "trade_open", "payload": {"ticket": 38064992, "symbol": "USOILm", "side": "SELL", "volume": 0.04, "open_price": 84.149, "sl": 84.422, "tp": 83.702}}
+{"ts": "2026-11-17T08:43:59.176985+00:00", "event": "trade_open", "payload": {"ticket": 38066478, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3867.221, "sl": 3872.264, "tp": 3860.438}}
+{"ts": "2026-11-17T08:45:06.573917+00:00", "event": "trade_open", "payload": {"ticket": 38066627, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.03, "open_price": 64360.23, "sl": 64510.27, "tp": 64126.88}}
+{"ts": "2026-11-17T09:05:16.534253+00:00", "event": "trade_open", "payload": {"ticket": 38064986, "symbol": "EURUSDm", "side": "SELL", "volume": 0.05, "open_price": 1.10043, "sl": 1.10293, "tp": 1.09593}}
+{"ts": "2026-11-17T09:05:16.651104+00:00", "event": "trade_open", "payload": {"ticket": 38066711, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.504, "sl": 47.499, "tp": 47.067}}
+{"ts": "2026-11-17T09:07:32.452549+00:00", "event": "trade_open", "payload": {"ticket": 38064986, "symbol": "EURUSDm", "side": "SELL", "volume": 0.05, "open_price": 1.10043, "sl": 1.10293, "tp": 1.09593}}
+{"ts": "2026-11-17T09:07:32.535201+00:00", "event": "trade_open", "payload": {"ticket": 38066711, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.504, "sl": 47.499, "tp": 47.067}}
+{"ts": "2026-11-17T09:08:17.607544+00:00", "event": "trade_open", "payload": {"ticket": 38069878, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.02, "open_price": 64285.04, "sl": 64423.55, "tp": 64027.96}}
+{"ts": "2026-11-17T09:08:20.738124+00:00", "event": "trade_open", "payload": {"ticket": 38069885, "symbol": "USDJPYm", "side": "SELL", "volume": 0.07, "open_price": 159.023, "sl": 159.274, "tp": 158.574}}
+{"ts": "2026-11-17T09:11:46.517238+00:00", "event": "position_removed", "payload": {"ticket": 38069878}}
+{"ts": "2026-11-17T09:15:30.312606+00:00", "event": "trade_open", "payload": {"ticket": 38064986, "symbol": "EURUSDm", "side": "SELL", "volume": 0.05, "open_price": 1.10043, "sl": 1.10293, "tp": 1.09593}}
+{"ts": "2026-11-17T09:15:30.519910+00:00", "event": "trade_open", "payload": {"ticket": 38066711, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.504, "sl": 47.499, "tp": 47.067}}
+{"ts": "2026-11-17T09:15:31.549119+00:00", "event": "trade_open", "payload": {"ticket": 38069885, "symbol": "USDJPYm", "side": "SELL", "volume": 0.07, "open_price": 159.023, "sl": 159.018, "tp": 158.574}}
+{"ts": "2026-11-17T09:17:26.426916+00:00", "event": "position_removed", "payload": {"ticket": 38066711}}
+{"ts": "2026-11-17T09:26:57.794965+00:00", "event": "trade_open", "payload": {"ticket": 38074123, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.04, "open_price": 64279.8, "sl": 64446.54, "tp": 64028.73}}
+{"ts": "2026-11-17T09:28:12.693899+00:00", "event": "trade_open", "payload": {"ticket": 38074987, "symbol": "EURUSDm", "side": "SELL", "volume": 0.05, "open_price": 1.1001, "sl": 1.1026, "tp": 1.0956}}
+{"ts": "2026-11-17T09:29:54.400567+00:00", "event": "trade_open", "payload": {"ticket": 38075476, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3862.323, "sl": 3866.91, "tp": 3854.894}}
+{"ts": "2026-11-17T09:39:34.256893+00:00", "event": "trade_open", "payload": {"ticket": 12111517, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1813.05, "sl": 1819.94, "tp": 1803.38}}
+{"ts": "2026-11-17T09:54:18.816508+00:00", "event": "position_removed", "payload": {"ticket": 12111517}}
+{"ts": "2026-11-17T09:54:35.018939+00:00", "event": "trade_open", "payload": {"ticket": 12112177, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.2, "open_price": 1813.32, "sl": 1819.64, "tp": 1803.41}}
+{"ts": "2026-11-17T09:59:13.420163+00:00", "event": "position_removed", "payload": {"ticket": 12112177}}
+{"ts": "2026-11-17T10:05:26.606451+00:00", "event": "trade_open", "payload": {"ticket": 12112585, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 64348.32, "sl": 0.0, "tp": 0.0}}
+{"ts": "2026-11-17T10:05:45.611401+00:00", "event": "trade_open", "payload": {"ticket": 12112592, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.2, "open_price": 64342.35, "sl": 0.0, "tp": 64604.34}}
+{"ts": "2026-11-17T10:10:30.756682+00:00", "event": "position_removed", "payload": {"ticket": 12112585}}
+{"ts": "2026-11-17T10:10:30.760211+00:00", "event": "position_removed", "payload": {"ticket": 12112592}}
+{"ts": "2026-11-17T10:11:17.725872+00:00", "event": "trade_open", "payload": {"ticket": 12112845, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.05, "open_price": 3857.889, "sl": 0.0, "tp": 0.0}}
+{"ts": "2026-11-17T10:14:28.049868+00:00", "event": "trade_open", "payload": {"ticket": 12112984, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.05, "open_price": 3856.236, "sl": 0.0, "tp": 3849.386}}
+{"ts": "2026-11-17T10:15:00.280110+00:00", "event": "position_removed", "payload": {"ticket": 12112845}}
+{"ts": "2026-11-17T10:15:00.281012+00:00", "event": "position_removed", "payload": {"ticket": 12112984}}
+{"ts": "2026-11-17T10:16:28.925021+00:00", "event": "trade_open", "payload": {"ticket": 12113090, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.5, "open_price": 64314.76, "sl": 0.0, "tp": 64581.15}}
+{"ts": "2026-11-17T10:19:57.015240+00:00", "event": "trade_open", "payload": {"ticket": 12113254, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.5, "open_price": 64282.68, "sl": 0.0, "tp": 64549.07}}
+{"ts": "2026-11-17T10:20:32.292879+00:00", "event": "position_removed", "payload": {"ticket": 12113090}}
+{"ts": "2026-11-17T10:20:32.293290+00:00", "event": "position_removed", "payload": {"ticket": 12113254}}
+{"ts": "2026-11-17T10:25:47.861605+00:00", "event": "trade_open", "payload": {"ticket": 12113513, "symbol": "UKOIL", "side": "BUY", "volume": 0.1, "open_price": 90.722, "sl": 0.0, "tp": 0.0}}
+{"ts": "2026-11-17T10:27:17.459978+00:00", "event": "trade_open", "payload": {"ticket": 12113584, "symbol": "UKOIL", "side": "SELL", "volume": 0.5, "open_price": 90.77, "sl": 0.0, "tp": 0.0}}
+{"ts": "2026-11-17T10:27:17.547635+00:00", "event": "position_removed", "payload": {"ticket": 12113513}}
+{"ts": "2026-11-17T10:29:22.695781+00:00", "event": "trade_open", "payload": {"ticket": 12113658, "symbol": "UKOIL", "side": "SELL", "volume": 0.5, "open_price": 90.706, "sl": 0.0, "tp": 0.0}}
+{"ts": "2026-11-17T10:29:22.764900+00:00", "event": "trade_open", "payload": {"ticket": 12113659, "symbol": "UKOIL", "side": "SELL", "volume": 0.5, "open_price": 90.708, "sl": 0.0, "tp": 0.0}}
+{"ts": "2026-11-17T10:29:53.385717+00:00", "event": "position_removed", "payload": {"ticket": 12113584}}
+{"ts": "2026-11-17T10:29:53.386084+00:00", "event": "position_removed", "payload": {"ticket": 12113658}}
+{"ts": "2026-11-17T10:29:53.396266+00:00", "event": "position_removed", "payload": {"ticket": 12113659}}
+{"ts": "2026-11-17T10:46:14.115470+00:00", "event": "trade_open", "payload": {"ticket": 12114340, "symbol": "EURUSDm", "side": "SELL", "volume": 0.02, "open_price": 1.09928, "sl": 1.10177, "tp": 1.09477}}
+{"ts": "2026-11-17T10:47:14.425433+00:00", "event": "trade_open", "payload": {"ticket": 12114388, "symbol": "USDJPYm", "side": "SELL", "volume": 0.03, "open_price": 159.079, "sl": 159.315, "tp": 158.615}}
+{"ts": "2026-11-17T10:47:53.248503+00:00", "event": "trade_open", "payload": {"ticket": 12114418, "symbol": "USOILm", "side": "SELL", "volume": 0.02, "open_price": 84.472, "sl": 84.723, "tp": 84.022}}
+{"ts": "2026-11-17T10:51:10.361810+00:00", "event": "position_removed", "payload": {"ticket": 12114418}}
+{"ts": "2026-11-17T10:59:09.481421+00:00", "event": "trade_open", "payload": {"ticket": 12114849, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.03, "open_price": 64011.54, "sl": 64179.78, "tp": 63757.76}}
+{"ts": "2026-11-17T10:59:11.631301+00:00", "event": "trade_open", "payload": {"ticket": 12114850, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3853.117, "sl": 3858.225, "tp": 3846.231}}
+{"ts": "2026-11-17T10:59:41.482221+00:00", "event": "trade_open", "payload": {"ticket": 12114871, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1785.44, "sl": 1793.64, "tp": 1772.55}}
+{"ts": "2026-11-17T11:07:37.086167+00:00", "event": "position_removed", "payload": {"ticket": 12114850}}
+{"ts": "2026-11-17T11:09:20.882338+00:00", "event": "trade_open", "payload": {"ticket": 12115263, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.09893, "sl": 1.10146, "tp": 1.09446}}
+{"ts": "2026-11-17T11:09:21.935008+00:00", "event": "position_removed", "payload": {"ticket": 12114849}}
+{"ts": "2026-11-17T11:11:06.149506+00:00", "event": "position_removed", "payload": {"ticket": 12114871}}
+{"ts": "2026-11-17T11:12:22.686612+00:00", "event": "trade_open", "payload": {"ticket": 12115356, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.03, "open_price": 64267.01, "sl": 64413.54, "tp": 64000.88}}
+{"ts": "2026-11-17T11:12:24.784215+00:00", "event": "trade_open", "payload": {"ticket": 12115359, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1795.46, "sl": 1803.59, "tp": 1782.35}}
+{"ts": "2026-11-17T11:17:46.205597+00:00", "event": "trade_open", "payload": {"ticket": 12115555, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.02, "open_price": 64321.99, "sl": 64483.88, "tp": 64068.56}}
+{"ts": "2026-11-17T11:18:09.315116+00:00", "event": "position_removed", "payload": {"ticket": 12115359}}
+{"ts": "2026-11-17T11:18:32.453842+00:00", "event": "position_removed", "payload": {"ticket": 12115356}}
+{"ts": "2026-11-17T11:23:33.419876+00:00", "event": "trade_open", "payload": {"ticket": 12115753, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3858.582, "sl": 3863.036, "tp": 3851.516}}
+{"ts": "2026-11-17T11:27:33.860099+00:00", "event": "trade_open", "payload": {"ticket": 12115850, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3859.12, "sl": 3863.648, "tp": 3852.064}}
+{"ts": "2026-11-17T11:31:49.324119+00:00", "event": "position_removed", "payload": {"ticket": 12115555}}
+{"ts": "2026-11-17T11:34:16.967115+00:00", "event": "position_removed", "payload": {"ticket": 12115753}}
+{"ts": "2026-11-17T11:43:19.543090+00:00", "event": "position_removed", "payload": {"ticket": 12114340}}
+{"ts": "2026-11-17T11:43:19.554449+00:00", "event": "position_removed", "payload": {"ticket": 12114388}}
+{"ts": "2026-11-17T11:43:19.554716+00:00", "event": "position_removed", "payload": {"ticket": 12115263}}
+{"ts": "2026-11-17T11:43:19.554906+00:00", "event": "position_removed", "payload": {"ticket": 12115850}}
+{"ts": "2026-11-17T13:46:59.704423+00:00", "event": "trade_open", "payload": {"ticket": 38064986, "symbol": "EURUSDm", "side": "SELL", "volume": 0.05, "open_price": 1.10043, "sl": 1.09831, "tp": 1.09593}}
+{"ts": "2026-11-17T13:46:59.863617+00:00", "event": "trade_open", "payload": {"ticket": 38074987, "symbol": "EURUSDm", "side": "SELL", "volume": 0.05, "open_price": 1.1001, "sl": 1.09831, "tp": 1.0956}}
+{"ts": "2026-11-17T14:00:47.436488+00:00", "event": "position_removed", "payload": {"ticket": 38064986}}
+{"ts": "2026-11-17T14:00:47.437171+00:00", "event": "position_removed", "payload": {"ticket": 38074987}}
+{"ts": "2026-11-17T14:12:49.929574+00:00", "event": "trade_open", "payload": {"ticket": 38139750, "symbol": "USOILm", "side": "BUY", "volume": 0.04, "open_price": 85.709, "sl": 85.445, "tp": 86.163}}
+{"ts": "2026-11-17T14:16:46.159544+00:00", "event": "position_removed", "payload": {"ticket": 38139750}}
+{"ts": "2026-11-17T14:18:44.783868+00:00", "event": "trade_open", "payload": {"ticket": 38140883, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.02, "open_price": 64975.04, "sl": 65139.28, "tp": 64708.69}}
+{"ts": "2026-11-17T14:20:25.838736+00:00", "event": "position_removed", "payload": {"ticket": 38140883}}
+{"ts": "2026-11-17T14:20:45.160659+00:00", "event": "trade_open", "payload": {"ticket": 38141320, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3860.951, "sl": 3870.056, "tp": 3846.704}}
+{"ts": "2026-11-17T14:22:31.804090+00:00", "event": "trade_open", "payload": {"ticket": 38141633, "symbol": "USOILm", "side": "BUY", "volume": 0.04, "open_price": 85.76, "sl": 85.523, "tp": 86.243}}
+{"ts": "2026-11-17T14:27:31.008332+00:00", "event": "trade_open", "payload": {"ticket": 38143213, "symbol": "EURUSDm", "side": "SELL", "volume": 0.05, "open_price": 1.09911, "sl": 1.10161, "tp": 1.09461}}
+{"ts": "2026-11-17T14:27:34.231624+00:00", "event": "trade_open", "payload": {"ticket": 38143235, "symbol": "USDJPYm", "side": "BUY", "volume": 0.07, "open_price": 159.339, "sl": 159.091, "tp": 159.791}}
+{"ts": "2026-11-17T14:27:38.478683+00:00", "event": "trade_open", "payload": {"ticket": 38143256, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.56, "sl": 47.811, "tp": 47.111}}
+{"ts": "2026-11-17T14:28:06.749448+00:00", "event": "position_removed", "payload": {"ticket": 38141633}}
+{"ts": "2026-11-17T14:29:42.647279+00:00", "event": "trade_open", "payload": {"ticket": 38143705, "symbol": "USOILm", "side": "BUY", "volume": 0.09, "open_price": 85.815, "sl": 85.553, "tp": 86.273}}
+{"ts": "2026-11-17T14:36:02.196950+00:00", "event": "position_removed", "payload": {"ticket": 38143235}}
+{"ts": "2026-11-17T14:36:28.973373+00:00", "event": "trade_open", "payload": {"ticket": 38146438, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 65161.45, "sl": 65358.78, "tp": 64904.07}}
+{"ts": "2026-11-17T14:36:32.302219+00:00", "event": "trade_open", "payload": {"ticket": 38146454, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1826.37, "sl": 1832.96, "tp": 1816.16}}
+{"ts": "2026-11-17T14:36:37.106816+00:00", "event": "position_removed", "payload": {"ticket": 38141320}}
+{"ts": "2026-11-17T14:36:37.107405+00:00", "event": "position_removed", "payload": {"ticket": 38143256}}
+{"ts": "2026-11-17T14:37:21.160749+00:00", "event": "position_removed", "payload": {"ticket": 38146438}}
+{"ts": "2026-11-17T14:38:01.201182+00:00", "event": "position_removed", "payload": {"ticket": 38146454}}
+{"ts": "2026-11-17T14:40:31.365181+00:00", "event": "position_removed", "payload": {"ticket": 38143705}}
+{"ts": "2026-11-17T14:41:40.683336+00:00", "event": "trade_open", "payload": {"ticket": 38148608, "symbol": "XAGUSDm", "side": "BUY", "volume": 0.01, "open_price": 47.715, "sl": 47.477, "tp": 48.177}}
+{"ts": "2026-11-17T14:46:07.429358+00:00", "event": "trade_open", "payload": {"ticket": 38149772, "symbol": "EURUSDm", "side": "SELL", "volume": 0.04, "open_price": 1.0992, "sl": 1.10168, "tp": 1.09468}}
+{"ts": "2026-11-17T14:52:28.917111+00:00", "event": "position_removed", "payload": {"ticket": 38148608}}
+{"ts": "2026-11-17T14:54:18.748050+00:00", "event": "trade_open", "payload": {"ticket": 38151472, "symbol": "XAGUSDm", "side": "BUY", "volume": 0.02, "open_price": 47.768, "sl": 47.514, "tp": 48.214}}
+{"ts": "2026-11-17T14:56:28.830081+00:00", "event": "trade_open", "payload": {"ticket": 38152126, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3861.989, "sl": 3871.39, "tp": 3847.306}}
+{"ts": "2026-11-17T14:56:32.162817+00:00", "event": "trade_open", "payload": {"ticket": 38152145, "symbol": "USDJPYm", "side": "BUY", "volume": 0.07, "open_price": 159.4, "sl": 159.155, "tp": 159.855}}
+{"ts": "2026-11-17T14:56:36.247998+00:00", "event": "trade_open", "payload": {"ticket": 38152178, "symbol": "USOILm", "side": "BUY", "volume": 0.04, "open_price": 85.66, "sl": 85.374, "tp": 86.105}}
+{"ts": "2026-11-17T15:03:01.332131+00:00", "event": "trade_open", "payload": {"ticket": 38153741, "symbol": "EURUSDm", "side": "SELL", "volume": 0.05, "open_price": 1.09912, "sl": 1.10165, "tp": 1.09465}}
+{"ts": "2026-11-17T15:04:00.654126+00:00", "event": "trade_open", "payload": {"ticket": 38154184, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3861.956, "sl": 3872.542, "tp": 3847.93}}
+{"ts": "2026-11-17T15:04:35.631806+00:00", "event": "trade_open", "payload": {"ticket": 38154442, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 64775.63, "sl": 64512.46, "tp": 65185.79}}
+{"ts": "2026-11-17T15:07:06.714747+00:00", "event": "trade_open", "payload": {"ticket": 38155474, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1800.27, "sl": 1808.9, "tp": 1785.47}}
+{"ts": "2026-11-17T15:08:02.262185+00:00", "event": "position_removed", "payload": {"ticket": 38154442}}
+{"ts": "2026-11-17T15:08:46.214283+00:00", "event": "position_removed", "payload": {"ticket": 38155474}}
+{"ts": "2026-11-17T15:12:14.723537+00:00", "event": "trade_open", "payload": {"ticket": 38157182, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1800.35, "sl": 1810.01, "tp": 1784.28}}
+{"ts": "2026-11-17T15:12:59.661443+00:00", "event": "trade_open", "payload": {"ticket": 38157328, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 64623.28, "sl": 64903.03, "tp": 64174.75}}
+{"ts": "2026-11-17T15:16:15.069948+00:00", "event": "position_removed", "payload": {"ticket": 38152178}}
+{"ts": "2026-11-17T15:19:17.246503+00:00", "event": "position_removed", "payload": {"ticket": 38152126}}
+{"ts": "2026-11-17T15:19:17.257999+00:00", "event": "position_removed", "payload": {"ticket": 38154184}}
+{"ts": "2026-11-17T15:19:40.121573+00:00", "event": "trade_open", "payload": {"ticket": 38158862, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1801.01, "sl": 1811.0, "tp": 1784.41}}
+{"ts": "2026-11-17T15:23:03.585811+00:00", "event": "position_removed", "payload": {"ticket": 38157182}}
+{"ts": "2026-11-17T15:23:42.369376+00:00", "event": "position_removed", "payload": {"ticket": 38157328}}
+{"ts": "2026-11-17T15:23:42.370818+00:00", "event": "position_removed", "payload": {"ticket": 38158862}}
+{"ts": "2026-11-17T15:26:15.693191+00:00", "event": "trade_open", "payload": {"ticket": 38160662, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.722, "sl": 47.979, "tp": 47.279}}
+{"ts": "2026-11-17T15:26:18.747111+00:00", "event": "position_removed", "payload": {"ticket": 38151472}}
+{"ts": "2026-11-17T15:26:47.890246+00:00", "event": "trade_open", "payload": {"ticket": 38160706, "symbol": "USDJPYm", "side": "BUY", "volume": 0.11, "open_price": 159.424, "sl": 159.171, "tp": 159.871}}
+{"ts": "2026-11-17T15:28:42.203697+00:00", "event": "trade_open", "payload": {"ticket": 38161209, "symbol": "USOILm", "side": "BUY", "volume": 0.01, "open_price": 85.125, "sl": 84.811, "tp": 85.598}}
+{"ts": "2026-11-17T15:35:05.558512+00:00", "event": "trade_open", "payload": {"ticket": 38153741, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.09912, "sl": 1.10165, "tp": 1.09465}}
+{"ts": "2026-11-17T15:35:07.972252+00:00", "event": "trade_open", "payload": {"ticket": 38160706, "symbol": "USDJPYm", "side": "BUY", "volume": 0.02, "open_price": 159.424, "sl": 159.171, "tp": 159.871}}
+{"ts": "2026-11-17T15:35:10.152423+00:00", "event": "trade_open", "payload": {"ticket": 38162926, "symbol": "XAGUSDm", "side": "BUY", "volume": 0.01, "open_price": 47.82, "sl": 47.561, "tp": 48.261}}
+{"ts": "2026-11-17T15:35:12.926115+00:00", "event": "trade_open", "payload": {"ticket": 38163582, "symbol": "USOILm", "side": "SELL", "volume": 0.02, "open_price": 84.946, "sl": 85.232, "tp": 84.434}}
+{"ts": "2026-11-17T15:37:07.529393+00:00", "event": "trade_open", "payload": {"ticket": 38164413, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3874.427, "sl": 3864.166, "tp": 3889.186}}
+{"ts": "2026-11-17T15:37:32.883341+00:00", "event": "trade_open", "payload": {"ticket": 38164526, "symbol": "EURUSDm", "side": "SELL", "volume": 0.02, "open_price": 1.09999, "sl": 1.1025, "tp": 1.0955}}
+{"ts": "2026-11-17T15:39:52.821237+00:00", "event": "position_removed", "payload": {"ticket": 38164413}}
+{"ts": "2026-11-17T15:40:49.550923+00:00", "event": "position_removed", "payload": {"ticket": 38153741}}
+{"ts": "2026-11-17T15:40:49.551979+00:00", "event": "position_removed", "payload": {"ticket": 38160706}}
+{"ts": "2026-11-17T15:40:49.552203+00:00", "event": "position_removed", "payload": {"ticket": 38164526}}
+{"ts": "2026-11-17T15:46:02.136501+00:00", "event": "trade_open", "payload": {"ticket": 38168287, "symbol": "USOILm", "side": "SELL", "volume": 0.02, "open_price": 85.191, "sl": 85.518, "tp": 84.669}}
+{"ts": "2026-11-17T15:46:02.254943+00:00", "event": "position_removed", "payload": {"ticket": 38163582}}
+{"ts": "2026-11-17T15:46:25.570999+00:00", "event": "trade_open", "payload": {"ticket": 38168347, "symbol": "USDJPYm", "side": "SELL", "volume": 0.01, "open_price": 159.222, "sl": 159.487, "tp": 158.787}}
+{"ts": "2026-11-17T15:46:27.768230+00:00", "event": "trade_open", "payload": {"ticket": 38168356, "symbol": "XAGUSDm", "side": "BUY", "volume": 0.01, "open_price": 47.856, "sl": 47.625, "tp": 48.325}}
+{"ts": "2026-11-17T15:46:29.782181+00:00", "event": "position_removed", "payload": {"ticket": 38162926}}
+{"ts": "2026-11-17T15:49:40.017188+00:00", "event": "trade_open", "payload": {"ticket": 38169598, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1755.54, "sl": 1770.07, "tp": 1732.68}}
+{"ts": "2026-11-17T15:51:11.872318+00:00", "event": "trade_open", "payload": {"ticket": 38170151, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.02, "open_price": 63648.61, "sl": 64087.2, "tp": 63035.97}}
+{"ts": "2026-11-17T15:51:13.983541+00:00", "event": "position_removed", "payload": {"ticket": 38168356}}
+{"ts": "2026-11-17T15:51:58.212063+00:00", "event": "trade_open", "payload": {"ticket": 38170501, "symbol": "XAGUSDm", "side": "BUY", "volume": 0.02, "open_price": 47.64, "sl": 47.39, "tp": 48.09}}
+{"ts": "2026-11-17T15:53:46.029064+00:00", "event": "position_removed", "payload": {"ticket": 38168287}}
+{"ts": "2026-11-17T15:53:46.073711+00:00", "event": "position_removed", "payload": {"ticket": 38170151}}
+{"ts": "2026-11-17T15:56:03.253770+00:00", "event": "trade_open", "payload": {"ticket": 38172002, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3878.293, "sl": 3866.877, "tp": 3896.523}}
+{"ts": "2026-11-17T15:56:12.969216+00:00", "event": "position_removed", "payload": {"ticket": 38170501}}
+{"ts": "2026-11-17T15:56:43.072181+00:00", "event": "trade_open", "payload": {"ticket": 38172543, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.02, "open_price": 63657.19, "sl": 64081.91, "tp": 62974.42}}
+{"ts": "2026-11-17T15:57:15.398212+00:00", "event": "trade_open", "payload": {"ticket": 38172760, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3876.898, "sl": 3865.186, "tp": 3894.832}}
+{"ts": "2026-11-17T15:57:17.520875+00:00", "event": "position_removed", "payload": {"ticket": 38169598}}
+{"ts": "2026-11-17T15:58:20.099629+00:00", "event": "trade_open", "payload": {"ticket": 38173130, "symbol": "EURUSDm", "side": "BUY", "volume": 0.04, "open_price": 1.10042, "sl": 1.09793, "tp": 1.10493}}
+{"ts": "2026-11-17T15:59:37.696361+00:00", "event": "position_removed", "payload": {"ticket": 38172543}}
+{"ts": "2026-11-17T16:02:01.978172+00:00", "event": "trade_open", "payload": {"ticket": 38174355, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1789.45, "sl": 1807.53, "tp": 1759.19}}
+{"ts": "2026-11-17T16:03:13.356029+00:00", "event": "trade_open", "payload": {"ticket": 38174747, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.02, "open_price": 64191.56, "sl": 64665.46, "tp": 63422.82}}
+{"ts": "2026-11-17T16:04:58.565055+00:00", "event": "trade_open", "payload": {"ticket": 38175703, "symbol": "USDJPYm", "side": "SELL", "volume": 0.06, "open_price": 159.332, "sl": 159.595, "tp": 158.895}}
+{"ts": "2026-11-17T16:06:21.171599+00:00", "event": "position_removed", "payload": {"ticket": 38168347}}
+{"ts": "2026-11-17T16:06:21.182990+00:00", "event": "position_removed", "payload": {"ticket": 38173130}}
+{"ts": "2026-11-17T16:09:44.551606+00:00", "event": "trade_open", "payload": {"ticket": 38176840, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1794.01, "sl": 1813.17, "tp": 1763.97}}
+{"ts": "2026-11-17T16:10:35.935448+00:00", "event": "trade_open", "payload": {"ticket": 38176908, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.321, "sl": 159.073, "tp": 159.773}}
+{"ts": "2026-11-17T16:10:40.192724+00:00", "event": "position_removed", "payload": {"ticket": 38175703}}
+{"ts": "2026-11-17T16:12:46.597390+00:00", "event": "position_removed", "payload": {"ticket": 38176840}}
+{"ts": "2026-11-17T16:17:58.586088+00:00", "event": "position_removed", "payload": {"ticket": 38174355}}
+{"ts": "2026-11-17T16:19:27.299049+00:00", "event": "trade_open", "payload": {"ticket": 38178777, "symbol": "EURUSDm", "side": "BUY", "volume": 0.02, "open_price": 1.1011, "sl": 1.09859, "tp": 1.10559}}
+{"ts": "2026-11-17T16:21:01.972895+00:00", "event": "position_removed", "payload": {"ticket": 38172002}}
+{"ts": "2026-11-17T16:21:54.154344+00:00", "event": "trade_open", "payload": {"ticket": 38179287, "symbol": "USOILm", "side": "BUY", "volume": 0.02, "open_price": 85.495, "sl": 85.145, "tp": 86.045}}
+{"ts": "2026-11-17T16:22:01.149542+00:00", "event": "trade_open", "payload": {"ticket": 38179300, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1789.03, "sl": 1809.53, "tp": 1758.74}}
+{"ts": "2026-11-17T16:22:05.454668+00:00", "event": "position_removed", "payload": {"ticket": 38174747}}
+{"ts": "2026-11-17T16:22:26.356507+00:00", "event": "position_removed", "payload": {"ticket": 38172760}}
+{"ts": "2026-11-17T16:26:28.579816+00:00", "event": "trade_open", "payload": {"ticket": 38180218, "symbol": "EURUSDm", "side": "BUY", "volume": 0.03, "open_price": 1.1014, "sl": 1.09889, "tp": 1.10589}}
+{"ts": "2026-11-17T16:27:24.687860+00:00", "event": "position_removed", "payload": {"ticket": 38179300}}
+{"ts": "2026-11-17T16:29:28.891053+00:00", "event": "position_removed", "payload": {"ticket": 38179287}}
+{"ts": "2026-11-17T16:30:49.252916+00:00", "event": "position_removed", "payload": {"ticket": 38176908}}
+{"ts": "2026-11-17T16:31:12.184982+00:00", "event": "trade_open", "payload": {"ticket": 38181208, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63782.44, "sl": 64322.82, "tp": 62943.96}}
+{"ts": "2026-11-17T16:39:33.207100+00:00", "event": "trade_open", "payload": {"ticket": 38182748, "symbol": "XAGUSDm", "side": "BUY", "volume": 0.01, "open_price": 47.605, "sl": 47.36, "tp": 48.06}}
+{"ts": "2026-11-17T16:41:28.225664+00:00", "event": "trade_open", "payload": {"ticket": 38180218, "symbol": "EURUSDm", "side": "BUY", "volume": 0.02, "open_price": 1.1014, "sl": 1.09889, "tp": 1.10589}}
+{"ts": "2026-11-17T16:41:29.405049+00:00", "event": "trade_open", "payload": {"ticket": 38181208, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63782.44, "sl": 64322.82, "tp": 62943.96}}
+{"ts": "2026-11-17T16:41:31.389671+00:00", "event": "trade_open", "payload": {"ticket": 38182748, "symbol": "XAGUSDm", "side": "BUY", "volume": 0.01, "open_price": 47.605, "sl": 47.36, "tp": 48.06}}
+{"ts": "2026-11-17T16:46:02.499768+00:00", "event": "trade_open", "payload": {"ticket": 38184382, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1779.11, "sl": 1798.08, "tp": 1748.77}}
+{"ts": "2026-11-17T16:46:03.778056+00:00", "event": "position_removed", "payload": {"ticket": 38182748}}
+{"ts": "2026-11-17T16:50:57.202757+00:00", "event": "trade_open", "payload": {"ticket": 38185779, "symbol": "USOILm", "side": "BUY", "volume": 0.01, "open_price": 85.139, "sl": 84.805, "tp": 85.679}}
+{"ts": "2026-11-17T16:56:14.421657+00:00", "event": "position_removed", "payload": {"ticket": 38184382}}
+{"ts": "2026-11-17T16:57:26.572623+00:00", "event": "position_removed", "payload": {"ticket": 38181208}}
+{"ts": "2026-11-17T16:58:53.728019+00:00", "event": "trade_open", "payload": {"ticket": 38188133, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1775.04, "sl": 1793.68, "tp": 1746.46}}
+{"ts": "2026-11-17T16:59:32.417390+00:00", "event": "trade_open", "payload": {"ticket": 38188231, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.02, "open_price": 63703.49, "sl": 64195.5, "tp": 62930.87}}
+{"ts": "2026-11-17T16:59:59.815166+00:00", "event": "trade_open", "payload": {"ticket": 38188341, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3865.674, "sl": 3873.522, "tp": 3853.471}}
+{"ts": "2026-11-17T17:01:25.133229+00:00", "event": "position_removed", "payload": {"ticket": 38185779}}
+{"ts": "2026-11-17T17:05:01.705675+00:00", "event": "position_removed", "payload": {"ticket": 38188231}}
+{"ts": "2026-11-17T17:06:26.041177+00:00", "event": "trade_open", "payload": {"ticket": 38189691, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.614, "sl": 47.869, "tp": 47.169}}
+{"ts": "2026-11-17T17:06:29.315594+00:00", "event": "trade_open", "payload": {"ticket": 38189694, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63935.0, "sl": 64358.17, "tp": 63239.62}}
+{"ts": "2026-11-17T17:11:33.449137+00:00", "event": "position_removed", "payload": {"ticket": 38188341}}
+{"ts": "2026-11-17T17:20:19.520858+00:00", "event": "trade_open", "payload": {"ticket": 38180218, "symbol": "EURUSDm", "side": "BUY", "volume": 0.02, "open_price": 1.1014, "sl": 1.09889, "tp": 1.10589}}
+{"ts": "2026-11-17T17:20:22.968833+00:00", "event": "trade_open", "payload": {"ticket": 38188133, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1775.04, "sl": 1793.68, "tp": 1746.46}}
+{"ts": "2026-11-17T17:20:28.715414+00:00", "event": "trade_open", "payload": {"ticket": 38189691, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.614, "sl": 47.869, "tp": 47.169}}
+{"ts": "2026-11-17T17:20:34.645199+00:00", "event": "trade_open", "payload": {"ticket": 38189694, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63935.0, "sl": 64358.17, "tp": 63239.62}}
+{"ts": "2026-11-17T17:22:13.987226+00:00", "event": "trade_open", "payload": {"ticket": 38193347, "symbol": "XAGUSDm", "side": "BUY", "volume": 0.01, "open_price": 47.752, "sl": 47.494, "tp": 48.194}}
+{"ts": "2026-11-17T17:22:16.340793+00:00", "event": "position_removed", "payload": {"ticket": 38189691}}
+{"ts": "2026-11-17T17:35:17.859448+00:00", "event": "trade_open", "payload": {"ticket": 38180218, "symbol": "EURUSDm", "side": "BUY", "volume": 0.01, "open_price": 1.1014, "sl": 1.09889, "tp": 1.10589}}
+{"ts": "2026-11-17T17:35:18.049979+00:00", "event": "trade_open", "payload": {"ticket": 38188133, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1775.04, "sl": 1793.68, "tp": 1746.46}}
+{"ts": "2026-11-17T17:43:06.487863+00:00", "event": "trade_open", "payload": {"ticket": 38197591, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3865.649, "sl": 3859.955, "tp": 3874.268}}
+{"ts": "2026-11-17T17:49:19.831268+00:00", "event": "trade_open", "payload": {"ticket": 38180218, "symbol": "EURUSDm", "side": "BUY", "volume": 0.01, "open_price": 1.1014, "sl": 1.09889, "tp": 1.10589}}
+{"ts": "2026-11-17T17:49:23.236751+00:00", "event": "trade_open", "payload": {"ticket": 38188133, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1775.04, "sl": 1793.68, "tp": 1746.46}}
+{"ts": "2026-11-17T17:49:24.531304+00:00", "event": "trade_open", "payload": {"ticket": 38197591, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3865.649, "sl": 3859.955, "tp": 3874.268}}
+{"ts": "2026-11-17T18:01:09.145628+00:00", "event": "position_removed", "payload": {"ticket": 38188133}}
+{"ts": "2026-11-17T18:07:07.422793+00:00", "event": "trade_open", "payload": {"ticket": 38204082, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 85.173, "sl": 85.507, "tp": 84.684}}
+{"ts": "2026-11-17T18:10:58.491854+00:00", "event": "trade_open", "payload": {"ticket": 38205347, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3861.203, "sl": 3856.331, "tp": 3868.311}}
+{"ts": "2026-11-17T18:10:59.018992+00:00", "event": "position_removed", "payload": {"ticket": 38197591}}
+{"ts": "2026-11-17T18:16:27.126539+00:00", "event": "trade_open", "payload": {"ticket": 38207060, "symbol": "EURUSDm", "side": "BUY", "volume": 0.01, "open_price": 1.10204, "sl": 1.09955, "tp": 1.10655}}
+{"ts": "2026-11-17T18:17:23.597802+00:00", "event": "trade_open", "payload": {"ticket": 38207387, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3859.708, "sl": 3855.758, "tp": 3866.586}}
+{"ts": "2026-11-17T18:21:53.822993+00:00", "event": "trade_open", "payload": {"ticket": 38208138, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1792.23, "sl": 1800.88, "tp": 1780.33}}
+{"ts": "2026-11-17T18:23:24.275798+00:00", "event": "trade_open", "payload": {"ticket": 38208747, "symbol": "EURUSDm", "side": "BUY", "volume": 0.01, "open_price": 1.10193, "sl": 1.09943, "tp": 1.10643}}
+{"ts": "2026-11-17T18:24:44.467980+00:00", "event": "trade_open", "payload": {"ticket": 38209045, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63843.33, "sl": 64061.51, "tp": 63501.86}}
+{"ts": "2026-11-17T18:26:11.766537+00:00", "event": "position_removed", "payload": {"ticket": 38180218}}
+{"ts": "2026-11-17T18:26:11.768361+00:00", "event": "position_removed", "payload": {"ticket": 38207060}}
+{"ts": "2026-11-17T18:26:11.768724+00:00", "event": "position_removed", "payload": {"ticket": 38208138}}
+{"ts": "2026-11-17T18:26:46.991834+00:00", "event": "position_removed", "payload": {"ticket": 38207387}}
+{"ts": "2026-11-17T18:28:02.144938+00:00", "event": "trade_open", "payload": {"ticket": 38210288, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.489, "sl": 47.742, "tp": 47.042}}
+{"ts": "2026-11-17T18:29:37.480508+00:00", "event": "position_removed", "payload": {"ticket": 38205347}}
+{"ts": "2026-11-17T18:31:14.274973+00:00", "event": "position_removed", "payload": {"ticket": 38204082}}
+{"ts": "2026-11-17T18:36:49.656130+00:00", "event": "trade_open", "payload": {"ticket": 38213042, "symbol": "EURUSDm", "side": "BUY", "volume": 0.01, "open_price": 1.10127, "sl": 1.09877, "tp": 1.10577}}
+{"ts": "2026-11-17T18:36:49.854215+00:00", "event": "position_removed", "payload": {"ticket": 38209045}}
+{"ts": "2026-11-17T18:39:18.674245+00:00", "event": "trade_open", "payload": {"ticket": 38213585, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3859.905, "sl": 3856.174, "tp": 3865.817}}
+{"ts": "2026-11-17T18:41:28.924723+00:00", "event": "position_removed", "payload": {"ticket": 38208747}}
+{"ts": "2026-11-17T18:41:28.927702+00:00", "event": "position_removed", "payload": {"ticket": 38213042}}
+{"ts": "2026-11-17T18:47:04.639132+00:00", "event": "position_removed", "payload": {"ticket": 38213585}}
+{"ts": "2026-11-17T18:51:19.313948+00:00", "event": "trade_open", "payload": {"ticket": 38215493, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 85.221, "sl": 85.47, "tp": 84.77}}
+{"ts": "2026-11-17T18:52:26.960783+00:00", "event": "trade_open", "payload": {"ticket": 38215725, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63791.06, "sl": 63972.77, "tp": 63522.28}}
+{"ts": "2026-11-17T18:56:08.487975+00:00", "event": "position_removed", "payload": {"ticket": 38215725}}
+{"ts": "2026-11-17T18:56:44.445281+00:00", "event": "trade_open", "payload": {"ticket": 38216606, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 85.167, "sl": 85.417, "tp": 84.717}}
+{"ts": "2026-11-17T18:57:27.283453+00:00", "event": "trade_open", "payload": {"ticket": 38216690, "symbol": "EURUSDm", "side": "BUY", "volume": 0.01, "open_price": 1.10142, "sl": 1.09892, "tp": 1.10592}}
+{"ts": "2026-11-17T19:02:56.356373+00:00", "event": "position_removed", "payload": {"ticket": 38215493}}
+{"ts": "2026-11-17T19:02:56.357806+00:00", "event": "position_removed", "payload": {"ticket": 38216606}}
+{"ts": "2026-11-17T19:06:36.234399+00:00", "event": "trade_open", "payload": {"ticket": 38218761, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10117, "sl": 1.10367, "tp": 1.09667}}
+{"ts": "2026-11-17T19:06:36.410355+00:00", "event": "position_removed", "payload": {"ticket": 38216690}}
+{"ts": "2026-11-17T19:07:04.507215+00:00", "event": "trade_open", "payload": {"ticket": 38218865, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63741.93, "sl": 63932.33, "tp": 63441.95}}
+{"ts": "2026-11-17T19:56:22.325076+00:00", "event": "trade_open", "payload": {"ticket": 38218761, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10117, "sl": 1.10367, "tp": 1.09667}}
+{"ts": "2026-11-17T19:56:41.559328+00:00", "event": "trade_open", "payload": {"ticket": 38230611, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10089, "sl": 1.10339, "tp": 1.09639}}
+{"ts": "2026-11-17T19:57:03.928932+00:00", "event": "trade_open", "payload": {"ticket": 38230634, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1790.13, "sl": 1795.83, "tp": 1781.55}}
+{"ts": "2026-11-17T20:01:46.775865+00:00", "event": "position_removed", "payload": {"ticket": 38230634}}
+{"ts": "2026-11-17T20:04:52.380199+00:00", "event": "trade_open", "payload": {"ticket": 38231866, "symbol": "USDJPYm", "side": "SELL", "volume": 0.01, "open_price": 159.324, "sl": 159.575, "tp": 158.875}}
+{"ts": "2026-11-17T20:05:50.734952+00:00", "event": "trade_open", "payload": {"ticket": 38231921, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.168, "sl": 84.428, "tp": 83.715}}
+{"ts": "2026-11-17T20:13:19.582525+00:00", "event": "trade_open", "payload": {"ticket": 38218761, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10117, "sl": 1.10367, "tp": 1.09667}}
+{"ts": "2026-11-17T20:13:19.903819+00:00", "event": "trade_open", "payload": {"ticket": 38230611, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10089, "sl": 1.10339, "tp": 1.09639}}
+{"ts": "2026-11-17T20:13:21.246724+00:00", "event": "trade_open", "payload": {"ticket": 38231921, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.168, "sl": 84.428, "tp": 83.715}}
+{"ts": "2026-11-17T20:16:56.509656+00:00", "event": "trade_open", "payload": {"ticket": 38233245, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3846.802, "sl": 3852.457, "tp": 3839.152}}
+{"ts": "2026-11-17T20:17:47.410521+00:00", "event": "trade_open", "payload": {"ticket": 38233834, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.229, "sl": 47.493, "tp": 46.793}}
+{"ts": "2026-11-17T20:21:57.097774+00:00", "event": "trade_open", "payload": {"ticket": 38235054, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1795.68, "sl": 1801.21, "tp": 1786.99}}
+{"ts": "2026-11-17T20:21:59.478297+00:00", "event": "trade_open", "payload": {"ticket": 38235055, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.277, "sl": 84.545, "tp": 83.829}}
+{"ts": "2026-11-17T20:23:03.051971+00:00", "event": "trade_open", "payload": {"ticket": 38235257, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63933.23, "sl": 64062.91, "tp": 63721.09}}
+{"ts": "2026-11-17T20:23:47.657682+00:00", "event": "position_removed", "payload": {"ticket": 38235054}}
+{"ts": "2026-11-17T20:25:31.458556+00:00", "event": "position_removed", "payload": {"ticket": 38231921}}
+{"ts": "2026-11-17T20:33:47.927210+00:00", "event": "trade_open", "payload": {"ticket": 38238078, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.502, "sl": 84.752, "tp": 84.049}}
+{"ts": "2026-11-17T20:33:50.122819+00:00", "event": "position_removed", "payload": {"ticket": 38233245}}
+{"ts": "2026-11-17T20:37:33.687316+00:00", "event": "trade_open", "payload": {"ticket": 38238734, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.348, "sl": 159.099, "tp": 159.799}}
+{"ts": "2026-11-17T20:41:21.252464+00:00", "event": "position_removed", "payload": {"ticket": 38218761}}
+{"ts": "2026-11-17T20:47:11.054012+00:00", "event": "position_removed", "payload": {"ticket": 38238078}}
+{"ts": "2026-11-17T20:47:49.480926+00:00", "event": "trade_open", "payload": {"ticket": 38241318, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10079, "sl": 1.10329, "tp": 1.09629}}
+{"ts": "2026-11-17T20:48:21.129589+00:00", "event": "position_removed", "payload": {"ticket": 38235257}}
+{"ts": "2026-11-17T20:48:45.273095+00:00", "event": "trade_open", "payload": {"ticket": 38241657, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.336, "sl": 159.087, "tp": 159.787}}
+{"ts": "2026-11-17T20:51:45.579978+00:00", "event": "position_removed", "payload": {"ticket": 38230611}}
+{"ts": "2026-11-17T20:51:45.593141+00:00", "event": "position_removed", "payload": {"ticket": 38238734}}
+{"ts": "2026-11-17T21:00:04.266577+00:00", "event": "trade_open", "payload": {"ticket": 38243385, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63911.24, "sl": 64059.58, "tp": 63692.86}}
+{"ts": "2026-11-17T21:04:13.961389+00:00", "event": "trade_open", "payload": {"ticket": 38233834, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.229, "sl": 47.493, "tp": 46.793}}
+{"ts": "2026-11-17T21:04:17.723042+00:00", "event": "trade_open", "payload": {"ticket": 38235055, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.277, "sl": 84.545, "tp": 83.829}}
+{"ts": "2026-11-17T21:04:20.394954+00:00", "event": "trade_open", "payload": {"ticket": 38241318, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10079, "sl": 1.10329, "tp": 1.09629}}
+{"ts": "2026-11-17T21:06:45.146997+00:00", "event": "trade_open", "payload": {"ticket": 38244895, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.41, "sl": 84.661, "tp": 83.961}}
+{"ts": "2026-11-17T21:06:48.616384+00:00", "event": "trade_open", "payload": {"ticket": 38244921, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 63963.45, "sl": 63816.49, "tp": 64213.96}}
+{"ts": "2026-11-17T21:06:51.598172+00:00", "event": "trade_open", "payload": {"ticket": 38244943, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.367, "sl": 159.117, "tp": 159.817}}
+{"ts": "2026-11-17T21:10:57.438566+00:00", "event": "position_removed", "payload": {"ticket": 38244921}}
+{"ts": "2026-11-17T21:10:57.440326+00:00", "event": "position_removed", "payload": {"ticket": 38244943}}
+{"ts": "2026-11-17T21:11:16.562433+00:00", "event": "trade_open", "payload": {"ticket": 38245936, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10063, "sl": 1.10312, "tp": 1.09612}}
+{"ts": "2026-11-17T21:18:12.340677+00:00", "event": "trade_open", "payload": {"ticket": 38247052, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10054, "sl": 1.10306, "tp": 1.09606}}
+{"ts": "2026-11-17T21:20:22.139809+00:00", "event": "trade_open", "payload": {"ticket": 38233834, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.229, "sl": 47.493, "tp": 46.793}}
+{"ts": "2026-11-17T21:20:24.462816+00:00", "event": "trade_open", "payload": {"ticket": 38235055, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.277, "sl": 84.545, "tp": 83.829}}
+{"ts": "2026-11-17T21:20:28.918887+00:00", "event": "trade_open", "payload": {"ticket": 38244895, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.41, "sl": 84.405, "tp": 83.961}}
+{"ts": "2026-11-17T21:20:30.288546+00:00", "event": "trade_open", "payload": {"ticket": 38245936, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10063, "sl": 1.10312, "tp": 1.09612}}
+{"ts": "2026-11-17T21:20:33.289285+00:00", "event": "trade_open", "payload": {"ticket": 38247052, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10054, "sl": 1.10306, "tp": 1.09606}}
+{"ts": "2026-11-17T21:21:56.785886+00:00", "event": "trade_open", "payload": {"ticket": 38247478, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.363, "sl": 84.613, "tp": 83.913}}
+{"ts": "2026-11-17T21:22:22.406672+00:00", "event": "trade_open", "payload": {"ticket": 38248097, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10045, "sl": 1.10296, "tp": 1.09596}}
+{"ts": "2026-11-17T21:23:11.095280+00:00", "event": "position_removed", "payload": {"ticket": 38244895}}
+{"ts": "2026-11-17T21:24:02.558970+00:00", "event": "trade_open", "payload": {"ticket": 38248345, "symbol": "USDJPYm", "side": "SELL", "volume": 0.01, "open_price": 159.336, "sl": 159.586, "tp": 158.886}}
+{"ts": "2026-11-17T21:26:16.353555+00:00", "event": "position_removed", "payload": {"ticket": 38245936}}
+{"ts": "2026-11-17T21:26:16.367989+00:00", "event": "position_removed", "payload": {"ticket": 38247052}}
+{"ts": "2026-11-17T21:26:16.369161+00:00", "event": "position_removed", "payload": {"ticket": 38248345}}
+{"ts": "2026-11-17T21:31:24.478561+00:00", "event": "trade_open", "payload": {"ticket": 38249418, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 64541.0, "sl": 64737.77, "tp": 64230.04}}
+{"ts": "2026-11-17T21:31:27.526295+00:00", "event": "position_removed", "payload": {"ticket": 38233834}}
+{"ts": "2026-11-17T21:35:10.520656+00:00", "event": "trade_open", "payload": {"ticket": 38235055, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.277, "sl": 84.545, "tp": 83.829}}
+{"ts": "2026-11-17T21:35:15.481656+00:00", "event": "trade_open", "payload": {"ticket": 38247478, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.363, "sl": 84.358, "tp": 83.913}}
+{"ts": "2026-11-17T21:35:16.455423+00:00", "event": "trade_open", "payload": {"ticket": 38248097, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10045, "sl": 1.10296, "tp": 1.09596}}
+{"ts": "2026-11-17T21:35:17.454284+00:00", "event": "trade_open", "payload": {"ticket": 38249418, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 64541.0, "sl": 64737.77, "tp": 64230.04}}
+{"ts": "2026-11-17T21:41:27.014235+00:00", "event": "position_removed", "payload": {"ticket": 38247478}}
+{"ts": "2026-11-17T21:42:30.161254+00:00", "event": "trade_open", "payload": {"ticket": 38251356, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.355, "sl": 84.606, "tp": 83.906}}
+{"ts": "2026-11-17T21:42:32.166368+00:00", "event": "position_removed", "payload": {"ticket": 38235055}}
+{"ts": "2026-11-17T21:44:45.471977+00:00", "event": "position_removed", "payload": {"ticket": 38249418}}
+{"ts": "2026-11-17T21:47:04.398214+00:00", "event": "trade_open", "payload": {"ticket": 38252032, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10013, "sl": 1.10263, "tp": 1.09563}}
+{"ts": "2026-11-17T21:50:27.537648+00:00", "event": "position_removed", "payload": {"ticket": 38251356}}
+{"ts": "2026-11-17T21:53:04.027319+00:00", "event": "trade_open", "payload": {"ticket": 38252600, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.436, "sl": 84.691, "tp": 83.991}}
+{"ts": "2026-11-17T22:04:07.073807+00:00", "event": "trade_open", "payload": {"ticket": 38253504, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 64198.3, "sl": 63981.74, "tp": 64538.07}}
+{"ts": "2026-11-17T22:05:39.345617+00:00", "event": "position_removed", "payload": {"ticket": 38253504}}
+{"ts": "2026-11-17T22:06:41.063741+00:00", "event": "trade_open", "payload": {"ticket": 38253642, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.414, "sl": 159.164, "tp": 159.864}}
+{"ts": "2026-11-17T22:10:04.930180+00:00", "event": "trade_open", "payload": {"ticket": 38248097, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10045, "sl": 1.10296, "tp": 1.09596}}
+{"ts": "2026-11-17T22:10:05.262924+00:00", "event": "trade_open", "payload": {"ticket": 38252032, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10013, "sl": 1.10263, "tp": 1.09563}}
+{"ts": "2026-11-17T22:10:06.249438+00:00", "event": "trade_open", "payload": {"ticket": 38252600, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.436, "sl": 84.691, "tp": 83.991}}
+{"ts": "2026-11-17T22:10:07.276213+00:00", "event": "trade_open", "payload": {"ticket": 38253642, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.414, "sl": 159.164, "tp": 159.864}}
+{"ts": "2026-11-17T22:11:02.454174+00:00", "event": "position_removed", "payload": {"ticket": 38253642}}
+{"ts": "2026-11-17T22:24:01.204608+00:00", "event": "trade_open", "payload": {"ticket": 38255491, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 64473.51, "sl": 64697.82, "tp": 64120.89}}
+{"ts": "2026-11-17T22:24:28.894617+00:00", "event": "trade_open", "payload": {"ticket": 38255522, "symbol": "USDJPYm", "side": "SELL", "volume": 0.01, "open_price": 159.361, "sl": 159.611, "tp": 158.911}}
+{"ts": "2026-11-17T22:26:00.036684+00:00", "event": "position_removed", "payload": {"ticket": 38255522}}
+{"ts": "2026-11-17T22:36:42.667808+00:00", "event": "position_removed", "payload": {"ticket": 38255491}}
+{"ts": "2026-11-17T22:53:27.637296+00:00", "event": "trade_open", "payload": {"ticket": 38258472, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.09981, "sl": 1.10231, "tp": 1.09531}}
+{"ts": "2026-11-17T23:10:58.853023+00:00", "event": "trade_open", "payload": {"ticket": 38260383, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3851.044, "sl": 3846.765, "tp": 3857.691}}
+{"ts": "2026-11-17T23:17:53.101963+00:00", "event": "position_removed", "payload": {"ticket": 38260383}}
+{"ts": "2026-11-17T23:18:18.511268+00:00", "event": "trade_open", "payload": {"ticket": 38261517, "symbol": "ETHUSDm", "side": "BUY", "volume": 0.1, "open_price": 1824.32, "sl": 1816.6, "tp": 1835.92}}
+{"ts": "2026-11-17T23:20:44.840274+00:00", "event": "position_removed", "payload": {"ticket": 38261517}}
+{"ts": "2026-11-17T23:23:33.034439+00:00", "event": "trade_open", "payload": {"ticket": 38263235, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 64867.57, "sl": 64667.11, "tp": 65183.89}}
+{"ts": "2026-11-17T23:25:44.970668+00:00", "event": "trade_open", "payload": {"ticket": 38263804, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 64892.86, "sl": 65108.81, "tp": 64592.18}}
+{"ts": "2026-11-17T23:25:46.197927+00:00", "event": "position_removed", "payload": {"ticket": 38263235}}
+{"ts": "2026-11-17T23:40:40.338683+00:00", "event": "position_removed", "payload": {"ticket": 38263804}}
+{"ts": "2026-11-17T23:41:34.390281+00:00", "event": "trade_open", "payload": {"ticket": 38267160, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3848.699, "sl": 3843.988, "tp": 3856.3}}
+{"ts": "2026-11-17T23:46:36.610933+00:00", "event": "position_removed", "payload": {"ticket": 38267160}}
+{"ts": "2026-11-17T23:53:42.291887+00:00", "event": "trade_open", "payload": {"ticket": 38268601, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.511, "sl": 47.762, "tp": 47.062}}
+{"ts": "2026-11-18T00:01:39.347315+00:00", "event": "position_removed", "payload": {"ticket": 38268601}}
+{"ts": "2026-11-18T00:05:01.208689+00:00", "event": "position_removed", "payload": {"ticket": 38248097}}
+{"ts": "2026-11-18T00:05:01.401189+00:00", "event": "position_removed", "payload": {"ticket": 38252032}}
+{"ts": "2026-11-18T00:05:01.417129+00:00", "event": "position_removed", "payload": {"ticket": 38252600}}
+{"ts": "2026-11-18T00:05:01.417519+00:00", "event": "position_removed", "payload": {"ticket": 38258472}}
+{"ts": "2026-11-18T00:06:17.236604+00:00", "event": "trade_open", "payload": {"ticket": 38248097, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10045, "sl": 1.0988, "tp": 1.09596}}
+{"ts": "2026-11-18T00:06:17.279281+00:00", "event": "trade_open", "payload": {"ticket": 38252032, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.10013, "sl": 1.0988, "tp": 1.09563}}
+{"ts": "2026-11-18T00:06:17.324729+00:00", "event": "trade_open", "payload": {"ticket": 38252600, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.436, "sl": 84.691, "tp": 83.991}}
+{"ts": "2026-11-18T00:06:18.335896+00:00", "event": "trade_open", "payload": {"ticket": 38258472, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.09981, "sl": 1.0988, "tp": 1.09531}}
+{"ts": "2026-11-18T00:06:43.547528+00:00", "event": "trade_open", "payload": {"ticket": 38269461, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 47.353, "sl": 47.603, "tp": 46.903}}
+{"ts": "2026-11-18T00:07:42.538250+00:00", "event": "position_removed", "payload": {"ticket": 38248097}}
+{"ts": "2026-11-18T00:07:42.549736+00:00", "event": "position_removed", "payload": {"ticket": 38252032}}
+{"ts": "2026-11-18T00:07:42.550173+00:00", "event": "position_removed", "payload": {"ticket": 38258472}}
+{"ts": "2026-11-18T00:11:57.036243+00:00", "event": "trade_open", "payload": {"ticket": 38269794, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3841.228, "sl": 3835.088, "tp": 3850.38}}
+{"ts": "2026-11-18T00:19:23.182206+00:00", "event": "position_removed", "payload": {"ticket": 38252600}}
+{"ts": "2026-11-18T00:20:44.958708+00:00", "event": "position_removed", "payload": {"ticket": 38269794}}
+{"ts": "2026-11-18T00:24:16.000604+00:00", "event": "position_removed", "payload": {"ticket": 38269461}}
+{"ts": "2026-11-18T00:45:21.990083+00:00", "event": "trade_open", "payload": {"ticket": 38271632, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.495, "sl": 159.243, "tp": 159.943}}
+{"ts": "2026-11-18T00:56:34.982674+00:00", "event": "trade_open", "payload": {"ticket": 38271996, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.09853, "sl": 1.10103, "tp": 1.09403}}
+{"ts": "2026-11-18T00:57:18.629748+00:00", "event": "trade_open", "payload": {"ticket": 38272005, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.335, "sl": 84.58, "tp": 83.88}}
+{"ts": "2026-11-18T01:01:38.199114+00:00", "event": "position_removed", "payload": {"ticket": 38271632}}
+{"ts": "2026-11-18T01:02:55.231293+00:00", "event": "trade_open", "payload": {"ticket": 38272251, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 46.743, "sl": 47.001, "tp": 46.301}}
+{"ts": "2026-11-18T01:04:23.298884+00:00", "event": "position_removed", "payload": {"ticket": 38272251}}
+{"ts": "2026-11-18T01:08:15.101341+00:00", "event": "trade_open", "payload": {"ticket": 38272646, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.258, "sl": 84.508, "tp": 83.808}}
+{"ts": "2026-11-18T01:09:34.356080+00:00", "event": "position_removed", "payload": {"ticket": 38272005}}
+{"ts": "2026-11-18T01:11:21.694730+00:00", "event": "trade_open", "payload": {"ticket": 38272711, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.09888, "sl": 1.10136, "tp": 1.09436}}
+{"ts": "2026-11-18T01:17:02.869944+00:00", "event": "trade_open", "payload": {"ticket": 38272961, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1814.32, "sl": 1819.06, "tp": 1806.87}}
+{"ts": "2026-11-18T01:24:45.740654+00:00", "event": "trade_open", "payload": {"ticket": 38273338, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.603, "sl": 159.352, "tp": 160.052}}
+{"ts": "2026-11-18T01:26:23.096067+00:00", "event": "position_removed", "payload": {"ticket": 38272961}}
+{"ts": "2026-11-18T01:28:30.624768+00:00", "event": "trade_open", "payload": {"ticket": 38273537, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.594, "sl": 159.34, "tp": 160.04}}
+{"ts": "2026-11-18T01:32:54.214009+00:00", "event": "trade_open", "payload": {"ticket": 38273845, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.581, "sl": 159.33, "tp": 160.03}}
+{"ts": "2026-11-18T01:36:40.184765+00:00", "event": "trade_open", "payload": {"ticket": 38274007, "symbol": "EURUSDm", "side": "BUY", "volume": 0.01, "open_price": 1.0994, "sl": 1.09686, "tp": 1.10386}}
+{"ts": "2026-11-18T01:36:41.316169+00:00", "event": "position_removed", "payload": {"ticket": 38271996}}
+{"ts": "2026-11-18T01:36:41.316324+00:00", "event": "position_removed", "payload": {"ticket": 38272711}}
+{"ts": "2026-11-18T01:44:35.576316+00:00", "event": "trade_open", "payload": {"ticket": 38274537, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3810.629, "sl": 3798.428, "tp": 3829.524}}
+{"ts": "2026-11-18T04:24:30.973388+00:00", "event": "position_removed", "payload": {"ticket": 38272646}}
+{"ts": "2026-11-18T04:24:31.647189+00:00", "event": "position_removed", "payload": {"ticket": 38273338}}
+{"ts": "2026-11-18T04:24:31.647387+00:00", "event": "position_removed", "payload": {"ticket": 38273537}}
+{"ts": "2026-11-18T04:24:31.647721+00:00", "event": "position_removed", "payload": {"ticket": 38273845}}
+{"ts": "2026-11-18T04:24:31.647893+00:00", "event": "position_removed", "payload": {"ticket": 38274537}}
+{"ts": "2026-11-18T06:39:43.624822+00:00", "event": "trade_open", "payload": {"ticket": 38301589, "symbol": "EURUSDm", "side": "BUY", "volume": 0.01, "open_price": 1.09849, "sl": 1.096, "tp": 1.103}}
+{"ts": "2026-11-18T06:39:44.145256+00:00", "event": "position_removed", "payload": {"ticket": 38274007}}
+{"ts": "2026-11-18T12:30:34.102665+00:00", "event": "trade_open", "payload": {"ticket": 38383604, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3765.549, "sl": 3760.614, "tp": 3773.893}}
+{"ts": "2026-11-18T12:31:28.815539+00:00", "event": "trade_open", "payload": {"ticket": 38383817, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 64140.86, "sl": 64022.62, "tp": 64366.01}}
+{"ts": "2026-11-18T12:32:08.930454+00:00", "event": "trade_open", "payload": {"ticket": 38383976, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 84.213, "sl": 84.48, "tp": 83.78}}
+{"ts": "2026-11-18T12:32:48.761731+00:00", "event": "trade_open", "payload": {"ticket": 38384145, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.38, "sl": 159.131, "tp": 159.831}}
+{"ts": "2026-11-18T12:37:06.806456+00:00", "event": "position_removed", "payload": {"ticket": 38383604}}
+{"ts": "2026-11-18T12:37:06.808216+00:00", "event": "position_removed", "payload": {"ticket": 38383817}}
+{"ts": "2026-11-18T12:37:50.232228+00:00", "event": "position_removed", "payload": {"ticket": 38383976}}
+{"ts": "2026-11-18T13:43:38.975117+00:00", "event": "trade_open", "payload": {"ticket": 38384145, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.38, "sl": 159.131, "tp": 159.831}}
+{"ts": "2026-11-18T13:49:34.820401+00:00", "event": "trade_open", "payload": {"ticket": 38405877, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3788.091, "sl": 3799.832, "tp": 3770.644}}
+{"ts": "2026-11-18T13:49:36.093423+00:00", "event": "trade_open", "payload": {"ticket": 38405937, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.09738, "sl": 1.09988, "tp": 1.09288}}
+{"ts": "2026-11-18T13:51:18.663286+00:00", "event": "position_removed", "payload": {"ticket": 38384145}}
+{"ts": "2026-11-18T13:52:09.793702+00:00", "event": "trade_open", "payload": {"ticket": 38406731, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 45.851, "sl": 46.112, "tp": 45.412}}
+{"ts": "2026-11-18T13:55:33.963434+00:00", "event": "trade_open", "payload": {"ticket": 38405877, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3788.091, "sl": 3799.832, "tp": 3770.644}}
+{"ts": "2026-11-18T13:55:36.264407+00:00", "event": "trade_open", "payload": {"ticket": 38405937, "symbol": "EURUSDm", "side": "SELL", "volume": 0.01, "open_price": 1.09738, "sl": 1.09988, "tp": 1.09288}}
+{"ts": "2026-11-18T13:55:37.525131+00:00", "event": "trade_open", "payload": {"ticket": 38406731, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 45.851, "sl": 46.112, "tp": 45.412}}
+{"ts": "2026-11-18T13:57:09.417305+00:00", "event": "position_removed", "payload": {"ticket": 38405877}}
+{"ts": "2026-11-18T14:02:15.292887+00:00", "event": "trade_open", "payload": {"ticket": 38409290, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 83.86, "sl": 84.161, "tp": 83.384}}
+{"ts": "2026-11-18T14:03:32.063016+00:00", "event": "trade_open", "payload": {"ticket": 38409493, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1791.33, "sl": 1796.63, "tp": 1783.25}}
+{"ts": "2026-11-18T14:05:39.645769+00:00", "event": "position_removed", "payload": {"ticket": 38406731}}
+{"ts": "2026-11-18T14:05:39.646342+00:00", "event": "position_removed", "payload": {"ticket": 38409290}}
+{"ts": "2026-11-18T14:16:01.947827+00:00", "event": "position_removed", "payload": {"ticket": 38405937}}
+{"ts": "2026-11-18T14:16:01.948398+00:00", "event": "position_removed", "payload": {"ticket": 38409493}}
+{"ts": "2026-11-18T14:16:54.046400+00:00", "event": "trade_open", "payload": {"ticket": 38411771, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.359, "sl": 159.107, "tp": 159.807}}
+{"ts": "2026-11-18T14:17:18.481021+00:00", "event": "trade_open", "payload": {"ticket": 38411962, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3779.307, "sl": 3789.61, "tp": 3763.086}}
+{"ts": "2026-11-18T14:20:32.297120+00:00", "event": "position_removed", "payload": {"ticket": 38411771}}
+{"ts": "2026-11-18T14:20:32.297759+00:00", "event": "position_removed", "payload": {"ticket": 38411962}}
+{"ts": "2026-11-18T14:31:58.215913+00:00", "event": "trade_open", "payload": {"ticket": 38415706, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 63822.39, "sl": 63685.4, "tp": 64064.58}}
+{"ts": "2026-11-18T14:31:58.382720+00:00", "event": "trade_open", "payload": {"ticket": 38415715, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3772.255, "sl": 3763.4, "tp": 3785.838}}
+{"ts": "2026-11-18T14:34:02.319013+00:00", "event": "trade_open", "payload": {"ticket": 38416248, "symbol": "ETHUSDm", "side": "BUY", "volume": 0.1, "open_price": 1788.28, "sl": 1784.48, "tp": 1797.0}}
+{"ts": "2026-11-18T14:34:23.859647+00:00", "event": "position_removed", "payload": {"ticket": 38415706}}
+{"ts": "2026-11-18T14:34:23.870868+00:00", "event": "position_removed", "payload": {"ticket": 38416248}}
+{"ts": "2026-11-18T14:35:53.742271+00:00", "event": "position_removed", "payload": {"ticket": 38415715}}
+{"ts": "2026-11-18T14:36:48.526559+00:00", "event": "trade_open", "payload": {"ticket": 38417144, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 63358.51, "sl": 63165.8, "tp": 63634.26}}
+{"ts": "2026-11-18T14:37:24.091615+00:00", "event": "position_removed", "payload": {"ticket": 38417144}}
+{"ts": "2026-11-18T14:50:03.263673+00:00", "event": "trade_open", "payload": {"ticket": 38421688, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63273.35, "sl": 63512.27, "tp": 62885.69}}
+{"ts": "2026-11-18T14:52:13.776240+00:00", "event": "trade_open", "payload": {"ticket": 38422640, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.1, "open_price": 1760.16, "sl": 1769.91, "tp": 1745.08}}
+{"ts": "2026-11-18T14:52:41.439206+00:00", "event": "trade_open", "payload": {"ticket": 38422815, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63370.24, "sl": 63625.33, "tp": 62965.17}}
+{"ts": "2026-11-18T14:53:22.341273+00:00", "event": "position_removed", "payload": {"ticket": 38421688}}
+{"ts": "2026-11-18T14:53:22.342378+00:00", "event": "position_removed", "payload": {"ticket": 38422640}}
+{"ts": "2026-11-18T14:58:26.336511+00:00", "event": "trade_open", "payload": {"ticket": 38424036, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.01, "open_price": 63555.95, "sl": 63806.07, "tp": 63074.34}}
+{"ts": "2026-11-18T14:59:00.828088+00:00", "event": "position_removed", "payload": {"ticket": 38422815}}
+{"ts": "2026-11-18T15:01:30.958992+00:00", "event": "position_removed", "payload": {"ticket": 38424036}}
+{"ts": "2026-11-17T02:39:21+00:00", "event": "trade_closed", "payload": {"deal_id": 81867148, "ticket": 38016334, "symbol": "BTCUSDm", "volume": 0.01, "price": 64492.61, "profit": -0.03, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T03:44:38+00:00", "event": "trade_closed", "payload": {"deal_id": 81876162, "ticket": 38019919, "symbol": "XAUUSDm", "volume": 0.01, "price": 3873.253, "profit": -1.49, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T04:19:08+00:00", "event": "trade_closed", "payload": {"deal_id": 81880900, "ticket": 38022497, "symbol": "XAUUSDm", "volume": 0.01, "price": 3867.322, "profit": 2.86, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T04:29:25+00:00", "event": "trade_closed", "payload": {"deal_id": 81882810, "ticket": 38023461, "symbol": "XAUUSDm", "volume": 0.01, "price": 3865.944, "profit": 2.1, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T04:38:05+00:00", "event": "trade_closed", "payload": {"deal_id": 81884579, "ticket": 38024805, "symbol": "XAUUSDm", "volume": 0.01, "price": 3870.79, "profit": -4.41, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T04:50:22+00:00", "event": "trade_closed", "payload": {"deal_id": 81887637, "ticket": 38025636, "symbol": "XAUUSDm", "volume": 0.01, "price": 3873.63, "profit": -0.73, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T05:02:41+00:00", "event": "trade_closed", "payload": {"deal_id": 81890678, "ticket": 38027510, "symbol": "BTCUSDm", "volume": 0.03, "price": 64845.12, "profit": 3.9, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T05:02:41+00:00", "event": "trade_closed", "payload": {"deal_id": 81890679, "ticket": 38022477, "symbol": "BTCUSDm", "volume": 0.01, "price": 64845.12, "profit": 0.42, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T05:10:38+00:00", "event": "trade_closed", "payload": {"deal_id": 81892333, "ticket": 38028606, "symbol": "BTCUSDm", "volume": 0.05, "price": 64779.02, "profit": 2.99, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T05:20:08+00:00", "event": "trade_closed", "payload": {"deal_id": 81894572, "ticket": 38030109, "symbol": "BTCUSDm", "volume": 0.01, "price": 64845.45, "profit": -0.5, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T05:20:54+00:00", "event": "trade_closed", "payload": {"deal_id": 81894783, "ticket": 38030109, "symbol": "BTCUSDm", "volume": 0.06, "price": 64909.87, "profit": -6.87, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T05:21:54+00:00", "event": "trade_closed", "payload": {"deal_id": 81895314, "ticket": 38030403, "symbol": "BTCUSDm", "volume": 0.06, "price": 64961.17, "profit": -0.1, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T05:38:59+00:00", "event": "trade_closed", "payload": {"deal_id": 81899873, "ticket": 38032181, "symbol": "BTCUSDm", "volume": 0.03, "price": 64903.18, "profit": 2.22, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T05:47:01+00:00", "event": "trade_closed", "payload": {"deal_id": 81902885, "ticket": 38033162, "symbol": "XAUUSDm", "volume": 0.02, "price": 3884.583, "profit": 6.35, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T06:03:27+00:00", "event": "trade_closed", "payload": {"deal_id": 81906799, "ticket": 38034782, "symbol": "BTCUSDm", "volume": 0.07, "price": 64737.75, "profit": 3.55, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T06:05:25+00:00", "event": "trade_closed", "payload": {"deal_id": 81907753, "ticket": 38036326, "symbol": "XAUUSDm", "volume": 0.01, "price": 3876.11, "profit": -3.1, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T06:10:21+00:00", "event": "trade_closed", "payload": {"deal_id": 81909802, "ticket": 38036326, "symbol": "XAUUSDm", "volume": 0.01, "price": 3875.83, "profit": -3.38, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T06:32:13+00:00", "event": "trade_closed", "payload": {"deal_id": 81917199, "ticket": 38040407, "symbol": "BTCUSDm", "volume": 0.07, "price": 64362.12, "profit": 13.89, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T06:35:35+00:00", "event": "trade_closed", "payload": {"deal_id": 81918018, "ticket": 38040922, "symbol": "XAUUSDm", "volume": 0.02, "price": 3873.867, "profit": 5.58, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T06:45:09+00:00", "event": "trade_closed", "payload": {"deal_id": 81920971, "ticket": 38042725, "symbol": "BTCUSDm", "volume": 0.01, "price": 64369.68, "profit": -0.19, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T06:52:01+00:00", "event": "trade_closed", "payload": {"deal_id": 81922719, "ticket": 38042725, "symbol": "BTCUSDm", "volume": 0.02, "price": 64488.85, "profit": -2.75, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T06:55:12+00:00", "event": "trade_closed", "payload": {"deal_id": 81923419, "ticket": 38043967, "symbol": "BTCUSDm", "volume": 0.02, "price": 64515.53, "profit": -1.82, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T07:01:22+00:00", "event": "trade_closed", "payload": {"deal_id": 81925728, "ticket": 38044438, "symbol": "XAUUSDm", "volume": 0.02, "price": 3877.561, "profit": -10.09, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T07:01:32+00:00", "event": "trade_closed", "payload": {"deal_id": 81925815, "ticket": 38043967, "symbol": "BTCUSDm", "volume": 0.03, "price": 64562.59, "profit": -4.14, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T07:05:04+00:00", "event": "trade_closed", "payload": {"deal_id": 81927220, "ticket": 38045513, "symbol": "BTCUSDm", "volume": 0.02, "price": 64562.78, "profit": 0.39, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T07:07:30+00:00", "event": "trade_closed", "payload": {"deal_id": 81927815, "ticket": 38045513, "symbol": "BTCUSDm", "volume": 0.05, "price": 64582.29, "profit": 0.0, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T07:10:25+00:00", "event": "trade_closed", "payload": {"deal_id": 81928450, "ticket": 38046230, "symbol": "XAUUSDm", "volume": 0.01, "price": 3878.204, "profit": -1.26, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T07:35:08+00:00", "event": "trade_closed", "payload": {"deal_id": 81938873, "ticket": 38047978, "symbol": "XAUUSDm", "volume": 0.02, "price": 3875.885, "profit": -1.88, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T07:38:55+00:00", "event": "trade_closed", "payload": {"deal_id": 81940989, "ticket": 38049705, "symbol": "BTCUSDm", "volume": 0.03, "price": 64624.76, "profit": 0.0, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T07:54:07+00:00", "event": "trade_closed", "payload": {"deal_id": 81947087, "ticket": 38054979, "symbol": "BTCUSDm", "volume": 0.07, "price": 64656.46, "profit": -9.65, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T08:00:55+00:00", "event": "trade_closed", "payload": {"deal_id": 81948973, "ticket": 38057196, "symbol": "BTCUSDm", "volume": 0.01, "price": 64670.46, "profit": 0.13, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T08:01:19+00:00", "event": "trade_closed", "payload": {"deal_id": 81949431, "ticket": 38056186, "symbol": "XAUUSDm", "volume": 0.01, "price": 3870.391, "profit": 2.55, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T08:03:38+00:00", "event": "trade_closed", "payload": {"deal_id": 81950347, "ticket": 38057196, "symbol": "BTCUSDm", "volume": 0.05, "price": 64610.5, "profit": 3.66, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T08:12:16+00:00", "event": "trade_closed", "payload": {"deal_id": 81955706, "ticket": 38060020, "symbol": "XAUUSDm", "volume": 0.02, "price": 3863.246, "profit": 6.77, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T08:30:24+00:00", "event": "trade_closed", "payload": {"deal_id": 81963228, "ticket": 38062871, "symbol": "BTCUSDm", "volume": 0.04, "price": 64398.98, "profit": 3.63, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T08:45:49+00:00", "event": "trade_closed", "payload": {"deal_id": 81968251, "ticket": 38066627, "symbol": "BTCUSDm", "volume": 0.01, "price": 64382.15, "profit": -0.22, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T08:46:04+00:00", "event": "trade_closed", "payload": {"deal_id": 81968319, "ticket": 38066478, "symbol": "XAUUSDm", "volume": 0.01, "price": 3870.54, "profit": -3.32, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T09:04:13+00:00", "event": "trade_closed", "payload": {"deal_id": 81974162, "ticket": 38064992, "symbol": "USOILm", "volume": 0.04, "price": 84.422, "profit": -10.92, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T09:04:37+00:00", "event": "trade_closed", "payload": {"deal_id": 81974265, "ticket": 38066627, "symbol": "BTCUSDm", "volume": 0.02, "price": 64126.88, "profit": 4.67, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T09:11:39+00:00", "event": "trade_closed", "payload": {"deal_id": 81977236, "ticket": 38069878, "symbol": "BTCUSDm", "volume": 0.02, "price": 64190.29, "profit": 1.9, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T09:17:19+00:00", "event": "trade_closed", "payload": {"deal_id": 81979974, "ticket": 38066711, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.398, "profit": 5.3, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T09:39:51+00:00", "event": "trade_closed", "payload": {"deal_id": 81991269, "ticket": 38074123, "symbol": "BTCUSDm", "volume": 0.04, "price": 64446.54, "profit": -6.67, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T09:44:00+00:00", "event": "trade_closed", "payload": {"deal_id": 81994199, "ticket": 38075476, "symbol": "XAUUSDm", "volume": 0.01, "price": 3866.91, "profit": -4.59, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T09:54:10+00:00", "event": "trade_closed", "payload": {"deal_id": 81999304, "ticket": 38069885, "symbol": "USDJPYm", "volume": 0.07, "price": 159.018, "profit": 0.22, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T13:59:56+00:00", "event": "trade_closed", "payload": {"deal_id": 82107528, "ticket": 38074987, "symbol": "EURUSDm", "volume": 0.05, "price": 1.09823, "profit": 9.35, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T13:59:56+00:00", "event": "trade_closed", "payload": {"deal_id": 82107529, "ticket": 38064986, "symbol": "EURUSDm", "volume": 0.05, "price": 1.09823, "profit": 11.0, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:16:32+00:00", "event": "trade_closed", "payload": {"deal_id": 82118822, "ticket": 38139750, "symbol": "USOILm", "volume": 0.04, "price": 85.923, "profit": 8.56, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:20:06+00:00", "event": "trade_closed", "payload": {"deal_id": 82120253, "ticket": 38140883, "symbol": "BTCUSDm", "volume": 0.02, "price": 64970.09, "profit": 0.1, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:27:50+00:00", "event": "trade_closed", "payload": {"deal_id": 82124446, "ticket": 38141633, "symbol": "USOILm", "volume": 0.04, "price": 85.889, "profit": 5.16, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:35:41+00:00", "event": "trade_closed", "payload": {"deal_id": 82129992, "ticket": 38143235, "symbol": "USDJPYm", "volume": 0.07, "price": 159.323, "profit": -0.7, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:36:00+00:00", "event": "trade_closed", "payload": {"deal_id": 82130461, "ticket": 38141320, "symbol": "XAUUSDm", "volume": 0.01, "price": 3870.056, "profit": -9.11, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:36:00+00:00", "event": "trade_closed", "payload": {"deal_id": 82130527, "ticket": 38143256, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.811, "profit": -12.55, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:37:07+00:00", "event": "trade_closed", "payload": {"deal_id": 82132580, "ticket": 38146438, "symbol": "BTCUSDm", "volume": 0.01, "price": 65028.82, "profit": 1.33, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:37:23+00:00", "event": "trade_closed", "payload": {"deal_id": 82132737, "ticket": 38146454, "symbol": "ETHUSDm", "volume": 0.1, "price": 1821.76, "profit": 0.46, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:39:50+00:00", "event": "trade_closed", "payload": {"deal_id": 82134362, "ticket": 38143705, "symbol": "USOILm", "volume": 0.09, "price": 85.553, "profit": -23.58, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T14:52:21+00:00", "event": "trade_closed", "payload": {"deal_id": 82140868, "ticket": 38148608, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.824, "profit": 5.45, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:05:27+00:00", "event": "trade_closed", "payload": {"deal_id": 82147937, "ticket": 38152145, "symbol": "USDJPYm", "volume": 0.05, "price": 159.414, "profit": 0.44, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:05:56+00:00", "event": "trade_closed", "payload": {"deal_id": 82148411, "ticket": 38152178, "symbol": "USOILm", "volume": 0.01, "price": 85.488, "profit": -1.72, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:07:21+00:00", "event": "trade_closed", "payload": {"deal_id": 82149526, "ticket": 38154442, "symbol": "BTCUSDm", "volume": 0.01, "price": 64512.46, "profit": -2.63, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:08:12+00:00", "event": "trade_closed", "payload": {"deal_id": 82150467, "ticket": 38155474, "symbol": "ETHUSDm", "volume": 0.1, "price": 1800.28, "profit": 0.0, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:15:22+00:00", "event": "trade_closed", "payload": {"deal_id": 82154539, "ticket": 38152178, "symbol": "USOILm", "volume": 0.03, "price": 85.374, "profit": -8.58, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:18:55+00:00", "event": "trade_closed", "payload": {"deal_id": 82155989, "ticket": 38152126, "symbol": "XAUUSDm", "volume": 0.01, "price": 3856.721, "profit": 5.27, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:19:07+00:00", "event": "trade_closed", "payload": {"deal_id": 82156106, "ticket": 38154184, "symbol": "XAUUSDm", "volume": 0.01, "price": 3856.68, "profit": 5.28, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:22:44+00:00", "event": "trade_closed", "payload": {"deal_id": 82158718, "ticket": 38157182, "symbol": "ETHUSDm", "volume": 0.1, "price": 1810.01, "profit": -0.97, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:23:22+00:00", "event": "trade_closed", "payload": {"deal_id": 82159260, "ticket": 38158862, "symbol": "ETHUSDm", "volume": 0.1, "price": 1811.0, "profit": -1.0, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:23:30+00:00", "event": "trade_closed", "payload": {"deal_id": 82159406, "ticket": 38157328, "symbol": "BTCUSDm", "volume": 0.01, "price": 64903.03, "profit": -2.8, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:26:09+00:00", "event": "trade_closed", "payload": {"deal_id": 82160834, "ticket": 38151472, "symbol": "XAGUSDm", "volume": 0.02, "price": 47.721, "profit": -4.7, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:31:08+00:00", "event": "trade_closed", "payload": {"deal_id": 82163671, "ticket": 38143213, "symbol": "EURUSDm", "volume": 0.01, "price": 1.09965, "profit": -0.54, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:33:25+00:00", "event": "trade_closed", "payload": {"deal_id": 82165388, "ticket": 38143213, "symbol": "EURUSDm", "volume": 0.04, "price": 1.0996, "profit": -1.96, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:33:25+00:00", "event": "trade_closed", "payload": {"deal_id": 82165390, "ticket": 38149772, "symbol": "EURUSDm", "volume": 0.04, "price": 1.09963, "profit": -1.72, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:33:25+00:00", "event": "trade_closed", "payload": {"deal_id": 82165391, "ticket": 38153741, "symbol": "EURUSDm", "volume": 0.04, "price": 1.09963, "profit": -2.04, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:33:43+00:00", "event": "trade_closed", "payload": {"deal_id": 82165636, "ticket": 38152145, "symbol": "USDJPYm", "volume": 0.02, "price": 159.326, "profit": -0.93, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:33:44+00:00", "event": "trade_closed", "payload": {"deal_id": 82165654, "ticket": 38160706, "symbol": "USDJPYm", "volume": 0.09, "price": 159.328, "profit": -5.42, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:33:59+00:00", "event": "trade_closed", "payload": {"deal_id": 82165882, "ticket": 38160662, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.81, "profit": -4.4, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:35:00+00:00", "event": "trade_closed", "payload": {"deal_id": 82167253, "ticket": 38161209, "symbol": "USOILm", "volume": 0.01, "price": 84.923, "profit": -2.02, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:35:59+00:00", "event": "trade_closed", "payload": {"deal_id": 82168307, "ticket": 38160706, "symbol": "USDJPYm", "volume": 0.01, "price": 159.297, "profit": -0.8, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:39:46+00:00", "event": "trade_closed", "payload": {"deal_id": 82170961, "ticket": 38164413, "symbol": "XAUUSDm", "volume": 0.01, "price": 3878.641, "profit": 4.21, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:40:30+00:00", "event": "trade_closed", "payload": {"deal_id": 82171588, "ticket": 38153741, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10004, "profit": -0.92, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:40:30+00:00", "event": "trade_closed", "payload": {"deal_id": 82171589, "ticket": 38164526, "symbol": "EURUSDm", "volume": 0.02, "price": 1.10004, "profit": -0.1, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:40:36+00:00", "event": "trade_closed", "payload": {"deal_id": 82171709, "ticket": 38160706, "symbol": "USDJPYm", "volume": 0.01, "price": 159.247, "profit": -1.11, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:45:54+00:00", "event": "trade_closed", "payload": {"deal_id": 82179379, "ticket": 38163582, "symbol": "USOILm", "volume": 0.02, "price": 85.232, "profit": -5.72, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:46:14+00:00", "event": "trade_closed", "payload": {"deal_id": 82179554, "ticket": 38162926, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.825, "profit": 0.25, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:51:04+00:00", "event": "trade_closed", "payload": {"deal_id": 82183969, "ticket": 38168356, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.625, "profit": -11.55, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:53:18+00:00", "event": "trade_closed", "payload": {"deal_id": 82187564, "ticket": 38170151, "symbol": "BTCUSDm", "volume": 0.02, "price": 63432.86, "profit": 4.32, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:53:20+00:00", "event": "trade_closed", "payload": {"deal_id": 82187613, "ticket": 38168287, "symbol": "USOILm", "volume": 0.02, "price": 85.065, "profit": 2.52, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:55:59+00:00", "event": "trade_closed", "payload": {"deal_id": 82189453, "ticket": 38170501, "symbol": "XAGUSDm", "volume": 0.02, "price": 47.628, "profit": -1.2, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:56:46+00:00", "event": "trade_closed", "payload": {"deal_id": 82190762, "ticket": 38169598, "symbol": "ETHUSDm", "volume": 0.1, "price": 1770.07, "profit": -1.45, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T15:59:28+00:00", "event": "trade_closed", "payload": {"deal_id": 82192326, "ticket": 38172543, "symbol": "BTCUSDm", "volume": 0.02, "price": 64081.91, "profit": -8.49, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:05:33+00:00", "event": "trade_closed", "payload": {"deal_id": 82196518, "ticket": 38174747, "symbol": "BTCUSDm", "volume": 0.01, "price": 64336.51, "profit": -1.45, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:05:47+00:00", "event": "trade_closed", "payload": {"deal_id": 82196668, "ticket": 38173130, "symbol": "EURUSDm", "volume": 0.04, "price": 1.10023, "profit": -0.76, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:05:54+00:00", "event": "trade_closed", "payload": {"deal_id": 82196721, "ticket": 38168347, "symbol": "USDJPYm", "volume": 0.01, "price": 159.334, "profit": -0.7, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:05:55+00:00", "event": "trade_closed", "payload": {"deal_id": 82196723, "ticket": 38175703, "symbol": "USDJPYm", "volume": 0.03, "price": 159.334, "profit": -0.04, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:10:12+00:00", "event": "trade_closed", "payload": {"deal_id": 82198926, "ticket": 38175703, "symbol": "USDJPYm", "volume": 0.03, "price": 159.321, "profit": 0.21, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:12:34+00:00", "event": "trade_closed", "payload": {"deal_id": 82199736, "ticket": 38176840, "symbol": "ETHUSDm", "volume": 0.1, "price": 1785.64, "profit": 0.84, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:17:31+00:00", "event": "trade_closed", "payload": {"deal_id": 82201766, "ticket": 38174355, "symbol": "ETHUSDm", "volume": 0.1, "price": 1781.88, "profit": 0.76, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:20:30+00:00", "event": "trade_closed", "payload": {"deal_id": 82202960, "ticket": 38172002, "symbol": "XAUUSDm", "volume": 0.01, "price": 3866.877, "profit": -11.42, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:21:39+00:00", "event": "trade_closed", "payload": {"deal_id": 82203550, "ticket": 38174747, "symbol": "BTCUSDm", "volume": 0.01, "price": 64191.51, "profit": 0.0, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:21:57+00:00", "event": "trade_closed", "payload": {"deal_id": 82203650, "ticket": 38172760, "symbol": "XAUUSDm", "volume": 0.01, "price": 3865.186, "profit": -11.71, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:27:05+00:00", "event": "trade_closed", "payload": {"deal_id": 82205819, "ticket": 38179300, "symbol": "ETHUSDm", "volume": 0.1, "price": 1780.81, "profit": 0.82, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:29:04+00:00", "event": "trade_closed", "payload": {"deal_id": 82206307, "ticket": 38179287, "symbol": "USOILm", "volume": 0.02, "price": 85.145, "profit": -7.0, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:30:33+00:00", "event": "trade_closed", "payload": {"deal_id": 82206830, "ticket": 38176908, "symbol": "USDJPYm", "volume": 0.01, "price": 159.261, "profit": -0.38, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:35:11+00:00", "event": "trade_closed", "payload": {"deal_id": 82208480, "ticket": 38178777, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10146, "profit": 0.36, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:40:46+00:00", "event": "trade_closed", "payload": {"deal_id": 82210501, "ticket": 38178777, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10119, "profit": 0.09, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:40:46+00:00", "event": "trade_closed", "payload": {"deal_id": 82210502, "ticket": 38180218, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10117, "profit": -0.23, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:45:43+00:00", "event": "trade_closed", "payload": {"deal_id": 82213812, "ticket": 38182748, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.561, "profit": -2.2, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:55:51+00:00", "event": "trade_closed", "payload": {"deal_id": 82219538, "ticket": 38184382, "symbol": "ETHUSDm", "volume": 0.1, "price": 1770.74, "profit": 0.84, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T16:57:23+00:00", "event": "trade_closed", "payload": {"deal_id": 82220387, "ticket": 38181208, "symbol": "BTCUSDm", "volume": 0.01, "price": 63473.97, "profit": 3.08, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T17:00:59+00:00", "event": "trade_closed", "payload": {"deal_id": 82222052, "ticket": 38185779, "symbol": "USOILm", "volume": 0.01, "price": 85.134, "profit": -0.05, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T17:04:54+00:00", "event": "trade_closed", "payload": {"deal_id": 82223416, "ticket": 38188231, "symbol": "BTCUSDm", "volume": 0.02, "price": 63527.76, "profit": 3.51, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T17:10:45+00:00", "event": "trade_closed", "payload": {"deal_id": 82227065, "ticket": 38188341, "symbol": "XAUUSDm", "volume": 0.01, "price": 3869.638, "profit": -3.96, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T17:21:34+00:00", "event": "trade_closed", "payload": {"deal_id": 82231868, "ticket": 38180218, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10173, "profit": 0.33, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T17:21:52+00:00", "event": "trade_closed", "payload": {"deal_id": 82231905, "ticket": 38189691, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.752, "profit": -6.9, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T17:28:14+00:00", "event": "trade_closed", "payload": {"deal_id": 82234120, "ticket": 38189694, "symbol": "BTCUSDm", "volume": 0.01, "price": 63711.06, "profit": 2.24, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T17:32:28+00:00", "event": "trade_closed", "payload": {"deal_id": 82235886, "ticket": 38193347, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.631, "profit": -6.05, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:00:58+00:00", "event": "trade_closed", "payload": {"deal_id": 82250054, "ticket": 38188133, "symbol": "ETHUSDm", "volume": 0.1, "price": 1785.73, "profit": -1.07, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:10:24+00:00", "event": "trade_closed", "payload": {"deal_id": 82256262, "ticket": 38197591, "symbol": "XAUUSDm", "volume": 0.01, "price": 3860.649, "profit": -5.0, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:25:01+00:00", "event": "trade_closed", "payload": {"deal_id": 82262655, "ticket": 38208138, "symbol": "ETHUSDm", "volume": 0.1, "price": 1800.88, "profit": -0.87, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:25:43+00:00", "event": "trade_closed", "payload": {"deal_id": 82263280, "ticket": 38180218, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10157, "profit": 0.17, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:25:43+00:00", "event": "trade_closed", "payload": {"deal_id": 82263282, "ticket": 38207060, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10157, "profit": -0.47, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:26:45+00:00", "event": "trade_closed", "payload": {"deal_id": 82264815, "ticket": 38207387, "symbol": "XAUUSDm", "volume": 0.01, "price": 3861.938, "profit": 2.23, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:29:00+00:00", "event": "trade_closed", "payload": {"deal_id": 82266729, "ticket": 38205347, "symbol": "XAUUSDm", "volume": 0.01, "price": 3860.582, "profit": -0.62, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:31:04+00:00", "event": "trade_closed", "payload": {"deal_id": 82268499, "ticket": 38204082, "symbol": "USOILm", "volume": 0.01, "price": 85.189, "profit": -0.16, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:36:46+00:00", "event": "trade_closed", "payload": {"deal_id": 82271024, "ticket": 38209045, "symbol": "BTCUSDm", "volume": 0.01, "price": 63764.07, "profit": 0.79, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:41:06+00:00", "event": "trade_closed", "payload": {"deal_id": 82273367, "ticket": 38208747, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10122, "profit": -0.71, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:41:06+00:00", "event": "trade_closed", "payload": {"deal_id": 82273369, "ticket": 38213042, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10122, "profit": -0.05, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:46:37+00:00", "event": "trade_closed", "payload": {"deal_id": 82275037, "ticket": 38213585, "symbol": "XAUUSDm", "volume": 0.01, "price": 3856.174, "profit": -3.73, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T18:55:47+00:00", "event": "trade_closed", "payload": {"deal_id": 82278518, "ticket": 38215725, "symbol": "BTCUSDm", "volume": 0.01, "price": 63652.49, "profit": 1.39, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T19:02:53+00:00", "event": "trade_closed", "payload": {"deal_id": 82280793, "ticket": 38215493, "symbol": "USOILm", "volume": 0.01, "price": 85.135, "profit": 0.86, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T19:02:53+00:00", "event": "trade_closed", "payload": {"deal_id": 82280794, "ticket": 38216606, "symbol": "USOILm", "volume": 0.01, "price": 85.135, "profit": 0.32, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T19:06:03+00:00", "event": "trade_closed", "payload": {"deal_id": 82283415, "ticket": 38216690, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10117, "profit": -0.25, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T19:09:55+00:00", "event": "trade_closed", "payload": {"deal_id": 82285643, "ticket": 38218865, "symbol": "BTCUSDm", "volume": 0.01, "price": 63741.88, "profit": 0.0, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T19:17:07+00:00", "event": "trade_closed", "payload": {"deal_id": 82289290, "ticket": 38210288, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.484, "profit": 0.25, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:01:31+00:00", "event": "trade_closed", "payload": {"deal_id": 82309171, "ticket": 38230634, "symbol": "ETHUSDm", "volume": 0.1, "price": 1787.78, "profit": 0.24, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:08:27+00:00", "event": "trade_closed", "payload": {"deal_id": 82311375, "ticket": 38231866, "symbol": "USDJPYm", "volume": 0.01, "price": 159.377, "profit": -0.33, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:08:27+00:00", "event": "trade_closed", "payload": {"deal_id": 82311379, "ticket": 38232138, "symbol": "USDJPYm", "volume": 0.01, "price": 159.377, "profit": -0.17, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:23:15+00:00", "event": "trade_closed", "payload": {"deal_id": 82320493, "ticket": 38235054, "symbol": "ETHUSDm", "volume": 0.1, "price": 1801.21, "profit": -0.55, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:24:44+00:00", "event": "trade_closed", "payload": {"deal_id": 82321014, "ticket": 38231921, "symbol": "USOILm", "volume": 0.01, "price": 84.428, "profit": -2.6, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:33:18+00:00", "event": "trade_closed", "payload": {"deal_id": 82325667, "ticket": 38233245, "symbol": "XAUUSDm", "volume": 0.01, "price": 3852.457, "profit": -5.66, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:40:27+00:00", "event": "trade_closed", "payload": {"deal_id": 82328842, "ticket": 38218761, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10085, "profit": 0.32, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:46:24+00:00", "event": "trade_closed", "payload": {"deal_id": 82331088, "ticket": 38238078, "symbol": "USOILm", "volume": 0.01, "price": 84.379, "profit": 1.23, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:47:56+00:00", "event": "trade_closed", "payload": {"deal_id": 82332096, "ticket": 38235257, "symbol": "BTCUSDm", "volume": 0.01, "price": 63846.15, "profit": 0.87, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:51:27+00:00", "event": "trade_closed", "payload": {"deal_id": 82334041, "ticket": 38230611, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10073, "profit": 0.16, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T20:51:38+00:00", "event": "trade_closed", "payload": {"deal_id": 82334103, "ticket": 38238734, "symbol": "USDJPYm", "volume": 0.01, "price": 159.324, "profit": -0.15, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:03:05+00:00", "event": "trade_closed", "payload": {"deal_id": 82337478, "ticket": 38243385, "symbol": "BTCUSDm", "volume": 0.01, "price": 63933.49, "profit": -0.22, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:03:42+00:00", "event": "trade_closed", "payload": {"deal_id": 82337617, "ticket": 38241657, "symbol": "USDJPYm", "volume": 0.01, "price": 159.346, "profit": 0.06, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:10:13+00:00", "event": "trade_closed", "payload": {"deal_id": 82340854, "ticket": 38244921, "symbol": "BTCUSDm", "volume": 0.01, "price": 63928.16, "profit": -0.35, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:10:29+00:00", "event": "trade_closed", "payload": {"deal_id": 82340979, "ticket": 38244943, "symbol": "USDJPYm", "volume": 0.01, "price": 159.336, "profit": -0.19, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:19:37+00:00", "event": "trade_closed", "payload": {"deal_id": 82343775, "ticket": 38241318, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10061, "profit": 0.18, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:23:05+00:00", "event": "trade_closed", "payload": {"deal_id": 82345760, "ticket": 38244895, "symbol": "USOILm", "volume": 0.01, "price": 84.405, "profit": 0.05, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:25:49+00:00", "event": "trade_closed", "payload": {"deal_id": 82347267, "ticket": 38245936, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10035, "profit": 0.28, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:25:49+00:00", "event": "trade_closed", "payload": {"deal_id": 82347268, "ticket": 38247052, "symbol": "EURUSDm", "volume": 0.01, "price": 1.10035, "profit": 0.19, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:25:56+00:00", "event": "trade_closed", "payload": {"deal_id": 82347276, "ticket": 38248345, "symbol": "USDJPYm", "volume": 0.01, "price": 159.356, "profit": -0.13, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:31:08+00:00", "event": "trade_closed", "payload": {"deal_id": 82348810, "ticket": 38233834, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.493, "profit": -13.2, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:39:58+00:00", "event": "trade_closed", "payload": {"deal_id": 82351841, "ticket": 38247478, "symbol": "USOILm", "volume": 0.01, "price": 84.339, "profit": 0.24, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:42:00+00:00", "event": "trade_closed", "payload": {"deal_id": 82353041, "ticket": 38235055, "symbol": "USOILm", "volume": 0.01, "price": 84.545, "profit": -2.68, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:44:32+00:00", "event": "trade_closed", "payload": {"deal_id": 82353627, "ticket": 38249418, "symbol": "BTCUSDm", "volume": 0.01, "price": 64340.41, "profit": 2.01, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T21:50:22+00:00", "event": "trade_closed", "payload": {"deal_id": 82354551, "ticket": 38251356, "symbol": "USOILm", "volume": 0.01, "price": 84.37, "profit": -0.15, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T22:05:15+00:00", "event": "trade_closed", "payload": {"deal_id": 82367620, "ticket": 38253504, "symbol": "BTCUSDm", "volume": 0.01, "price": 64160.57, "profit": -0.38, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T22:10:45+00:00", "event": "trade_closed", "payload": {"deal_id": 82369183, "ticket": 38253642, "symbol": "USDJPYm", "volume": 0.01, "price": 159.349, "profit": -0.41, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T22:25:50+00:00", "event": "trade_closed", "payload": {"deal_id": 82372609, "ticket": 38255522, "symbol": "USDJPYm", "volume": 0.01, "price": 159.4, "profit": -0.24, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T22:36:07+00:00", "event": "trade_closed", "payload": {"deal_id": 82374663, "ticket": 38255491, "symbol": "BTCUSDm", "volume": 0.01, "price": 64697.82, "profit": -2.24, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T23:17:30+00:00", "event": "trade_closed", "payload": {"deal_id": 82385558, "ticket": 38260383, "symbol": "XAUUSDm", "volume": 0.01, "price": 3853.176, "profit": 2.13, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T23:20:38+00:00", "event": "trade_closed", "payload": {"deal_id": 82387406, "ticket": 38261517, "symbol": "ETHUSDm", "volume": 0.1, "price": 1822.98, "profit": -0.13, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T23:25:07+00:00", "event": "trade_closed", "payload": {"deal_id": 82390202, "ticket": 38263235, "symbol": "BTCUSDm", "volume": 0.01, "price": 64892.86, "profit": 0.25, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T23:40:07+00:00", "event": "trade_closed", "payload": {"deal_id": 82397018, "ticket": 38263804, "symbol": "BTCUSDm", "volume": 0.01, "price": 65047.72, "profit": -1.55, "comment": "close", "backfill": true}}
+{"ts": "2026-11-17T23:46:27+00:00", "event": "trade_closed", "payload": {"deal_id": 82398710, "ticket": 38267160, "symbol": "XAUUSDm", "volume": 0.01, "price": 3845.93, "profit": -2.77, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T00:01:20+00:00", "event": "trade_closed", "payload": {"deal_id": 82400126, "ticket": 38268601, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.434, "profit": 3.85, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T00:07:37+00:00", "event": "trade_closed", "payload": {"deal_id": 82401537, "ticket": 38252032, "symbol": "EURUSDm", "volume": 0.01, "price": 1.0988, "profit": 1.33, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T00:07:37+00:00", "event": "trade_closed", "payload": {"deal_id": 82401538, "ticket": 38258472, "symbol": "EURUSDm", "volume": 0.01, "price": 1.0988, "profit": 1.01, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T00:07:37+00:00", "event": "trade_closed", "payload": {"deal_id": 82401539, "ticket": 38248097, "symbol": "EURUSDm", "volume": 0.01, "price": 1.0988, "profit": 1.65, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T00:19:10+00:00", "event": "trade_closed", "payload": {"deal_id": 82402959, "ticket": 38252600, "symbol": "USOILm", "volume": 0.01, "price": 84.302, "profit": 1.34, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T00:20:24+00:00", "event": "trade_closed", "payload": {"deal_id": 82403127, "ticket": 38269794, "symbol": "XAUUSDm", "volume": 0.01, "price": 3841.292, "profit": 0.06, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T00:24:10+00:00", "event": "trade_closed", "payload": {"deal_id": 82404621, "ticket": 38269461, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.246, "profit": 5.35, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T01:00:39+00:00", "event": "trade_closed", "payload": {"deal_id": 82411344, "ticket": 38271632, "symbol": "USDJPYm", "volume": 0.01, "price": 159.5, "profit": 0.03, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T01:04:16+00:00", "event": "trade_closed", "payload": {"deal_id": 82412444, "ticket": 38272251, "symbol": "XAGUSDm", "volume": 0.01, "price": 47.001, "profit": -12.9, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T01:09:03+00:00", "event": "trade_closed", "payload": {"deal_id": 82413000, "ticket": 38272005, "symbol": "USOILm", "volume": 0.01, "price": 84.33, "profit": 0.05, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T01:25:07+00:00", "event": "trade_closed", "payload": {"deal_id": 82414364, "ticket": 38272961, "symbol": "ETHUSDm", "volume": 0.1, "price": 1811.07, "profit": 0.33, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T01:35:56+00:00", "event": "trade_closed", "payload": {"deal_id": 82415582, "ticket": 38271996, "symbol": "EURUSDm", "volume": 0.01, "price": 1.0994, "profit": -0.87, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T01:35:56+00:00", "event": "trade_closed", "payload": {"deal_id": 82415584, "ticket": 38272711, "symbol": "EURUSDm", "volume": 0.01, "price": 1.0994, "profit": -0.52, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T01:45:01+00:00", "event": "trade_closed", "payload": {"deal_id": 82416976, "ticket": 38272646, "symbol": "USOILm", "volume": 0.01, "price": 84.135, "profit": 1.23, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T02:06:08+00:00", "event": "trade_closed", "payload": {"deal_id": 82422710, "ticket": 38274537, "symbol": "XAUUSDm", "volume": 0.01, "price": 3798.428, "profit": -12.2, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T02:44:05+00:00", "event": "trade_closed", "payload": {"deal_id": 82427880, "ticket": 38273338, "symbol": "USDJPYm", "volume": 0.01, "price": 159.352, "profit": -1.58, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T02:47:59+00:00", "event": "trade_closed", "payload": {"deal_id": 82428290, "ticket": 38273537, "symbol": "USDJPYm", "volume": 0.01, "price": 159.34, "profit": -1.59, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T02:48:20+00:00", "event": "trade_closed", "payload": {"deal_id": 82428342, "ticket": 38273845, "symbol": "USDJPYm", "volume": 0.01, "price": 159.33, "profit": -1.58, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T06:01:48+00:00", "event": "trade_closed", "payload": {"deal_id": 82478002, "ticket": 38298961, "symbol": "XAUUSDm", "volume": 0.01, "price": 3785.018, "profit": 8.78, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T06:06:49+00:00", "event": "trade_closed", "payload": {"deal_id": 82479790, "ticket": 38274007, "symbol": "EURUSDm", "volume": 0.01, "price": 1.09814, "profit": -1.26, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T06:07:47+00:00", "event": "trade_closed", "payload": {"deal_id": 82480209, "ticket": 38301595, "symbol": "USDJPYm", "volume": 0.01, "price": 159.275, "profit": 0.18, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T08:55:21+00:00", "event": "trade_closed", "payload": {"deal_id": 82557229, "ticket": 38301589, "symbol": "EURUSDm", "volume": 0.01, "price": 1.096, "profit": -2.49, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T12:36:45+00:00", "event": "trade_closed", "payload": {"deal_id": 82642823, "ticket": 38383604, "symbol": "XAUUSDm", "volume": 0.01, "price": 3760.614, "profit": -4.94, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T12:36:46+00:00", "event": "trade_closed", "payload": {"deal_id": 82642833, "ticket": 38383817, "symbol": "BTCUSDm", "volume": 0.01, "price": 64022.62, "profit": -1.18, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T12:37:37+00:00", "event": "trade_closed", "payload": {"deal_id": 82644501, "ticket": 38383976, "symbol": "USOILm", "volume": 0.01, "price": 84.208, "profit": 0.05, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T13:51:02+00:00", "event": "trade_closed", "payload": {"deal_id": 82689460, "ticket": 38384145, "symbol": "USDJPYm", "volume": 0.01, "price": 159.336, "profit": -0.28, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T13:56:13+00:00", "event": "trade_closed", "payload": {"deal_id": 82692361, "ticket": 38405877, "symbol": "XAUUSDm", "volume": 0.01, "price": 3786.318, "profit": 1.77, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:05:05+00:00", "event": "trade_closed", "payload": {"deal_id": 82695820, "ticket": 38406731, "symbol": "XAGUSDm", "volume": 0.01, "price": 45.846, "profit": 0.25, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:05:27+00:00", "event": "trade_closed", "payload": {"deal_id": 82695905, "ticket": 38409290, "symbol": "USOILm", "volume": 0.01, "price": 83.855, "profit": 0.05, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:15:06+00:00", "event": "trade_closed", "payload": {"deal_id": 82699553, "ticket": 38409493, "symbol": "ETHUSDm", "volume": 0.1, "price": 1788.97, "profit": 0.24, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:15:38+00:00", "event": "trade_closed", "payload": {"deal_id": 82699873, "ticket": 38405937, "symbol": "EURUSDm", "volume": 0.01, "price": 1.09663, "profit": 0.75, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:20:10+00:00", "event": "trade_closed", "payload": {"deal_id": 82702199, "ticket": 38411962, "symbol": "XAUUSDm", "volume": 0.01, "price": 3777.248, "profit": 2.06, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:20:19+00:00", "event": "trade_closed", "payload": {"deal_id": 82702247, "ticket": 38411771, "symbol": "USDJPYm", "volume": 0.01, "price": 159.343, "profit": -0.1, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:20:29+00:00", "event": "trade_closed", "payload": {"deal_id": 82702280, "ticket": 38413002, "symbol": "ETHUSDm", "volume": 0.1, "price": 1790.39, "profit": 0.05, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:33:59+00:00", "event": "trade_closed", "payload": {"deal_id": 82712024, "ticket": 38416248, "symbol": "ETHUSDm", "volume": 0.1, "price": 1784.48, "profit": -0.38, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:34:05+00:00", "event": "trade_closed", "payload": {"deal_id": 82712138, "ticket": 38415706, "symbol": "BTCUSDm", "volume": 0.01, "price": 63685.4, "profit": -1.37, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:35:43+00:00", "event": "trade_closed", "payload": {"deal_id": 82713161, "ticket": 38415715, "symbol": "XAUUSDm", "volume": 0.01, "price": 3771.072, "profit": -1.18, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:37:16+00:00", "event": "trade_closed", "payload": {"deal_id": 82714677, "ticket": 38417144, "symbol": "BTCUSDm", "volume": 0.01, "price": 63352.93, "profit": -0.06, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:40:54+00:00", "event": "trade_closed", "payload": {"deal_id": 82717779, "ticket": 38418599, "symbol": "ETHUSDm", "volume": 0.1, "price": 1757.42, "profit": -0.82, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:52:52+00:00", "event": "trade_closed", "payload": {"deal_id": 82726590, "ticket": 38421688, "symbol": "BTCUSDm", "volume": 0.01, "price": 63512.27, "profit": -2.39, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:53:06+00:00", "event": "trade_closed", "payload": {"deal_id": 82726777, "ticket": 38422640, "symbol": "ETHUSDm", "volume": 0.1, "price": 1769.91, "profit": -0.98, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T14:58:38+00:00", "event": "trade_closed", "payload": {"deal_id": 82728908, "ticket": 38422815, "symbol": "BTCUSDm", "volume": 0.01, "price": 63625.33, "profit": -2.55, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T15:00:27+00:00", "event": "trade_closed", "payload": {"deal_id": 82729609, "ticket": 38424036, "symbol": "BTCUSDm", "volume": 0.01, "price": 63678.68, "profit": -1.23, "comment": "close", "backfill": true}}
+{"ts": "2026-11-18T15:14:27.991348+00:00", "event": "trade_open", "payload": {"ticket": 38429597, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 45.269, "sl": 45.528, "tp": 44.828}}
+{"ts": "2026-11-18T15:16:42.133524+00:00", "event": "trade_open", "payload": {"ticket": 38430058, "symbol": "USDJPYm", "side": "SELL", "volume": 0.01, "open_price": 159.252, "sl": 159.503, "tp": 158.803}}
+{"ts": "2026-11-18T15:17:17.331456+00:00", "event": "position_removed", "payload": {"ticket": 38430058}}
+{"ts": "2026-11-18T15:17:17.411190+00:00", "event": "trade_closed", "payload": {"deal_id": 82742328, "ticket": 38430058, "symbol": "USDJPYm", "volume": 0.01, "price": 159.273, "profit": -0.13, "comment": "close"}}
+{"ts": "2026-11-18T15:25:17.192539+00:00", "event": "position_removed", "payload": {"ticket": 38429597}}
+{"ts": "2026-11-18T15:25:17.318964+00:00", "event": "trade_closed", "payload": {"deal_id": 82749497, "ticket": 38429597, "symbol": "XAGUSDm", "volume": 0.01, "price": 45.112, "profit": 7.85, "comment": "close"}}
+{"ts": "2026-11-18T15:47:36.327106+00:00", "event": "trade_open", "payload": {"ticket": 38440348, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 63059.74, "sl": 62657.36, "tp": 63651.17}}
+{"ts": "2026-11-18T15:52:59.420453+00:00", "event": "trade_closed", "payload": {"deal_id": 82764821, "ticket": 38440348, "symbol": "BTCUSDm", "volume": 0.01, "price": 63152.93, "profit": 0.93, "comment": "close"}}
+{"ts": "2026-11-18T16:01:58.058993+00:00", "event": "trade_open", "payload": {"ticket": 38443875, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 62975.69, "sl": 62652.8, "tp": 63534.0}}
+{"ts": "2026-11-18T16:11:46.390137+00:00", "event": "trade_open", "payload": {"ticket": 38446819, "symbol": "BTCUSDm", "side": "BUY", "volume": 0.01, "open_price": 62884.53, "sl": 62582.35, "tp": 63361.56}}
+{"ts": "2026-11-18T16:13:15.820259+00:00", "event": "trade_open", "payload": {"ticket": 38447093, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 82.903, "sl": 83.265, "tp": 82.383}}
+{"ts": "2026-11-18T16:17:06.231167+00:00", "event": "position_removed", "payload": {"ticket": 38443875}}
+{"ts": "2026-11-18T16:17:06.375262+00:00", "event": "trade_closed", "payload": {"deal_id": 82780946, "ticket": 38443875, "symbol": "BTCUSDm", "volume": 0.01, "price": 62652.8, "profit": -3.23, "comment": "close"}}
+{"ts": "2026-11-18T16:18:27.043746+00:00", "event": "position_removed", "payload": {"ticket": 38446819}}
+{"ts": "2026-11-18T16:18:27.117911+00:00", "event": "trade_closed", "payload": {"deal_id": 82781339, "ticket": 38446819, "symbol": "BTCUSDm", "volume": 0.01, "price": 62582.35, "profit": -3.02, "comment": "close"}}
+{"ts": "2026-11-18T16:31:57.775104+00:00", "event": "position_removed", "payload": {"ticket": 38447093}}
+{"ts": "2026-11-18T16:31:57.877657+00:00", "event": "trade_closed", "payload": {"deal_id": 82788096, "ticket": 38447093, "symbol": "USOILm", "volume": 0.01, "price": 82.498, "profit": 4.05, "comment": "close"}}
+{"ts": "2026-11-18T16:38:39.761849+00:00", "event": "trade_open", "payload": {"ticket": 38452213, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 44.977, "sl": 45.233, "tp": 44.533}}
+{"ts": "2026-11-18T16:44:50.563071+00:00", "event": "trade_open", "payload": {"ticket": 38453209, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 45.0, "sl": 45.239, "tp": 44.539}}
+{"ts": "2026-11-18T16:57:34.565264+00:00", "event": "position_removed", "payload": {"ticket": 38453209}}
+{"ts": "2026-11-18T16:57:34.619170+00:00", "event": "trade_closed", "payload": {"deal_id": 82799532, "ticket": 38453209, "symbol": "XAGUSDm", "volume": 0.01, "price": 44.995, "profit": 0.25, "comment": "close"}}
+{"ts": "2026-11-18T17:02:47.998434+00:00", "event": "trade_open", "payload": {"ticket": 38457287, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 45.112, "sl": 45.367, "tp": 44.667}}
+{"ts": "2026-11-18T17:08:47.308466+00:00", "event": "trade_open", "payload": {"ticket": 38458454, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 81.482, "sl": 81.879, "tp": 80.879}}
+{"ts": "2026-11-18T17:11:00.625924+00:00", "event": "position_removed", "payload": {"ticket": 38457287}}
+{"ts": "2026-11-18T17:11:00.707716+00:00", "event": "trade_closed", "payload": {"deal_id": 82805580, "ticket": 38457287, "symbol": "XAGUSDm", "volume": 0.01, "price": 44.996, "profit": 5.8, "comment": "close"}}
+{"ts": "2026-11-18T17:23:08.926658+00:00", "event": "position_removed", "payload": {"ticket": 38458454}}
+{"ts": "2026-11-18T17:23:08.987785+00:00", "event": "trade_closed", "payload": {"deal_id": 82810956, "ticket": 38458454, "symbol": "USOILm", "volume": 0.01, "price": 81.477, "profit": 0.05, "comment": "close"}}
+{"ts": "2026-11-18T17:24:02.371268+00:00", "event": "trade_open", "payload": {"ticket": 38462150, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 45.116, "sl": 45.374, "tp": 44.674}}
+{"ts": "2026-11-18T17:26:25.907454+00:00", "event": "position_removed", "payload": {"ticket": 38452213}}
+{"ts": "2026-11-18T17:26:25.971363+00:00", "event": "trade_closed", "payload": {"deal_id": 82812578, "ticket": 38452213, "symbol": "XAGUSDm", "volume": 0.01, "price": 45.233, "profit": -12.8, "comment": "close"}}
+{"ts": "2026-11-18T17:43:23.157808+00:00", "event": "trade_open", "payload": {"ticket": 38462150, "symbol": "XAGUSDm", "side": "SELL", "volume": 0.01, "open_price": 45.116, "sl": 45.374, "tp": 44.674}}
+{"ts": "2026-11-18T17:44:53.587659+00:00", "event": "trade_open", "payload": {"ticket": 38466679, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3741.253, "sl": 3749.449, "tp": 3728.883}}
+{"ts": "2026-11-18T17:53:10.769714+00:00", "event": "position_removed", "payload": {"ticket": 38466679}}
+{"ts": "2026-11-18T17:53:10.834865+00:00", "event": "trade_closed", "payload": {"deal_id": 82825767, "ticket": 38466679, "symbol": "XAUUSDm", "volume": 0.01, "price": 3728.883, "profit": 12.37, "comment": "close"}}
+{"ts": "2026-11-18T17:59:02.898314+00:00", "event": "trade_open", "payload": {"ticket": 38470756, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3734.379, "sl": 3742.223, "tp": 3722.086}}
+{"ts": "2026-11-18T18:01:56.844028+00:00", "event": "trade_open", "payload": {"ticket": 38471286, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3737.452, "sl": 3744.815, "tp": 3725.261}}
+{"ts": "2026-11-18T18:01:56.961507+00:00", "event": "position_removed", "payload": {"ticket": 38462150}}
+{"ts": "2026-11-18T18:01:57.024433+00:00", "event": "trade_closed", "payload": {"deal_id": 82830360, "ticket": 38462150, "symbol": "XAGUSDm", "volume": 0.01, "price": 45.111, "profit": 0.25, "comment": "close"}}
+{"ts": "2026-11-18T18:35:02.220384+00:00", "event": "trade_open", "payload": {"ticket": 38471286, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3737.452, "sl": 3744.815, "tp": 3725.261}}
+{"ts": "2026-11-18T18:35:02.411448+00:00", "event": "trade_closed", "payload": {"deal_id": 82835965, "ticket": 38470756, "symbol": "XAUUSDm", "volume": 0.01, "price": 3737.243, "profit": -2.86, "comment": "close"}}
+{"ts": "2026-11-18T18:37:45.557944+00:00", "event": "trade_open", "payload": {"ticket": 38478606, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3741.951, "sl": 3748.828, "tp": 3730.908}}
+{"ts": "2026-11-18T18:46:44.989171+00:00", "event": "position_removed", "payload": {"ticket": 38471286}}
+{"ts": "2026-11-18T18:46:45.142434+00:00", "event": "trade_closed", "payload": {"deal_id": 82849132, "ticket": 38471286, "symbol": "XAUUSDm", "volume": 0.01, "price": 3739.079, "profit": -1.63, "comment": "close"}}
+{"ts": "2026-11-18T18:52:32.282238+00:00", "event": "trade_open", "payload": {"ticket": 38478606, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3741.951, "sl": 3741.946, "tp": 3730.908}}
+{"ts": "2026-11-18T18:54:41.806744+00:00", "event": "position_removed", "payload": {"ticket": 38478606}}
+{"ts": "2026-11-18T18:54:41.854248+00:00", "event": "trade_closed", "payload": {"deal_id": 82851637, "ticket": 38478606, "symbol": "XAUUSDm", "volume": 0.01, "price": 3738.365, "profit": 3.59, "comment": "close"}}
+{"ts": "2026-11-18T19:01:47.869154+00:00", "event": "trade_open", "payload": {"ticket": 38482415, "symbol": "BTCUSDm", "side": "SELL", "volume": 0.2, "open_price": 62955.18, "sl": 63130.17, "tp": 62636.77}}
+{"ts": "2026-11-18T19:01:48.120240+00:00", "event": "trade_open", "payload": {"ticket": 38482448, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.2, "open_price": 1760.9, "sl": 1768.66, "tp": 1743.9}}
+{"ts": "2026-11-18T19:02:41.678451+00:00", "event": "trade_open", "payload": {"ticket": 38482805, "symbol": "USOILm", "side": "SELL", "volume": 0.1, "open_price": 81.852, "sl": 81.983, "tp": 81.575}}
+{"ts": "2026-11-18T19:03:51.209757+00:00", "event": "trade_open", "payload": {"ticket": 38483182, "symbol": "USDJPYm", "side": "SELL", "volume": 0.2, "open_price": 159.346, "sl": 159.373, "tp": 159.298}}
+{"ts": "2026-11-18T19:04:19.193826+00:00", "event": "position_removed", "payload": {"ticket": 38483182}}
+{"ts": "2026-11-18T19:04:19.266737+00:00", "event": "trade_closed", "payload": {"deal_id": 82857980, "ticket": 38483182, "symbol": "USDJPYm", "volume": 0.2, "price": 159.373, "profit": -3.39, "comment": "close"}}
+{"ts": "2026-11-18T19:04:58.392594+00:00", "event": "position_removed", "payload": {"ticket": 38482415}}
+{"ts": "2026-11-18T19:04:58.440953+00:00", "event": "trade_closed", "payload": {"deal_id": 82858196, "ticket": 38482415, "symbol": "BTCUSDm", "volume": 0.2, "price": 62837.41, "profit": 23.55, "comment": "close"}}
+{"ts": "2026-11-18T19:13:28.138349+00:00", "event": "trade_open", "payload": {"ticket": 38482448, "symbol": "ETHUSDm", "side": "SELL", "volume": 0.2, "open_price": 1760.9, "sl": 1760.85, "tp": 1743.9}}
+{"ts": "2026-11-18T19:13:28.512497+00:00", "event": "trade_open", "payload": {"ticket": 38482805, "symbol": "USOILm", "side": "SELL", "volume": 0.1, "open_price": 81.852, "sl": 81.983, "tp": 81.575}}
+{"ts": "2026-11-18T19:16:49.127212+00:00", "event": "position_removed", "payload": {"ticket": 38482448}}
+{"ts": "2026-11-18T19:16:49.196181+00:00", "event": "trade_closed", "payload": {"deal_id": 82863184, "ticket": 38482448, "symbol": "ETHUSDm", "volume": 0.2, "price": 1760.85, "profit": 0.01, "comment": "close"}}
+{"ts": "2026-11-18T19:21:30.636820+00:00", "event": "trade_closed", "payload": {"deal_id": 82864049, "ticket": 38482805, "symbol": "USOILm", "volume": 0.1, "price": 81.99, "profit": -13.8, "comment": "close"}}
+{"ts": "2026-11-18T19:28:01.560677+00:00", "event": "trade_open", "payload": {"ticket": 38487878, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3729.167, "sl": 3734.681, "tp": 3719.854}}
+{"ts": "2026-11-18T19:32:55.113924+00:00", "event": "position_removed", "payload": {"ticket": 38487878}}
+{"ts": "2026-11-18T19:32:55.180380+00:00", "event": "trade_closed", "payload": {"deal_id": 82869216, "ticket": 38487878, "symbol": "XAUUSDm", "volume": 0.01, "price": 3722.025, "profit": 7.14, "comment": "close"}}
+{"ts": "2026-11-18T20:05:10.568210+00:00", "event": "trade_open", "payload": {"ticket": 38494115, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3725.906, "sl": 3731.758, "tp": 3716.74}}
+{"ts": "2026-11-18T20:07:48.297541+00:00", "event": "trade_open", "payload": {"ticket": 38494404, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3728.829, "sl": 3735.154, "tp": 3719.401}}
+{"ts": "2026-11-18T20:11:07.797659+00:00", "event": "position_removed", "payload": {"ticket": 38494404}}
+{"ts": "2026-11-18T20:11:07.852666+00:00", "event": "trade_closed", "payload": {"deal_id": 82882339, "ticket": 38494404, "symbol": "XAUUSDm", "volume": 0.01, "price": 3726.474, "profit": 2.36, "comment": "close"}}
+{"ts": "2026-11-18T20:13:53.133450+00:00", "event": "trade_open", "payload": {"ticket": 38495547, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3726.599, "sl": 3733.175, "tp": 3717.026}}
+{"ts": "2026-11-18T20:19:37.974679+00:00", "event": "position_removed", "payload": {"ticket": 38495547}}
+{"ts": "2026-11-18T20:19:38.023811+00:00", "event": "trade_closed", "payload": {"deal_id": 82884872, "ticket": 38495547, "symbol": "XAUUSDm", "volume": 0.01, "price": 3726.594, "profit": 0.01, "comment": "close"}}
+{"ts": "2026-11-18T20:21:46.559587+00:00", "event": "trade_open", "payload": {"ticket": 38497010, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3726.132, "sl": 3731.636, "tp": 3717.359}}
+{"ts": "2026-11-18T20:27:20.464324+00:00", "event": "position_removed", "payload": {"ticket": 38494115}}
+{"ts": "2026-11-18T20:27:20.475898+00:00", "event": "position_removed", "payload": {"ticket": 38497010}}
+{"ts": "2026-11-18T20:27:20.532607+00:00", "event": "trade_closed", "payload": {"deal_id": 82890250, "ticket": 38494115, "symbol": "XAUUSDm", "volume": 0.01, "price": 3725.901, "profit": 0.01, "comment": "close"}}
+{"ts": "2026-11-18T20:27:20.546622+00:00", "event": "trade_closed", "payload": {"deal_id": 82890272, "ticket": 38497010, "symbol": "XAUUSDm", "volume": 0.01, "price": 3726.127, "profit": 0.01, "comment": "close"}}
+{"ts": "2026-11-18T20:27:36.335218+00:00", "event": "trade_open", "payload": {"ticket": 38498680, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.03, "open_price": 3727.586, "sl": 3733.085, "tp": 3718.801}}
+{"ts": "2026-11-18T20:37:12.408952+00:00", "event": "trade_closed", "payload": {"deal_id": 82895827, "ticket": 38498680, "symbol": "XAUUSDm", "volume": 0.01, "price": 3728.963, "profit": -1.38, "comment": "close"}}
+{"ts": "2026-11-18T20:43:58.189197+00:00", "event": "position_removed", "payload": {"ticket": 38498680}}
+{"ts": "2026-11-18T20:43:58.311891+00:00", "event": "trade_closed", "payload": {"deal_id": 82898821, "ticket": 38498680, "symbol": "XAUUSDm", "volume": 0.02, "price": 3733.085, "profit": -11.0, "comment": "close"}}
+{"ts": "2026-11-18T23:30:14.780300+00:00", "event": "trade_open", "payload": {"ticket": 38518847, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.01, "open_price": 3740.742, "sl": 3745.825, "tp": 3733.525}}
+{"ts": "2026-11-18T23:31:47.521972+00:00", "event": "trade_open", "payload": {"ticket": 38519241, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 82.02, "sl": 82.27, "tp": 81.57}}
+{"ts": "2026-11-18T23:31:47.605127+00:00", "event": "position_removed", "payload": {"ticket": 38518847}}
+{"ts": "2026-11-18T23:31:47.658268+00:00", "event": "trade_closed", "payload": {"deal_id": 82947370, "ticket": 38518847, "symbol": "XAUUSDm", "volume": 0.01, "price": 3737.684, "profit": 3.06, "comment": "close"}}
+{"ts": "2026-11-18T23:32:49.838623+00:00", "event": "trade_open", "payload": {"ticket": 38519655, "symbol": "XAUUSDm", "side": "SELL", "volume": 0.02, "open_price": 3739.25, "sl": 3744.756, "tp": 3731.664}}
+{"ts": "2026-11-19T00:44:32.561323+00:00", "event": "trade_open", "payload": {"ticket": 38519241, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 82.02, "sl": 81.775, "tp": 81.57}}
+{"ts": "2026-11-19T00:47:05.486799+00:00", "event": "position_removed", "payload": {"ticket": 38519241}}
+{"ts": "2026-11-19T00:47:05.625260+00:00", "event": "trade_closed", "payload": {"deal_id": 82965238, "ticket": 38519241, "symbol": "USOILm", "volume": 0.01, "price": 81.779, "profit": 2.41, "comment": "close"}}
+{"ts": "2026-11-19T00:47:43.528615+00:00", "event": "trade_open", "payload": {"ticket": 38528014, "symbol": "USOILm", "side": "SELL", "volume": 0.02, "open_price": 81.77, "sl": 82.02, "tp": 81.32}}
+{"ts": "2026-11-19T00:56:57.093056+00:00", "event": "trade_open", "payload": {"ticket": 38528576, "symbol": "XAUUSDm", "side": "BUY", "volume": 0.01, "open_price": 3753.147, "sl": 3746.661, "tp": 3763.108}}
+{"ts": "2026-11-19T01:01:57.163365+00:00", "event": "position_removed", "payload": {"ticket": 38528014}}
+{"ts": "2026-11-19T01:01:57.198551+00:00", "event": "trade_closed", "payload": {"deal_id": 82967247, "ticket": 38528014, "symbol": "USOILm", "volume": 0.02, "price": 81.786, "profit": -0.32, "comment": "close"}}
+{"ts": "2026-11-19T01:06:57.264795+00:00", "event": "position_removed", "payload": {"ticket": 38528576}}
+{"ts": "2026-11-19T01:06:57.343622+00:00", "event": "trade_closed", "payload": {"deal_id": 82967775, "ticket": 38528576, "symbol": "XAUUSDm", "volume": 0.01, "price": 3746.661, "profit": -6.49, "comment": "close"}}
+{"ts": "2026-11-19T01:09:49.218456+00:00", "event": "trade_open", "payload": {"ticket": 38529671, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 82.153, "sl": 82.414, "tp": 81.714}}
+{"ts": "2026-11-19T01:21:14.540638+00:00", "event": "position_removed", "payload": {"ticket": 38529671}}
+{"ts": "2026-11-19T01:21:14.586077+00:00", "event": "trade_closed", "payload": {"deal_id": 82969824, "ticket": 38529671, "symbol": "USOILm", "volume": 0.01, "price": 82.414, "profit": -2.61, "comment": "close"}}
+{"ts": "2026-11-19T01:34:09.941424+00:00", "event": "trade_open", "payload": {"ticket": 38532194, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.288, "sl": 159.042, "tp": 159.742}}
+{"ts": "2026-11-19T07:48:35.383157+00:00", "event": "position_removed", "payload": {"ticket": 38532194}}
+{"ts": "2026-11-19T07:48:35.441750+00:00", "event": "trade_closed", "payload": {"deal_id": 83056924, "ticket": 38532194, "symbol": "USDJPYm", "volume": 0.01, "price": 159.705, "profit": 2.61, "comment": "close"}}
+{"ts": "2026-11-19T07:52:53.593359+00:00", "event": "trade_open", "payload": {"ticket": 38575362, "symbol": "USDJPYm", "side": "SELL", "volume": 0.01, "open_price": 159.739, "sl": 159.99, "tp": 159.29}}
+{"ts": "2026-11-19T08:01:36.322187+00:00", "event": "position_removed", "payload": {"ticket": 38575362}}
+{"ts": "2026-11-19T08:01:36.378453+00:00", "event": "trade_closed", "payload": {"deal_id": 83062603, "ticket": 38575362, "symbol": "USDJPYm", "volume": 0.01, "price": 159.728, "profit": 0.07, "comment": "close"}}
+{"ts": "2026-11-19T08:21:30.542833+00:00", "event": "trade_open", "payload": {"ticket": 38582060, "symbol": "USDJPYm", "side": "BUY", "volume": 0.01, "open_price": 159.777, "sl": 159.524, "tp": 160.224}}
+{"ts": "2026-11-19T08:23:26.305230+00:00", "event": "trade_open", "payload": {"ticket": 38582338, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 82.19, "sl": 82.447, "tp": 81.747}}
+{"ts": "2026-11-19T08:38:19.828623+00:00", "event": "trade_open", "payload": {"ticket": 38585305, "symbol": "USOILm", "side": "SELL", "volume": 0.01, "open_price": 82.33, "sl": 82.608, "tp": 81.899}}
+{"ts": "2026-11-19T08:42:09.926183+00:00", "event": "position_removed", "payload": {"ticket": 38582338}}
+{"ts": "2026-11-19T08:42:09.995070+00:00", "event": "trade_closed", "payload": {"deal_id": 83078590, "ticket": 38582338, "symbol": "USOILm", "volume": 0.01, "price": 82.447, "profit": -2.57, "comment": "close"}}
+{"ts": "2026-11-19T09:04:09.411364+00:00", "event": "position_removed", "payload": {"ticket": 38585305}}
+{"ts": "2026-11-19T09:04:09.476257+00:00", "event": "trade_closed", "payload": {"deal_id": 83085610, "ticket": 38585305, "symbol": "USOILm", "volume": 0.01, "price": 82.225, "profit": 1.05, "comment": "close"}}
+{"ts": "2026-11-19T10:37:45.667561+00:00", "event": "position_removed", "payload": {"ticket": 38582060}}
+{"ts": "2026-11-19T10:37:45.723625+00:00", "event": "trade_closed", "payload": {"deal_id": 83118943, "ticket": 38582060, "symbol": "USDJPYm", "volume": 0.01, "price": 159.893, "profit": 0.73, "comment": "close"}}

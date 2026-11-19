@@ -1,0 +1,926 @@
+{
+ "symbols": {
+  "EURUSDm": {
+   "status": "needs_work",
+   "attempts": 5,
+   "history": [
+    {
+     "t": 1794928135.423393,
+     "attempt": 1,
+     "scenario": "balanced",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "EURUSDm",
+        "score": -111.94589681615128,
+        "max_drawdown": 0.002479121639229924,
+        "sharpe": -18.541845710768555,
+        "total_return": -0.002479121639230142,
+        "steps": 15028,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794948584.776632,
+     "attempt": 2,
+     "scenario": "patient",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' died with <Signals.SIGSEGV: 11>."
+     }
+    },
+    {
+     "t": 1794955112.560829,
+     "attempt": 3,
+     "scenario": "hunter",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955213.344727,
+     "attempt": 4,
+     "scenario": "steady",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955315.11317,
+     "attempt": 5,
+     "scenario": "trend_rider",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    }
+   ],
+   "why": "failed the exam with all 5 reward scenarios: trades news only; the next round trains longer",
+   "steps": 250000,
+   "scenario": "trend_rider",
+   "started": 1794955213.4035358,
+   "was_live": false,
+   "last_retrain": 1794955315.113237,
+   "scenario_idx": 5
+  },
+  "USDJPYm": {
+   "status": "needs_work",
+   "attempts": 5,
+   "history": [
+    {
+     "t": 1794928135.4346821,
+     "attempt": 1,
+     "scenario": "balanced",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "USDJPYm",
+        "score": -516.6700504434157,
+        "max_drawdown": 0.052568696407828235,
+        "sharpe": -83.6562922490001,
+        "total_return": -0.05256568431704034,
+        "steps": 15028,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794948584.7862341,
+     "attempt": 2,
+     "scenario": "patient",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "USDJPYm",
+        "score": -240.0355075195934,
+        "max_drawdown": 0.017415042127437115,
+        "sharpe": -39.1925319277723,
+        "total_return": -0.017414698409027762,
+        "steps": 15032,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794955112.589078,
+     "attempt": 3,
+     "scenario": "hunter",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955213.354867,
+     "attempt": 4,
+     "scenario": "steady",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955315.1232371,
+     "attempt": 5,
+     "scenario": "trend_rider",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    }
+   ],
+   "why": "failed the exam with all 5 reward scenarios: trades news only; the next round trains longer",
+   "steps": 250000,
+   "scenario": "trend_rider",
+   "started": 1794955213.403541,
+   "was_live": false,
+   "last_retrain": 1794955315.123277,
+   "scenario_idx": 5
+  },
+  "XAGUSDm": {
+   "status": "needs_work",
+   "attempts": 5,
+   "history": [
+    {
+     "t": 1794928135.441049,
+     "attempt": 1,
+     "scenario": "balanced",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "XAGUSDm",
+        "score": -56.46772677766331,
+        "max_drawdown": 0.007456327338504375,
+        "sharpe": -9.064239997938406,
+        "total_return": -0.0073831560432897625,
+        "steps": 15019,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794948584.795464,
+     "attempt": 2,
+     "scenario": "patient",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "XAGUSDm",
+        "score": -61.50562756807863,
+        "max_drawdown": 0.011461337210094054,
+        "sharpe": -9.717157065035341,
+        "total_return": -0.011368540967599206,
+        "steps": 15024,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794955112.6173341,
+     "attempt": 3,
+     "scenario": "hunter",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955213.364264,
+     "attempt": 4,
+     "scenario": "steady",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955315.133249,
+     "attempt": 5,
+     "scenario": "trend_rider",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    }
+   ],
+   "why": "failed the exam with all 5 reward scenarios: trades news only; the next round trains longer",
+   "steps": 250000,
+   "scenario": "trend_rider",
+   "started": 1794955213.403542,
+   "was_live": false,
+   "last_retrain": 1794955315.133297,
+   "scenario_idx": 5
+  },
+  "ETHUSDm": {
+   "status": "needs_work",
+   "attempts": 5,
+   "history": [
+    {
+     "t": 1794928135.447358,
+     "attempt": 1,
+     "scenario": "balanced",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "ETHUSDm",
+        "score": -87.04356231181455,
+        "max_drawdown": 0.027398320156960927,
+        "sharpe": -13.235479284430733,
+        "total_return": -0.026920598740593604,
+        "steps": 15018,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794948584.804393,
+     "attempt": 2,
+     "scenario": "patient",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "ETHUSDm",
+        "score": -49.662677766219836,
+        "max_drawdown": 0.015038754614954412,
+        "sharpe": -7.603033640535031,
+        "total_return": -0.0133449215646122,
+        "steps": 15010,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794955112.64587,
+     "attempt": 3,
+     "scenario": "hunter",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955213.3735092,
+     "attempt": 4,
+     "scenario": "steady",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955315.143497,
+     "attempt": 5,
+     "scenario": "trend_rider",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    }
+   ],
+   "why": "failed the exam with all 5 reward scenarios: trades news only; the next round trains longer",
+   "steps": 250000,
+   "scenario": "trend_rider",
+   "started": 1794955213.403543,
+   "was_live": false,
+   "last_retrain": 1794955315.1435351,
+   "scenario_idx": 5
+  },
+  "USOILm": {
+   "status": "needs_work",
+   "attempts": 5,
+   "history": [
+    {
+     "t": 1794928135.454516,
+     "attempt": 1,
+     "scenario": "balanced",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "USOILm",
+        "score": -68.55756870211219,
+        "max_drawdown": 0.01638357547170467,
+        "sharpe": -10.664834712453555,
+        "total_return": -0.016147291976417177,
+        "steps": 15009,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794948584.813636,
+     "attempt": 2,
+     "scenario": "patient",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955112.67554,
+     "attempt": 3,
+     "scenario": "hunter",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955213.382734,
+     "attempt": 4,
+     "scenario": "steady",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    },
+    {
+     "t": 1794955315.1536791,
+     "attempt": 5,
+     "scenario": "trend_rider",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' returned non-zero exit status 1."
+     }
+    }
+   ],
+   "why": "failed the exam with all 5 reward scenarios: trades news only; the next round trains longer",
+   "steps": 250000,
+   "scenario": "trend_rider",
+   "started": 1794955213.403544,
+   "was_live": false,
+   "last_retrain": 1794955315.153714,
+   "scenario_idx": 5
+  },
+  "BTCUSDm": {
+   "status": "live",
+   "attempts": 0,
+   "history": [
+    {
+     "t": 1794902686.103884,
+     "attempt": 1,
+     "scenario": "balanced",
+     "steps": 500000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": null,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "BTCUSDm",
+        "score": -21.477777067619584,
+        "max_drawdown": 0.016442824240728054,
+        "sharpe": -2.8823289039417195,
+        "total_return": -0.01217622259077511,
+        "steps": 15021,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794912131.990592,
+     "attempt": 2,
+     "scenario": "patient",
+     "steps": 500000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": null,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "BTCUSDm",
+        "score": -27.40480563112081,
+        "max_drawdown": 0.018102872810355126,
+        "sharpe": -3.7322851630643514,
+        "total_return": -0.017463284377763344,
+        "steps": 15021,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794932612.687895,
+     "attempt": 3,
+     "scenario": "hunter",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "BTCUSDm",
+        "score": -47.15456338946778,
+        "max_drawdown": 0.005833245061896195,
+        "sharpe": -7.59216466376425,
+        "total_return": -0.005496195405497617,
+        "steps": 15014,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794938476.887245,
+     "attempt": 4,
+     "scenario": "steady",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "BTCUSDm",
+        "score": -104.8588161909038,
+        "max_drawdown": 0.019594580023478917,
+        "sharpe": -16.56565046855665,
+        "total_return": -0.019306407537708736,
+        "steps": 15018,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794955012.8141382,
+     "attempt": 5,
+     "scenario": "trend_rider",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": false,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [],
+      "error": "PPO training failed: Command '['/Users/bank/.cautious-giggle/venv/bin/python', 'training/train_drl.py']' died with <Signals.SIGSEGV: 11>."
+     }
+    }
+   ],
+   "why": "tried 5 reward scenarios without beating the exam; keeps the model it had",
+   "steps": 250000,
+   "started": 1794948584.8340979,
+   "scenario": "trend_rider",
+   "scenario_idx": 5,
+   "last_retrain": 1794955012.814604
+  },
+  "XAUUSDm": {
+   "status": "live",
+   "attempts": 0,
+   "history": [
+    {
+     "t": 1794902686.110233,
+     "attempt": 1,
+     "scenario": "balanced",
+     "steps": 500000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": null,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "XAUUSDm",
+        "score": -61.34955693706041,
+        "max_drawdown": 0.0334270731401124,
+        "sharpe": -8.718097752728758,
+        "total_return": -0.03001523244236437,
+        "steps": 15011,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794912131.997926,
+     "attempt": 2,
+     "scenario": "patient",
+     "steps": 500000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": null,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "XAUUSDm",
+        "score": -106.57486241472587,
+        "max_drawdown": 0.04970185556311425,
+        "sharpe": -15.454488255644659,
+        "total_return": -0.048681291764295476,
+        "steps": 15021,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794932612.697481,
+     "attempt": 3,
+     "scenario": "hunter",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "XAUUSDm",
+        "score": -60.084378749313046,
+        "max_drawdown": 0.009489997404336994,
+        "sharpe": -9.583258503775646,
+        "total_return": -0.008691435453789698,
+        "steps": 15014,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794938476.896277,
+     "attempt": 4,
+     "scenario": "steady",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "XAUUSDm",
+        "score": -90.37052835770015,
+        "max_drawdown": 0.02088219564263702,
+        "sharpe": -14.09751829469245,
+        "total_return": -0.020060481085084292,
+        "steps": 15019,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    },
+    {
+     "t": 1794955012.825977,
+     "attempt": 5,
+     "scenario": "trend_rider",
+     "steps": 250000,
+     "passed": false,
+     "how": "exploration only",
+     "rc": 0,
+     "exam": {
+      "beat_baseline": true,
+      "passed_gates": false,
+      "pass_rate": 0.0,
+      "gates": [
+       {
+        "symbol": "XAUUSDm",
+        "score": -42.03887635432254,
+        "max_drawdown": 0.0008619296479271723,
+        "sharpe": -6.968935677944344,
+        "total_return": -0.0006653465250708868,
+        "steps": 2642,
+        "passes": false,
+        "checks": {
+         "dd_ok": true,
+         "sharpe_ok": false,
+         "return_ok": false,
+         "steps_ok": true
+        }
+       }
+      ],
+      "error": null
+     }
+    }
+   ],
+   "why": "tried 5 reward scenarios without beating the exam; keeps the model it had",
+   "steps": 250000,
+   "started": 1794948584.834103,
+   "scenario": "trend_rider",
+   "scenario_idx": 5,
+   "last_retrain": 1794955012.826027
+  }
+ },
+ "updated": 1794997004.987684
+}

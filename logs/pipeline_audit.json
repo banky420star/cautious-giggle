@@ -1,0 +1,551 @@
+{
+ "t": 1795088318.042549,
+ "results": [
+  {
+   "area": "feed",
+   "market": "BTCUSDm",
+   "status": "WARN",
+   "what": "M5 cache has no spread data (all 0): anything sizing costs from bars uses a fixed guess, not the real spread"
+  },
+  {
+   "area": "feed",
+   "market": "ETHUSDm",
+   "status": "WARN",
+   "what": "M5 cache has no spread data (all 0): anything sizing costs from bars uses a fixed guess, not the real spread"
+  },
+  {
+   "area": "feed",
+   "market": "EURUSDm",
+   "status": "WARN",
+   "what": "M5 cache has no spread data (all 0): anything sizing costs from bars uses a fixed guess, not the real spread"
+  },
+  {
+   "area": "feed",
+   "market": "USDJPYm",
+   "status": "WARN",
+   "what": "M5 cache has no spread data (all 0): anything sizing costs from bars uses a fixed guess, not the real spread"
+  },
+  {
+   "area": "feed",
+   "market": "USOILm",
+   "status": "WARN",
+   "what": "M5 cache has no spread data (all 0): anything sizing costs from bars uses a fixed guess, not the real spread"
+  },
+  {
+   "area": "feed",
+   "market": "XAGUSDm",
+   "status": "WARN",
+   "what": "M5 cache has no spread data (all 0): anything sizing costs from bars uses a fixed guess, not the real spread"
+  },
+  {
+   "area": "feed",
+   "market": "XAUUSDm",
+   "status": "WARN",
+   "what": "M5 cache has no spread data (all 0): anything sizing costs from bars uses a fixed guess, not the real spread"
+  },
+  {
+   "area": "feed",
+   "market": "BTCUSDm",
+   "status": "PASS",
+   "what": "live decisions use fresh bars (indicator readings rebuilt within 10 min)"
+  },
+  {
+   "area": "feed",
+   "market": "ETHUSDm",
+   "status": "PASS",
+   "what": "live decisions use fresh bars (indicator readings rebuilt within 10 min)"
+  },
+  {
+   "area": "feed",
+   "market": "EURUSDm",
+   "status": "PASS",
+   "what": "live decisions use fresh bars (indicator readings rebuilt within 10 min)"
+  },
+  {
+   "area": "feed",
+   "market": "USDJPYm",
+   "status": "PASS",
+   "what": "live decisions use fresh bars (indicator readings rebuilt within 10 min)"
+  },
+  {
+   "area": "feed",
+   "market": "USOILm",
+   "status": "PASS",
+   "what": "live decisions use fresh bars (indicator readings rebuilt within 10 min)"
+  },
+  {
+   "area": "feed",
+   "market": "XAGUSDm",
+   "status": "PASS",
+   "what": "live decisions use fresh bars (indicator readings rebuilt within 10 min)"
+  },
+  {
+   "area": "feed",
+   "market": "XAUUSDm",
+   "status": "PASS",
+   "what": "live decisions use fresh bars (indicator readings rebuilt within 10 min)"
+  },
+  {
+   "area": "live",
+   "market": "BTCUSDm",
+   "status": "PASS",
+   "what": "live price matches the cache (7.9 bps apart)"
+  },
+  {
+   "area": "live",
+   "market": "ETHUSDm",
+   "status": "PASS",
+   "what": "live price matches the cache (14.6 bps apart)"
+  },
+  {
+   "area": "live",
+   "market": "EURUSDm",
+   "status": "PASS",
+   "what": "live price matches the cache (0.1 bps apart)"
+  },
+  {
+   "area": "live",
+   "market": "USDJPYm",
+   "status": "PASS",
+   "what": "live price matches the cache (0.2 bps apart)"
+  },
+  {
+   "area": "live",
+   "market": "USOILm",
+   "status": "PASS",
+   "what": "live price matches the cache (2.4 bps apart)"
+  },
+  {
+   "area": "live",
+   "market": "XAGUSDm",
+   "status": "PASS",
+   "what": "live price matches the cache (14.7 bps apart)"
+  },
+  {
+   "area": "live",
+   "market": "XAUUSDm",
+   "status": "PASS",
+   "what": "live price matches the cache (7.5 bps apart)"
+  },
+  {
+   "area": "council",
+   "market": "BTCUSDm",
+   "status": "PASS",
+   "what": "48 readings, 193s old"
+  },
+  {
+   "area": "council",
+   "market": "ETHUSDm",
+   "status": "PASS",
+   "what": "48 readings, 161s old"
+  },
+  {
+   "area": "council",
+   "market": "EURUSDm",
+   "status": "PASS",
+   "what": "48 readings, 176s old"
+  },
+  {
+   "area": "council",
+   "market": "USDJPYm",
+   "status": "PASS",
+   "what": "48 readings, 172s old"
+  },
+  {
+   "area": "council",
+   "market": "USOILm",
+   "status": "PASS",
+   "what": "48 readings, 128s old"
+  },
+  {
+   "area": "council",
+   "market": "XAGUSDm",
+   "status": "PASS",
+   "what": "48 readings, 167s old"
+  },
+  {
+   "area": "council",
+   "market": "XAUUSDm",
+   "status": "PASS",
+   "what": "48 readings, 180s old"
+  },
+  {
+   "area": "kronos",
+   "market": "-",
+   "status": "WARN",
+   "what": "votes from ONE random sampled path (sample_count=1): a noisy draw, not a consensus forecast; average many samples"
+  },
+  {
+   "area": "kronos",
+   "market": "BTCUSDm",
+   "status": "PASS",
+   "what": "fresh forecast (4 min), vote -0.61 matches -25.6 bps"
+  },
+  {
+   "area": "kronos",
+   "market": "ETHUSDm",
+   "status": "PASS",
+   "what": "fresh forecast (4 min), vote +0.80 matches +46.4 bps"
+  },
+  {
+   "area": "kronos",
+   "market": "EURUSDm",
+   "status": "PASS",
+   "what": "fresh forecast (4 min), vote -0.65 matches -3.0 bps"
+  },
+  {
+   "area": "kronos",
+   "market": "USDJPYm",
+   "status": "PASS",
+   "what": "fresh forecast (4 min), vote -0.96 matches -7.6 bps"
+  },
+  {
+   "area": "kronos",
+   "market": "USOILm",
+   "status": "PASS",
+   "what": "fresh forecast (4 min), vote +0.34 matches +12.1 bps"
+  },
+  {
+   "area": "kronos",
+   "market": "XAGUSDm",
+   "status": "PASS",
+   "what": "fresh forecast (4 min), vote -0.67 matches -34.0 bps"
+  },
+  {
+   "area": "kronos",
+   "market": "XAUUSDm",
+   "status": "PASS",
+   "what": "fresh forecast (4 min), vote -0.61 matches -15.4 bps"
+  },
+  {
+   "area": "ob_gold",
+   "market": "XAUUSDm",
+   "status": "PASS",
+   "what": "speaks on 5/204 gold decisions (only near an order-block zone, by design). Now: No order block in play: 3 armed zone(s), none within one ATR of price 3729.21. Votes 0 (no"
+  },
+  {
+   "area": "catboost",
+   "market": "BTCUSDm",
+   "status": "WARN",
+   "what": "the original model rejects today's data; running a stand-in trained on only 1942 rows"
+  },
+  {
+   "area": "catboost",
+   "market": "ETHUSDm",
+   "status": "WARN",
+   "what": "the original model rejects today's data; running a stand-in trained on only 1942 rows"
+  },
+  {
+   "area": "news",
+   "market": "XAGUSDm",
+   "status": "WARN",
+   "what": "no headlines behind the news vote (it can only say 0)"
+  },
+  {
+   "area": "news",
+   "market": "BTCUSDm",
+   "status": "PASS",
+   "what": "4 headlines"
+  },
+  {
+   "area": "news",
+   "market": "ETHUSDm",
+   "status": "PASS",
+   "what": "4 headlines"
+  },
+  {
+   "area": "news",
+   "market": "EURUSDm",
+   "status": "PASS",
+   "what": "1 headlines"
+  },
+  {
+   "area": "news",
+   "market": "USDJPYm",
+   "status": "PASS",
+   "what": "7 headlines"
+  },
+  {
+   "area": "news",
+   "market": "USOILm",
+   "status": "PASS",
+   "what": "7 headlines"
+  },
+  {
+   "area": "news",
+   "market": "XAUUSDm",
+   "status": "PASS",
+   "what": "7 headlines"
+  },
+  {
+   "area": "signal",
+   "market": "BTCUSDm",
+   "status": "WARN",
+   "what": "LSTM counted in 0/37 recent decisions (its confidence never reaches the 0.85 bar: it is shown but never used)"
+  },
+  {
+   "area": "signal",
+   "market": "ETHUSDm",
+   "status": "WARN",
+   "what": "LSTM counted in 0/38 recent decisions (its confidence never reaches the 0.85 bar: it is shown but never used)"
+  },
+  {
+   "area": "signal",
+   "market": "EURUSDm",
+   "status": "WARN",
+   "what": "LSTM counted in 0/37 recent decisions (its confidence never reaches the 0.85 bar: it is shown but never used)"
+  },
+  {
+   "area": "signal",
+   "market": "USDJPYm",
+   "status": "WARN",
+   "what": "LSTM counted in 0/37 recent decisions (its confidence never reaches the 0.85 bar: it is shown but never used)"
+  },
+  {
+   "area": "signal",
+   "market": "USOILm",
+   "status": "WARN",
+   "what": "LSTM counted in 0/38 recent decisions (its confidence never reaches the 0.85 bar: it is shown but never used)"
+  },
+  {
+   "area": "signal",
+   "market": "XAGUSDm",
+   "status": "WARN",
+   "what": "LSTM counted in 0/38 recent decisions (its confidence never reaches the 0.85 bar: it is shown but never used)"
+  },
+  {
+   "area": "signal",
+   "market": "XAUUSDm",
+   "status": "WARN",
+   "what": "LSTM counted in 0/37 recent decisions (its confidence never reaches the 0.85 bar: it is shown but never used)"
+  },
+  {
+   "area": "filter",
+   "market": "BTCUSDm",
+   "status": "WARN",
+   "what": "GO 99% of the last day (trained for ~30%): live inputs may differ from training"
+  },
+  {
+   "area": "filter",
+   "market": "ETHUSDm",
+   "status": "WARN",
+   "what": "GO 7% of the last day (trained for ~30%): live inputs may differ from training"
+  },
+  {
+   "area": "filter",
+   "market": "XAUUSDm",
+   "status": "WARN",
+   "what": "GO 81% of the last day (trained for ~30%): live inputs may differ from training"
+  },
+  {
+   "area": "filter",
+   "market": "EURUSDm",
+   "status": "PASS",
+   "what": "skill 0.707 on unseen data, model 1 d old, last reading 3 min ago, GO 33% of 95 readings today (watch-only)"
+  },
+  {
+   "area": "filter",
+   "market": "USDJPYm",
+   "status": "PASS",
+   "what": "skill 0.692 on unseen data, model 1 d old, last reading 3 min ago, GO 28% of 95 readings today (watch-only)"
+  },
+  {
+   "area": "filter",
+   "market": "USOILm",
+   "status": "PASS",
+   "what": "skill 0.662 on unseen data, model 1 d old, last reading 2 min ago, GO 52% of 95 readings today (watch-only)"
+  },
+  {
+   "area": "filter",
+   "market": "XAGUSDm",
+   "status": "PASS",
+   "what": "skill 0.659 on unseen data, model 1 d old, last reading 3 min ago, GO 20% of 95 readings today (watch-only)"
+  },
+  {
+   "area": "learning",
+   "market": "BTCUSDm",
+   "status": "WARN",
+   "what": "learned edge per call after costs (bps): lstm +0.15, ppo +0.01, council -2.93, blend -0.95, trade -4.90, best voter adx_di@H4 +0.23, worst supertrend -1.52 -> the bot's own trades lose after costs"
+  },
+  {
+   "area": "learning",
+   "market": "ETHUSDm",
+   "status": "WARN",
+   "what": "learned edge per call after costs (bps): lstm -2.98, council -3.04, blend -1.24, trade -13.41 -> the bot's own trades lose after costs"
+  },
+  {
+   "area": "learning",
+   "market": "EURUSDm",
+   "status": "WARN",
+   "what": "learned edge per call after costs (bps): lstm -0.33, council -0.21, blend -0.08, trade -0.49 -> the bot's own trades lose after costs"
+  },
+  {
+   "area": "learning",
+   "market": "USDJPYm",
+   "status": "WARN",
+   "what": "learned edge per call after costs (bps): lstm -0.38, council -0.14, blend -0.04, trade -0.72 -> the bot's own trades lose after costs"
+  },
+  {
+   "area": "learning",
+   "market": "XAGUSDm",
+   "status": "WARN",
+   "what": "learned edge per call after costs (bps): lstm -4.75, council -1.77, blend -0.58, trade -2.79 -> the bot's own trades lose after costs"
+  },
+  {
+   "area": "learning",
+   "market": "XAUUSDm",
+   "status": "WARN",
+   "what": "learned edge per call after costs (bps): lstm -0.82, council -0.16, blend -0.08, trade -0.13, best voter donchian@H4 +0.16, worst macd -0.66 -> the bot's own trades lose after costs"
+  },
+  {
+   "area": "learning",
+   "market": "-",
+   "status": "PASS",
+   "what": "results reach the learners: 36 live closes recorded in 24 h (36 live + 209 backfilled overall)"
+  },
+  {
+   "area": "learning",
+   "market": "-",
+   "status": "PASS",
+   "what": "model memory updated 2 min ago, 8182 grade buckets, horizon 2 bars"
+  },
+  {
+   "area": "learning",
+   "market": "-",
+   "status": "PASS",
+   "what": "773 GO/STOP grade buckets: every model is graded per big-move state"
+  },
+  {
+   "area": "learning",
+   "market": "USOILm",
+   "status": "PASS",
+   "what": "learned edge per call after costs (bps): lstm -1.53, council -0.05, blend +0.19, trade +0.95"
+  },
+  {
+   "area": "lstm",
+   "market": "BTCUSDm",
+   "status": "FAIL",
+   "what": "validation accuracy 32.1% is below always-HOLD 76.6%: it learned nothing usable (it predicts the next 5-min bar from price/indicators only, which the indicator map shows carries no direction signal)"
+  },
+  {
+   "area": "lstm",
+   "market": "ETHUSDm",
+   "status": "FAIL",
+   "what": "validation accuracy 32.7% is below always-HOLD 76.2%: it learned nothing usable (it predicts the next 5-min bar from price/indicators only, which the indicator map shows carries no direction signal)"
+  },
+  {
+   "area": "lstm",
+   "market": "EURUSDm",
+   "status": "FAIL",
+   "what": "validation accuracy 47.5% is below always-HOLD 86.9%: it learned nothing usable (it predicts the next 5-min bar from price/indicators only, which the indicator map shows carries no direction signal)"
+  },
+  {
+   "area": "lstm",
+   "market": "USDJPYm",
+   "status": "FAIL",
+   "what": "validation accuracy 32.2% is below always-HOLD 82.8%: it learned nothing usable (it predicts the next 5-min bar from price/indicators only, which the indicator map shows carries no direction signal)"
+  },
+  {
+   "area": "lstm",
+   "market": "USOILm",
+   "status": "FAIL",
+   "what": "validation accuracy 32.0% is below always-HOLD 75.5%: it learned nothing usable (it predicts the next 5-min bar from price/indicators only, which the indicator map shows carries no direction signal)"
+  },
+  {
+   "area": "lstm",
+   "market": "XAGUSDm",
+   "status": "FAIL",
+   "what": "validation accuracy 32.6% is below always-HOLD 76.0%: it learned nothing usable (it predicts the next 5-min bar from price/indicators only, which the indicator map shows carries no direction signal)"
+  },
+  {
+   "area": "lstm",
+   "market": "XAUUSDm",
+   "status": "FAIL",
+   "what": "validation accuracy 32.1% is below always-HOLD 75.8%: it learned nothing usable (it predicts the next 5-min bar from price/indicators only, which the indicator map shows carries no direction signal)"
+  },
+  {
+   "area": "ppo",
+   "market": "BTCUSDm",
+   "status": "WARN",
+   "what": "champion none; canary 20261118_215551: 0 trades, P/L 0.0, trades 0 < min_trades 60"
+  },
+  {
+   "area": "ppo",
+   "market": "ETHUSDm",
+   "status": "WARN",
+   "what": "champion none; canary 20261119_101954: 0 trades, P/L 0.0, trades 0 < min_trades 30"
+  },
+  {
+   "area": "ppo",
+   "market": "EURUSDm",
+   "status": "WARN",
+   "what": "champion none; canary 20261119_023530: 0 trades, P/L 0.0, trades 0 < min_trades 40"
+  },
+  {
+   "area": "ppo",
+   "market": "USDJPYm",
+   "status": "WARN",
+   "what": "PPO weight > 0 in 0/37, non-zero position in 0/37 (the trader model is not contributing to decisions)"
+  },
+  {
+   "area": "ppo",
+   "market": "USDJPYm",
+   "status": "WARN",
+   "what": "champion none; canary 20261119_030727: 1 trades, P/L 0.73, trades 1 < min_trades 30"
+  },
+  {
+   "area": "ppo",
+   "market": "USOILm",
+   "status": "WARN",
+   "what": "PPO weight > 0 in 0/38, non-zero position in 0/38 (the trader model is not contributing to decisions)"
+  },
+  {
+   "area": "ppo",
+   "market": "USOILm",
+   "status": "WARN",
+   "what": "champion none; canary 20261119_105223: 1 trades, P/L 1.05, trades 1 < min_trades 30"
+  },
+  {
+   "area": "ppo",
+   "market": "XAGUSDm",
+   "status": "WARN",
+   "what": "PPO weight > 0 in 0/38, non-zero position in 0/38 (the trader model is not contributing to decisions)"
+  },
+  {
+   "area": "ppo",
+   "market": "XAGUSDm",
+   "status": "WARN",
+   "what": "champion none; canary 20261119_033554: 0 trades, P/L 0.0, trades 0 < min_trades 30"
+  },
+  {
+   "area": "ppo",
+   "market": "XAUUSDm",
+   "status": "WARN",
+   "what": "PPO weight > 0 in 0/37, non-zero position in 0/37 (the trader model is not contributing to decisions)"
+  },
+  {
+   "area": "ppo",
+   "market": "XAUUSDm",
+   "status": "WARN",
+   "what": "champion none; canary 20261119_015218: 0 trades, P/L 0.0, trades 0 < min_trades 30"
+  },
+  {
+   "area": "ppo",
+   "market": "BTCUSDm",
+   "status": "PASS",
+   "what": "PPO weight > 0 in 25/37, non-zero position in 25/37"
+  },
+  {
+   "area": "ppo",
+   "market": "ETHUSDm",
+   "status": "PASS",
+   "what": "PPO weight > 0 in 2/38, non-zero position in 2/38"
+  },
+  {
+   "area": "ppo",
+   "market": "EURUSDm",
+   "status": "PASS",
+   "what": "PPO weight > 0 in 19/37, non-zero position in 19/37"
+  }
+ ]
+}

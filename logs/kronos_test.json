@@ -1,0 +1,77 @@
+{
+ "XAUUSD": {
+  "points": 200,
+  "cost_bps": 0.59,
+  "actual_abs_move_bps": 10.16,
+  "single": {
+   "hit_pct": 53.5,
+   "IC": 0.092,
+   "edge_bps": 2.12,
+   "edge_t": 1.87,
+   "net_after_cost_bps": 1.53,
+   "strong_calls": 106,
+   "strong_hit_pct": 59.4,
+   "strong_edge_bps": 3.0
+  },
+  "mean16": {
+   "hit_pct": 50.5,
+   "IC": 0.063,
+   "edge_bps": 0.69,
+   "edge_t": 0.6,
+   "net_after_cost_bps": 0.1,
+   "strong_calls": 52,
+   "strong_hit_pct": 53.8,
+   "strong_edge_bps": 2.82
+  }
+ },
+ "BTCUSD": {
+  "points": 200,
+  "cost_bps": 0.79,
+  "actual_abs_move_bps": 12.16,
+  "single": {
+   "hit_pct": 52.0,
+   "IC": -0.13,
+   "edge_bps": 1.46,
+   "edge_t": 0.71,
+   "net_after_cost_bps": 0.67,
+   "strong_calls": 90,
+   "strong_hit_pct": 55.6,
+   "strong_edge_bps": -0.86
+  },
+  "mean16": {
+   "hit_pct": 46.5,
+   "IC": -0.225,
+   "edge_bps": -2.27,
+   "edge_t": -1.12,
+   "net_after_cost_bps": -3.06,
+   "strong_calls": 60,
+   "strong_hit_pct": 43.3,
+   "strong_edge_bps": -7.76
+  }
+ },
+ "EURUSD": {
+  "points": 200,
+  "cost_bps": 0.71,
+  "actual_abs_move_bps": 2.39,
+  "single": {
+   "hit_pct": 55.0,
+   "IC": 0.016,
+   "edge_bps": 0.06,
+   "edge_t": 0.17,
+   "net_after_cost_bps": -0.65,
+   "strong_calls": 100,
+   "strong_hit_pct": 59.0,
+   "strong_edge_bps": 0.28
+  },
+  "mean16": {
+   "hit_pct": 50.5,
+   "IC": 0.07,
+   "edge_bps": -0.27,
+   "edge_t": -0.72,
+   "net_after_cost_bps": -0.98,
+   "strong_calls": 53,
+   "strong_hit_pct": 62.3,
+   "strong_edge_bps": 0.41
+  }
+ }
+}

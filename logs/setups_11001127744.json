@@ -1,0 +1,837 @@
+{
+ "stats": {
+  "XAUUSDm|BUY|asia|lo|ai-none": {
+   "n": 5,
+   "wins": 1,
+   "net": -20.31,
+   "last": 1795049801.94112
+  },
+  "XAUUSDm|BUY|asia": {
+   "n": 6,
+   "wins": 2,
+   "net": -20.25,
+   "last": 1795049801.94112
+  },
+  "XAUUSDm|BUY": {
+   "n": 18,
+   "wins": 5,
+   "net": -54.93,
+   "last": 1795049801.94112
+  },
+  "XAUUSDm|SELL|asia|lo|ai-none": {
+   "n": 6,
+   "wins": 3,
+   "net": 1.99,
+   "last": 1794980055.9190888
+  },
+  "XAUUSDm|SELL|asia": {
+   "n": 7,
+   "wins": 4,
+   "net": 4.09,
+   "last": 1794980055.9190888
+  },
+  "XAUUSDm|SELL": {
+   "n": 31,
+   "wins": 18,
+   "net": 0.56,
+   "last": 1795044753.602849
+  },
+  "XAUUSDm|SELL|asia|hi|ai-none": {
+   "n": 1,
+   "wins": 1,
+   "net": 2.1,
+   "last": 1794933485.889133
+  },
+  "BTCUSDm|SELL|asia|lo|ai-none": {
+   "n": 10,
+   "wins": 6,
+   "net": 10.6,
+   "last": 1794933485.8892212
+  },
+  "BTCUSDm|SELL|asia": {
+   "n": 10,
+   "wins": 6,
+   "net": 10.6,
+   "last": 1794933485.889222
+  },
+  "BTCUSDm|SELL": {
+   "n": 37,
+   "wins": 20,
+   "net": 2.08,
+   "last": 1795013892.816594
+  },
+  "BTCUSDm|SELL|london|lo|ai-none": {
+   "n": 8,
+   "wins": 5,
+   "net": -2.16,
+   "last": 1794933485.889278
+  },
+  "BTCUSDm|SELL|london": {
+   "n": 8,
+   "wins": 5,
+   "net": -2.16,
+   "last": 1794933485.889278
+  },
+  "XAUUSDm|SELL|london|lo|ai-none": {
+   "n": 4,
+   "wins": 1,
+   "net": -6.62,
+   "last": 1794933485.889281
+  },
+  "XAUUSDm|SELL|london": {
+   "n": 5,
+   "wins": 2,
+   "net": 0.15,
+   "last": 1794933485.889281
+  },
+  "XAUUSDm|BUY|london|lo|ai-none": {
+   "n": 2,
+   "wins": 0,
+   "net": -6.82,
+   "last": 1795004972.024816
+  },
+  "XAUUSDm|BUY|london": {
+   "n": 2,
+   "wins": 0,
+   "net": -6.82,
+   "last": 1795004972.024816
+  },
+  "XAUUSDm|SELL|london|hi|ai-none": {
+   "n": 1,
+   "wins": 1,
+   "net": 6.77,
+   "last": 1794933485.8892539
+  },
+  "USOILm|SELL|london|lo|ai-none": {
+   "n": 3,
+   "wins": 1,
+   "net": -13.44,
+   "last": 1795076551.2932632
+  },
+  "USOILm|SELL|london": {
+   "n": 4,
+   "wins": 2,
+   "net": -12.39,
+   "last": 1795077485.394134
+  },
+  "USOILm|SELL": {
+   "n": 24,
+   "wins": 15,
+   "net": -12.23,
+   "last": 1795077485.394134
+  },
+  "XAGUSDm|SELL|london|lo|ai-none": {
+   "n": 1,
+   "wins": 1,
+   "net": 5.3,
+   "last": 1794933485.8892741
+  },
+  "XAGUSDm|SELL|london": {
+   "n": 1,
+   "wins": 1,
+   "net": 5.3,
+   "last": 1794933485.8892748
+  },
+  "XAGUSDm|SELL": {
+   "n": 15,
+   "wins": 9,
+   "net": -33.6,
+   "last": 1795022627.555159
+  },
+  "USDJPYm|SELL|london|lo|ai-none": {
+   "n": 2,
+   "wins": 2,
+   "net": 0.29,
+   "last": 1795074746.886602
+  },
+  "USDJPYm|SELL|london": {
+   "n": 2,
+   "wins": 2,
+   "net": 0.29,
+   "last": 1795074746.886602
+  },
+  "USDJPYm|SELL": {
+   "n": 10,
+   "wins": 4,
+   "net": -1.06,
+   "last": 1795074746.886602
+  },
+  "EURUSDm|SELL|newyork|hi|ai-none": {
+   "n": 5,
+   "wins": 3,
+   "net": 19.28,
+   "last": 1795009754.877886
+  },
+  "EURUSDm|SELL|newyork": {
+   "n": 7,
+   "wins": 3,
+   "net": 13.82,
+   "last": 1795009754.877886
+  },
+  "EURUSDm|SELL": {
+   "n": 17,
+   "wins": 11,
+   "net": 17.55,
+   "last": 1795009754.877886
+  },
+  "USOILm|BUY|newyork|lo|ai-none": {
+   "n": 6,
+   "wins": 2,
+   "net": -18.93,
+   "last": 1794934203.274199
+  },
+  "USOILm|BUY|newyork": {
+   "n": 7,
+   "wins": 2,
+   "net": -29.23,
+   "last": 1794934203.274199
+  },
+  "USOILm|BUY": {
+   "n": 7,
+   "wins": 2,
+   "net": -29.23,
+   "last": 1794934203.274199
+  },
+  "BTCUSDm|SELL|newyork|lo|ai-none": {
+   "n": 6,
+   "wins": 4,
+   "net": -2.03,
+   "last": 1794934753.106925
+  },
+  "BTCUSDm|SELL|newyork": {
+   "n": 10,
+   "wins": 4,
+   "net": -9.65,
+   "last": 1795013892.816594
+  },
+  "USDJPYm|BUY|newyork|lo|ai-none": {
+   "n": 2,
+   "wins": 0,
+   "net": -1.19,
+   "last": 1794933485.889329
+  },
+  "USDJPYm|BUY|newyork": {
+   "n": 5,
+   "wins": 0,
+   "net": -9.0,
+   "last": 1795011396.4770188
+  },
+  "USDJPYm|BUY": {
+   "n": 16,
+   "wins": 4,
+   "net": -11.35,
+   "last": 1795076465.077183
+  },
+  "XAUUSDm|SELL|newyork|lo|ai-none": {
+   "n": 5,
+   "wins": 3,
+   "net": -0.46,
+   "last": 1795011424.300544
+  },
+  "XAUUSDm|SELL|newyork": {
+   "n": 6,
+   "wins": 4,
+   "net": 1.31,
+   "last": 1795011424.300544
+  },
+  "XAGUSDm|SELL|newyork|lo|ai-none": {
+   "n": 3,
+   "wins": 1,
+   "net": -16.7,
+   "last": 1795009912.517331
+  },
+  "XAGUSDm|SELL|newyork": {
+   "n": 6,
+   "wins": 3,
+   "net": -21.4,
+   "last": 1795019893.557974
+  },
+  "ETHUSDm|SELL|newyork|lo|ai-none": {
+   "n": 5,
+   "wins": 4,
+   "net": 1.31,
+   "last": 1795010592.844943
+  },
+  "ETHUSDm|SELL|newyork": {
+   "n": 13,
+   "wins": 7,
+   "net": -1.46,
+   "last": 1795013515.976682
+  },
+  "ETHUSDm|SELL": {
+   "n": 17,
+   "wins": 9,
+   "net": -2.31,
+   "last": 1795013515.976682
+  },
+  "XAGUSDm|BUY|newyork|lo|ai-none": {
+   "n": 3,
+   "wins": 2,
+   "net": 1.0,
+   "last": 1794933485.8893929
+  },
+  "XAGUSDm|BUY|newyork": {
+   "n": 5,
+   "wins": 2,
+   "net": -11.75,
+   "last": 1794933485.88941
+  },
+  "XAGUSDm|BUY": {
+   "n": 6,
+   "wins": 2,
+   "net": -17.8,
+   "last": 1794936114.55381
+  },
+  "USOILm|BUY|newyork|hi|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -10.3,
+   "last": 1794933485.889333
+  },
+  "BTCUSDm|BUY|newyork|lo|ai-none": {
+   "n": 5,
+   "wins": 1,
+   "net": -9.32,
+   "last": 1795018282.917098
+  },
+  "BTCUSDm|BUY|newyork": {
+   "n": 6,
+   "wins": 1,
+   "net": -9.38,
+   "last": 1795018282.917098
+  },
+  "BTCUSDm|BUY": {
+   "n": 10,
+   "wins": 2,
+   "net": -11.04,
+   "last": 1795018282.917098
+  },
+  "ETHUSDm|SELL|newyork|hi|ai-none": {
+   "n": 4,
+   "wins": 1,
+   "net": -1.92,
+   "last": 1795011587.995353
+  },
+  "EURUSDm|SELL|newyork|lo|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -2.5,
+   "last": 1794933485.8893619
+  },
+  "EURUSDm|SELL|newyork|hi|ai-agree": {
+   "n": 1,
+   "wins": 0,
+   "net": -2.96,
+   "last": 1794933485.889369
+  },
+  "USDJPYm|BUY|newyork|lo|ai-agree": {
+   "n": 1,
+   "wins": 0,
+   "net": -7.33,
+   "last": 1794933485.8893728
+  },
+  "XAUUSDm|BUY|newyork|lo|ai-none": {
+   "n": 4,
+   "wins": 1,
+   "net": -20.1,
+   "last": 1795012303.5530639
+  },
+  "XAUUSDm|BUY|newyork": {
+   "n": 4,
+   "wins": 1,
+   "net": -20.1,
+   "last": 1795012303.5530639
+  },
+  "USOILm|SELL|newyork|lo|ai-none": {
+   "n": 3,
+   "wins": 2,
+   "net": -3.15,
+   "last": 1795010517.072808
+  },
+  "USOILm|SELL|newyork": {
+   "n": 4,
+   "wins": 3,
+   "net": 0.9,
+   "last": 1795018386.135103
+  },
+  "XAGUSDm|BUY|newyork|lo|ai-agree": {
+   "n": 1,
+   "wins": 0,
+   "net": -11.55,
+   "last": 1794933485.889397
+  },
+  "XAGUSDm|BUY|newyork|hi|ai-agree": {
+   "n": 1,
+   "wins": 0,
+   "net": -1.2,
+   "last": 1794933485.889409
+  },
+  "ETHUSDm|SELL|newyork|hi|ai-against": {
+   "n": 1,
+   "wins": 0,
+   "net": -1.45,
+   "last": 1794933485.889413
+  },
+  "BTCUSDm|SELL|newyork|lo|ai-agree": {
+   "n": 3,
+   "wins": 0,
+   "net": -5.23,
+   "last": 1795013892.816594
+  },
+  "EURUSDm|BUY|newyork|hi|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -0.76,
+   "last": 1794933485.8894238
+  },
+  "EURUSDm|BUY|newyork": {
+   "n": 1,
+   "wins": 0,
+   "net": -0.76,
+   "last": 1794933485.8894238
+  },
+  "EURUSDm|BUY": {
+   "n": 7,
+   "wins": 0,
+   "net": -5.99,
+   "last": 1794981029.8092868
+  },
+  "USDJPYm|SELL|newyork|hi|ai-none": {
+   "n": 3,
+   "wins": 1,
+   "net": -0.66,
+   "last": 1795014901.423404
+  },
+  "USDJPYm|SELL|newyork": {
+   "n": 3,
+   "wins": 1,
+   "net": -0.66,
+   "last": 1795014901.423404
+  },
+  "ETHUSDm|SELL|newyork|lo|ai-against": {
+   "n": 2,
+   "wins": 2,
+   "net": 1.58,
+   "last": 1794933485.889448
+  },
+  "USDJPYm|BUY|newyork|hi|ai-none": {
+   "n": 2,
+   "wins": 0,
+   "net": -0.48,
+   "last": 1795011396.4770188
+  },
+  "XAGUSDm|SELL|late|hi|ai-none": {
+   "n": 4,
+   "wins": 2,
+   "net": -19.6,
+   "last": 1795022627.555159
+  },
+  "XAGUSDm|SELL|late": {
+   "n": 6,
+   "wins": 4,
+   "net": -9.95,
+   "last": 1795022627.555159
+  },
+  "BTCUSDm|SELL|late|lo|ai-none": {
+   "n": 8,
+   "wins": 4,
+   "net": 1.28,
+   "last": 1794957908.536986
+  },
+  "BTCUSDm|SELL|late": {
+   "n": 9,
+   "wins": 5,
+   "net": 3.29,
+   "last": 1794957908.536986
+  },
+  "XAGUSDm|BUY|late|lo|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -6.05,
+   "last": 1794936114.55381
+  },
+  "XAGUSDm|BUY|late": {
+   "n": 1,
+   "wins": 0,
+   "net": -6.05,
+   "last": 1794936114.55381
+  },
+  "XAUUSDm|BUY|late|lo|ai-none": {
+   "n": 6,
+   "wins": 2,
+   "net": -7.76,
+   "last": 1794958882.8458428
+  },
+  "XAUUSDm|BUY|late": {
+   "n": 6,
+   "wins": 2,
+   "net": -7.76,
+   "last": 1794958882.8458428
+  },
+  "ETHUSDm|SELL|late|lo|ai-none": {
+   "n": 3,
+   "wins": 1,
+   "net": -1.18,
+   "last": 1794946901.363518
+  },
+  "ETHUSDm|SELL|late": {
+   "n": 3,
+   "wins": 1,
+   "net": -1.18,
+   "last": 1794946901.363518
+  },
+  "EURUSDm|BUY|late|lo|ai-none": {
+   "n": 4,
+   "wins": 0,
+   "net": -1.48,
+   "last": 1794941835.6480699
+  },
+  "EURUSDm|BUY|late": {
+   "n": 4,
+   "wins": 0,
+   "net": -1.48,
+   "last": 1794941835.6480699
+  },
+  "USOILm|SELL|late|lo|ai-none": {
+   "n": 10,
+   "wins": 8,
+   "net": 3.66,
+   "last": 1795044625.978953
+  },
+  "USOILm|SELL|late": {
+   "n": 12,
+   "wins": 8,
+   "net": 0.91,
+   "last": 1795044625.978953
+  },
+  "USDJPYm|SELL|late|lo|ai-none": {
+   "n": 4,
+   "wins": 0,
+   "net": -0.87,
+   "last": 1794954253.761499
+  },
+  "USDJPYm|SELL|late": {
+   "n": 4,
+   "wins": 0,
+   "net": -0.87,
+   "last": 1794954253.761499
+  },
+  "USOILm|SELL|late|lo|ai-against": {
+   "n": 1,
+   "wins": 0,
+   "net": -2.6,
+   "last": 1794945905.125003
+  },
+  "XAUUSDm|SELL|late|lo|ai-none": {
+   "n": 9,
+   "wins": 6,
+   "net": -2.55,
+   "last": 1795033647.944844
+  },
+  "XAUUSDm|SELL|late": {
+   "n": 13,
+   "wins": 8,
+   "net": -4.99,
+   "last": 1795044753.602849
+  },
+  "EURUSDm|SELL|late|lo|ai-none": {
+   "n": 8,
+   "wins": 8,
+   "net": 5.12,
+   "last": 1794955997.2511659
+  },
+  "EURUSDm|SELL|late": {
+   "n": 8,
+   "wins": 8,
+   "net": 5.12,
+   "last": 1794955997.2511659
+  },
+  "USDJPYm|BUY|late|lo|ai-none": {
+   "n": 4,
+   "wins": 1,
+   "net": -0.69,
+   "last": 1794953188.055659
+  },
+  "USDJPYm|BUY|late": {
+   "n": 4,
+   "wins": 1,
+   "net": -0.69,
+   "last": 1794953188.055659
+  },
+  "BTCUSDm|BUY|late|lo|ai-none": {
+   "n": 3,
+   "wins": 1,
+   "net": -0.48,
+   "last": 1794957803.538122
+  },
+  "BTCUSDm|BUY|late": {
+   "n": 3,
+   "wins": 1,
+   "net": -0.48,
+   "last": 1794957803.538122
+  },
+  "BTCUSDm|SELL|late|lo|ai-agree": {
+   "n": 1,
+   "wins": 1,
+   "net": 2.01,
+   "last": 1794951069.873173
+  },
+  "USOILm|SELL|late|hi|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -0.15,
+   "last": 1794951699.187638
+  },
+  "ETHUSDm|BUY|late|lo|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -0.13,
+   "last": 1794957482.416103
+  },
+  "ETHUSDm|BUY|late": {
+   "n": 1,
+   "wins": 0,
+   "net": -0.13,
+   "last": 1794957482.416103
+  },
+  "ETHUSDm|BUY": {
+   "n": 3,
+   "wins": 0,
+   "net": -1.33,
+   "last": 1795012824.023349
+  },
+  "XAGUSDm|SELL|late|lo|ai-none": {
+   "n": 2,
+   "wins": 2,
+   "net": 9.65,
+   "last": 1795021357.845935
+  },
+  "XAUUSDm|BUY|asia|lo|ai-agree": {
+   "n": 1,
+   "wins": 1,
+   "net": 0.06,
+   "last": 1794960705.564702
+  },
+  "XAGUSDm|SELL|asia|lo|ai-none": {
+   "n": 1,
+   "wins": 1,
+   "net": 5.35,
+   "last": 1794960389.853367
+  },
+  "XAGUSDm|SELL|asia": {
+   "n": 2,
+   "wins": 1,
+   "net": -7.55,
+   "last": 1794963759.4357362
+  },
+  "USDJPYm|BUY|asia|lo|ai-none": {
+   "n": 3,
+   "wins": 1,
+   "net": -3.14,
+   "last": 1794965553.4445992
+  },
+  "USDJPYm|BUY|asia": {
+   "n": 5,
+   "wins": 2,
+   "net": -2.11,
+   "last": 1795052010.03512
+  },
+  "XAGUSDm|SELL|asia|hi|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -12.9,
+   "last": 1794963759.4357362
+  },
+  "USOILm|SELL|asia|lo|ai-none": {
+   "n": 2,
+   "wins": 1,
+   "net": -0.27,
+   "last": 1795049232.2024598
+  },
+  "USOILm|SELL|asia": {
+   "n": 4,
+   "wins": 2,
+   "net": -1.65,
+   "last": 1795050550.3836648
+  },
+  "ETHUSDm|SELL|asia|hi|ai-none": {
+   "n": 1,
+   "wins": 1,
+   "net": 0.33,
+   "last": 1794964601.475075
+  },
+  "ETHUSDm|SELL|asia": {
+   "n": 1,
+   "wins": 1,
+   "net": 0.33,
+   "last": 1794964601.475075
+  },
+  "EURUSDm|SELL|asia|lo|ai-none": {
+   "n": 2,
+   "wins": 0,
+   "net": -1.39,
+   "last": 1794964219.1788402
+  },
+  "EURUSDm|SELL|asia": {
+   "n": 2,
+   "wins": 0,
+   "net": -1.39,
+   "last": 1794964219.1788402
+  },
+  "USOILm|SELL|asia|hi|ai-none": {
+   "n": 2,
+   "wins": 1,
+   "net": -1.38,
+   "last": 1795050550.3836648
+  },
+  "USDJPYm|BUY|asia|hi|ai-none": {
+   "n": 2,
+   "wins": 1,
+   "net": 1.03,
+   "last": 1795052010.03512
+  },
+  "EURUSDm|BUY|asia|lo|ai-none": {
+   "n": 2,
+   "wins": 0,
+   "net": -3.75,
+   "last": 1794981029.8092868
+  },
+  "EURUSDm|BUY|asia": {
+   "n": 2,
+   "wins": 0,
+   "net": -3.75,
+   "last": 1794981029.8092868
+  },
+  "USDJPYm|SELL|asia|hi|ai-none": {
+   "n": 1,
+   "wins": 1,
+   "net": 0.18,
+   "last": 1794981036.414848
+  },
+  "USDJPYm|SELL|asia": {
+   "n": 1,
+   "wins": 1,
+   "net": 0.18,
+   "last": 1794981036.414848
+  },
+  "BTCUSDm|BUY|london|hi|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -1.18,
+   "last": 1795005047.561641
+  },
+  "BTCUSDm|BUY|london": {
+   "n": 1,
+   "wins": 0,
+   "net": -1.18,
+   "last": 1795005047.561641
+  },
+  "USDJPYm|BUY|london|lo|ai-none": {
+   "n": 2,
+   "wins": 1,
+   "net": 0.45,
+   "last": 1795076465.077183
+  },
+  "USDJPYm|BUY|london": {
+   "n": 2,
+   "wins": 1,
+   "net": 0.45,
+   "last": 1795076465.077183
+  },
+  "XAUUSDm|SELL|newyork|lo|ai-agree": {
+   "n": 1,
+   "wins": 1,
+   "net": 1.77,
+   "last": 1795009745.0659041
+  },
+  "ETHUSDm|BUY|newyork|lo|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -0.38,
+   "last": 1795012421.933714
+  },
+  "ETHUSDm|BUY|newyork": {
+   "n": 2,
+   "wins": 0,
+   "net": -1.2,
+   "last": 1795012824.023349
+  },
+  "BTCUSDm|BUY|newyork|hi|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -0.06,
+   "last": 1795012594.354809
+  },
+  "ETHUSDm|BUY|newyork|hi|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -0.82,
+   "last": 1795012824.023349
+  },
+  "BTCUSDm|SELL|newyork|hi|ai-none": {
+   "n": 1,
+   "wins": 0,
+   "net": -2.39,
+   "last": 1795013392.829479
+  },
+  "ETHUSDm|SELL|newyork|hi|ai-agree": {
+   "n": 1,
+   "wins": 0,
+   "net": -0.98,
+   "last": 1795013515.976682
+  },
+  "XAGUSDm|SELL|newyork|hi|ai-none": {
+   "n": 3,
+   "wins": 2,
+   "net": -4.7,
+   "last": 1795019893.557974
+  },
+  "USOILm|SELL|newyork|lo|ai-against": {
+   "n": 1,
+   "wins": 1,
+   "net": 4.05,
+   "last": 1795018386.135103
+  },
+  "XAUUSDm|SELL|late|hi|ai-none": {
+   "n": 4,
+   "wins": 2,
+   "net": -2.44,
+   "last": 1795044753.602849
+  },
+  "USOILm|SELL|london|hi|ai-none": {
+   "n": 1,
+   "wins": 1,
+   "net": 1.05,
+   "last": 1795077485.394134
+  }
+ },
+ "open": [],
+ "retest": {
+  "XAUUSDm|SELL|newyork|lo|ai-none": 1795011424.300546,
+  "XAUUSDm|SELL|late|lo|ai-none": 1795023881.059773,
+  "ETHUSDm|SELL|late|lo|ai-none": 1794946901.36352,
+  "XAUUSDm|BUY|late|lo|ai-none": 1794958882.845849,
+  "XAUUSDm|BUY|asia|lo|ai-agree": 1794960705.564704,
+  "USOILm|SELL|asia|lo|ai-none": 1795049232.202461,
+  "USOILm|SELL|asia|hi|ai-none": 1795050550.383666,
+  "ETHUSDm|SELL|asia|hi|ai-none": 1794964601.4750788,
+  "XAUUSDm|BUY|asia|lo|ai-none": 1795049801.94112,
+  "XAUUSDm|SELL|asia|lo|ai-none": 1794980055.919091,
+  "XAUUSDm|BUY|london|lo|ai-none": 1795004972.024819,
+  "USOILm|SELL|london|lo|ai-none": 1795076551.293264,
+  "USDJPYm|BUY|london|lo|ai-none": 1795076465.07719,
+  "XAUUSDm|SELL|newyork|lo|ai-agree": 1795009745.065907,
+  "USOILm|SELL|newyork|lo|ai-none": 1795010517.072809,
+  "ETHUSDm|SELL|newyork|lo|ai-none": 1795010592.8449438,
+  "USDJPYm|BUY|newyork|hi|ai-none": 1795011396.4770198,
+  "ETHUSDm|SELL|newyork|hi|ai-none": 1795011587.9953542,
+  "XAUUSDm|BUY|newyork|lo|ai-none": 1795012303.553065,
+  "ETHUSDm|SELL|newyork|hi|ai-agree": 1795013515.976684,
+  "USOILm|SELL|newyork|lo|ai-against": 1795018386.135108,
+  "XAGUSDm|SELL|late|lo|ai-none": 1795021357.845938,
+  "USOILm|SELL|late|lo|ai-none": 1795044625.978969,
+  "XAGUSDm|SELL|late|hi|ai-none": 1795022627.55615,
+  "USDJPYm|BUY|asia|hi|ai-none": 1795052010.03512,
+  "USOILm|SELL|london|hi|ai-none": 1795077485.394134
+ }
+}

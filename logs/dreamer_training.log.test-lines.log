@@ -1,0 +1,780 @@
+2026-11-16 17:57:41.066 +02:00 | INFO     | Python.backtester:run_ppo_backtest:236 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=776.53 maxDD=0.00% score=4659.63 steps=10
+2026-11-16 17:57:41.284 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 17:57:41.310 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 17:57:41.354 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 17:57:41.367 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 17:57:41.382 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 17:57:41.401 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 17:57:41.415 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-0/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 17:57:41.458 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 17:57:41.485 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 17:57:41.512 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 17:57:41.526 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 17:57:41.540 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 17:57:41.569 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_414f9a5089bf4d50b02b5f376c818c54/candidates/xau_ok). Clearing entry.
+2026-11-16 17:57:41.570 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_414f9a5089bf4d50b02b5f376c818c54/candidates/xau_ok). Clearing entry.
+2026-11-16 17:57:41.596 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_414f9a5089bf4d50b02b5f376c818c54/candidates/btc_ok
+2026-11-16 17:57:41.640 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-0/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 17:57:41.671 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-0/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 17:57:41.684 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-0/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 17:57:41.711 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-0/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:02:14.964 +02:00 | INFO     | Python.backtester:run_ppo_backtest:236 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=776.53 maxDD=0.00% score=4659.63 steps=10
+2026-11-16 18:02:15.179 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 18:02:15.205 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 18:02:15.245 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 18:02:15.261 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 18:02:15.277 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:02:15.291 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:02:15.307 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-1/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 18:02:15.351 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 18:02:15.379 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 18:02:15.409 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 18:02:15.422 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 18:02:15.435 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 18:02:15.465 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_42750ddaf5444515aff1e884e8f2b199/candidates/xau_ok). Clearing entry.
+2026-11-16 18:02:15.466 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_42750ddaf5444515aff1e884e8f2b199/candidates/xau_ok). Clearing entry.
+2026-11-16 18:02:15.492 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_42750ddaf5444515aff1e884e8f2b199/candidates/btc_ok
+2026-11-16 18:02:15.537 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-1/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:02:15.564 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-1/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:02:15.577 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-1/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:02:15.605 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-1/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:03:40.059 +02:00 | INFO     | Python.backtester:run_ppo_backtest:236 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=776.53 maxDD=0.00% score=4659.63 steps=10
+2026-11-16 18:03:40.414 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 18:03:40.472 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 18:03:40.560 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 18:03:40.589 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 18:03:40.624 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:03:40.655 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:03:40.685 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-2/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 18:03:40.772 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 18:03:40.830 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 18:03:40.905 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 18:03:40.938 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 18:03:40.973 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 18:03:41.060 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_4932658dfca7455faacfb75f408b46ff/candidates/xau_ok). Clearing entry.
+2026-11-16 18:03:41.061 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_4932658dfca7455faacfb75f408b46ff/candidates/xau_ok). Clearing entry.
+2026-11-16 18:03:41.166 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_4932658dfca7455faacfb75f408b46ff/candidates/btc_ok
+2026-11-16 18:03:41.292 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-2/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:03:41.370 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-2/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:03:41.412 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-2/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:03:41.481 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-2/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:03:41.489 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:03:41.491 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 18:03:41.493 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:03:41.495 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 18:03:41.497 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 18:03:41.499 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:24:09.964 +02:00 | INFO     | Python.backtester:run_ppo_backtest:330 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-16 18:24:10.145 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 18:24:10.165 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 18:24:10.206 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 18:24:10.217 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 18:24:10.230 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:24:10.244 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:24:10.255 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-3/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 18:24:10.288 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 18:24:10.307 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 18:24:10.331 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 18:24:10.340 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 18:24:10.350 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 18:24:10.391 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_76f00f61c55140d08e2f4593f97c8676/candidates/xau_ok). Clearing entry.
+2026-11-16 18:24:10.391 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_76f00f61c55140d08e2f4593f97c8676/candidates/xau_ok). Clearing entry.
+2026-11-16 18:24:10.416 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_76f00f61c55140d08e2f4593f97c8676/candidates/btc_ok
+2026-11-16 18:24:10.452 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-3/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:24:10.472 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-3/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:24:10.482 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-3/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:24:10.504 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-3/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:24:10.507 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:24:10.507 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 18:24:10.507 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:24:10.508 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 18:24:10.508 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 18:24:10.509 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:24:21.870 +02:00 | INFO     | Python.backtester:run_ppo_backtest:330 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-16 18:24:22.016 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 18:24:22.034 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 18:24:22.060 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 18:24:22.069 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 18:24:22.079 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:24:22.089 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:24:22.098 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-4/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 18:24:22.124 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 18:24:22.140 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 18:24:22.158 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 18:24:22.167 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 18:24:22.177 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 18:24:22.197 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_15e6f244b40c4c7e9a3d58ac712f042a/candidates/xau_ok). Clearing entry.
+2026-11-16 18:24:22.197 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_15e6f244b40c4c7e9a3d58ac712f042a/candidates/xau_ok). Clearing entry.
+2026-11-16 18:24:22.213 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_15e6f244b40c4c7e9a3d58ac712f042a/candidates/btc_ok
+2026-11-16 18:24:22.244 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-4/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:24:22.261 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-4/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:24:22.269 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-4/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:24:22.287 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-4/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:24:22.289 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:24:22.289 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 18:24:22.289 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:24:22.290 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 18:24:22.290 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 18:24:22.291 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:28:03.713 +02:00 | INFO     | Python.backtester:run_ppo_backtest:330 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-16 18:28:03.913 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 18:28:03.935 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 18:28:03.972 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 18:28:03.983 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 18:28:03.998 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:28:04.014 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:28:04.027 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-5/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 18:28:04.064 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 18:28:04.087 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 18:28:04.111 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 18:28:04.123 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 18:28:04.135 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 18:28:04.160 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_f6123e062a0e4b64864d777763afb35c/candidates/xau_ok). Clearing entry.
+2026-11-16 18:28:04.161 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_f6123e062a0e4b64864d777763afb35c/candidates/xau_ok). Clearing entry.
+2026-11-16 18:28:04.186 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_f6123e062a0e4b64864d777763afb35c/candidates/btc_ok
+2026-11-16 18:28:04.227 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-5/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:28:04.250 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-5/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:28:04.266 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-5/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:28:04.300 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-5/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:28:04.302 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:28:04.303 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 18:28:04.303 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:28:04.304 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 18:28:04.304 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 18:28:04.305 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:28:15.515 +02:00 | INFO     | Python.backtester:run_ppo_backtest:330 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-16 18:28:15.683 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 18:28:15.702 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 18:28:15.730 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 18:28:15.739 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 18:28:15.749 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:28:15.759 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:28:15.768 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-6/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 18:28:15.796 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 18:28:15.814 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 18:28:15.832 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 18:28:15.841 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 18:28:15.849 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 18:28:15.868 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_b411ea3f681d488a93c6a9fc2456f9d3/candidates/xau_ok). Clearing entry.
+2026-11-16 18:28:15.868 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_b411ea3f681d488a93c6a9fc2456f9d3/candidates/xau_ok). Clearing entry.
+2026-11-16 18:28:15.885 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_b411ea3f681d488a93c6a9fc2456f9d3/candidates/btc_ok
+2026-11-16 18:28:15.916 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-6/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:28:15.934 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-6/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:28:15.943 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-6/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:28:15.960 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-6/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:28:15.962 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:28:15.963 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 18:28:15.963 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:28:15.964 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 18:28:15.964 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 18:28:15.965 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:29:39.856 +02:00 | INFO     | Python.backtester:run_ppo_backtest:330 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-16 18:29:40.036 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 18:29:40.057 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 18:29:40.087 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 18:29:40.097 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 18:29:40.108 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:29:40.119 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:29:40.129 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-7/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 18:29:40.157 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 18:29:40.177 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 18:29:40.198 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 18:29:40.207 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 18:29:40.217 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 18:29:40.258 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_584d1277d0204fb4892e173ab7fcc41a/candidates/xau_ok). Clearing entry.
+2026-11-16 18:29:40.259 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_584d1277d0204fb4892e173ab7fcc41a/candidates/xau_ok). Clearing entry.
+2026-11-16 18:29:40.277 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_584d1277d0204fb4892e173ab7fcc41a/candidates/btc_ok
+2026-11-16 18:29:40.312 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-7/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:29:40.331 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-7/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:29:40.340 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-7/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:29:40.359 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-7/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:29:40.362 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:29:40.362 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 18:29:40.363 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:29:40.363 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 18:29:40.364 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 18:29:40.364 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:30:55.453 +02:00 | INFO     | Python.backtester:run_ppo_backtest:340 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-16 18:30:55.652 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 18:30:55.672 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 18:30:55.699 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 18:30:55.707 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 18:30:55.719 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:30:55.730 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:30:55.741 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-8/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 18:30:55.771 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 18:30:55.790 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 18:30:55.807 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 18:30:55.818 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 18:30:55.827 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 18:30:55.848 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_a38e143cf3614ee9bac1298d039dd166/candidates/xau_ok). Clearing entry.
+2026-11-16 18:30:55.848 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_a38e143cf3614ee9bac1298d039dd166/candidates/xau_ok). Clearing entry.
+2026-11-16 18:30:55.866 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_a38e143cf3614ee9bac1298d039dd166/candidates/btc_ok
+2026-11-16 18:30:55.901 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-8/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:30:55.919 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-8/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:30:55.928 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-8/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:30:55.947 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-8/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:30:55.949 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:30:55.950 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 18:30:55.950 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:30:55.951 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 18:30:55.951 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 18:30:55.951 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:31:13.644 +02:00 | INFO     | Python.backtester:run_ppo_backtest:340 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-16 18:31:13.917 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 18:31:13.941 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 18:31:13.983 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 18:31:13.998 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 18:31:14.014 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:31:14.028 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 18:31:14.042 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-9/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 18:31:14.080 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 18:31:14.107 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 18:31:14.135 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 18:31:14.148 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 18:31:14.163 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 18:31:14.199 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_dd16136dee824d2ca336e2410657b735/candidates/xau_ok). Clearing entry.
+2026-11-16 18:31:14.200 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_dd16136dee824d2ca336e2410657b735/candidates/xau_ok). Clearing entry.
+2026-11-16 18:31:14.229 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_dd16136dee824d2ca336e2410657b735/candidates/btc_ok
+2026-11-16 18:31:14.279 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-9/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:31:14.307 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-9/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 18:31:14.321 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-9/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:31:14.347 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-9/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 18:31:14.350 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:31:14.350 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 18:31:14.351 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 18:31:14.352 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 18:31:14.352 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 18:31:14.353 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 19:43:39.304 +02:00 | INFO     | Python.backtester:run_ppo_backtest:340 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-16 19:43:39.324 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=105.2 sl=101.41 tp=111.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-16 19:43:39.324 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=105.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-16 19:43:39.324 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=105.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-16 19:43:39.586 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 19:43:39.602 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 19:43:39.628 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 19:43:39.637 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 19:43:39.648 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 19:43:39.657 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 19:43:39.667 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-10/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 19:43:39.694 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 19:43:39.713 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 19:43:39.733 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 19:43:39.746 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 19:43:39.757 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 19:43:39.777 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_45f1dfc5eb6346498292f99ca82e0dd3/candidates/xau_ok). Clearing entry.
+2026-11-16 19:43:39.777 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_45f1dfc5eb6346498292f99ca82e0dd3/candidates/xau_ok). Clearing entry.
+2026-11-16 19:43:39.795 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_45f1dfc5eb6346498292f99ca82e0dd3/candidates/btc_ok
+2026-11-16 19:43:39.828 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-10/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 19:43:39.846 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-10/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 19:43:39.855 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-10/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 19:43:39.874 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-10/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 19:43:39.876 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 19:43:39.877 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 19:43:39.877 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 19:43:39.878 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 19:43:39.878 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 19:43:39.878 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 19:44:28.362 +02:00 | INFO     | Python.backtester:run_ppo_backtest:340 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-16 19:44:28.395 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=106.2 sl=102.41 tp=112.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-16 19:44:28.395 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=106.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-16 19:44:28.395 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=106.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-16 19:44:28.596 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-16 19:44:28.621 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-16 19:44:28.661 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-16 19:44:28.674 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-16 19:44:28.690 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 19:44:28.703 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-16 19:44:28.720 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-11/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-16 19:44:28.763 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-16 19:44:28.790 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-16 19:44:28.816 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-16 19:44:28.827 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-16 19:44:28.837 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-16 19:44:28.861 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_de4d995310a7471d872d73141e7c309f/candidates/xau_ok). Clearing entry.
+2026-11-16 19:44:28.861 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_de4d995310a7471d872d73141e7c309f/candidates/xau_ok). Clearing entry.
+2026-11-16 19:44:28.882 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_de4d995310a7471d872d73141e7c309f/candidates/btc_ok
+2026-11-16 19:44:28.918 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-11/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 19:44:28.938 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-11/test_registry_tracks_global_ch0/candidates/c1
+2026-11-16 19:44:28.949 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-11/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 19:44:28.969 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-11/test_registry_tracks_global_ch0/candidates/c2
+2026-11-16 19:44:28.971 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 19:44:28.972 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-16 19:44:28.972 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-16 19:44:28.972 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-16 19:44:28.973 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-16 19:44:28.973 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 01:36:35.670 +02:00 | INFO     | Python.backtester:run_ppo_backtest:340 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-17 01:36:35.694 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=101.2 sl=97.41 tp=107.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-17 01:36:35.694 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 01:36:35.694 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 01:36:35.864 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-17 01:36:35.878 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-17 01:36:35.901 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-17 01:36:35.908 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-17 01:36:35.917 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 01:36:35.926 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 01:36:35.934 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-12/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-17 01:36:35.957 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-17 01:36:35.971 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-17 01:36:35.987 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-17 01:36:35.994 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-17 01:36:36.002 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-17 01:36:36.018 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_994114cf96294cd7a3a48d58d22660c7/candidates/xau_ok). Clearing entry.
+2026-11-17 01:36:36.018 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_994114cf96294cd7a3a48d58d22660c7/candidates/xau_ok). Clearing entry.
+2026-11-17 01:36:36.032 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_994114cf96294cd7a3a48d58d22660c7/candidates/btc_ok
+2026-11-17 01:36:36.067 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-12/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 01:36:36.082 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-12/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 01:36:36.090 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-12/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 01:36:36.108 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-12/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 01:36:36.110 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 01:36:36.113 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-17 01:36:36.114 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 01:36:36.116 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-17 01:36:36.118 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-17 01:36:36.119 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 04:37:36.240 +02:00 | INFO     | Python.backtester:run_ppo_backtest:340 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-17 04:37:36.385 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=100.2 sl=96.41 tp=106.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-17 04:37:36.386 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 04:37:36.387 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 04:37:37.490 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-17 04:37:37.584 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: candidate_v1
+2026-11-17 04:37:37.747 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-17 04:37:37.796 +02:00 | WARNING  | Python.model_registry:clear_canary:525 - Canary cleared
+2026-11-17 04:37:37.847 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 04:37:37.902 +02:00 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 04:37:37.950 +02:00 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-13/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-17 04:37:38.161 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-17 04:37:38.251 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:494 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-17 04:37:38.327 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-17 04:37:38.365 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-17 04:37:38.400 +02:00 | WARNING  | Python.model_registry:clear_canary:519 - Canary cleared for EURUSDm
+2026-11-17 04:37:38.482 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_0a2e3861479248ec84f3dfaa6f159e78/candidates/xau_ok). Clearing entry.
+2026-11-17 04:37:38.485 +02:00 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_0a2e3861479248ec84f3dfaa6f159e78/candidates/xau_ok). Clearing entry.
+2026-11-17 04:37:38.579 +02:00 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_0a2e3861479248ec84f3dfaa6f159e78/candidates/btc_ok
+2026-11-17 04:37:38.796 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-13/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 04:37:38.914 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-13/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 04:37:38.969 +02:00 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-13/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 04:37:39.089 +02:00 | SUCCESS  | Python.model_registry:promote_canary_to_champion:508 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-13/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 04:37:39.100 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 04:37:39.104 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-17 04:37:39.106 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 04:37:39.109 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-17 04:37:39.111 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-17 04:37:39.113 +02:00 | INFO     | Python.mt5_executor:_log_order_send:182 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 21:55:58.060 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-17 21:55:58.150 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-17 21:55:58.259 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-17 21:55:58.303 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-17 21:55:58.375 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 21:55:58.456 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 21:55:58.510 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-63/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-17 21:55:58.627 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-17 21:55:58.708 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-17 21:55:58.808 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-17 21:55:58.865 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-17 21:55:58.925 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-17 21:55:59.038 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_ce1ed681a685467483c356d745160556/candidates/xau_ok). Clearing entry.
+2026-11-17 21:55:59.040 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_ce1ed681a685467483c356d745160556/candidates/xau_ok). Clearing entry.
+2026-11-17 21:55:59.135 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_ce1ed681a685467483c356d745160556/candidates/btc_ok
+2026-11-17 21:55:59.360 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-63/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 21:55:59.506 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-63/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 21:55:59.570 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-63/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 21:55:59.669 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-63/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 21:55:59.691 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 21:55:59.697 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-17 21:55:59.700 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 21:55:59.705 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-17 21:55:59.709 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-17 21:55:59.715 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 21:56:32.486 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T19:56:32.485541+00:00
+2026-11-17 21:56:32.526 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T20:56:32.526566+00:00
+2026-11-17 21:56:32.574 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:56:32.574 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 21:56:32.575 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:56:32.575 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:57:53.643 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-17 21:57:53.696 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=104.2 sl=100.41 tp=110.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-17 21:57:53.696 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=104.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 21:57:53.697 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=104.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 21:57:54.692 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-17 21:57:54.738 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-17 21:57:54.813 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-17 21:57:54.837 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-17 21:57:54.867 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 21:57:54.893 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 21:57:54.920 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-64/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-17 21:57:54.990 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-17 21:57:55.043 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-17 21:57:55.093 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-17 21:57:55.117 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-17 21:57:55.140 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-17 21:57:55.189 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_e876f1d31733430fb788000ae9ff8066/candidates/xau_ok). Clearing entry.
+2026-11-17 21:57:55.190 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_e876f1d31733430fb788000ae9ff8066/candidates/xau_ok). Clearing entry.
+2026-11-17 21:57:55.234 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_e876f1d31733430fb788000ae9ff8066/candidates/btc_ok
+2026-11-17 21:57:55.313 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-64/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 21:57:55.357 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-64/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 21:57:55.381 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-64/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 21:57:55.430 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-64/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 21:57:55.435 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 21:57:55.436 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-17 21:57:55.437 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 21:57:55.439 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-17 21:57:55.440 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-17 21:57:55.440 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 21:57:59.126 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T19:57:59.125864+00:00
+2026-11-17 21:57:59.135 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T20:57:59.134633+00:00
+2026-11-17 21:57:59.177 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:57:59.178 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 21:57:59.179 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 21:57:59.179 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:00:05.890 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-17 23:00:05.936 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=104.2 sl=100.41 tp=110.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-17 23:00:05.937 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=104.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 23:00:05.937 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=104.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 23:00:07.133 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-17 23:00:07.168 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-17 23:00:07.224 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-17 23:00:07.242 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-17 23:00:07.264 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 23:00:07.284 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 23:00:07.304 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-65/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-17 23:00:07.361 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-17 23:00:07.400 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-17 23:00:07.444 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-17 23:00:07.473 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-17 23:00:07.498 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-17 23:00:07.538 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_c7e2655e76d1413aa51de5f2a9796a74/candidates/xau_ok). Clearing entry.
+2026-11-17 23:00:07.539 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_c7e2655e76d1413aa51de5f2a9796a74/candidates/xau_ok). Clearing entry.
+2026-11-17 23:00:07.578 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_c7e2655e76d1413aa51de5f2a9796a74/candidates/btc_ok
+2026-11-17 23:00:07.652 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-65/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 23:00:07.688 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-65/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 23:00:07.706 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-65/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 23:00:07.742 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-65/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 23:00:07.746 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:00:07.747 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-17 23:00:07.748 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:00:07.749 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-17 23:00:07.749 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-17 23:00:07.750 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:00:10.972 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T21:00:10.971489+00:00
+2026-11-17 23:00:10.977 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T22:00:10.977234+00:00
+2026-11-17 23:00:10.999 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:00:11.000 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 23:00:11.000 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:00:11.001 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:17:02.994 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-17 23:17:03.082 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=100.2 sl=96.41 tp=106.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-17 23:17:03.083 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 23:17:03.084 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 23:17:05.094 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-17 23:17:05.160 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-17 23:17:05.258 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-17 23:17:05.291 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-17 23:17:05.331 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 23:17:05.366 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 23:17:05.401 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-67/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-17 23:17:05.532 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-17 23:17:05.606 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-17 23:17:05.679 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-17 23:17:05.712 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-17 23:17:05.748 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-17 23:17:05.829 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_27762d222b684144853500c508367486/candidates/xau_ok). Clearing entry.
+2026-11-17 23:17:05.830 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_27762d222b684144853500c508367486/candidates/xau_ok). Clearing entry.
+2026-11-17 23:17:05.896 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_27762d222b684144853500c508367486/candidates/btc_ok
+2026-11-17 23:17:06.016 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-67/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 23:17:06.092 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-67/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 23:17:06.127 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-67/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 23:17:06.202 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-67/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 23:17:06.210 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:17:06.212 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-17 23:17:06.215 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:17:06.218 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-17 23:17:06.220 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-17 23:17:06.222 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:17:11.199 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T21:17:11.198892+00:00
+2026-11-17 23:17:11.213 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T22:17:11.212821+00:00
+2026-11-17 23:17:11.250 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:17:11.250 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 23:17:11.251 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:17:11.252 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:18:09.906 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-17 23:18:09.983 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=101.2 sl=97.41 tp=107.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-17 23:18:09.984 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 23:18:09.985 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 23:18:12.857 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-17 23:18:12.936 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-17 23:18:13.062 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-17 23:18:13.106 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-17 23:18:13.163 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 23:18:13.214 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 23:18:13.268 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-68/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-17 23:18:13.414 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-17 23:18:13.500 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-17 23:18:13.600 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-17 23:18:13.635 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-17 23:18:13.672 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-17 23:18:13.760 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_a436dfa867844377827a229cff485680/candidates/xau_ok). Clearing entry.
+2026-11-17 23:18:13.763 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_a436dfa867844377827a229cff485680/candidates/xau_ok). Clearing entry.
+2026-11-17 23:18:13.841 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_a436dfa867844377827a229cff485680/candidates/btc_ok
+2026-11-17 23:18:13.985 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-68/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 23:18:14.060 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-68/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 23:18:14.098 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-68/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 23:18:14.174 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-68/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 23:18:14.185 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:18:14.188 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-17 23:18:14.190 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:18:14.192 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-17 23:18:14.196 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-17 23:18:14.199 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:18:21.002 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T21:18:21.001339+00:00
+2026-11-17 23:18:21.017 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T22:18:21.016847+00:00
+2026-11-17 23:18:21.069 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:18:21.070 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 23:18:21.073 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:18:21.074 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:32:10.336 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-17 23:32:10.414 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=101.2 sl=97.41 tp=107.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-17 23:32:10.415 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 23:32:10.415 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 23:32:12.160 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-17 23:32:12.219 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-17 23:32:12.306 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-17 23:32:12.333 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-17 23:32:12.370 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 23:32:12.401 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-17 23:32:12.431 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-69/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-17 23:32:12.527 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-17 23:32:12.582 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-17 23:32:12.647 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-17 23:32:12.676 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-17 23:32:12.705 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-17 23:32:12.774 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_141cda590834428da57984bfa6b36fab/candidates/xau_ok). Clearing entry.
+2026-11-17 23:32:12.776 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_141cda590834428da57984bfa6b36fab/candidates/xau_ok). Clearing entry.
+2026-11-17 23:32:12.834 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_141cda590834428da57984bfa6b36fab/candidates/btc_ok
+2026-11-17 23:32:12.935 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-69/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 23:32:12.994 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-69/test_registry_tracks_global_ch0/candidates/c1
+2026-11-17 23:32:13.022 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-69/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 23:32:13.083 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-69/test_registry_tracks_global_ch0/candidates/c2
+2026-11-17 23:32:13.090 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:32:13.093 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-17 23:32:13.094 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:32:13.096 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-17 23:32:13.097 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-17 23:32:13.099 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-17 23:32:17.553 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T21:32:17.552963+00:00
+2026-11-17 23:32:17.561 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T22:32:17.560574+00:00
+2026-11-17 23:32:17.593 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:32:17.593 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-17 23:32:17.594 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-17 23:32:17.595 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 00:07:29.791 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-18 00:07:29.847 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=101.2 sl=97.41 tp=107.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-18 00:07:29.848 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 00:07:29.848 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 00:07:31.467 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-18 00:07:31.516 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-18 00:07:31.590 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-18 00:07:31.617 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-18 00:07:31.646 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 00:07:31.673 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 00:07:31.701 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-70/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-18 00:07:31.773 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-18 00:07:31.819 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-18 00:07:31.866 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-18 00:07:31.891 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-18 00:07:31.916 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-18 00:07:31.967 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_8e77bbfb3c8f4db890a3f748f2b58f02/candidates/xau_ok). Clearing entry.
+2026-11-18 00:07:31.967 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_8e77bbfb3c8f4db890a3f748f2b58f02/candidates/xau_ok). Clearing entry.
+2026-11-18 00:07:32.013 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_8e77bbfb3c8f4db890a3f748f2b58f02/candidates/btc_ok
+2026-11-18 00:07:32.115 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-70/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 00:07:32.169 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-70/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 00:07:32.196 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-70/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 00:07:32.248 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-70/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 00:07:32.254 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 00:07:32.256 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-18 00:07:32.257 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 00:07:32.258 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-18 00:07:32.259 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-18 00:07:32.261 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 00:07:36.479 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-18T22:07:36.478766+00:00
+2026-11-18 00:07:36.488 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-17T23:07:36.487924+00:00
+2026-11-18 00:07:36.524 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 00:07:36.525 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 00:07:36.526 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 00:07:36.526 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:36:59.032 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-18 14:36:59.057 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=102.2 sl=98.41 tp=108.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-18 14:36:59.058 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=102.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 14:36:59.058 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=102.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 14:36:59.733 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-18 14:36:59.756 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-18 14:36:59.786 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-18 14:36:59.796 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-18 14:36:59.809 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 14:36:59.819 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 14:36:59.830 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-74/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-18 14:36:59.860 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-18 14:36:59.879 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-18 14:36:59.898 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-18 14:36:59.906 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-18 14:36:59.915 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-18 14:36:59.935 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_5d0dcf69bd854734aff115f010018f5c/candidates/xau_ok). Clearing entry.
+2026-11-18 14:36:59.936 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_5d0dcf69bd854734aff115f010018f5c/candidates/xau_ok). Clearing entry.
+2026-11-18 14:36:59.955 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_5d0dcf69bd854734aff115f010018f5c/candidates/btc_ok
+2026-11-18 14:36:59.992 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-74/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 14:37:00.011 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-74/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 14:37:00.021 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-74/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 14:37:00.039 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-74/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 14:37:00.042 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 14:37:00.042 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-18 14:37:00.043 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 14:37:00.043 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-18 14:37:00.044 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-18 14:37:00.044 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 14:37:01.881 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T12:37:01.870851+00:00
+2026-11-18 14:37:01.884 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T13:37:01.883832+00:00
+2026-11-18 14:37:01.896 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:37:01.896 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 14:37:01.897 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:37:01.897 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:39:52.461 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-18 14:39:52.520 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=105.2 sl=101.41 tp=111.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-18 14:39:52.520 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=105.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 14:39:52.520 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=105.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 14:39:53.592 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-18 14:39:53.629 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-18 14:39:53.706 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-18 14:39:53.721 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-18 14:39:53.746 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 14:39:53.768 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 14:39:53.793 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-75/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-18 14:39:53.847 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-18 14:39:53.881 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-18 14:39:53.924 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-18 14:39:53.947 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-18 14:39:53.968 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-18 14:39:54.015 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_3bdf98d6513447eca9e1fdf566c1848a/candidates/xau_ok). Clearing entry.
+2026-11-18 14:39:54.015 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_3bdf98d6513447eca9e1fdf566c1848a/candidates/xau_ok). Clearing entry.
+2026-11-18 14:39:54.060 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_3bdf98d6513447eca9e1fdf566c1848a/candidates/btc_ok
+2026-11-18 14:39:54.145 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-75/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 14:39:54.182 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-75/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 14:39:54.201 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-75/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 14:39:54.233 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-75/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 14:39:54.236 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 14:39:54.237 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-18 14:39:54.238 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 14:39:54.238 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-18 14:39:54.239 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-18 14:39:54.239 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 14:39:59.648 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T12:39:59.647347+00:00
+2026-11-18 14:39:59.669 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T13:39:59.668410+00:00
+2026-11-18 14:39:59.725 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:39:59.725 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 14:39:59.727 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 14:39:59.727 | INFO     | Python.Server_AGI:_stack_level:887 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 15:52:39.651 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-18 15:52:39.680 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=101.2 sl=97.41 tp=107.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-18 15:52:39.680 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 15:52:39.681 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=101.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 15:52:40.352 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-18 15:52:40.375 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-18 15:52:40.409 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-18 15:52:40.420 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-18 15:52:40.434 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 15:52:40.447 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 15:52:40.460 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-77/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-18 15:52:40.497 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-18 15:52:40.520 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-18 15:52:40.545 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-18 15:52:40.557 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-18 15:52:40.569 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-18 15:52:40.592 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_17ae6822adac462cbdd0857b9968c572/candidates/xau_ok). Clearing entry.
+2026-11-18 15:52:40.593 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_17ae6822adac462cbdd0857b9968c572/candidates/xau_ok). Clearing entry.
+2026-11-18 15:52:40.613 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_17ae6822adac462cbdd0857b9968c572/candidates/btc_ok
+2026-11-18 15:52:40.653 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-77/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 15:52:40.676 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-77/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 15:52:40.689 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-77/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 15:52:40.712 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-77/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 15:52:40.714 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 15:52:40.715 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-18 15:52:40.715 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 15:52:40.716 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-18 15:52:40.716 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-18 15:52:40.716 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 15:52:42.714 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T13:52:42.713508+00:00
+2026-11-18 15:52:42.716 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T14:52:42.716820+00:00
+2026-11-18 15:52:42.729 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 15:52:42.729 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 15:52:42.730 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 15:52:42.730 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 17:11:03.205 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-18 17:11:03.296 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=103.2 sl=99.41 tp=109.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-18 17:11:03.296 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=103.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 17:11:03.297 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=103.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 17:11:04.752 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-18 17:11:04.807 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-18 17:11:04.884 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-18 17:11:04.913 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-18 17:11:04.942 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 17:11:04.974 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 17:11:05.004 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-78/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-18 17:11:05.076 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-18 17:11:05.122 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-18 17:11:05.177 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-18 17:11:05.200 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-18 17:11:05.225 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-18 17:11:05.277 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_43b102d3b2f943aab8db13651a3a4dc5/candidates/xau_ok). Clearing entry.
+2026-11-18 17:11:05.277 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_43b102d3b2f943aab8db13651a3a4dc5/candidates/xau_ok). Clearing entry.
+2026-11-18 17:11:05.332 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_43b102d3b2f943aab8db13651a3a4dc5/candidates/btc_ok
+2026-11-18 17:11:05.417 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-78/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 17:11:05.466 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-78/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 17:11:05.489 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-78/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 17:11:05.536 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-78/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 17:11:05.540 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 17:11:05.541 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-18 17:11:05.542 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 17:11:05.543 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-18 17:11:05.544 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-18 17:11:05.545 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 17:11:09.092 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T15:11:09.087269+00:00
+2026-11-18 17:11:09.097 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T16:11:09.097023+00:00
+2026-11-18 17:11:09.119 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 17:11:09.119 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 17:11:09.119 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 17:11:09.120 | INFO     | Python.Server_AGI:_stack_level:895 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 19:39:38.532 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-18 19:39:38.608 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=104.2 sl=100.41 tp=110.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-18 19:39:38.609 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=104.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 19:39:38.609 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=104.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 19:39:40.671 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v1
+2026-11-18 19:39:40.737 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: candidate_v1
+2026-11-18 19:39:40.826 | WARNING  | Python.model_registry:set_canary:418 - Canary set: candidate_v2
+2026-11-18 19:39:40.856 | WARNING  | Python.model_registry:clear_canary:529 - Canary cleared
+2026-11-18 19:39:40.890 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 19:39:40.921 | WARNING  | Python.model_registry:_read_active:107 - active.json is corrupt (Expecting value: line 1 column 1 (char 0)); resetting to empty registry state
+2026-11-18 19:39:40.956 | WARNING  | Python.model_registry:_read_active:110 - Failed to read active.json ([Errno 2] No such file or directory: '/private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-80/test_read_active_handles_missi0/registry/active.json'); using empty registry state
+2026-11-18 19:39:41.050 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v1
+2026-11-18 19:39:41.103 | SUCCESS  | Python.model_registry:promote_canary_to_champion:498 - Promoted EURUSDm champion: candidate_eur_v1
+2026-11-18 19:39:41.162 | WARNING  | Python.model_registry:set_canary:411 - Canary set for EURUSDm: candidate_eur_v2
+2026-11-18 19:39:41.194 | WARNING  | Python.model_registry:set_canary:411 - Canary set for XAUUSDm: candidate_xau_v2
+2026-11-18 19:39:41.231 | WARNING  | Python.model_registry:clear_canary:523 - Canary cleared for EURUSDm
+2026-11-18 19:39:41.306 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for symbol_champion (BTCUSDm -> .tmp/registry_symbol_test_3aa359a5afd54bf2877cc570c9f21dd7/candidates/xau_ok). Clearing entry.
+2026-11-18 19:39:41.307 | ERROR    | Python.model_registry:resolve_path:349 - Candidate symbol mismatch for champion (BTCUSDm -> .tmp/registry_symbol_test_3aa359a5afd54bf2877cc570c9f21dd7/candidates/xau_ok). Clearing entry.
+2026-11-18 19:39:41.375 | WARNING  | Python.model_registry:set_canary:411 - Canary set for BTCUSDm: .tmp/registry_symbol_test_3aa359a5afd54bf2877cc570c9f21dd7/candidates/btc_ok
+2026-11-18 19:39:41.528 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-80/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 19:39:41.593 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-80/test_registry_tracks_global_ch0/candidates/c1
+2026-11-18 19:39:41.619 | WARNING  | Python.model_registry:set_canary:418 - Canary set: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-80/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 19:39:41.680 | SUCCESS  | Python.model_registry:promote_canary_to_champion:512 - Promoted champion: /private/var/folders/2b/68jpgcd95x91z7r6bcb5sp680000gn/T/pytest-of-bank/pytest-80/test_registry_tracks_global_ch0/candidates/c2
+2026-11-18 19:39:41.687 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 19:39:41.690 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10006 ticket=1
+2026-11-18 19:39:41.691 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 19:39:41.693 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10018 ticket=1
+2026-11-18 19:39:41.695 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.10 price=100.1 sl=97.6 tp=104.6 target=0.0000 magic=51900 retcode=10009 ticket=2
+2026-11-18 19:39:41.696 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=100.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=1
+2026-11-18 19:39:45.841 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | drawdown_pct 9.00 >= 8.00 -> no new trades until 2026-11-19T17:39:45.840357+00:00
+2026-11-18 19:39:45.850 | WARNING  | Python.risk_supervisor:enforce_halt:104 - RISK HALT | test_reason -> no new trades until 2026-11-18T18:39:45.850181+00:00
+2026-11-18 19:39:45.888 | INFO     | Python.Server_AGI:_stack_level:917 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 19:39:45.889 | INFO     | Python.Server_AGI:_stack_level:917 - STACK X | 2 trade(s) in profit and the signal still agrees -> adding trade 3 of 3
+2026-11-18 19:39:45.890 | INFO     | Python.Server_AGI:_stack_level:917 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3
+2026-11-18 19:39:45.890 | INFO     | Python.Server_AGI:_stack_level:917 - STACK X | 1 trade(s) in profit and the signal still agrees -> adding trade 2 of 3

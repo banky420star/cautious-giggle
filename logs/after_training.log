@@ -1,0 +1,4 @@
+2026-11-17 05:09:52 training finished
+2026-11-17 05:09:52.960 +02:00 | WARNING  | __main__:<module>:26 - BTCUSDm: no trained candidate yet
+2026-11-17 05:09:52.961 +02:00 | WARNING  | __main__:<module>:26 - XAUUSDm: no trained candidate yet
+bot started (supervisor pid 34049). Monitor with: scripts/mac/monitor.sh

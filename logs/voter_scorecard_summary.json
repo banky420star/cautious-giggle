@@ -1,0 +1,1765 @@
+{
+ "voters": {
+  "ema_cross": {
+   "name": "EMA 20 vs 50 trend (M5)",
+   "calls": 59,
+   "right": 32,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 8
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 5
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.542
+  },
+  "ema200": {
+   "name": "price vs 200-EMA (M5)",
+   "calls": 59,
+   "right": 35,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 5
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 2
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.593
+  },
+  "macd": {
+   "name": "MACD histogram (M5)",
+   "calls": 58,
+   "right": 22,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 6
+    },
+    "XAGUSDm": {
+     "calls": 8,
+     "right": 2
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 1
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 3
+    }
+   },
+   "hit": 0.379
+  },
+  "rsi_trend": {
+   "name": "RSI momentum (>55 up, <45 down) (M5)",
+   "calls": 46,
+   "right": 20,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 14,
+     "right": 6
+    },
+    "XAGUSDm": {
+     "calls": 6,
+     "right": 3
+    },
+    "ETHUSDm": {
+     "calls": 3,
+     "right": 1
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "BTCUSDm": {
+     "calls": 11,
+     "right": 4
+    },
+    "USDJPYm": {
+     "calls": 5,
+     "right": 2
+    },
+    "USOILm": {
+     "calls": 6,
+     "right": 4
+    }
+   },
+   "hit": 0.435
+  },
+  "bb_revert": {
+   "name": "Bollinger band fade (M5)",
+   "calls": 27,
+   "right": 17,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 5,
+     "right": 4
+    },
+    "ETHUSDm": {
+     "calls": 3,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "BTCUSDm": {
+     "calls": 8,
+     "right": 5
+    },
+    "XAGUSDm": {
+     "calls": 4,
+     "right": 2
+    },
+    "USOILm": {
+     "calls": 4,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 2
+    }
+   },
+   "hit": 0.63
+  },
+  "donchian": {
+   "name": "20-bar high/low breakout (M5)",
+   "calls": 45,
+   "right": 20,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 14,
+     "right": 5
+    },
+    "XAGUSDm": {
+     "calls": 7,
+     "right": 5
+    },
+    "USOILm": {
+     "calls": 6,
+     "right": 4
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 9,
+     "right": 3
+    },
+    "ETHUSDm": {
+     "calls": 2,
+     "right": 0
+    }
+   },
+   "hit": 0.444
+  },
+  "adx_di": {
+   "name": "ADX trend strength + direction (M5)",
+   "calls": 48,
+   "right": 24,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 4,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "BTCUSDm": {
+     "calls": 11,
+     "right": 4
+    },
+    "USDJPYm": {
+     "calls": 4,
+     "right": 1
+    },
+    "XAGUSDm": {
+     "calls": 8,
+     "right": 6
+    },
+    "USOILm": {
+     "calls": 4,
+     "right": 4
+    }
+   },
+   "hit": 0.5
+  },
+  "stoch": {
+   "name": "Stochastic 14 cross (M5)",
+   "calls": 51,
+   "right": 26,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 9
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 2
+    },
+    "USOILm": {
+     "calls": 8,
+     "right": 3
+    },
+    "ETHUSDm": {
+     "calls": 3,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 4,
+     "right": 1
+    },
+    "BTCUSDm": {
+     "calls": 10,
+     "right": 9
+    }
+   },
+   "hit": 0.51
+  },
+  "roc": {
+   "name": "12-bar rate of change (M5)",
+   "calls": 59,
+   "right": 27,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 6
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 5
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 4
+    }
+   },
+   "hit": 0.458
+  },
+  "supertrend": {
+   "name": "ATR trailing trend (M5)",
+   "calls": 59,
+   "right": 29,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 7
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 6
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 4
+    }
+   },
+   "hit": 0.492
+  },
+  "ema_cross@M15": {
+   "name": "EMA 20 vs 50 trend (M15)",
+   "calls": 57,
+   "right": 35,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 5,
+     "right": 2
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    },
+    "USOILm": {
+     "calls": 9,
+     "right": 5
+    }
+   },
+   "hit": 0.614
+  },
+  "ema200@M15": {
+   "name": "price vs 200-EMA (M15)",
+   "calls": 59,
+   "right": 36,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 2
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.61
+  },
+  "macd@M15": {
+   "name": "MACD histogram (M15)",
+   "calls": 59,
+   "right": 29,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 7
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 6
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 4
+    }
+   },
+   "hit": 0.492
+  },
+  "rsi_trend@M15": {
+   "name": "RSI momentum (>55 up, <45 down) (M15)",
+   "calls": 45,
+   "right": 23,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 13,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 4,
+     "right": 2
+    },
+    "BTCUSDm": {
+     "calls": 11,
+     "right": 4
+    },
+    "USDJPYm": {
+     "calls": 3,
+     "right": 1
+    },
+    "XAGUSDm": {
+     "calls": 8,
+     "right": 6
+    },
+    "USOILm": {
+     "calls": 6,
+     "right": 3
+    }
+   },
+   "hit": 0.511
+  },
+  "bb_revert@M15": {
+   "name": "Bollinger band fade (M15)",
+   "calls": 29,
+   "right": 16,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 5,
+     "right": 2
+    },
+    "ETHUSDm": {
+     "calls": 3,
+     "right": 2
+    },
+    "BTCUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "XAGUSDm": {
+     "calls": 5,
+     "right": 2
+    },
+    "USOILm": {
+     "calls": 5,
+     "right": 2
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 1
+    }
+   },
+   "hit": 0.552
+  },
+  "donchian@M15": {
+   "name": "20-bar high/low breakout (M15)",
+   "calls": 48,
+   "right": 29,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 11,
+     "right": 8
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 5,
+     "right": 2
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 5,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.604
+  },
+  "adx_di@M15": {
+   "name": "ADX trend strength + direction (M15)",
+   "calls": 51,
+   "right": 26,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 7
+    },
+    "XAGUSDm": {
+     "calls": 7,
+     "right": 5
+    },
+    "USOILm": {
+     "calls": 8,
+     "right": 4
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 1
+    }
+   },
+   "hit": 0.51
+  },
+  "stoch@M15": {
+   "name": "Stochastic 14 cross (M15)",
+   "calls": 50,
+   "right": 24,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 5
+    },
+    "XAGUSDm": {
+     "calls": 6,
+     "right": 3
+    },
+    "ETHUSDm": {
+     "calls": 2,
+     "right": 1
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 8
+    },
+    "USOILm": {
+     "calls": 7,
+     "right": 4
+    }
+   },
+   "hit": 0.48
+  },
+  "roc@M15": {
+   "name": "12-bar rate of change (M15)",
+   "calls": 56,
+   "right": 27,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 5
+    },
+    "ETHUSDm": {
+     "calls": 4,
+     "right": 2
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 4
+    },
+    "XAGUSDm": {
+     "calls": 8,
+     "right": 6
+    }
+   },
+   "hit": 0.482
+  },
+  "supertrend@M15": {
+   "name": "ATR trailing trend (M15)",
+   "calls": 59,
+   "right": 32,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 8
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 5
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.542
+  },
+  "ema_cross@H1": {
+   "name": "EMA 20 vs 50 trend (H1)",
+   "calls": 59,
+   "right": 36,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 2
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.61
+  },
+  "ema200@H1": {
+   "name": "price vs 200-EMA (H1)",
+   "calls": 59,
+   "right": 38,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 4
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.644
+  },
+  "macd@H1": {
+   "name": "MACD histogram (H1)",
+   "calls": 59,
+   "right": 35,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 4
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.593
+  },
+  "rsi_trend@H1": {
+   "name": "RSI momentum (>55 up, <45 down) (H1)",
+   "calls": 54,
+   "right": 34,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    },
+    "USOILm": {
+     "calls": 9,
+     "right": 5
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 1
+    }
+   },
+   "hit": 0.63
+  },
+  "rsi_revert@H1": {
+   "name": "RSI extremes fade (<30 buy, >70 sell) (H1)",
+   "calls": 11,
+   "right": 2,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 8,
+     "right": 2
+    },
+    "XAGUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USOILm": {
+     "calls": 2,
+     "right": 0
+    }
+   },
+   "hit": 0.182
+  },
+  "bb_revert@H1": {
+   "name": "Bollinger band fade (H1)",
+   "calls": 25,
+   "right": 8,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 10,
+     "right": 3
+    },
+    "XAGUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "ETHUSDm": {
+     "calls": 4,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "BTCUSDm": {
+     "calls": 4,
+     "right": 1
+    },
+    "USOILm": {
+     "calls": 3,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 1
+    }
+   },
+   "hit": 0.32
+  },
+  "donchian@H1": {
+   "name": "20-bar high/low breakout (H1)",
+   "calls": 38,
+   "right": 28,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 8,
+     "right": 5
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "BTCUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "ETHUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 1
+    }
+   },
+   "hit": 0.737
+  },
+  "adx_di@H1": {
+   "name": "ADX trend strength + direction (H1)",
+   "calls": 37,
+   "right": 27,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "ETHUSDm": {
+     "calls": 1,
+     "right": 1
+    }
+   },
+   "hit": 0.73
+  },
+  "stoch@H1": {
+   "name": "Stochastic 14 cross (H1)",
+   "calls": 55,
+   "right": 29,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 14,
+     "right": 7
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 4
+    },
+    "USOILm": {
+     "calls": 8,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 4
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.527
+  },
+  "roc@H1": {
+   "name": "12-bar rate of change (H1)",
+   "calls": 59,
+   "right": 37,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.627
+  },
+  "supertrend@H1": {
+   "name": "ATR trailing trend (H1)",
+   "calls": 59,
+   "right": 42,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 4
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 9
+    }
+   },
+   "hit": 0.712
+  },
+  "ema_cross@H4": {
+   "name": "EMA 20 vs 50 trend (H4)",
+   "calls": 59,
+   "right": 38,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 4
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.644
+  },
+  "ema200@H4": {
+   "name": "price vs 200-EMA (H4)",
+   "calls": 59,
+   "right": 38,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 4
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.644
+  },
+  "macd@H4": {
+   "name": "MACD histogram (H4)",
+   "calls": 59,
+   "right": 37,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 7
+    }
+   },
+   "hit": 0.627
+  },
+  "rsi_trend@H4": {
+   "name": "RSI momentum (>55 up, <45 down) (H4)",
+   "calls": 55,
+   "right": 35,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 1
+    }
+   },
+   "hit": 0.636
+  },
+  "rsi_revert@H4": {
+   "name": "RSI extremes fade (<30 buy, >70 sell) (H4)",
+   "calls": 26,
+   "right": 6,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 4
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    }
+   },
+   "hit": 0.231
+  },
+  "bb_revert@H4": {
+   "name": "Bollinger band fade (H4)",
+   "calls": 34,
+   "right": 8,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 4
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "BTCUSDm": {
+     "calls": 3,
+     "right": 0
+    },
+    "ETHUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USOILm": {
+     "calls": 3,
+     "right": 2
+    },
+    "USDJPYm": {
+     "calls": 1,
+     "right": 0
+    }
+   },
+   "hit": 0.235
+  },
+  "bb_break@H4": {
+   "name": "Bollinger breakout (H4)",
+   "calls": 26,
+   "right": 20,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 15,
+     "right": 11
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "BTCUSDm": {
+     "calls": 3,
+     "right": 3
+    },
+    "XAGUSDm": {
+     "calls": 6,
+     "right": 4
+    },
+    "ETHUSDm": {
+     "calls": 1,
+     "right": 1
+    }
+   },
+   "hit": 0.769
+  },
+  "donchian@H4": {
+   "name": "20-bar high/low breakout (H4)",
+   "calls": 44,
+   "right": 31,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 5,
+     "right": 2
+    },
+    "BTCUSDm": {
+     "calls": 3,
+     "right": 3
+    }
+   },
+   "hit": 0.705
+  },
+  "adx_di@H4": {
+   "name": "ADX trend strength + direction (H4)",
+   "calls": 53,
+   "right": 34,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.642
+  },
+  "roc@H4": {
+   "name": "12-bar rate of change (H4)",
+   "calls": 55,
+   "right": 34,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 2
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    },
+    "ETHUSDm": {
+     "calls": 1,
+     "right": 1
+    }
+   },
+   "hit": 0.618
+  },
+  "supertrend@H4": {
+   "name": "ATR trailing trend (H4)",
+   "calls": 59,
+   "right": 38,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 12
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 4
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    }
+   },
+   "hit": 0.644
+  },
+  "lstm": {
+   "name": "LSTM pattern model",
+   "calls": 56,
+   "right": 26,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 15,
+     "right": 6
+    },
+    "XAGUSDm": {
+     "calls": 8,
+     "right": 3
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 8
+    },
+    "ETHUSDm": {
+     "calls": 4,
+     "right": 2
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 4
+    }
+   },
+   "hit": 0.464
+  },
+  "council": {
+   "name": "Council (all indicators + your models)",
+   "calls": 57,
+   "right": 29,
+   "markets": {
+    "XAUUSDm": {
+     "calls": 16,
+     "right": 10
+    },
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 4,
+     "right": 1
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 5,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 1
+    }
+   },
+   "hit": 0.509
+  },
+  "stoch@H4": {
+   "name": "Stochastic 14 cross (H4)",
+   "calls": 48,
+   "right": 28,
+   "markets": {
+    "XAGUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "USOILm": {
+     "calls": 7,
+     "right": 4
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 3
+    },
+    "EURUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USDJPYm": {
+     "calls": 6,
+     "right": 3
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 5
+    },
+    "XAUUSDm": {
+     "calls": 8,
+     "right": 5
+    }
+   },
+   "hit": 0.583
+  },
+  "kronos": {
+   "name": "Kronos candle forecaster",
+   "calls": 51,
+   "right": 21,
+   "markets": {
+    "USOILm": {
+     "calls": 10,
+     "right": 5
+    },
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 2
+    },
+    "XAUUSDm": {
+     "calls": 13,
+     "right": 6
+    },
+    "USDJPYm": {
+     "calls": 5,
+     "right": 1
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 7
+    },
+    "XAGUSDm": {
+     "calls": 6,
+     "right": 0
+    }
+   },
+   "hit": 0.412
+  },
+  "catboost": {
+   "name": "LightGBM return model (your FreqAI recipe, retrained on Exness bars)",
+   "calls": 17,
+   "right": 4,
+   "markets": {
+    "ETHUSDm": {
+     "calls": 5,
+     "right": 0
+    },
+    "BTCUSDm": {
+     "calls": 12,
+     "right": 4
+    }
+   },
+   "hit": 0.235
+  },
+  "news_llm": {
+   "name": "Local AI news reader (Ollama)",
+   "calls": 22,
+   "right": 12,
+   "markets": {
+    "BTCUSDm": {
+     "calls": 6,
+     "right": 2
+    },
+    "USDJPYm": {
+     "calls": 3,
+     "right": 3
+    },
+    "XAUUSDm": {
+     "calls": 10,
+     "right": 6
+    },
+    "ETHUSDm": {
+     "calls": 1,
+     "right": 1
+    },
+    "USOILm": {
+     "calls": 2,
+     "right": 0
+    }
+   },
+   "hit": 0.545
+  },
+  "rsi_revert": {
+   "name": "RSI extremes fade (<30 buy, >70 sell) (M5)",
+   "calls": 13,
+   "right": 9,
+   "markets": {
+    "BTCUSDm": {
+     "calls": 5,
+     "right": 4
+    },
+    "ETHUSDm": {
+     "calls": 2,
+     "right": 2
+    },
+    "USOILm": {
+     "calls": 2,
+     "right": 0
+    },
+    "XAUUSDm": {
+     "calls": 2,
+     "right": 2
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 1
+    }
+   },
+   "hit": 0.692
+  },
+  "bb_break": {
+   "name": "Bollinger breakout (M5)",
+   "calls": 12,
+   "right": 3,
+   "markets": {
+    "BTCUSDm": {
+     "calls": 5,
+     "right": 1
+    },
+    "ETHUSDm": {
+     "calls": 2,
+     "right": 0
+    },
+    "USOILm": {
+     "calls": 2,
+     "right": 2
+    },
+    "XAUUSDm": {
+     "calls": 2,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 1,
+     "right": 0
+    }
+   },
+   "hit": 0.25
+  },
+  "rsi_revert@M15": {
+   "name": "RSI extremes fade (<30 buy, >70 sell) (M15)",
+   "calls": 18,
+   "right": 10,
+   "markets": {
+    "BTCUSDm": {
+     "calls": 9,
+     "right": 7
+    },
+    "ETHUSDm": {
+     "calls": 2,
+     "right": 2
+    },
+    "USOILm": {
+     "calls": 2,
+     "right": 0
+    },
+    "XAUUSDm": {
+     "calls": 3,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 1
+    }
+   },
+   "hit": 0.556
+  },
+  "bb_break@M15": {
+   "name": "Bollinger breakout (M15)",
+   "calls": 16,
+   "right": 5,
+   "markets": {
+    "BTCUSDm": {
+     "calls": 9,
+     "right": 2
+    },
+    "ETHUSDm": {
+     "calls": 2,
+     "right": 0
+    },
+    "USOILm": {
+     "calls": 2,
+     "right": 2
+    },
+    "XAUUSDm": {
+     "calls": 1,
+     "right": 0
+    },
+    "USDJPYm": {
+     "calls": 2,
+     "right": 1
+    }
+   },
+   "hit": 0.312
+  },
+  "bb_break@H1": {
+   "name": "Bollinger breakout (H1)",
+   "calls": 5,
+   "right": 5,
+   "markets": {
+    "BTCUSDm": {
+     "calls": 2,
+     "right": 2
+    },
+    "USOILm": {
+     "calls": 2,
+     "right": 2
+    },
+    "USDJPYm": {
+     "calls": 1,
+     "right": 1
+    }
+   },
+   "hit": 1.0
+  }
+ },
+ "updated": 1795084665.730827
+}

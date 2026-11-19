@@ -1,0 +1,196 @@
+{
+  "mode": "per_symbol",
+  "symbols": [
+    {
+      "symbol": "XAUUSDm",
+      "candidate": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_015218",
+      "champion": null,
+      "wins": true,
+      "passes_thresholds": false,
+      "pass_rate": 0.0,
+      "per_symbol_gates": [
+        {
+          "symbol": "XAUUSDm",
+          "score": -72.03707284087427,
+          "max_drawdown": 0.007247829552749476,
+          "sharpe": -11.668102881206556,
+          "total_return": -0.007177819392356843,
+          "steps": 15129,
+          "passes": false,
+          "checks": {
+            "dd_ok": true,
+            "sharpe_ok": false,
+            "return_ok": false,
+            "steps_ok": true
+          }
+        }
+      ],
+      "forward_windows": []
+    },
+    {
+      "symbol": "EURUSDm",
+      "candidate": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_023530",
+      "champion": null,
+      "wins": true,
+      "passes_thresholds": false,
+      "pass_rate": 0.0,
+      "per_symbol_gates": [
+        {
+          "symbol": "EURUSDm",
+          "score": -461.9175297146052,
+          "max_drawdown": 0.03084433608921517,
+          "sharpe": -75.54557086197305,
+          "total_return": -0.03084433608921533,
+          "steps": 15107,
+          "passes": false,
+          "checks": {
+            "dd_ok": true,
+            "sharpe_ok": false,
+            "return_ok": false,
+            "steps_ok": true
+          }
+        }
+      ],
+      "forward_windows": []
+    },
+    {
+      "symbol": "USDJPYm",
+      "candidate": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_030727",
+      "champion": null,
+      "wins": true,
+      "passes_thresholds": false,
+      "pass_rate": 0.0,
+      "per_symbol_gates": [
+        {
+          "symbol": "USDJPYm",
+          "score": -224.36946623866447,
+          "max_drawdown": 0.010133514819541162,
+          "sharpe": -36.92170746606601,
+          "total_return": -0.010126802708700922,
+          "steps": 15098,
+          "passes": false,
+          "checks": {
+            "dd_ok": true,
+            "sharpe_ok": false,
+            "return_ok": false,
+            "steps_ok": true
+          }
+        }
+      ],
+      "forward_windows": []
+    },
+    {
+      "symbol": "XAGUSDm",
+      "candidate": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_033554",
+      "champion": null,
+      "wins": true,
+      "passes_thresholds": false,
+      "pass_rate": 0.0,
+      "per_symbol_gates": [
+        {
+          "symbol": "XAGUSDm",
+          "score": -197.87506712151136,
+          "max_drawdown": 0.05044600176823929,
+          "sharpe": -30.623485277589356,
+          "total_return": -0.05040792985908449,
+          "steps": 15092,
+          "passes": false,
+          "checks": {
+            "dd_ok": true,
+            "sharpe_ok": false,
+            "return_ok": false,
+            "steps_ok": true
+          }
+        }
+      ],
+      "forward_windows": []
+    },
+    {
+      "symbol": "ETHUSDm",
+      "candidate": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_101954",
+      "champion": null,
+      "wins": true,
+      "passes_thresholds": false,
+      "pass_rate": 0.0,
+      "per_symbol_gates": [
+        {
+          "symbol": "ETHUSDm",
+          "score": -119.29696825917041,
+          "max_drawdown": 0.0704948226432637,
+          "sharpe": -16.600695099747593,
+          "total_return": -0.06985828298601793,
+          "steps": 15086,
+          "passes": false,
+          "checks": {
+            "dd_ok": true,
+            "sharpe_ok": false,
+            "return_ok": false,
+            "steps_ok": true
+          }
+        }
+      ],
+      "forward_windows": []
+    },
+    {
+      "symbol": "USOILm",
+      "candidate": "/Volumes/AI_DRIVE/cautious-giggle/models/registry/candidates/20261119_105223",
+      "champion": null,
+      "wins": true,
+      "passes_thresholds": false,
+      "pass_rate": 0.0,
+      "per_symbol_gates": [
+        {
+          "symbol": "USOILm",
+          "score": -52.21971425226346,
+          "max_drawdown": 0.0057436319622727145,
+          "sharpe": -8.440488673586056,
+          "total_return": -0.005414468678636708,
+          "steps": 15006,
+          "passes": false,
+          "checks": {
+            "dd_ok": true,
+            "sharpe_ok": false,
+            "return_ok": false,
+            "steps_ok": true
+          }
+        }
+      ],
+      "forward_windows": []
+    }
+  ],
+  "eval_period": "120d",
+  "eval_interval": "M5",
+  "gates": {
+    "max_drawdown": 0.1,
+    "min_sharpe": 0.5,
+    "min_return": 0.0,
+    "score_margin": 0.3,
+    "min_steps_per_symbol": 600,
+    "min_pass_rate": 1.0,
+    "return_margin": 0.0,
+    "sharpe_margin": 0.05,
+    "drawdown_margin": 0.0,
+    "forward_windows": [],
+    "min_forward_win_rate": 0.67
+  },
+  "skip_completed_training": false,
+  "lstm_pending": [
+    "XAUUSDm",
+    "EURUSDm",
+    "USDJPYm",
+    "XAGUSDm",
+    "ETHUSDm",
+    "USOILm"
+  ],
+  "dreamer_pending": [
+    "XAUUSDm",
+    "EURUSDm",
+    "USDJPYm",
+    "XAGUSDm",
+    "ETHUSDm",
+    "USOILm"
+  ],
+  "skip_lstm": true,
+  "skip_dreamer": true,
+  "dreamer_trained": false
+}

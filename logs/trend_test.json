@@ -1,0 +1,3151 @@
+{
+ "markets": [
+  "AUDUSD",
+  "BTCUSD",
+  "DE40",
+  "ETHUSD",
+  "EURJPY",
+  "EURUSD",
+  "GBPJPY",
+  "GBPUSD",
+  "NZDUSD",
+  "UKOIL",
+  "US30",
+  "US500",
+  "USDCAD",
+  "USDCHF",
+  "USDJPY",
+  "USOIL",
+  "USTEC",
+  "XAGUSD",
+  "XAUUSD",
+  "XCUUSD",
+  "XNGUSD"
+ ],
+ "assumed_financing_pct_yr": 3.0,
+ "vol_target_pct": 10.0,
+ "rules": {
+  "momentum 20d": {
+   "after spread + financing": {
+    "all 21 markets": {
+     "years": 24.1,
+     "return_pct_yr": -2.35,
+     "vol_pct": 4.9,
+     "sharpe": -0.48,
+     "max_dd_pct": -49.0,
+     "t": -2.36
+    },
+    "your 7 markets": {
+     "years": 24.1,
+     "return_pct_yr": 0.11,
+     "vol_pct": 6.2,
+     "sharpe": 0.02,
+     "max_dd_pct": -21.6,
+     "t": 0.09
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.7,
+      "return_pct_yr": -1.02,
+      "vol_pct": 5.9,
+      "sharpe": -0.17,
+      "max_dd_pct": -21.3,
+      "t": -0.44
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": -2.79,
+      "vol_pct": 5.0,
+      "sharpe": -0.56,
+      "max_dd_pct": -23.9,
+      "t": -1.27
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -3.29,
+      "vol_pct": 3.9,
+      "sharpe": -0.85,
+      "max_dd_pct": -18.8,
+      "t": -1.93
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": -2.59,
+      "vol_pct": 4.4,
+      "sharpe": -0.59,
+      "max_dd_pct": -23.7,
+      "t": -1.57
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.9,
+      "return_pct_yr": -2.77,
+      "vol_pct": 10.5,
+      "sharpe": -0.26,
+      "max_dd_pct": -62.1,
+      "t": -1.29
+     },
+     "BTCUSD": {
+      "years": 9.6,
+      "return_pct_yr": 10.31,
+      "vol_pct": 10.8,
+      "sharpe": 0.96,
+      "max_dd_pct": -18.4,
+      "t": 2.97
+     },
+     "DE40": {
+      "years": 14.5,
+      "return_pct_yr": -7.8,
+      "vol_pct": 10.6,
+      "sharpe": -0.73,
+      "max_dd_pct": -71.6,
+      "t": -2.8
+     },
+     "ETHUSD": {
+      "years": 9.0,
+      "return_pct_yr": 5.38,
+      "vol_pct": 10.6,
+      "sharpe": 0.51,
+      "max_dd_pct": -26.5,
+      "t": 1.52
+     },
+     "EURJPY": {
+      "years": 23.9,
+      "return_pct_yr": -4.37,
+      "vol_pct": 10.5,
+      "sharpe": -0.42,
+      "max_dd_pct": -70.4,
+      "t": -2.04
+     },
+     "EURUSD": {
+      "years": 24.1,
+      "return_pct_yr": -3.59,
+      "vol_pct": 10.3,
+      "sharpe": -0.35,
+      "max_dd_pct": -68.8,
+      "t": -1.71
+     },
+     "GBPJPY": {
+      "years": 18.7,
+      "return_pct_yr": -1.02,
+      "vol_pct": 13.1,
+      "sharpe": -0.08,
+      "max_dd_pct": -58.0,
+      "t": -0.34
+     },
+     "GBPUSD": {
+      "years": 24.1,
+      "return_pct_yr": -4.21,
+      "vol_pct": 10.4,
+      "sharpe": -0.4,
+      "max_dd_pct": -73.2,
+      "t": -1.99
+     },
+     "NZDUSD": {
+      "years": 18.7,
+      "return_pct_yr": -4.71,
+      "vol_pct": 10.3,
+      "sharpe": -0.46,
+      "max_dd_pct": -68.0,
+      "t": -1.97
+     },
+     "UKOIL": {
+      "years": 15.9,
+      "return_pct_yr": 0.23,
+      "vol_pct": 11.0,
+      "sharpe": 0.02,
+      "max_dd_pct": -38.9,
+      "t": 0.08
+     },
+     "US30": {
+      "years": 14.7,
+      "return_pct_yr": -3.59,
+      "vol_pct": 10.9,
+      "sharpe": -0.33,
+      "max_dd_pct": -52.5,
+      "t": -1.27
+     },
+     "US500": {
+      "years": 15.0,
+      "return_pct_yr": -1.29,
+      "vol_pct": 10.9,
+      "sharpe": -0.12,
+      "max_dd_pct": -37.4,
+      "t": -0.46
+     },
+     "USDCAD": {
+      "years": 23.9,
+      "return_pct_yr": -7.54,
+      "vol_pct": 10.3,
+      "sharpe": -0.73,
+      "max_dd_pct": -86.1,
+      "t": -3.56
+     },
+     "USDCHF": {
+      "years": 24.1,
+      "return_pct_yr": -4.9,
+      "vol_pct": 11.1,
+      "sharpe": -0.44,
+      "max_dd_pct": -75.7,
+      "t": -2.16
+     },
+     "USDJPY": {
+      "years": 23.3,
+      "return_pct_yr": -1.4,
+      "vol_pct": 10.8,
+      "sharpe": -0.13,
+      "max_dd_pct": -49.4,
+      "t": -0.63
+     },
+     "USOIL": {
+      "years": 15.1,
+      "return_pct_yr": 3.21,
+      "vol_pct": 10.9,
+      "sharpe": 0.29,
+      "max_dd_pct": -31.1,
+      "t": 1.15
+     },
+     "USTEC": {
+      "years": 15.0,
+      "return_pct_yr": -0.25,
+      "vol_pct": 10.8,
+      "sharpe": -0.02,
+      "max_dd_pct": -26.5,
+      "t": -0.09
+     },
+     "XAGUSD": {
+      "years": 12.4,
+      "return_pct_yr": -3.83,
+      "vol_pct": 10.8,
+      "sharpe": -0.36,
+      "max_dd_pct": -54.1,
+      "t": -1.25
+     },
+     "XAUUSD": {
+      "years": 24.0,
+      "return_pct_yr": 0.09,
+      "vol_pct": 10.6,
+      "sharpe": 0.01,
+      "max_dd_pct": -38.3,
+      "t": 0.04
+     },
+     "XCUUSD": {
+      "years": 14.9,
+      "return_pct_yr": -6.76,
+      "vol_pct": 10.5,
+      "sharpe": -0.64,
+      "max_dd_pct": -70.4,
+      "t": -2.48
+     },
+     "XNGUSD": {
+      "years": 14.4,
+      "return_pct_yr": -5.64,
+      "vol_pct": 10.8,
+      "sharpe": -0.52,
+      "max_dd_pct": -60.0,
+      "t": -1.98
+     }
+    }
+   },
+   "after spread only": {
+    "all 21 markets": {
+     "years": 24.1,
+     "return_pct_yr": 0.37,
+     "vol_pct": 4.9,
+     "sharpe": 0.08,
+     "max_dd_pct": -15.6,
+     "t": 0.37
+    },
+    "your 7 markets": {
+     "years": 24.1,
+     "return_pct_yr": 2.55,
+     "vol_pct": 6.2,
+     "sharpe": 0.41,
+     "max_dd_pct": -14.1,
+     "t": 2.02
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.7,
+      "return_pct_yr": 2.02,
+      "vol_pct": 5.9,
+      "sharpe": 0.34,
+      "max_dd_pct": -9.7,
+      "t": 0.88
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": 0.02,
+      "vol_pct": 5.0,
+      "sharpe": 0.0,
+      "max_dd_pct": -14.3,
+      "t": 0.01
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -0.69,
+      "vol_pct": 3.9,
+      "sharpe": -0.18,
+      "max_dd_pct": -9.5,
+      "t": -0.4
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": -0.14,
+      "vol_pct": 4.4,
+      "sharpe": -0.03,
+      "max_dd_pct": -11.4,
+      "t": -0.09
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.9,
+      "return_pct_yr": 0.34,
+      "vol_pct": 10.5,
+      "sharpe": 0.03,
+      "max_dd_pct": -33.3,
+      "t": 0.16
+     },
+     "BTCUSD": {
+      "years": 9.6,
+      "return_pct_yr": 10.86,
+      "vol_pct": 10.8,
+      "sharpe": 1.01,
+      "max_dd_pct": -18.2,
+      "t": 3.12
+     },
+     "DE40": {
+      "years": 14.5,
+      "return_pct_yr": -5.82,
+      "vol_pct": 10.6,
+      "sharpe": -0.55,
+      "max_dd_pct": -62.4,
+      "t": -2.09
+     },
+     "ETHUSD": {
+      "years": 9.0,
+      "return_pct_yr": 5.8,
+      "vol_pct": 10.6,
+      "sharpe": 0.55,
+      "max_dd_pct": -25.6,
+      "t": 1.64
+     },
+     "EURJPY": {
+      "years": 23.9,
+      "return_pct_yr": -0.92,
+      "vol_pct": 10.5,
+      "sharpe": -0.09,
+      "max_dd_pct": -50.2,
+      "t": -0.43
+     },
+     "EURUSD": {
+      "years": 24.1,
+      "return_pct_yr": 0.4,
+      "vol_pct": 10.3,
+      "sharpe": 0.04,
+      "max_dd_pct": -45.8,
+      "t": 0.19
+     },
+     "GBPJPY": {
+      "years": 18.7,
+      "return_pct_yr": 2.12,
+      "vol_pct": 13.1,
+      "sharpe": 0.16,
+      "max_dd_pct": -42.6,
+      "t": 0.7
+     },
+     "GBPUSD": {
+      "years": 24.1,
+      "return_pct_yr": -0.39,
+      "vol_pct": 10.4,
+      "sharpe": -0.04,
+      "max_dd_pct": -44.6,
+      "t": -0.19
+     },
+     "NZDUSD": {
+      "years": 18.7,
+      "return_pct_yr": -1.69,
+      "vol_pct": 10.3,
+      "sharpe": -0.16,
+      "max_dd_pct": -46.1,
+      "t": -0.71
+     },
+     "UKOIL": {
+      "years": 15.9,
+      "return_pct_yr": 1.3,
+      "vol_pct": 11.0,
+      "sharpe": 0.12,
+      "max_dd_pct": -36.1,
+      "t": 0.47
+     },
+     "US30": {
+      "years": 14.7,
+      "return_pct_yr": -1.01,
+      "vol_pct": 10.9,
+      "sharpe": -0.09,
+      "max_dd_pct": -35.0,
+      "t": -0.36
+     },
+     "US500": {
+      "years": 15.0,
+      "return_pct_yr": 1.17,
+      "vol_pct": 10.9,
+      "sharpe": 0.11,
+      "max_dd_pct": -31.4,
+      "t": 0.42
+     },
+     "USDCAD": {
+      "years": 23.9,
+      "return_pct_yr": -3.17,
+      "vol_pct": 10.3,
+      "sharpe": -0.31,
+      "max_dd_pct": -64.4,
+      "t": -1.5
+     },
+     "USDCHF": {
+      "years": 24.1,
+      "return_pct_yr": -1.2,
+      "vol_pct": 11.1,
+      "sharpe": -0.11,
+      "max_dd_pct": -48.1,
+      "t": -0.53
+     },
+     "USDJPY": {
+      "years": 23.3,
+      "return_pct_yr": 2.26,
+      "vol_pct": 10.8,
+      "sharpe": 0.21,
+      "max_dd_pct": -32.5,
+      "t": 1.02
+     },
+     "USOIL": {
+      "years": 15.1,
+      "return_pct_yr": 4.25,
+      "vol_pct": 10.9,
+      "sharpe": 0.39,
+      "max_dd_pct": -29.8,
+      "t": 1.52
+     },
+     "USTEC": {
+      "years": 15.0,
+      "return_pct_yr": 1.61,
+      "vol_pct": 10.8,
+      "sharpe": 0.15,
+      "max_dd_pct": -21.2,
+      "t": 0.58
+     },
+     "XAGUSD": {
+      "years": 12.4,
+      "return_pct_yr": -2.56,
+      "vol_pct": 10.8,
+      "sharpe": -0.24,
+      "max_dd_pct": -47.0,
+      "t": -0.84
+     },
+     "XAUUSD": {
+      "years": 24.0,
+      "return_pct_yr": 2.16,
+      "vol_pct": 10.6,
+      "sharpe": 0.2,
+      "max_dd_pct": -25.0,
+      "t": 1.0
+     },
+     "XCUUSD": {
+      "years": 14.9,
+      "return_pct_yr": -5.26,
+      "vol_pct": 10.5,
+      "sharpe": -0.5,
+      "max_dd_pct": -64.8,
+      "t": -1.93
+     },
+     "XNGUSD": {
+      "years": 14.4,
+      "return_pct_yr": -4.96,
+      "vol_pct": 10.8,
+      "sharpe": -0.46,
+      "max_dd_pct": -55.9,
+      "t": -1.74
+     }
+    }
+   }
+  },
+  "momentum 60d": {
+   "after spread + financing": {
+    "all 21 markets": {
+     "years": 24.1,
+     "return_pct_yr": -2.79,
+     "vol_pct": 5.0,
+     "sharpe": -0.55,
+     "max_dd_pct": -54.6,
+     "t": -2.72
+    },
+    "your 7 markets": {
+     "years": 24.1,
+     "return_pct_yr": -0.48,
+     "vol_pct": 6.3,
+     "sharpe": -0.08,
+     "max_dd_pct": -31.4,
+     "t": -0.38
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.7,
+      "return_pct_yr": -3.36,
+      "vol_pct": 6.1,
+      "sharpe": -0.55,
+      "max_dd_pct": -29.5,
+      "t": -1.42
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": -2.9,
+      "vol_pct": 5.3,
+      "sharpe": -0.54,
+      "max_dd_pct": -19.6,
+      "t": -1.24
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -1.31,
+      "vol_pct": 4.0,
+      "sharpe": -0.33,
+      "max_dd_pct": -9.0,
+      "t": -0.74
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": -3.26,
+      "vol_pct": 4.3,
+      "sharpe": -0.75,
+      "max_dd_pct": -24.6,
+      "t": -2.01
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.9,
+      "return_pct_yr": -5.77,
+      "vol_pct": 10.5,
+      "sharpe": -0.55,
+      "max_dd_pct": -81.5,
+      "t": -2.7
+     },
+     "BTCUSD": {
+      "years": 9.6,
+      "return_pct_yr": 6.47,
+      "vol_pct": 10.8,
+      "sharpe": 0.6,
+      "max_dd_pct": -25.9,
+      "t": 1.86
+     },
+     "DE40": {
+      "years": 14.5,
+      "return_pct_yr": -3.27,
+      "vol_pct": 10.6,
+      "sharpe": -0.31,
+      "max_dd_pct": -46.1,
+      "t": -1.18
+     },
+     "ETHUSD": {
+      "years": 9.0,
+      "return_pct_yr": 1.97,
+      "vol_pct": 10.6,
+      "sharpe": 0.18,
+      "max_dd_pct": -22.8,
+      "t": 0.55
+     },
+     "EURJPY": {
+      "years": 23.9,
+      "return_pct_yr": -1.37,
+      "vol_pct": 10.5,
+      "sharpe": -0.13,
+      "max_dd_pct": -50.3,
+      "t": -0.64
+     },
+     "EURUSD": {
+      "years": 24.1,
+      "return_pct_yr": -3.82,
+      "vol_pct": 10.3,
+      "sharpe": -0.37,
+      "max_dd_pct": -69.1,
+      "t": -1.81
+     },
+     "GBPJPY": {
+      "years": 18.7,
+      "return_pct_yr": -3.83,
+      "vol_pct": 13.1,
+      "sharpe": -0.29,
+      "max_dd_pct": -64.2,
+      "t": -1.26
+     },
+     "GBPUSD": {
+      "years": 24.1,
+      "return_pct_yr": -3.57,
+      "vol_pct": 10.4,
+      "sharpe": -0.34,
+      "max_dd_pct": -67.5,
+      "t": -1.68
+     },
+     "NZDUSD": {
+      "years": 18.7,
+      "return_pct_yr": -5.06,
+      "vol_pct": 10.3,
+      "sharpe": -0.49,
+      "max_dd_pct": -70.7,
+      "t": -2.12
+     },
+     "UKOIL": {
+      "years": 15.9,
+      "return_pct_yr": -4.34,
+      "vol_pct": 11.0,
+      "sharpe": -0.39,
+      "max_dd_pct": -60.4,
+      "t": -1.57
+     },
+     "US30": {
+      "years": 14.7,
+      "return_pct_yr": -1.71,
+      "vol_pct": 10.9,
+      "sharpe": -0.16,
+      "max_dd_pct": -36.1,
+      "t": -0.6
+     },
+     "US500": {
+      "years": 15.0,
+      "return_pct_yr": 1.89,
+      "vol_pct": 10.9,
+      "sharpe": 0.17,
+      "max_dd_pct": -27.4,
+      "t": 0.67
+     },
+     "USDCAD": {
+      "years": 23.9,
+      "return_pct_yr": -5.72,
+      "vol_pct": 10.3,
+      "sharpe": -0.55,
+      "max_dd_pct": -81.0,
+      "t": -2.7
+     },
+     "USDCHF": {
+      "years": 24.1,
+      "return_pct_yr": -6.23,
+      "vol_pct": 11.1,
+      "sharpe": -0.56,
+      "max_dd_pct": -83.8,
+      "t": -2.74
+     },
+     "USDJPY": {
+      "years": 23.3,
+      "return_pct_yr": 0.27,
+      "vol_pct": 10.8,
+      "sharpe": 0.03,
+      "max_dd_pct": -46.1,
+      "t": 0.12
+     },
+     "USOIL": {
+      "years": 15.1,
+      "return_pct_yr": -1.81,
+      "vol_pct": 10.9,
+      "sharpe": -0.17,
+      "max_dd_pct": -47.6,
+      "t": -0.65
+     },
+     "USTEC": {
+      "years": 15.0,
+      "return_pct_yr": 2.39,
+      "vol_pct": 10.8,
+      "sharpe": 0.22,
+      "max_dd_pct": -21.2,
+      "t": 0.85
+     },
+     "XAGUSD": {
+      "years": 12.4,
+      "return_pct_yr": -1.88,
+      "vol_pct": 10.8,
+      "sharpe": -0.17,
+      "max_dd_pct": -51.4,
+      "t": -0.62
+     },
+     "XAUUSD": {
+      "years": 24.0,
+      "return_pct_yr": 1.42,
+      "vol_pct": 10.6,
+      "sharpe": 0.13,
+      "max_dd_pct": -36.7,
+      "t": 0.65
+     },
+     "XCUUSD": {
+      "years": 14.9,
+      "return_pct_yr": -3.63,
+      "vol_pct": 10.5,
+      "sharpe": -0.35,
+      "max_dd_pct": -50.7,
+      "t": -1.33
+     },
+     "XNGUSD": {
+      "years": 14.4,
+      "return_pct_yr": -5.56,
+      "vol_pct": 10.8,
+      "sharpe": -0.51,
+      "max_dd_pct": -61.7,
+      "t": -1.95
+     }
+    }
+   },
+   "after spread only": {
+    "all 21 markets": {
+     "years": 24.1,
+     "return_pct_yr": -0.07,
+     "vol_pct": 5.0,
+     "sharpe": -0.01,
+     "max_dd_pct": -19.9,
+     "t": -0.07
+    },
+    "your 7 markets": {
+     "years": 24.1,
+     "return_pct_yr": 1.95,
+     "vol_pct": 6.3,
+     "sharpe": 0.31,
+     "max_dd_pct": -21.8,
+     "t": 1.53
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.7,
+      "return_pct_yr": -0.32,
+      "vol_pct": 6.1,
+      "sharpe": -0.05,
+      "max_dd_pct": -19.6,
+      "t": -0.13
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": -0.08,
+      "vol_pct": 5.3,
+      "sharpe": -0.02,
+      "max_dd_pct": -9.2,
+      "t": -0.03
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": 1.29,
+      "vol_pct": 4.0,
+      "sharpe": 0.32,
+      "max_dd_pct": -5.1,
+      "t": 0.73
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": -0.82,
+      "vol_pct": 4.3,
+      "sharpe": -0.19,
+      "max_dd_pct": -12.7,
+      "t": -0.5
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.9,
+      "return_pct_yr": -2.66,
+      "vol_pct": 10.5,
+      "sharpe": -0.25,
+      "max_dd_pct": -61.7,
+      "t": -1.25
+     },
+     "BTCUSD": {
+      "years": 9.6,
+      "return_pct_yr": 7.02,
+      "vol_pct": 10.8,
+      "sharpe": 0.65,
+      "max_dd_pct": -25.7,
+      "t": 2.02
+     },
+     "DE40": {
+      "years": 14.5,
+      "return_pct_yr": -1.29,
+      "vol_pct": 10.6,
+      "sharpe": -0.12,
+      "max_dd_pct": -38.9,
+      "t": -0.46
+     },
+     "ETHUSD": {
+      "years": 9.0,
+      "return_pct_yr": 2.38,
+      "vol_pct": 10.6,
+      "sharpe": 0.22,
+      "max_dd_pct": -22.5,
+      "t": 0.67
+     },
+     "EURJPY": {
+      "years": 23.9,
+      "return_pct_yr": 2.08,
+      "vol_pct": 10.5,
+      "sharpe": 0.2,
+      "max_dd_pct": -33.4,
+      "t": 0.97
+     },
+     "EURUSD": {
+      "years": 24.1,
+      "return_pct_yr": 0.17,
+      "vol_pct": 10.3,
+      "sharpe": 0.02,
+      "max_dd_pct": -39.2,
+      "t": 0.08
+     },
+     "GBPJPY": {
+      "years": 18.7,
+      "return_pct_yr": -0.69,
+      "vol_pct": 13.1,
+      "sharpe": -0.05,
+      "max_dd_pct": -49.7,
+      "t": -0.23
+     },
+     "GBPUSD": {
+      "years": 24.1,
+      "return_pct_yr": 0.25,
+      "vol_pct": 10.4,
+      "sharpe": 0.02,
+      "max_dd_pct": -46.2,
+      "t": 0.12
+     },
+     "NZDUSD": {
+      "years": 18.7,
+      "return_pct_yr": -2.05,
+      "vol_pct": 10.3,
+      "sharpe": -0.2,
+      "max_dd_pct": -53.8,
+      "t": -0.86
+     },
+     "UKOIL": {
+      "years": 15.9,
+      "return_pct_yr": -3.26,
+      "vol_pct": 11.0,
+      "sharpe": -0.3,
+      "max_dd_pct": -53.3,
+      "t": -1.18
+     },
+     "US30": {
+      "years": 14.7,
+      "return_pct_yr": 0.87,
+      "vol_pct": 10.9,
+      "sharpe": 0.08,
+      "max_dd_pct": -29.8,
+      "t": 0.31
+     },
+     "US500": {
+      "years": 15.0,
+      "return_pct_yr": 4.35,
+      "vol_pct": 10.9,
+      "sharpe": 0.4,
+      "max_dd_pct": -22.6,
+      "t": 1.54
+     },
+     "USDCAD": {
+      "years": 23.9,
+      "return_pct_yr": -1.36,
+      "vol_pct": 10.3,
+      "sharpe": -0.13,
+      "max_dd_pct": -56.4,
+      "t": -0.64
+     },
+     "USDCHF": {
+      "years": 24.1,
+      "return_pct_yr": -2.53,
+      "vol_pct": 11.1,
+      "sharpe": -0.23,
+      "max_dd_pct": -63.3,
+      "t": -1.11
+     },
+     "USDJPY": {
+      "years": 23.3,
+      "return_pct_yr": 3.94,
+      "vol_pct": 10.8,
+      "sharpe": 0.37,
+      "max_dd_pct": -32.9,
+      "t": 1.77
+     },
+     "USOIL": {
+      "years": 15.1,
+      "return_pct_yr": -0.78,
+      "vol_pct": 10.9,
+      "sharpe": -0.07,
+      "max_dd_pct": -45.0,
+      "t": -0.28
+     },
+     "USTEC": {
+      "years": 15.0,
+      "return_pct_yr": 4.25,
+      "vol_pct": 10.8,
+      "sharpe": 0.39,
+      "max_dd_pct": -17.7,
+      "t": 1.52
+     },
+     "XAGUSD": {
+      "years": 12.4,
+      "return_pct_yr": -0.61,
+      "vol_pct": 10.8,
+      "sharpe": -0.06,
+      "max_dd_pct": -45.4,
+      "t": -0.2
+     },
+     "XAUUSD": {
+      "years": 24.0,
+      "return_pct_yr": 3.48,
+      "vol_pct": 10.6,
+      "sharpe": 0.33,
+      "max_dd_pct": -31.1,
+      "t": 1.61
+     },
+     "XCUUSD": {
+      "years": 14.9,
+      "return_pct_yr": -2.13,
+      "vol_pct": 10.5,
+      "sharpe": -0.2,
+      "max_dd_pct": -40.9,
+      "t": -0.78
+     },
+     "XNGUSD": {
+      "years": 14.4,
+      "return_pct_yr": -4.88,
+      "vol_pct": 10.8,
+      "sharpe": -0.45,
+      "max_dd_pct": -58.3,
+      "t": -1.71
+     }
+    }
+   }
+  },
+  "momentum 120d": {
+   "after spread + financing": {
+    "all 21 markets": {
+     "years": 23.9,
+     "return_pct_yr": -1.08,
+     "vol_pct": 5.0,
+     "sharpe": -0.21,
+     "max_dd_pct": -35.4,
+     "t": -1.05
+    },
+    "your 7 markets": {
+     "years": 23.9,
+     "return_pct_yr": 0.91,
+     "vol_pct": 6.2,
+     "sharpe": 0.15,
+     "max_dd_pct": -18.8,
+     "t": 0.72
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.4,
+      "return_pct_yr": 0.72,
+      "vol_pct": 6.3,
+      "sharpe": 0.11,
+      "max_dd_pct": -13.5,
+      "t": 0.29
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": -0.52,
+      "vol_pct": 5.1,
+      "sharpe": -0.1,
+      "max_dd_pct": -20.7,
+      "t": -0.23
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -2.74,
+      "vol_pct": 4.0,
+      "sharpe": -0.69,
+      "max_dd_pct": -15.2,
+      "t": -1.56
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": -1.89,
+      "vol_pct": 4.3,
+      "sharpe": -0.44,
+      "max_dd_pct": -18.5,
+      "t": -1.17
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.6,
+      "return_pct_yr": -2.49,
+      "vol_pct": 10.5,
+      "sharpe": -0.24,
+      "max_dd_pct": -56.5,
+      "t": -1.16
+     },
+     "BTCUSD": {
+      "years": 9.4,
+      "return_pct_yr": 5.06,
+      "vol_pct": 10.8,
+      "sharpe": 0.47,
+      "max_dd_pct": -24.0,
+      "t": 1.43
+     },
+     "DE40": {
+      "years": 14.3,
+      "return_pct_yr": 0.24,
+      "vol_pct": 10.7,
+      "sharpe": 0.02,
+      "max_dd_pct": -28.6,
+      "t": 0.08
+     },
+     "ETHUSD": {
+      "years": 8.8,
+      "return_pct_yr": 0.77,
+      "vol_pct": 10.7,
+      "sharpe": 0.07,
+      "max_dd_pct": -28.8,
+      "t": 0.21
+     },
+     "EURJPY": {
+      "years": 23.6,
+      "return_pct_yr": -4.19,
+      "vol_pct": 10.5,
+      "sharpe": -0.4,
+      "max_dd_pct": -72.2,
+      "t": -1.94
+     },
+     "EURUSD": {
+      "years": 23.9,
+      "return_pct_yr": -0.1,
+      "vol_pct": 10.3,
+      "sharpe": -0.01,
+      "max_dd_pct": -42.1,
+      "t": -0.05
+     },
+     "GBPJPY": {
+      "years": 18.4,
+      "return_pct_yr": -0.01,
+      "vol_pct": 13.1,
+      "sharpe": -0.0,
+      "max_dd_pct": -48.3,
+      "t": -0.0
+     },
+     "GBPUSD": {
+      "years": 23.9,
+      "return_pct_yr": -1.82,
+      "vol_pct": 10.4,
+      "sharpe": -0.18,
+      "max_dd_pct": -64.0,
+      "t": -0.86
+     },
+     "NZDUSD": {
+      "years": 18.4,
+      "return_pct_yr": -9.28,
+      "vol_pct": 10.3,
+      "sharpe": -0.9,
+      "max_dd_pct": -85.2,
+      "t": -3.87
+     },
+     "UKOIL": {
+      "years": 15.7,
+      "return_pct_yr": -4.55,
+      "vol_pct": 11.0,
+      "sharpe": -0.41,
+      "max_dd_pct": -60.1,
+      "t": -1.64
+     },
+     "US30": {
+      "years": 14.5,
+      "return_pct_yr": 2.57,
+      "vol_pct": 10.9,
+      "sharpe": 0.24,
+      "max_dd_pct": -35.3,
+      "t": 0.9
+     },
+     "US500": {
+      "years": 14.8,
+      "return_pct_yr": 2.88,
+      "vol_pct": 10.9,
+      "sharpe": 0.26,
+      "max_dd_pct": -36.6,
+      "t": 1.02
+     },
+     "USDCAD": {
+      "years": 23.6,
+      "return_pct_yr": -4.83,
+      "vol_pct": 10.3,
+      "sharpe": -0.47,
+      "max_dd_pct": -80.2,
+      "t": -2.27
+     },
+     "USDCHF": {
+      "years": 23.8,
+      "return_pct_yr": -7.43,
+      "vol_pct": 11.1,
+      "sharpe": -0.67,
+      "max_dd_pct": -86.6,
+      "t": -3.25
+     },
+     "USDJPY": {
+      "years": 23.1,
+      "return_pct_yr": -2.3,
+      "vol_pct": 10.7,
+      "sharpe": -0.21,
+      "max_dd_pct": -52.8,
+      "t": -1.03
+     },
+     "USOIL": {
+      "years": 14.9,
+      "return_pct_yr": -1.29,
+      "vol_pct": 10.9,
+      "sharpe": -0.12,
+      "max_dd_pct": -39.4,
+      "t": -0.46
+     },
+     "USTEC": {
+      "years": 14.8,
+      "return_pct_yr": 5.42,
+      "vol_pct": 10.8,
+      "sharpe": 0.5,
+      "max_dd_pct": -26.6,
+      "t": 1.93
+     },
+     "XAGUSD": {
+      "years": 12.2,
+      "return_pct_yr": -0.7,
+      "vol_pct": 10.7,
+      "sharpe": -0.07,
+      "max_dd_pct": -44.6,
+      "t": -0.23
+     },
+     "XAUUSD": {
+      "years": 23.8,
+      "return_pct_yr": 4.23,
+      "vol_pct": 10.6,
+      "sharpe": 0.4,
+      "max_dd_pct": -26.4,
+      "t": 1.94
+     },
+     "XCUUSD": {
+      "years": 14.6,
+      "return_pct_yr": -1.11,
+      "vol_pct": 10.5,
+      "sharpe": -0.11,
+      "max_dd_pct": -35.0,
+      "t": -0.4
+     },
+     "XNGUSD": {
+      "years": 14.2,
+      "return_pct_yr": -3.07,
+      "vol_pct": 10.9,
+      "sharpe": -0.28,
+      "max_dd_pct": -46.7,
+      "t": -1.06
+     }
+    }
+   },
+   "after spread only": {
+    "all 21 markets": {
+     "years": 23.9,
+     "return_pct_yr": 1.65,
+     "vol_pct": 5.0,
+     "sharpe": 0.33,
+     "max_dd_pct": -16.9,
+     "t": 1.61
+    },
+    "your 7 markets": {
+     "years": 23.9,
+     "return_pct_yr": 3.35,
+     "vol_pct": 6.2,
+     "sharpe": 0.54,
+     "max_dd_pct": -15.8,
+     "t": 2.64
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.4,
+      "return_pct_yr": 3.75,
+      "vol_pct": 6.3,
+      "sharpe": 0.6,
+      "max_dd_pct": -8.6,
+      "t": 1.52
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": 2.34,
+      "vol_pct": 5.1,
+      "sharpe": 0.45,
+      "max_dd_pct": -16.9,
+      "t": 1.03
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -0.12,
+      "vol_pct": 4.0,
+      "sharpe": -0.03,
+      "max_dd_pct": -9.3,
+      "t": -0.07
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": 0.55,
+      "vol_pct": 4.3,
+      "sharpe": 0.13,
+      "max_dd_pct": -10.5,
+      "t": 0.34
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.6,
+      "return_pct_yr": 0.62,
+      "vol_pct": 10.5,
+      "sharpe": 0.06,
+      "max_dd_pct": -33.2,
+      "t": 0.29
+     },
+     "BTCUSD": {
+      "years": 9.4,
+      "return_pct_yr": 5.61,
+      "vol_pct": 10.8,
+      "sharpe": 0.52,
+      "max_dd_pct": -23.7,
+      "t": 1.58
+     },
+     "DE40": {
+      "years": 14.3,
+      "return_pct_yr": 2.23,
+      "vol_pct": 10.7,
+      "sharpe": 0.21,
+      "max_dd_pct": -21.2,
+      "t": 0.79
+     },
+     "ETHUSD": {
+      "years": 8.8,
+      "return_pct_yr": 1.19,
+      "vol_pct": 10.7,
+      "sharpe": 0.11,
+      "max_dd_pct": -27.0,
+      "t": 0.33
+     },
+     "EURJPY": {
+      "years": 23.6,
+      "return_pct_yr": -0.73,
+      "vol_pct": 10.5,
+      "sharpe": -0.07,
+      "max_dd_pct": -49.3,
+      "t": -0.34
+     },
+     "EURUSD": {
+      "years": 23.9,
+      "return_pct_yr": 3.9,
+      "vol_pct": 10.3,
+      "sharpe": 0.38,
+      "max_dd_pct": -24.9,
+      "t": 1.84
+     },
+     "GBPJPY": {
+      "years": 18.4,
+      "return_pct_yr": 3.13,
+      "vol_pct": 13.1,
+      "sharpe": 0.24,
+      "max_dd_pct": -30.9,
+      "t": 1.02
+     },
+     "GBPUSD": {
+      "years": 23.9,
+      "return_pct_yr": 1.99,
+      "vol_pct": 10.4,
+      "sharpe": 0.19,
+      "max_dd_pct": -44.9,
+      "t": 0.93
+     },
+     "NZDUSD": {
+      "years": 18.4,
+      "return_pct_yr": -6.27,
+      "vol_pct": 10.3,
+      "sharpe": -0.61,
+      "max_dd_pct": -74.5,
+      "t": -2.61
+     },
+     "UKOIL": {
+      "years": 15.7,
+      "return_pct_yr": -3.47,
+      "vol_pct": 11.0,
+      "sharpe": -0.32,
+      "max_dd_pct": -53.0,
+      "t": -1.25
+     },
+     "US30": {
+      "years": 14.5,
+      "return_pct_yr": 5.15,
+      "vol_pct": 10.9,
+      "sharpe": 0.47,
+      "max_dd_pct": -29.7,
+      "t": 1.8
+     },
+     "US500": {
+      "years": 14.8,
+      "return_pct_yr": 5.34,
+      "vol_pct": 10.9,
+      "sharpe": 0.49,
+      "max_dd_pct": -32.9,
+      "t": 1.88
+     },
+     "USDCAD": {
+      "years": 23.6,
+      "return_pct_yr": -0.45,
+      "vol_pct": 10.3,
+      "sharpe": -0.04,
+      "max_dd_pct": -58.2,
+      "t": -0.21
+     },
+     "USDCHF": {
+      "years": 23.8,
+      "return_pct_yr": -3.72,
+      "vol_pct": 11.1,
+      "sharpe": -0.33,
+      "max_dd_pct": -74.4,
+      "t": -1.63
+     },
+     "USDJPY": {
+      "years": 23.1,
+      "return_pct_yr": 1.35,
+      "vol_pct": 10.7,
+      "sharpe": 0.13,
+      "max_dd_pct": -34.5,
+      "t": 0.6
+     },
+     "USOIL": {
+      "years": 14.9,
+      "return_pct_yr": -0.26,
+      "vol_pct": 10.9,
+      "sharpe": -0.02,
+      "max_dd_pct": -36.6,
+      "t": -0.09
+     },
+     "USTEC": {
+      "years": 14.8,
+      "return_pct_yr": 7.28,
+      "vol_pct": 10.8,
+      "sharpe": 0.67,
+      "max_dd_pct": -24.5,
+      "t": 2.59
+     },
+     "XAGUSD": {
+      "years": 12.2,
+      "return_pct_yr": 0.57,
+      "vol_pct": 10.7,
+      "sharpe": 0.05,
+      "max_dd_pct": -37.1,
+      "t": 0.18
+     },
+     "XAUUSD": {
+      "years": 23.8,
+      "return_pct_yr": 6.3,
+      "vol_pct": 10.6,
+      "sharpe": 0.59,
+      "max_dd_pct": -21.6,
+      "t": 2.89
+     },
+     "XCUUSD": {
+      "years": 14.6,
+      "return_pct_yr": 0.4,
+      "vol_pct": 10.5,
+      "sharpe": 0.04,
+      "max_dd_pct": -29.4,
+      "t": 0.15
+     },
+     "XNGUSD": {
+      "years": 14.2,
+      "return_pct_yr": -2.39,
+      "vol_pct": 10.9,
+      "sharpe": -0.22,
+      "max_dd_pct": -41.6,
+      "t": -0.83
+     }
+    }
+   }
+  },
+  "momentum 250d": {
+   "after spread + financing": {
+    "all 21 markets": {
+     "years": 23.4,
+     "return_pct_yr": -1.61,
+     "vol_pct": 5.0,
+     "sharpe": -0.32,
+     "max_dd_pct": -38.6,
+     "t": -1.57
+    },
+    "your 7 markets": {
+     "years": 23.4,
+     "return_pct_yr": -0.14,
+     "vol_pct": 6.1,
+     "sharpe": -0.02,
+     "max_dd_pct": -32.9,
+     "t": -0.11
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 5.9,
+      "return_pct_yr": -1.7,
+      "vol_pct": 6.4,
+      "sharpe": -0.27,
+      "max_dd_pct": -18.6,
+      "t": -0.65
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": -1.32,
+      "vol_pct": 4.9,
+      "sharpe": -0.27,
+      "max_dd_pct": -13.7,
+      "t": -0.62
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -3.29,
+      "vol_pct": 4.1,
+      "sharpe": -0.8,
+      "max_dd_pct": -19.2,
+      "t": -1.81
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": -0.52,
+      "vol_pct": 4.2,
+      "sharpe": -0.13,
+      "max_dd_pct": -12.7,
+      "t": -0.33
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.1,
+      "return_pct_yr": -1.96,
+      "vol_pct": 10.4,
+      "sharpe": -0.19,
+      "max_dd_pct": -49.5,
+      "t": -0.9
+     },
+     "BTCUSD": {
+      "years": 8.9,
+      "return_pct_yr": 3.68,
+      "vol_pct": 10.9,
+      "sharpe": 0.34,
+      "max_dd_pct": -28.4,
+      "t": 1.01
+     },
+     "DE40": {
+      "years": 13.8,
+      "return_pct_yr": -0.78,
+      "vol_pct": 10.7,
+      "sharpe": -0.07,
+      "max_dd_pct": -48.7,
+      "t": -0.27
+     },
+     "ETHUSD": {
+      "years": 8.3,
+      "return_pct_yr": 1.16,
+      "vol_pct": 10.7,
+      "sharpe": 0.11,
+      "max_dd_pct": -24.3,
+      "t": 0.31
+     },
+     "EURJPY": {
+      "years": 23.1,
+      "return_pct_yr": -1.74,
+      "vol_pct": 10.5,
+      "sharpe": -0.17,
+      "max_dd_pct": -45.5,
+      "t": -0.8
+     },
+     "EURUSD": {
+      "years": 23.4,
+      "return_pct_yr": -5.14,
+      "vol_pct": 10.3,
+      "sharpe": -0.5,
+      "max_dd_pct": -79.1,
+      "t": -2.4
+     },
+     "GBPJPY": {
+      "years": 17.9,
+      "return_pct_yr": -0.4,
+      "vol_pct": 13.2,
+      "sharpe": -0.03,
+      "max_dd_pct": -41.9,
+      "t": -0.13
+     },
+     "GBPUSD": {
+      "years": 23.4,
+      "return_pct_yr": -5.39,
+      "vol_pct": 10.4,
+      "sharpe": -0.52,
+      "max_dd_pct": -77.3,
+      "t": -2.51
+     },
+     "NZDUSD": {
+      "years": 17.9,
+      "return_pct_yr": -3.47,
+      "vol_pct": 10.3,
+      "sharpe": -0.34,
+      "max_dd_pct": -58.7,
+      "t": -1.43
+     },
+     "UKOIL": {
+      "years": 15.2,
+      "return_pct_yr": 1.09,
+      "vol_pct": 11.0,
+      "sharpe": 0.1,
+      "max_dd_pct": -41.7,
+      "t": 0.39
+     },
+     "US30": {
+      "years": 14.0,
+      "return_pct_yr": 0.65,
+      "vol_pct": 10.9,
+      "sharpe": 0.06,
+      "max_dd_pct": -42.8,
+      "t": 0.22
+     },
+     "US500": {
+      "years": 14.3,
+      "return_pct_yr": 2.57,
+      "vol_pct": 11.0,
+      "sharpe": 0.23,
+      "max_dd_pct": -31.4,
+      "t": 0.89
+     },
+     "USDCAD": {
+      "years": 23.1,
+      "return_pct_yr": -6.14,
+      "vol_pct": 10.4,
+      "sharpe": -0.59,
+      "max_dd_pct": -82.4,
+      "t": -2.85
+     },
+     "USDCHF": {
+      "years": 23.3,
+      "return_pct_yr": -7.11,
+      "vol_pct": 11.2,
+      "sharpe": -0.64,
+      "max_dd_pct": -86.3,
+      "t": -3.08
+     },
+     "USDJPY": {
+      "years": 22.6,
+      "return_pct_yr": -1.08,
+      "vol_pct": 10.7,
+      "sharpe": -0.1,
+      "max_dd_pct": -50.9,
+      "t": -0.48
+     },
+     "USOIL": {
+      "years": 14.4,
+      "return_pct_yr": -0.22,
+      "vol_pct": 10.9,
+      "sharpe": -0.02,
+      "max_dd_pct": -43.9,
+      "t": -0.08
+     },
+     "USTEC": {
+      "years": 14.3,
+      "return_pct_yr": 2.9,
+      "vol_pct": 10.8,
+      "sharpe": 0.27,
+      "max_dd_pct": -27.0,
+      "t": 1.01
+     },
+     "XAGUSD": {
+      "years": 11.7,
+      "return_pct_yr": 0.02,
+      "vol_pct": 10.8,
+      "sharpe": 0.0,
+      "max_dd_pct": -38.7,
+      "t": 0.01
+     },
+     "XAUUSD": {
+      "years": 23.3,
+      "return_pct_yr": 3.54,
+      "vol_pct": 10.6,
+      "sharpe": 0.33,
+      "max_dd_pct": -51.2,
+      "t": 1.61
+     },
+     "XCUUSD": {
+      "years": 14.1,
+      "return_pct_yr": 2.84,
+      "vol_pct": 10.6,
+      "sharpe": 0.27,
+      "max_dd_pct": -30.7,
+      "t": 1.01
+     },
+     "XNGUSD": {
+      "years": 13.7,
+      "return_pct_yr": -1.59,
+      "vol_pct": 10.9,
+      "sharpe": -0.15,
+      "max_dd_pct": -41.9,
+      "t": -0.54
+     }
+    }
+   },
+   "after spread only": {
+    "all 21 markets": {
+     "years": 23.4,
+     "return_pct_yr": 1.14,
+     "vol_pct": 5.0,
+     "sharpe": 0.23,
+     "max_dd_pct": -14.1,
+     "t": 1.11
+    },
+    "your 7 markets": {
+     "years": 23.4,
+     "return_pct_yr": 2.32,
+     "vol_pct": 6.1,
+     "sharpe": 0.38,
+     "max_dd_pct": -22.9,
+     "t": 1.83
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 5.9,
+      "return_pct_yr": 1.34,
+      "vol_pct": 6.4,
+      "sharpe": 0.21,
+      "max_dd_pct": -9.7,
+      "t": 0.51
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": 1.62,
+      "vol_pct": 4.9,
+      "sharpe": 0.33,
+      "max_dd_pct": -10.5,
+      "t": 0.76
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -0.64,
+      "vol_pct": 4.1,
+      "sharpe": -0.16,
+      "max_dd_pct": -11.2,
+      "t": -0.35
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": 1.92,
+      "vol_pct": 4.2,
+      "sharpe": 0.46,
+      "max_dd_pct": -9.2,
+      "t": 1.22
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.1,
+      "return_pct_yr": 1.16,
+      "vol_pct": 10.4,
+      "sharpe": 0.11,
+      "max_dd_pct": -23.9,
+      "t": 0.54
+     },
+     "BTCUSD": {
+      "years": 8.9,
+      "return_pct_yr": 4.24,
+      "vol_pct": 10.9,
+      "sharpe": 0.39,
+      "max_dd_pct": -27.8,
+      "t": 1.16
+     },
+     "DE40": {
+      "years": 13.8,
+      "return_pct_yr": 1.2,
+      "vol_pct": 10.7,
+      "sharpe": 0.11,
+      "max_dd_pct": -38.4,
+      "t": 0.42
+     },
+     "ETHUSD": {
+      "years": 8.3,
+      "return_pct_yr": 1.58,
+      "vol_pct": 10.7,
+      "sharpe": 0.15,
+      "max_dd_pct": -23.9,
+      "t": 0.42
+     },
+     "EURJPY": {
+      "years": 23.1,
+      "return_pct_yr": 1.74,
+      "vol_pct": 10.5,
+      "sharpe": 0.17,
+      "max_dd_pct": -28.2,
+      "t": 0.8
+     },
+     "EURUSD": {
+      "years": 23.4,
+      "return_pct_yr": -1.11,
+      "vol_pct": 10.3,
+      "sharpe": -0.11,
+      "max_dd_pct": -55.1,
+      "t": -0.52
+     },
+     "GBPJPY": {
+      "years": 17.9,
+      "return_pct_yr": 2.75,
+      "vol_pct": 13.2,
+      "sharpe": 0.21,
+      "max_dd_pct": -38.6,
+      "t": 0.88
+     },
+     "GBPUSD": {
+      "years": 23.4,
+      "return_pct_yr": -1.57,
+      "vol_pct": 10.4,
+      "sharpe": -0.15,
+      "max_dd_pct": -47.6,
+      "t": -0.73
+     },
+     "NZDUSD": {
+      "years": 17.9,
+      "return_pct_yr": -0.43,
+      "vol_pct": 10.3,
+      "sharpe": -0.04,
+      "max_dd_pct": -39.7,
+      "t": -0.18
+     },
+     "UKOIL": {
+      "years": 15.2,
+      "return_pct_yr": 2.17,
+      "vol_pct": 11.0,
+      "sharpe": 0.2,
+      "max_dd_pct": -39.7,
+      "t": 0.77
+     },
+     "US30": {
+      "years": 14.0,
+      "return_pct_yr": 3.21,
+      "vol_pct": 10.9,
+      "sharpe": 0.29,
+      "max_dd_pct": -33.0,
+      "t": 1.1
+     },
+     "US500": {
+      "years": 14.3,
+      "return_pct_yr": 5.03,
+      "vol_pct": 11.0,
+      "sharpe": 0.46,
+      "max_dd_pct": -27.7,
+      "t": 1.74
+     },
+     "USDCAD": {
+      "years": 23.1,
+      "return_pct_yr": -1.74,
+      "vol_pct": 10.4,
+      "sharpe": -0.17,
+      "max_dd_pct": -57.4,
+      "t": -0.81
+     },
+     "USDCHF": {
+      "years": 23.3,
+      "return_pct_yr": -3.37,
+      "vol_pct": 11.2,
+      "sharpe": -0.3,
+      "max_dd_pct": -70.5,
+      "t": -1.46
+     },
+     "USDJPY": {
+      "years": 22.6,
+      "return_pct_yr": 2.57,
+      "vol_pct": 10.7,
+      "sharpe": 0.24,
+      "max_dd_pct": -35.3,
+      "t": 1.14
+     },
+     "USOIL": {
+      "years": 14.4,
+      "return_pct_yr": 0.81,
+      "vol_pct": 10.9,
+      "sharpe": 0.07,
+      "max_dd_pct": -41.7,
+      "t": 0.28
+     },
+     "USTEC": {
+      "years": 14.3,
+      "return_pct_yr": 4.76,
+      "vol_pct": 10.8,
+      "sharpe": 0.44,
+      "max_dd_pct": -25.0,
+      "t": 1.66
+     },
+     "XAGUSD": {
+      "years": 11.7,
+      "return_pct_yr": 1.29,
+      "vol_pct": 10.8,
+      "sharpe": 0.12,
+      "max_dd_pct": -31.1,
+      "t": 0.41
+     },
+     "XAUUSD": {
+      "years": 23.3,
+      "return_pct_yr": 5.61,
+      "vol_pct": 10.6,
+      "sharpe": 0.53,
+      "max_dd_pct": -40.0,
+      "t": 2.55
+     },
+     "XCUUSD": {
+      "years": 14.1,
+      "return_pct_yr": 4.34,
+      "vol_pct": 10.6,
+      "sharpe": 0.41,
+      "max_dd_pct": -28.9,
+      "t": 1.54
+     },
+     "XNGUSD": {
+      "years": 13.7,
+      "return_pct_yr": -0.91,
+      "vol_pct": 10.9,
+      "sharpe": -0.08,
+      "max_dd_pct": -37.7,
+      "t": -0.31
+     }
+    }
+   }
+  },
+  "blend": {
+   "after spread + financing": {
+    "all 21 markets": {
+     "years": 23.4,
+     "return_pct_yr": -1.02,
+     "vol_pct": 3.9,
+     "sharpe": -0.26,
+     "max_dd_pct": -25.7,
+     "t": -1.27
+    },
+    "your 7 markets": {
+     "years": 23.4,
+     "return_pct_yr": 0.99,
+     "vol_pct": 4.8,
+     "sharpe": 0.21,
+     "max_dd_pct": -15.8,
+     "t": 1.01
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 5.9,
+      "return_pct_yr": -0.51,
+      "vol_pct": 4.8,
+      "sharpe": -0.11,
+      "max_dd_pct": -12.1,
+      "t": -0.26
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": -0.68,
+      "vol_pct": 3.8,
+      "sharpe": -0.18,
+      "max_dd_pct": -13.1,
+      "t": -0.4
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -1.78,
+      "vol_pct": 3.2,
+      "sharpe": -0.55,
+      "max_dd_pct": -11.3,
+      "t": -1.26
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": -1.14,
+      "vol_pct": 3.5,
+      "sharpe": -0.33,
+      "max_dd_pct": -13.6,
+      "t": -0.88
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.1,
+      "return_pct_yr": -1.91,
+      "vol_pct": 7.8,
+      "sharpe": -0.24,
+      "max_dd_pct": -45.8,
+      "t": -1.18
+     },
+     "BTCUSD": {
+      "years": 8.9,
+      "return_pct_yr": 6.07,
+      "vol_pct": 7.7,
+      "sharpe": 0.79,
+      "max_dd_pct": -10.6,
+      "t": 2.34
+     },
+     "DE40": {
+      "years": 13.8,
+      "return_pct_yr": -2.33,
+      "vol_pct": 7.8,
+      "sharpe": -0.3,
+      "max_dd_pct": -34.5,
+      "t": -1.11
+     },
+     "ETHUSD": {
+      "years": 8.3,
+      "return_pct_yr": 1.47,
+      "vol_pct": 8.1,
+      "sharpe": 0.18,
+      "max_dd_pct": -17.8,
+      "t": 0.52
+     },
+     "EURJPY": {
+      "years": 23.1,
+      "return_pct_yr": -1.61,
+      "vol_pct": 7.8,
+      "sharpe": -0.21,
+      "max_dd_pct": -40.2,
+      "t": -0.99
+     },
+     "EURUSD": {
+      "years": 23.4,
+      "return_pct_yr": -1.71,
+      "vol_pct": 7.7,
+      "sharpe": -0.22,
+      "max_dd_pct": -45.8,
+      "t": -1.07
+     },
+     "GBPJPY": {
+      "years": 17.9,
+      "return_pct_yr": -0.13,
+      "vol_pct": 7.8,
+      "sharpe": -0.02,
+      "max_dd_pct": -32.9,
+      "t": -0.07
+     },
+     "GBPUSD": {
+      "years": 23.4,
+      "return_pct_yr": -2.58,
+      "vol_pct": 7.6,
+      "sharpe": -0.34,
+      "max_dd_pct": -51.9,
+      "t": -1.64
+     },
+     "NZDUSD": {
+      "years": 17.9,
+      "return_pct_yr": -4.62,
+      "vol_pct": 7.5,
+      "sharpe": -0.61,
+      "max_dd_pct": -62.3,
+      "t": -2.6
+     },
+     "UKOIL": {
+      "years": 15.2,
+      "return_pct_yr": -0.97,
+      "vol_pct": 8.1,
+      "sharpe": -0.12,
+      "max_dd_pct": -37.1,
+      "t": -0.47
+     },
+     "US30": {
+      "years": 14.0,
+      "return_pct_yr": 0.06,
+      "vol_pct": 8.4,
+      "sharpe": 0.01,
+      "max_dd_pct": -32.5,
+      "t": 0.03
+     },
+     "US500": {
+      "years": 14.3,
+      "return_pct_yr": 2.3,
+      "vol_pct": 8.4,
+      "sharpe": 0.27,
+      "max_dd_pct": -18.5,
+      "t": 1.03
+     },
+     "USDCAD": {
+      "years": 23.1,
+      "return_pct_yr": -4.24,
+      "vol_pct": 7.6,
+      "sharpe": -0.56,
+      "max_dd_pct": -69.5,
+      "t": -2.67
+     },
+     "USDCHF": {
+      "years": 23.3,
+      "return_pct_yr": -5.0,
+      "vol_pct": 8.7,
+      "sharpe": -0.57,
+      "max_dd_pct": -73.4,
+      "t": -2.78
+     },
+     "USDJPY": {
+      "years": 22.6,
+      "return_pct_yr": 0.14,
+      "vol_pct": 8.0,
+      "sharpe": 0.02,
+      "max_dd_pct": -31.1,
+      "t": 0.08
+     },
+     "USOIL": {
+      "years": 14.4,
+      "return_pct_yr": 0.23,
+      "vol_pct": 8.2,
+      "sharpe": 0.03,
+      "max_dd_pct": -30.2,
+      "t": 0.11
+     },
+     "USTEC": {
+      "years": 14.3,
+      "return_pct_yr": 3.28,
+      "vol_pct": 8.4,
+      "sharpe": 0.39,
+      "max_dd_pct": -14.6,
+      "t": 1.47
+     },
+     "XAGUSD": {
+      "years": 11.7,
+      "return_pct_yr": -0.75,
+      "vol_pct": 8.3,
+      "sharpe": -0.09,
+      "max_dd_pct": -35.0,
+      "t": -0.31
+     },
+     "XAUUSD": {
+      "years": 23.3,
+      "return_pct_yr": 3.44,
+      "vol_pct": 8.4,
+      "sharpe": 0.41,
+      "max_dd_pct": -21.4,
+      "t": 1.99
+     },
+     "XCUUSD": {
+      "years": 14.1,
+      "return_pct_yr": -1.31,
+      "vol_pct": 8.3,
+      "sharpe": -0.16,
+      "max_dd_pct": -31.1,
+      "t": -0.59
+     },
+     "XNGUSD": {
+      "years": 13.7,
+      "return_pct_yr": -3.59,
+      "vol_pct": 7.9,
+      "sharpe": -0.45,
+      "max_dd_pct": -44.0,
+      "t": -1.67
+     }
+    }
+   },
+   "after spread only": {
+    "all 21 markets": {
+     "years": 23.4,
+     "return_pct_yr": 0.72,
+     "vol_pct": 3.9,
+     "sharpe": 0.19,
+     "max_dd_pct": -9.3,
+     "t": 0.9
+    },
+    "your 7 markets": {
+     "years": 23.4,
+     "return_pct_yr": 2.53,
+     "vol_pct": 4.8,
+     "sharpe": 0.53,
+     "max_dd_pct": -9.3,
+     "t": 2.57
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 5.9,
+      "return_pct_yr": 1.43,
+      "vol_pct": 4.8,
+      "sharpe": 0.3,
+      "max_dd_pct": -7.9,
+      "t": 0.73
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": 1.17,
+      "vol_pct": 3.8,
+      "sharpe": 0.31,
+      "max_dd_pct": -9.3,
+      "t": 0.69
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -0.14,
+      "vol_pct": 3.2,
+      "sharpe": -0.05,
+      "max_dd_pct": -7.0,
+      "t": -0.1
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": 0.44,
+      "vol_pct": 3.5,
+      "sharpe": 0.13,
+      "max_dd_pct": -7.4,
+      "t": 0.34
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.1,
+      "return_pct_yr": -0.02,
+      "vol_pct": 7.8,
+      "sharpe": -0.0,
+      "max_dd_pct": -26.4,
+      "t": -0.01
+     },
+     "BTCUSD": {
+      "years": 8.9,
+      "return_pct_yr": 6.4,
+      "vol_pct": 7.7,
+      "sharpe": 0.83,
+      "max_dd_pct": -10.3,
+      "t": 2.47
+     },
+     "DE40": {
+      "years": 13.8,
+      "return_pct_yr": -0.99,
+      "vol_pct": 7.8,
+      "sharpe": -0.13,
+      "max_dd_pct": -24.9,
+      "t": -0.47
+     },
+     "ETHUSD": {
+      "years": 8.3,
+      "return_pct_yr": 1.71,
+      "vol_pct": 8.1,
+      "sharpe": 0.21,
+      "max_dd_pct": -17.6,
+      "t": 0.61
+     },
+     "EURJPY": {
+      "years": 23.1,
+      "return_pct_yr": 0.66,
+      "vol_pct": 7.8,
+      "sharpe": 0.08,
+      "max_dd_pct": -25.3,
+      "t": 0.41
+     },
+     "EURUSD": {
+      "years": 23.4,
+      "return_pct_yr": 0.89,
+      "vol_pct": 7.7,
+      "sharpe": 0.12,
+      "max_dd_pct": -26.3,
+      "t": 0.56
+     },
+     "GBPJPY": {
+      "years": 17.9,
+      "return_pct_yr": 1.87,
+      "vol_pct": 7.8,
+      "sharpe": 0.24,
+      "max_dd_pct": -20.4,
+      "t": 1.02
+     },
+     "GBPUSD": {
+      "years": 23.4,
+      "return_pct_yr": -0.2,
+      "vol_pct": 7.6,
+      "sharpe": -0.03,
+      "max_dd_pct": -31.5,
+      "t": -0.13
+     },
+     "NZDUSD": {
+      "years": 17.9,
+      "return_pct_yr": -2.8,
+      "vol_pct": 7.5,
+      "sharpe": -0.37,
+      "max_dd_pct": -48.5,
+      "t": -1.58
+     },
+     "UKOIL": {
+      "years": 15.2,
+      "return_pct_yr": -0.32,
+      "vol_pct": 8.1,
+      "sharpe": -0.04,
+      "max_dd_pct": -36.0,
+      "t": -0.15
+     },
+     "US30": {
+      "years": 14.0,
+      "return_pct_yr": 1.95,
+      "vol_pct": 8.4,
+      "sharpe": 0.23,
+      "max_dd_pct": -26.5,
+      "t": 0.87
+     },
+     "US500": {
+      "years": 14.3,
+      "return_pct_yr": 4.21,
+      "vol_pct": 8.4,
+      "sharpe": 0.5,
+      "max_dd_pct": -16.2,
+      "t": 1.89
+     },
+     "USDCAD": {
+      "years": 23.1,
+      "return_pct_yr": -1.56,
+      "vol_pct": 7.6,
+      "sharpe": -0.2,
+      "max_dd_pct": -49.4,
+      "t": -0.98
+     },
+     "USDCHF": {
+      "years": 23.3,
+      "return_pct_yr": -2.72,
+      "vol_pct": 8.7,
+      "sharpe": -0.31,
+      "max_dd_pct": -61.3,
+      "t": -1.51
+     },
+     "USDJPY": {
+      "years": 22.6,
+      "return_pct_yr": 2.44,
+      "vol_pct": 8.0,
+      "sharpe": 0.3,
+      "max_dd_pct": -22.9,
+      "t": 1.44
+     },
+     "USOIL": {
+      "years": 14.4,
+      "return_pct_yr": 0.84,
+      "vol_pct": 8.2,
+      "sharpe": 0.1,
+      "max_dd_pct": -28.6,
+      "t": 0.39
+     },
+     "USTEC": {
+      "years": 14.3,
+      "return_pct_yr": 4.74,
+      "vol_pct": 8.4,
+      "sharpe": 0.56,
+      "max_dd_pct": -14.4,
+      "t": 2.13
+     },
+     "XAGUSD": {
+      "years": 11.7,
+      "return_pct_yr": 0.0,
+      "vol_pct": 8.3,
+      "sharpe": 0.0,
+      "max_dd_pct": -29.7,
+      "t": 0.0
+     },
+     "XAUUSD": {
+      "years": 23.3,
+      "return_pct_yr": 4.7,
+      "vol_pct": 8.4,
+      "sharpe": 0.56,
+      "max_dd_pct": -18.4,
+      "t": 2.72
+     },
+     "XCUUSD": {
+      "years": 14.1,
+      "return_pct_yr": -0.38,
+      "vol_pct": 8.3,
+      "sharpe": -0.05,
+      "max_dd_pct": -29.7,
+      "t": -0.17
+     },
+     "XNGUSD": {
+      "years": 13.7,
+      "return_pct_yr": -3.19,
+      "vol_pct": 7.9,
+      "sharpe": -0.4,
+      "max_dd_pct": -41.1,
+      "t": -1.49
+     }
+    }
+   }
+  },
+  "ema 50/200": {
+   "after spread + financing": {
+    "all 21 markets": {
+     "years": 24.1,
+     "return_pct_yr": -2.06,
+     "vol_pct": 5.0,
+     "sharpe": -0.41,
+     "max_dd_pct": -42.1,
+     "t": -2.03
+    },
+    "your 7 markets": {
+     "years": 24.1,
+     "return_pct_yr": -0.11,
+     "vol_pct": 6.2,
+     "sharpe": -0.02,
+     "max_dd_pct": -33.0,
+     "t": -0.09
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.7,
+      "return_pct_yr": -1.31,
+      "vol_pct": 6.4,
+      "sharpe": -0.21,
+      "max_dd_pct": -14.9,
+      "t": -0.53
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": -1.27,
+      "vol_pct": 4.8,
+      "sharpe": -0.27,
+      "max_dd_pct": -17.1,
+      "t": -0.6
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -4.08,
+      "vol_pct": 4.0,
+      "sharpe": -1.02,
+      "max_dd_pct": -21.4,
+      "t": -2.32
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": -1.86,
+      "vol_pct": 4.2,
+      "sharpe": -0.44,
+      "max_dd_pct": -16.6,
+      "t": -1.18
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.9,
+      "return_pct_yr": -4.7,
+      "vol_pct": 10.5,
+      "sharpe": -0.45,
+      "max_dd_pct": -75.1,
+      "t": -2.2
+     },
+     "BTCUSD": {
+      "years": 9.6,
+      "return_pct_yr": 2.84,
+      "vol_pct": 10.8,
+      "sharpe": 0.26,
+      "max_dd_pct": -35.8,
+      "t": 0.81
+     },
+     "DE40": {
+      "years": 14.5,
+      "return_pct_yr": -1.48,
+      "vol_pct": 10.6,
+      "sharpe": -0.14,
+      "max_dd_pct": -51.8,
+      "t": -0.53
+     },
+     "ETHUSD": {
+      "years": 9.0,
+      "return_pct_yr": -3.45,
+      "vol_pct": 10.6,
+      "sharpe": -0.32,
+      "max_dd_pct": -36.5,
+      "t": -0.97
+     },
+     "EURJPY": {
+      "years": 23.9,
+      "return_pct_yr": -4.57,
+      "vol_pct": 10.5,
+      "sharpe": -0.44,
+      "max_dd_pct": -73.2,
+      "t": -2.14
+     },
+     "EURUSD": {
+      "years": 24.1,
+      "return_pct_yr": -2.38,
+      "vol_pct": 10.3,
+      "sharpe": -0.23,
+      "max_dd_pct": -62.1,
+      "t": -1.13
+     },
+     "GBPJPY": {
+      "years": 18.7,
+      "return_pct_yr": -3.72,
+      "vol_pct": 13.1,
+      "sharpe": -0.28,
+      "max_dd_pct": -59.9,
+      "t": -1.23
+     },
+     "GBPUSD": {
+      "years": 24.1,
+      "return_pct_yr": -3.68,
+      "vol_pct": 10.4,
+      "sharpe": -0.35,
+      "max_dd_pct": -70.0,
+      "t": -1.74
+     },
+     "NZDUSD": {
+      "years": 18.7,
+      "return_pct_yr": -7.99,
+      "vol_pct": 10.3,
+      "sharpe": -0.77,
+      "max_dd_pct": -83.3,
+      "t": -3.34
+     },
+     "UKOIL": {
+      "years": 15.9,
+      "return_pct_yr": -1.22,
+      "vol_pct": 11.0,
+      "sharpe": -0.11,
+      "max_dd_pct": -40.0,
+      "t": -0.44
+     },
+     "US30": {
+      "years": 14.7,
+      "return_pct_yr": 0.6,
+      "vol_pct": 10.9,
+      "sharpe": 0.05,
+      "max_dd_pct": -38.3,
+      "t": 0.21
+     },
+     "US500": {
+      "years": 15.0,
+      "return_pct_yr": 3.05,
+      "vol_pct": 10.9,
+      "sharpe": 0.28,
+      "max_dd_pct": -23.8,
+      "t": 1.08
+     },
+     "USDCAD": {
+      "years": 23.9,
+      "return_pct_yr": -5.18,
+      "vol_pct": 10.3,
+      "sharpe": -0.5,
+      "max_dd_pct": -77.8,
+      "t": -2.45
+     },
+     "USDCHF": {
+      "years": 24.1,
+      "return_pct_yr": -5.29,
+      "vol_pct": 11.1,
+      "sharpe": -0.47,
+      "max_dd_pct": -79.1,
+      "t": -2.33
+     },
+     "USDJPY": {
+      "years": 23.3,
+      "return_pct_yr": -2.9,
+      "vol_pct": 10.8,
+      "sharpe": -0.27,
+      "max_dd_pct": -63.3,
+      "t": -1.3
+     },
+     "USOIL": {
+      "years": 15.1,
+      "return_pct_yr": -1.88,
+      "vol_pct": 10.9,
+      "sharpe": -0.17,
+      "max_dd_pct": -39.7,
+      "t": -0.67
+     },
+     "USTEC": {
+      "years": 15.0,
+      "return_pct_yr": 5.34,
+      "vol_pct": 10.8,
+      "sharpe": 0.49,
+      "max_dd_pct": -20.6,
+      "t": 1.91
+     },
+     "XAGUSD": {
+      "years": 12.4,
+      "return_pct_yr": -1.9,
+      "vol_pct": 10.8,
+      "sharpe": -0.18,
+      "max_dd_pct": -56.6,
+      "t": -0.62
+     },
+     "XAUUSD": {
+      "years": 24.0,
+      "return_pct_yr": 4.02,
+      "vol_pct": 10.6,
+      "sharpe": 0.38,
+      "max_dd_pct": -45.1,
+      "t": 1.86
+     },
+     "XCUUSD": {
+      "years": 14.9,
+      "return_pct_yr": -0.63,
+      "vol_pct": 10.5,
+      "sharpe": -0.06,
+      "max_dd_pct": -34.0,
+      "t": -0.23
+     },
+     "XNGUSD": {
+      "years": 14.4,
+      "return_pct_yr": -2.39,
+      "vol_pct": 10.8,
+      "sharpe": -0.22,
+      "max_dd_pct": -43.8,
+      "t": -0.84
+     }
+    }
+   },
+   "after spread only": {
+    "all 21 markets": {
+     "years": 24.1,
+     "return_pct_yr": 0.67,
+     "vol_pct": 5.0,
+     "sharpe": 0.13,
+     "max_dd_pct": -17.0,
+     "t": 0.66
+    },
+    "your 7 markets": {
+     "years": 24.1,
+     "return_pct_yr": 2.32,
+     "vol_pct": 6.2,
+     "sharpe": 0.38,
+     "max_dd_pct": -25.3,
+     "t": 1.85
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.7,
+      "return_pct_yr": 1.73,
+      "vol_pct": 6.4,
+      "sharpe": 0.27,
+      "max_dd_pct": -9.2,
+      "t": 0.7
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": 1.55,
+      "vol_pct": 4.8,
+      "sharpe": 0.32,
+      "max_dd_pct": -14.1,
+      "t": 0.74
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -1.47,
+      "vol_pct": 4.0,
+      "sharpe": -0.37,
+      "max_dd_pct": -11.8,
+      "t": -0.84
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": 0.59,
+      "vol_pct": 4.2,
+      "sharpe": 0.14,
+      "max_dd_pct": -9.6,
+      "t": 0.37
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.9,
+      "return_pct_yr": -1.6,
+      "vol_pct": 10.5,
+      "sharpe": -0.15,
+      "max_dd_pct": -51.0,
+      "t": -0.75
+     },
+     "BTCUSD": {
+      "years": 9.6,
+      "return_pct_yr": 3.38,
+      "vol_pct": 10.8,
+      "sharpe": 0.31,
+      "max_dd_pct": -35.4,
+      "t": 0.97
+     },
+     "DE40": {
+      "years": 14.5,
+      "return_pct_yr": 0.5,
+      "vol_pct": 10.6,
+      "sharpe": 0.05,
+      "max_dd_pct": -43.2,
+      "t": 0.18
+     },
+     "ETHUSD": {
+      "years": 9.0,
+      "return_pct_yr": -3.03,
+      "vol_pct": 10.6,
+      "sharpe": -0.29,
+      "max_dd_pct": -36.2,
+      "t": -0.86
+     },
+     "EURJPY": {
+      "years": 23.9,
+      "return_pct_yr": -1.12,
+      "vol_pct": 10.5,
+      "sharpe": -0.11,
+      "max_dd_pct": -48.5,
+      "t": -0.52
+     },
+     "EURUSD": {
+      "years": 24.1,
+      "return_pct_yr": 1.61,
+      "vol_pct": 10.3,
+      "sharpe": 0.16,
+      "max_dd_pct": -40.1,
+      "t": 0.77
+     },
+     "GBPJPY": {
+      "years": 18.7,
+      "return_pct_yr": -0.57,
+      "vol_pct": 13.1,
+      "sharpe": -0.04,
+      "max_dd_pct": -51.9,
+      "t": -0.19
+     },
+     "GBPUSD": {
+      "years": 24.1,
+      "return_pct_yr": 0.14,
+      "vol_pct": 10.4,
+      "sharpe": 0.01,
+      "max_dd_pct": -39.3,
+      "t": 0.06
+     },
+     "NZDUSD": {
+      "years": 18.7,
+      "return_pct_yr": -4.98,
+      "vol_pct": 10.3,
+      "sharpe": -0.48,
+      "max_dd_pct": -72.9,
+      "t": -2.08
+     },
+     "UKOIL": {
+      "years": 15.9,
+      "return_pct_yr": -0.14,
+      "vol_pct": 11.0,
+      "sharpe": -0.01,
+      "max_dd_pct": -37.0,
+      "t": -0.05
+     },
+     "US30": {
+      "years": 14.7,
+      "return_pct_yr": 3.17,
+      "vol_pct": 10.9,
+      "sharpe": 0.29,
+      "max_dd_pct": -30.1,
+      "t": 1.12
+     },
+     "US500": {
+      "years": 15.0,
+      "return_pct_yr": 5.51,
+      "vol_pct": 10.9,
+      "sharpe": 0.5,
+      "max_dd_pct": -22.0,
+      "t": 1.95
+     },
+     "USDCAD": {
+      "years": 23.9,
+      "return_pct_yr": -0.81,
+      "vol_pct": 10.3,
+      "sharpe": -0.08,
+      "max_dd_pct": -60.9,
+      "t": -0.38
+     },
+     "USDCHF": {
+      "years": 24.1,
+      "return_pct_yr": -1.59,
+      "vol_pct": 11.1,
+      "sharpe": -0.14,
+      "max_dd_pct": -62.5,
+      "t": -0.7
+     },
+     "USDJPY": {
+      "years": 23.3,
+      "return_pct_yr": 0.76,
+      "vol_pct": 10.8,
+      "sharpe": 0.07,
+      "max_dd_pct": -48.3,
+      "t": 0.34
+     },
+     "USOIL": {
+      "years": 15.1,
+      "return_pct_yr": -0.85,
+      "vol_pct": 10.9,
+      "sharpe": -0.08,
+      "max_dd_pct": -35.4,
+      "t": -0.3
+     },
+     "USTEC": {
+      "years": 15.0,
+      "return_pct_yr": 7.2,
+      "vol_pct": 10.8,
+      "sharpe": 0.67,
+      "max_dd_pct": -20.1,
+      "t": 2.58
+     },
+     "XAGUSD": {
+      "years": 12.4,
+      "return_pct_yr": -0.64,
+      "vol_pct": 10.8,
+      "sharpe": -0.06,
+      "max_dd_pct": -51.6,
+      "t": -0.21
+     },
+     "XAUUSD": {
+      "years": 24.0,
+      "return_pct_yr": 6.09,
+      "vol_pct": 10.6,
+      "sharpe": 0.57,
+      "max_dd_pct": -40.8,
+      "t": 2.81
+     },
+     "XCUUSD": {
+      "years": 14.9,
+      "return_pct_yr": 0.88,
+      "vol_pct": 10.5,
+      "sharpe": 0.08,
+      "max_dd_pct": -27.5,
+      "t": 0.32
+     },
+     "XNGUSD": {
+      "years": 14.4,
+      "return_pct_yr": -1.71,
+      "vol_pct": 10.8,
+      "sharpe": -0.16,
+      "max_dd_pct": -41.0,
+      "t": -0.6
+     }
+    }
+   }
+  },
+  "buy and hold": {
+   "after spread + financing": {
+    "all 21 markets": {
+     "years": 24.1,
+     "return_pct_yr": -0.7,
+     "vol_pct": 4.5,
+     "sharpe": -0.16,
+     "max_dd_pct": -35.4,
+     "t": -0.76
+    },
+    "your 7 markets": {
+     "years": 24.1,
+     "return_pct_yr": 0.75,
+     "vol_pct": 5.7,
+     "sharpe": 0.13,
+     "max_dd_pct": -28.1,
+     "t": 0.65
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.7,
+      "return_pct_yr": -1.29,
+      "vol_pct": 4.1,
+      "sharpe": -0.32,
+      "max_dd_pct": -14.9,
+      "t": -0.81
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": -2.38,
+      "vol_pct": 4.8,
+      "sharpe": -0.5,
+      "max_dd_pct": -11.3,
+      "t": -1.13
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": -1.48,
+      "vol_pct": 4.3,
+      "sharpe": -0.34,
+      "max_dd_pct": -12.4,
+      "t": -0.78
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": 1.64,
+      "vol_pct": 4.8,
+      "sharpe": 0.34,
+      "max_dd_pct": -9.9,
+      "t": 0.92
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.9,
+      "return_pct_yr": -4.43,
+      "vol_pct": 10.5,
+      "sharpe": -0.42,
+      "max_dd_pct": -75.1,
+      "t": -2.07
+     },
+     "BTCUSD": {
+      "years": 9.6,
+      "return_pct_yr": 6.94,
+      "vol_pct": 10.8,
+      "sharpe": 0.64,
+      "max_dd_pct": -22.4,
+      "t": 1.99
+     },
+     "DE40": {
+      "years": 14.5,
+      "return_pct_yr": 3.28,
+      "vol_pct": 10.6,
+      "sharpe": 0.31,
+      "max_dd_pct": -26.3,
+      "t": 1.18
+     },
+     "ETHUSD": {
+      "years": 9.0,
+      "return_pct_yr": 4.52,
+      "vol_pct": 10.6,
+      "sharpe": 0.43,
+      "max_dd_pct": -20.9,
+      "t": 1.28
+     },
+     "EURJPY": {
+      "years": 23.9,
+      "return_pct_yr": -1.0,
+      "vol_pct": 10.5,
+      "sharpe": -0.1,
+      "max_dd_pct": -53.7,
+      "t": -0.47
+     },
+     "EURUSD": {
+      "years": 24.1,
+      "return_pct_yr": -4.55,
+      "vol_pct": 10.3,
+      "sharpe": -0.44,
+      "max_dd_pct": -77.4,
+      "t": -2.16
+     },
+     "GBPJPY": {
+      "years": 18.7,
+      "return_pct_yr": -1.25,
+      "vol_pct": 13.1,
+      "sharpe": -0.1,
+      "max_dd_pct": -56.9,
+      "t": -0.41
+     },
+     "GBPUSD": {
+      "years": 24.1,
+      "return_pct_yr": -4.69,
+      "vol_pct": 10.4,
+      "sharpe": -0.45,
+      "max_dd_pct": -77.3,
+      "t": -2.21
+     },
+     "NZDUSD": {
+      "years": 18.7,
+      "return_pct_yr": -4.42,
+      "vol_pct": 10.3,
+      "sharpe": -0.43,
+      "max_dd_pct": -68.9,
+      "t": -1.85
+     },
+     "UKOIL": {
+      "years": 15.9,
+      "return_pct_yr": -2.52,
+      "vol_pct": 11.0,
+      "sharpe": -0.23,
+      "max_dd_pct": -55.2,
+      "t": -0.91
+     },
+     "US30": {
+      "years": 14.7,
+      "return_pct_yr": 5.11,
+      "vol_pct": 10.9,
+      "sharpe": 0.47,
+      "max_dd_pct": -21.1,
+      "t": 1.81
+     },
+     "US500": {
+      "years": 15.0,
+      "return_pct_yr": 5.43,
+      "vol_pct": 10.9,
+      "sharpe": 0.5,
+      "max_dd_pct": -18.8,
+      "t": 1.93
+     },
+     "USDCAD": {
+      "years": 23.9,
+      "return_pct_yr": -2.37,
+      "vol_pct": 10.3,
+      "sharpe": -0.23,
+      "max_dd_pct": -55.9,
+      "t": -1.12
+     },
+     "USDCHF": {
+      "years": 24.1,
+      "return_pct_yr": -6.27,
+      "vol_pct": 11.1,
+      "sharpe": -0.56,
+      "max_dd_pct": -83.7,
+      "t": -2.76
+     },
+     "USDJPY": {
+      "years": 23.3,
+      "return_pct_yr": -1.14,
+      "vol_pct": 10.8,
+      "sharpe": -0.11,
+      "max_dd_pct": -52.8,
+      "t": -0.51
+     },
+     "USOIL": {
+      "years": 15.1,
+      "return_pct_yr": -2.08,
+      "vol_pct": 10.9,
+      "sharpe": -0.19,
+      "max_dd_pct": -51.9,
+      "t": -0.74
+     },
+     "USTEC": {
+      "years": 15.0,
+      "return_pct_yr": 7.21,
+      "vol_pct": 10.8,
+      "sharpe": 0.67,
+      "max_dd_pct": -17.1,
+      "t": 2.58
+     },
+     "XAGUSD": {
+      "years": 12.4,
+      "return_pct_yr": 3.08,
+      "vol_pct": 10.8,
+      "sharpe": 0.29,
+      "max_dd_pct": -22.9,
+      "t": 1.01
+     },
+     "XAUUSD": {
+      "years": 24.0,
+      "return_pct_yr": 6.06,
+      "vol_pct": 10.6,
+      "sharpe": 0.57,
+      "max_dd_pct": -41.6,
+      "t": 2.8
+     },
+     "XCUUSD": {
+      "years": 14.9,
+      "return_pct_yr": 0.29,
+      "vol_pct": 10.5,
+      "sharpe": 0.03,
+      "max_dd_pct": -39.8,
+      "t": 0.11
+     },
+     "XNGUSD": {
+      "years": 14.4,
+      "return_pct_yr": 3.88,
+      "vol_pct": 10.8,
+      "sharpe": 0.36,
+      "max_dd_pct": -25.6,
+      "t": 1.36
+     }
+    }
+   },
+   "after spread only": {
+    "all 21 markets": {
+     "years": 24.1,
+     "return_pct_yr": 2.02,
+     "vol_pct": 4.5,
+     "sharpe": 0.45,
+     "max_dd_pct": -13.9,
+     "t": 2.21
+    },
+    "your 7 markets": {
+     "years": 24.1,
+     "return_pct_yr": 3.18,
+     "vol_pct": 5.7,
+     "sharpe": 0.56,
+     "max_dd_pct": -17.7,
+     "t": 2.74
+    },
+    "by period (all markets)": {
+     "2003-09": {
+      "years": 6.7,
+      "return_pct_yr": 1.75,
+      "vol_pct": 4.1,
+      "sharpe": 0.43,
+      "max_dd_pct": -11.0,
+      "t": 1.11
+     },
+     "2010-14": {
+      "years": 5.2,
+      "return_pct_yr": 0.44,
+      "vol_pct": 4.8,
+      "sharpe": 0.09,
+      "max_dd_pct": -6.1,
+      "t": 0.21
+     },
+     "2015-19": {
+      "years": 5.2,
+      "return_pct_yr": 1.13,
+      "vol_pct": 4.3,
+      "sharpe": 0.26,
+      "max_dd_pct": -9.0,
+      "t": 0.6
+     },
+     "2020-26": {
+      "years": 7.1,
+      "return_pct_yr": 4.08,
+      "vol_pct": 4.8,
+      "sharpe": 0.86,
+      "max_dd_pct": -9.4,
+      "t": 2.29
+     }
+    },
+    "by market": {
+     "AUDUSD": {
+      "years": 23.9,
+      "return_pct_yr": -1.33,
+      "vol_pct": 10.5,
+      "sharpe": -0.13,
+      "max_dd_pct": -58.1,
+      "t": -0.62
+     },
+     "BTCUSD": {
+      "years": 9.6,
+      "return_pct_yr": 7.48,
+      "vol_pct": 10.8,
+      "sharpe": 0.69,
+      "max_dd_pct": -22.0,
+      "t": 2.15
+     },
+     "DE40": {
+      "years": 14.5,
+      "return_pct_yr": 5.27,
+      "vol_pct": 10.6,
+      "sharpe": 0.5,
+      "max_dd_pct": -22.3,
+      "t": 1.89
+     },
+     "ETHUSD": {
+      "years": 9.0,
+      "return_pct_yr": 4.94,
+      "vol_pct": 10.6,
+      "sharpe": 0.47,
+      "max_dd_pct": -20.7,
+      "t": 1.4
+     },
+     "EURJPY": {
+      "years": 23.9,
+      "return_pct_yr": 2.45,
+      "vol_pct": 10.5,
+      "sharpe": 0.23,
+      "max_dd_pct": -37.7,
+      "t": 1.15
+     },
+     "EURUSD": {
+      "years": 24.1,
+      "return_pct_yr": -0.55,
+      "vol_pct": 10.3,
+      "sharpe": -0.05,
+      "max_dd_pct": -53.6,
+      "t": -0.26
+     },
+     "GBPJPY": {
+      "years": 18.7,
+      "return_pct_yr": 1.89,
+      "vol_pct": 13.1,
+      "sharpe": 0.14,
+      "max_dd_pct": -48.2,
+      "t": 0.62
+     },
+     "GBPUSD": {
+      "years": 24.1,
+      "return_pct_yr": -0.88,
+      "vol_pct": 10.4,
+      "sharpe": -0.08,
+      "max_dd_pct": -59.1,
+      "t": -0.41
+     },
+     "NZDUSD": {
+      "years": 18.7,
+      "return_pct_yr": -1.4,
+      "vol_pct": 10.3,
+      "sharpe": -0.14,
+      "max_dd_pct": -50.5,
+      "t": -0.59
+     },
+     "UKOIL": {
+      "years": 15.9,
+      "return_pct_yr": -1.44,
+      "vol_pct": 11.0,
+      "sharpe": -0.13,
+      "max_dd_pct": -50.5,
+      "t": -0.52
+     },
+     "US30": {
+      "years": 14.7,
+      "return_pct_yr": 7.69,
+      "vol_pct": 10.9,
+      "sharpe": 0.71,
+      "max_dd_pct": -17.9,
+      "t": 2.72
+     },
+     "US500": {
+      "years": 15.0,
+      "return_pct_yr": 7.89,
+      "vol_pct": 10.9,
+      "sharpe": 0.72,
+      "max_dd_pct": -17.3,
+      "t": 2.8
+     },
+     "USDCAD": {
+      "years": 23.9,
+      "return_pct_yr": 1.99,
+      "vol_pct": 10.3,
+      "sharpe": 0.19,
+      "max_dd_pct": -41.7,
+      "t": 0.94
+     },
+     "USDCHF": {
+      "years": 24.1,
+      "return_pct_yr": -2.57,
+      "vol_pct": 11.1,
+      "sharpe": -0.23,
+      "max_dd_pct": -61.6,
+      "t": -1.13
+     },
+     "USDJPY": {
+      "years": 23.3,
+      "return_pct_yr": 2.52,
+      "vol_pct": 10.8,
+      "sharpe": 0.23,
+      "max_dd_pct": -39.4,
+      "t": 1.13
+     },
+     "USOIL": {
+      "years": 15.1,
+      "return_pct_yr": -1.04,
+      "vol_pct": 10.9,
+      "sharpe": -0.1,
+      "max_dd_pct": -46.9,
+      "t": -0.37
+     },
+     "USTEC": {
+      "years": 15.0,
+      "return_pct_yr": 9.07,
+      "vol_pct": 10.8,
+      "sharpe": 0.84,
+      "max_dd_pct": -16.2,
+      "t": 3.25
+     },
+     "XAGUSD": {
+      "years": 12.4,
+      "return_pct_yr": 4.35,
+      "vol_pct": 10.8,
+      "sharpe": 0.4,
+      "max_dd_pct": -19.3,
+      "t": 1.42
+     },
+     "XAUUSD": {
+      "years": 24.0,
+      "return_pct_yr": 8.13,
+      "vol_pct": 10.6,
+      "sharpe": 0.77,
+      "max_dd_pct": -34.2,
+      "t": 3.75
+     },
+     "XCUUSD": {
+      "years": 14.9,
+      "return_pct_yr": 1.8,
+      "vol_pct": 10.5,
+      "sharpe": 0.17,
+      "max_dd_pct": -34.5,
+      "t": 0.66
+     },
+     "XNGUSD": {
+      "years": 14.4,
+      "return_pct_yr": 4.55,
+      "vol_pct": 10.8,
+      "sharpe": 0.42,
+      "max_dd_pct": -24.4,
+      "t": 1.6
+     }
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,27 @@
+2026-11-17 05:43:50.109 +02:00 | INFO     | __main__:_train_symbol:174 - Dreamer training start | symbol=BTCUSDm | steps=5000 | window=64 | obs_dim=10497 | device=mps | features=ultimate_150
+2026-11-17 06:07:01.040 +02:00 | SUCCESS  | __main__:_train_symbol:215 - Dreamer artifact saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/dreamer_BTCUSDm.pt
+2026-11-17 06:07:01.587 +02:00 | SUCCESS  | __main__:main:283 - Dreamer manifest saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/manifest.json
+2026-11-17 06:07:07.528 +02:00 | INFO     | __main__:_train_symbol:174 - Dreamer training start | symbol=XAUUSDm | steps=5000 | window=64 | obs_dim=10497 | device=mps | features=ultimate_150
+2026-11-17 06:33:53.875 +02:00 | SUCCESS  | __main__:_train_symbol:233 - Dreamer artifact saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/dreamer_XAUUSDm.pt
+2026-11-17 06:33:54.589 +02:00 | SUCCESS  | __main__:main:301 - Dreamer manifest saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/manifest.json
+2026-11-17 13:21:16.068 +02:00 | INFO     | __main__:_train_symbol:174 - Dreamer training start | symbol=EURUSDm | steps=5000 | window=64 | obs_dim=10497 | device=mps | features=ultimate_150
+2026-11-17 13:38:54.321 +02:00 | SUCCESS  | __main__:_train_symbol:233 - Dreamer artifact saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/dreamer_EURUSDm.pt
+2026-11-17 13:38:54.897 +02:00 | SUCCESS  | __main__:main:301 - Dreamer manifest saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/manifest.json
+2026-11-17 13:38:59.931 +02:00 | INFO     | __main__:_train_symbol:174 - Dreamer training start | symbol=USDJPYm | steps=5000 | window=64 | obs_dim=10497 | device=mps | features=ultimate_150
+2026-11-17 13:55:31.746 +02:00 | SUCCESS  | __main__:_train_symbol:233 - Dreamer artifact saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/dreamer_USDJPYm.pt
+2026-11-17 13:55:32.304 +02:00 | SUCCESS  | __main__:main:301 - Dreamer manifest saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/manifest.json
+2026-11-17 13:55:42.441 +02:00 | INFO     | __main__:_train_symbol:174 - Dreamer training start | symbol=XAGUSDm | steps=5000 | window=64 | obs_dim=10497 | device=mps | features=ultimate_150
+2026-11-17 14:10:41.879 +02:00 | SUCCESS  | __main__:_train_symbol:233 - Dreamer artifact saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/dreamer_XAGUSDm.pt
+2026-11-17 14:10:42.444 +02:00 | SUCCESS  | __main__:main:301 - Dreamer manifest saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/manifest.json
+2026-11-17 14:10:47.588 +02:00 | INFO     | __main__:_train_symbol:174 - Dreamer training start | symbol=ETHUSDm | steps=5000 | window=64 | obs_dim=10497 | device=mps | features=ultimate_150
+2026-11-17 14:25:53.983 +02:00 | SUCCESS  | __main__:_train_symbol:233 - Dreamer artifact saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/dreamer_ETHUSDm.pt
+2026-11-17 14:25:54.602 +02:00 | SUCCESS  | __main__:main:301 - Dreamer manifest saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/manifest.json
+2026-11-17 14:25:59.683 +02:00 | INFO     | __main__:_train_symbol:174 - Dreamer training start | symbol=USOILm | steps=5000 | window=64 | obs_dim=10497 | device=mps | features=ultimate_150
+2026-11-17 14:40:31.586 +02:00 | SUCCESS  | __main__:_train_symbol:233 - Dreamer artifact saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/dreamer_USOILm.pt
+2026-11-17 14:40:32.136 +02:00 | SUCCESS  | __main__:main:301 - Dreamer manifest saved: /Volumes/AI_DRIVE/cautious-giggle/models/dreamer/manifest.json
+2026-11-17 21:55:50.120 | INFO     | Python.backtester:run_ppo_backtest:348 - BACKTEST EURUSDm | tf=5m ret=0.45% sharpe=209197.11 maxDD=0.00% score=1255183.13 steps=10
+2026-11-17 21:55:50.219 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=open side=buy lots=0.30 price=102.2 sl=98.41 tp=108.16 target=0.0000 magic=51900 retcode=10009 ticket=55
+2026-11-17 21:55:50.222 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.10 price=102.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-17 21:55:50.224 | INFO     | Python.mt5_executor:_log_order_send:185 - ORDER_SEND BTCUSDm | action=close side=sell lots=0.20 price=102.0 sl=None tp=None target=0.0000 magic=51910 retcode=10009 ticket=56
+2026-11-18 21:00:14.231 +02:00 | ERROR    | Python.data_feed:_fetch_mt5_data:368 - MT5 initialize failed for BTCUSDm: (-1, 'exness_api init failed: HTTPSConnectionPool(host=\'api.exness.com\', port=443): Max retries exceeded with url: /v1/trading/access-point?account_id=11001127744 (Caused by NameResolutionError("HTTPSConnection(host=\'api.exness.com\', port=443): Failed to resolve \'api.exness.com\' ([Errno 8] nodename nor servname provided, or not known)"))')
+2026-11-18 21:00:15.219 +02:00 | INFO     | __main__:_train_symbol:174 - Dreamer training start | symbol=BTCUSDm | steps=5000 | window=64 | obs_dim=10497 | device=mps | features=ultimate_150

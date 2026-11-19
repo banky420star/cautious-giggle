@@ -1,0 +1,211 @@
+{
+  "alerts": {
+    "category": "incident",
+    "delivery_status": "dashboard_only",
+    "key": "alerts",
+    "last_text": "<b>Incident | ALERT</b>\n<b>Message</b>: AutonomyLoop started\n<b>Updated</b>: 00:42:14 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Incident | ALERT Message: AutonomyLoop started Updated: 00:42:14 UTC",
+    "title": "Alert",
+    "updated_utc": "2026-11-19T00:42:14+00:00"
+  },
+  "daily_profitability": {
+    "category": "trading",
+    "delivery_status": "dashboard_only",
+    "key": "daily_profitability",
+    "last_text": "<b>Trading | DAILY PROFITABILITY</b>\n<b>Trades</b>: 236\n<b>Win rate</b>: 44.49%\n<b>Total PnL</b>: -136.61\n<b>Expectancy</b>: -0.5789\n<b>Profit factor</b>: 0.660\n<b>Best</b>: BTCUSDm 17.64, EURUSDm 12.28\n<b>Worst</b>: XAGUSDm -53.60, USOILm -53.22\n<b>Generated</b>: 2026-11-19T00:42:24.639204+00:00\n<b>Updated</b>: 00:42:24 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Trading | DAILY PROFITABILITY Trades: 236 Win rate: 44.49% Total PnL: -136.61 Expectancy: -0.5789 Profit factor: 0.660 Best: BTCUSDm 17.64, EURUSDm 12.28 Worst: XAGUSDm -53.60, USOILm -53.22 Generated: 2026-11-19T00:42:24.639204+00:00 Updat",
+    "title": "Daily profitability",
+    "updated_utc": "2026-11-19T00:42:24+00:00"
+  },
+  "heartbeat": {
+    "category": "runtime",
+    "delivery_status": "dashboard_only",
+    "key": "heartbeat",
+    "last_text": "<b>Runtime | HEARTBEAT</b>\n<b>Uptime</b>: 40070 sec\n<b>MT5</b>: CONNECTED\n<b>Trading</b>: ENABLED\n<b>Balance</b>: 1847.26\n<b>Equity</b>: 1847.26\n<b>Free margin</b>: 1847.26\n<b>PnL today</b>: -5.12\n<b>Floating</b>: 0.00\n<b>Open positions</b>: 0\n<b>LSTM</b>: IDLE\n<b>PPO</b>: IDLE\n<b>Cycle</b>: IDLE\n<b>Champion</b>: none\n<b>Canary</b>: none\n<b>Event active</b>: 0\n<b>High impact</b>: 0\n<b>Updated</b>: 11:50:08 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Runtime | HEARTBEAT Uptime: 40070 sec MT5: CONNECTED Trading: ENABLED Balance: 1847.26 Equity: 1847.26 Free margin: 1847.26 PnL today: -5.12 Floating: 0.00 Open positions: 0 LSTM: IDLE PPO: IDLE Cycle: IDLE Champion: none Canary: none Event",
+    "title": "Runtime heartbeat",
+    "updated_utc": "2026-11-19T11:50:08+00:00"
+  },
+  "model": {
+    "category": "registry",
+    "delivery_status": "dashboard_only",
+    "key": "model",
+    "last_text": "<b>Registry | MODEL UPDATE</b>\n<b>Message</b>: LSTM best model selected: BTCUSDm | loss=0.6249 | samples=79940\n<b>Updated</b>: 03:35:09 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Registry | MODEL UPDATE Message: LSTM best model selected: BTCUSDm | loss=0.6249 | samples=79940 Updated: 03:35:09 UTC",
+    "title": "Model update",
+    "updated_utc": "2026-11-17T03:35:10+00:00"
+  },
+  "runtime": {
+    "category": "runtime",
+    "delivery_status": "dashboard_only",
+    "key": "runtime",
+    "last_text": "<b>Runtime | ONLINE</b>\n<b>State</b>: AGI runtime connected\n<b>Message</b>: Trading engine initialized\n<b>Updated</b>: 00:42:16 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Runtime | ONLINE State: AGI runtime connected Message: Trading engine initialized Updated: 00:42:16 UTC",
+    "title": "Runtime online",
+    "updated_utc": "2026-11-19T00:42:16+00:00"
+  },
+  "snapshot": {
+    "category": "risk",
+    "delivery_status": "dashboard_only",
+    "key": "snapshot",
+    "last_text": "<b>Risk | SNAPSHOT</b>\n<b>Balance</b>: 1847.26\n<b>Equity</b>: 1847.26\n<b>PnL today</b>: -5.12\n<b>Floating</b>: 0.00\n<b>Open positions</b>: 0\n<b>Updated</b>: 11:50:08 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Risk | SNAPSHOT Balance: 1847.26 Equity: 1847.26 PnL today: -5.12 Floating: 0.00 Open positions: 0 Updated: 11:50:08 UTC",
+    "title": "Risk snapshot",
+    "updated_utc": "2026-11-19T11:50:08+00:00"
+  },
+  "symbol_BTCUSDm": {
+    "category": "symbol",
+    "delivery_status": "dashboard_only",
+    "key": "symbol_BTCUSDm",
+    "last_text": "<b>Symbol | BTCUSDm</b>\n<b>Signal</b>: BUY\n<b>Confidence</b>: 0.7032\n<b>AGI exposure</b>: -\n<b>PPO exposure</b>: -0.0329\n<b>Dreamer exposure</b>: 0.0000\n<b>Blend exposure</b>: 0.0688\n<b>Open positions</b>: 0\n<b>Floating PnL</b>: 0.00\n<b>Position side</b>: n/a\n<b>Position volume</b>: -\n<b>Entry</b>: -\n<b>TP</b>: -\n<b>SL</b>: -\n<b>TP value USD</b>: -\n<b>SL value USD</b>: -\n<b>Last close PnL</b>: -\n<b>Last close reason</b>: n/a\n<b>Last close deal</b>: n/a\n<b>Updated</b>: 11:51:39 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Symbol | BTCUSDm Signal: BUY Confidence: 0.7032 AGI exposure: - PPO exposure: -0.0329 Dreamer exposure: 0.0000 Blend exposure: 0.0688 Open positions: 0 Floating PnL: 0.00 Position side: n/a Position volume: - Entry: - TP: - SL: - TP value U",
+    "title": "Symbol BTCUSDm",
+    "updated_utc": "2026-11-19T11:51:39+00:00"
+  },
+  "symbol_ETHUSDm": {
+    "category": "symbol",
+    "delivery_status": "dashboard_only",
+    "key": "symbol_ETHUSDm",
+    "last_text": "<b>Symbol | ETHUSDm</b>\n<b>Signal</b>: BUY\n<b>Confidence</b>: 0.7069\n<b>AGI exposure</b>: -\n<b>PPO exposure</b>: 0.0000\n<b>Dreamer exposure</b>: 0.0000\n<b>Blend exposure</b>: -0.0473\n<b>Open positions</b>: 0\n<b>Floating PnL</b>: 0.00\n<b>Position side</b>: n/a\n<b>Position volume</b>: -\n<b>Entry</b>: -\n<b>TP</b>: -\n<b>SL</b>: -\n<b>TP value USD</b>: -\n<b>SL value USD</b>: -\n<b>Last close PnL</b>: -\n<b>Last close reason</b>: n/a\n<b>Last close deal</b>: n/a\n<b>Updated</b>: 11:51:39 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Symbol | ETHUSDm Signal: BUY Confidence: 0.7069 AGI exposure: - PPO exposure: 0.0000 Dreamer exposure: 0.0000 Blend exposure: -0.0473 Open positions: 0 Floating PnL: 0.00 Position side: n/a Position volume: - Entry: - TP: - SL: - TP value U",
+    "title": "Symbol ETHUSDm",
+    "updated_utc": "2026-11-19T11:51:39+00:00"
+  },
+  "symbol_EURUSDm": {
+    "category": "symbol",
+    "delivery_status": "dashboard_only",
+    "key": "symbol_EURUSDm",
+    "last_text": "<b>Symbol | EURUSDm</b>\n<b>Signal</b>: SELL\n<b>Confidence</b>: 0.6910\n<b>AGI exposure</b>: -\n<b>PPO exposure</b>: 0.0000\n<b>Dreamer exposure</b>: 0.0000\n<b>Blend exposure</b>: 0.0000\n<b>Open positions</b>: 0\n<b>Floating PnL</b>: 0.00\n<b>Position side</b>: n/a\n<b>Position volume</b>: -\n<b>Entry</b>: -\n<b>TP</b>: -\n<b>SL</b>: -\n<b>TP value USD</b>: -\n<b>SL value USD</b>: -\n<b>Last close PnL</b>: -\n<b>Last close reason</b>: n/a\n<b>Last close deal</b>: n/a\n<b>Updated</b>: 11:51:39 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Symbol | EURUSDm Signal: SELL Confidence: 0.6910 AGI exposure: - PPO exposure: 0.0000 Dreamer exposure: 0.0000 Blend exposure: 0.0000 Open positions: 0 Floating PnL: 0.00 Position side: n/a Position volume: - Entry: - TP: - SL: - TP value U",
+    "title": "Symbol EURUSDm",
+    "updated_utc": "2026-11-19T11:51:39+00:00"
+  },
+  "symbol_USDJPYm": {
+    "category": "symbol",
+    "delivery_status": "dashboard_only",
+    "key": "symbol_USDJPYm",
+    "last_text": "<b>Symbol | USDJPYm</b>\n<b>Signal</b>: HOLD\n<b>Confidence</b>: 0.6725\n<b>AGI exposure</b>: -\n<b>PPO exposure</b>: 0.0000\n<b>Dreamer exposure</b>: 0.0000\n<b>Blend exposure</b>: 0.0000\n<b>Open positions</b>: 0\n<b>Floating PnL</b>: 0.00\n<b>Position side</b>: n/a\n<b>Position volume</b>: -\n<b>Entry</b>: -\n<b>TP</b>: -\n<b>SL</b>: -\n<b>TP value USD</b>: -\n<b>SL value USD</b>: -\n<b>Last close PnL</b>: 0.73\n<b>Last close reason</b>: close\n<b>Last close deal</b>: 83118943\n<b>Updated</b>: 11:51:39 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Symbol | USDJPYm Signal: HOLD Confidence: 0.6725 AGI exposure: - PPO exposure: 0.0000 Dreamer exposure: 0.0000 Blend exposure: 0.0000 Open positions: 0 Floating PnL: 0.00 Position side: n/a Position volume: - Entry: - TP: - SL: - TP value U",
+    "title": "Symbol USDJPYm",
+    "updated_utc": "2026-11-19T11:51:39+00:00"
+  },
+  "symbol_USOILm": {
+    "category": "symbol",
+    "delivery_status": "dashboard_only",
+    "key": "symbol_USOILm",
+    "last_text": "<b>Symbol | USOILm</b>\n<b>Signal</b>: SELL\n<b>Confidence</b>: 0.6773\n<b>AGI exposure</b>: -\n<b>PPO exposure</b>: 0.0000\n<b>Dreamer exposure</b>: 0.0000\n<b>Blend exposure</b>: -0.1525\n<b>Open positions</b>: 0\n<b>Floating PnL</b>: 0.00\n<b>Position side</b>: n/a\n<b>Position volume</b>: -\n<b>Entry</b>: -\n<b>TP</b>: -\n<b>SL</b>: -\n<b>TP value USD</b>: -\n<b>SL value USD</b>: -\n<b>Last close PnL</b>: 1.05\n<b>Last close reason</b>: close\n<b>Last close deal</b>: 83085610\n<b>Updated</b>: 11:51:39 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Symbol | USOILm Signal: SELL Confidence: 0.6773 AGI exposure: - PPO exposure: 0.0000 Dreamer exposure: 0.0000 Blend exposure: -0.1525 Open positions: 0 Floating PnL: 0.00 Position side: n/a Position volume: - Entry: - TP: - SL: - TP value U",
+    "title": "Symbol USOILm",
+    "updated_utc": "2026-11-19T11:51:39+00:00"
+  },
+  "symbol_XAGUSDm": {
+    "category": "symbol",
+    "delivery_status": "dashboard_only",
+    "key": "symbol_XAGUSDm",
+    "last_text": "<b>Symbol | XAGUSDm</b>\n<b>Signal</b>: SELL\n<b>Confidence</b>: 0.7593\n<b>AGI exposure</b>: -\n<b>PPO exposure</b>: 0.0000\n<b>Dreamer exposure</b>: 0.0000\n<b>Blend exposure</b>: 0.0000\n<b>Open positions</b>: 0\n<b>Floating PnL</b>: 0.00\n<b>Position side</b>: n/a\n<b>Position volume</b>: -\n<b>Entry</b>: -\n<b>TP</b>: -\n<b>SL</b>: -\n<b>TP value USD</b>: -\n<b>SL value USD</b>: -\n<b>Last close PnL</b>: -\n<b>Last close reason</b>: n/a\n<b>Last close deal</b>: n/a\n<b>Updated</b>: 11:51:39 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Symbol | XAGUSDm Signal: SELL Confidence: 0.7593 AGI exposure: - PPO exposure: 0.0000 Dreamer exposure: 0.0000 Blend exposure: 0.0000 Open positions: 0 Floating PnL: 0.00 Position side: n/a Position volume: - Entry: - TP: - SL: - TP value U",
+    "title": "Symbol XAGUSDm",
+    "updated_utc": "2026-11-19T11:51:39+00:00"
+  },
+  "symbol_XAUUSDm": {
+    "category": "symbol",
+    "delivery_status": "dashboard_only",
+    "key": "symbol_XAUUSDm",
+    "last_text": "<b>Symbol | XAUUSDm</b>\n<b>Signal</b>: SELL\n<b>Confidence</b>: 0.7412\n<b>AGI exposure</b>: -\n<b>PPO exposure</b>: 0.0000\n<b>Dreamer exposure</b>: 0.0000\n<b>Blend exposure</b>: 0.0000\n<b>Open positions</b>: 0\n<b>Floating PnL</b>: 0.00\n<b>Position side</b>: n/a\n<b>Position volume</b>: -\n<b>Entry</b>: -\n<b>TP</b>: -\n<b>SL</b>: -\n<b>TP value USD</b>: -\n<b>SL value USD</b>: -\n<b>Last close PnL</b>: -6.49\n<b>Last close reason</b>: close\n<b>Last close deal</b>: 82967775\n<b>Updated</b>: 11:51:39 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Symbol | XAUUSDm Signal: SELL Confidence: 0.7412 AGI exposure: - PPO exposure: 0.0000 Dreamer exposure: 0.0000 Blend exposure: 0.0000 Open positions: 0 Floating PnL: 0.00 Position side: n/a Position volume: - Entry: - TP: - SL: - TP value U",
+    "title": "Symbol XAUUSDm",
+    "updated_utc": "2026-11-19T11:51:39+00:00"
+  },
+  "trade_action": {
+    "category": "trading",
+    "delivery_status": "dashboard_only",
+    "key": "trade_action",
+    "last_text": "<b>Trading | ACTION</b>\n<b>Symbol</b>: USDJPYm\n<b>Mode</b>: market\n<b>Request action</b>: close\n<b>Side</b>: BUY\n<b>Volume lots</b>: 0.01\n<b>Exposure</b>: 0.000\n<b>Target exposure</b>: 0.000\n<b>PPO</b>: 0.000\n<b>Dreamer</b>: 0.000\n<b>AGI bias</b>: 0.649\n<b>Entry</b>: 159.728000\n<b>TP</b>: -\n<b>SL</b>: -\n<b>TP value USD</b>: -1000.04\n<b>SL value USD</b>: -1000.04\n<b>RR</b>: 0.000\n<b>Lots</b>: 0.01\n<b>Magic</b>: 59910\n<b>Comment</b>: AGI|USDJ|UN|C|P000000|P+00\n<b>Ticket</b>: 381715414247280640\n<b>Retcode</b>: 10009\n<b>Updated</b>: 08:00:47 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Trading | ACTION Symbol: USDJPYm Mode: market Request action: close Side: BUY Volume lots: 0.01 Exposure: 0.000 Target exposure: 0.000 PPO: 0.000 Dreamer: 0.000 AGI bias: 0.649 Entry: 159.728000 TP: - SL: - TP value USD: -1000.04 SL value U",
+    "title": "Trade action USDJPYm",
+    "updated_utc": "2026-11-19T08:00:47+00:00"
+  },
+  "trade_closed": {
+    "category": "trading",
+    "delivery_status": "dashboard_only",
+    "key": "trade_closed",
+    "last_text": "<b>Trading | CLOSED</b>\n<b>Symbol</b>: USDJPYm\n<b>Ticket</b>: 38582060\n<b>Deal ID</b>: 83118943\n<b>Volume</b>: 0.0100\n<b>Close price</b>: 159.893000\n<b>Reason</b>: close\n<b>Realized PnL</b>: 0.73\n<b>Updated</b>: 10:37:45 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Trading | CLOSED Symbol: USDJPYm Ticket: 38582060 Deal ID: 83118943 Volume: 0.0100 Close price: 159.893000 Reason: close Realized PnL: 0.73 Updated: 10:37:45 UTC",
+    "title": "Trade closed USDJPYm",
+    "updated_utc": "2026-11-19T10:37:45+00:00"
+  },
+  "trade_execution": {
+    "category": "trading",
+    "delivery_status": "dashboard_only",
+    "key": "trade_execution",
+    "last_text": "<b>Trading | EXECUTED</b>\n<b>Symbol</b>: USOILm\n<b>Action</b>: SELL\n<b>Exposure</b>: 0.0100\n<b>Confidence</b>: 1.000\n<b>Balance</b>: 1848.05\n<b>Equity</b>: 1846.41\n<b>Free margin</b>: 1846.41\n<b>Updated</b>: 08:38:19 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Trading | EXECUTED Symbol: USOILm Action: SELL Exposure: 0.0100 Confidence: 1.000 Balance: 1848.05 Equity: 1846.41 Free margin: 1846.41 Updated: 08:38:19 UTC",
+    "title": "Trade executed USOILm",
+    "updated_utc": "2026-11-19T08:38:19+00:00"
+  },
+  "training_cycle": {
+    "category": "training",
+    "delivery_status": "dashboard_only",
+    "key": "training_cycle",
+    "last_text": "<b>Training | CYCLE COMPLETE</b>\n<b>Status</b>: COMPLETE\n<b>Universe</b>: EURUSDm, USOILm\n<b>Mode</b>: per_symbol\n<b>Promoted</b>: none\n<b>Blocked</b>: EURUSDm, USOILm\n<b>Skip LSTM</b>: YES\n<b>Skip Dreamer</b>: YES\n<b>Detail</b>: promoted=none\n<b>Updated</b>: 13:34:09 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Training | CYCLE COMPLETE Status: COMPLETE Universe: EURUSDm, USOILm Mode: per_symbol Promoted: none Blocked: EURUSDm, USOILm Skip LSTM: YES Skip Dreamer: YES Detail: promoted=none Updated: 13:34:09 UTC",
+    "title": "Training cycle complete",
+    "updated_utc": "2026-11-18T13:34:09+00:00"
+  },
+  "training_lstm": {
+    "category": "training",
+    "delivery_status": "dashboard_only",
+    "key": "training_lstm",
+    "last_text": "<b>Training | LSTM</b>\n<b>Message</b>: XAUUSDm epoch 1/20 | loss=0.8420 | acc=28.17%\n<b>Updated</b>: 18:50:13 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Training | LSTM Message: XAUUSDm epoch 1/20 | loss=0.8420 | acc=28.17% Updated: 18:50:13 UTC",
+    "title": "Training LSTM",
+    "updated_utc": "2026-11-18T18:50:13+00:00"
+  },
+  "training_ppo": {
+    "category": "training",
+    "delivery_status": "dashboard_only",
+    "key": "training_ppo",
+    "last_text": "<b>Training | PPO</b>\n<b>Message</b>: Start [&#x27;USDJPYm&#x27;] | timesteps=250,000 | period=90d | tf=5m | candles=100,000 | features=ultimate_150\n<b>Updated</b>: 00:35:35 UTC",
+    "message_id": null,
+    "next_retry_utc": null,
+    "preview": "Training | PPO Message: Start [&#x27;USDJPYm&#x27;] | timesteps=250,000 | period=90d | tf=5m | candles=100,000 | features=ultimate_150 Updated: 00:35:35 UTC",
+    "title": "Training PPO",
+    "updated_utc": "2026-11-19T00:35:36+00:00"
+  }
+}

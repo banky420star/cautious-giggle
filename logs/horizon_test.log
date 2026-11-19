@@ -1,0 +1,61 @@
+BTCUSDm: done in 2s (today's live spread 1.00 bps)
+XAUUSDm: done in 3s (today's live spread 0.64 bps)
+EURUSDm: done in 1s (today's live spread 0.73 bps)
+USDJPYm: done in 7s (today's live spread 0.63 bps)
+XAGUSDm: done in 3s (today's live spread 5.47 bps)
+ETHUSDm: done in 2s (today's live spread 5.58 bps)
+USOILm: done in 9s (today's live spread 1.67 bps)
+
+=== Best voter per market and holding time (net of spread, bps per trade; t = reliability) ===
+
+BTCUSDm  (2025-12-04 → 2026-11-17, today's live spread 1.00 bps)
+    10 min: council   -1.03 (gross -0.03) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   -0.48 t=-1.0 halves 0.21/-1.12 | holds up: 0
+    30 min: council   -1.11 (gross -0.11) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   +0.38 t=+0.3 halves 1.89/-1.04 | holds up: 0
+    1 hour: council   -1.24 (gross -0.24) | best Bollinger breakout (M5) [H1]                   +0.29 t=+0.2 halves 1.6/-0.94 | holds up: 0
+   4 hours: council   -0.87 (gross +0.13) | best Bollinger breakout (M5) [H4]                   +2.84 t=+0.5 halves -2.76/7.92 | holds up: 0
+     1 day: council   +6.36 (gross +7.36) | best EMA 20 vs 50 trend (M5) [H4]                  +19.99 t=+1.7 halves 19.08/20.86 | holds up: 0
+
+XAUUSDm  (2025-06-20 → 2026-11-17, today's live spread 0.64 bps)
+    10 min: council   -0.57 (gross +0.07) | best Bollinger breakout (M5) [H4]                   -0.42 t=-2.0 halves -0.4/-0.44 | holds up: 0
+    30 min: council   -0.43 (gross +0.21) | best Bollinger breakout (M5) [H1]                   +0.20 t=+0.3 halves 0.18/0.23 | holds up: 0
+    1 hour: council   -0.30 (gross +0.34) | best Bollinger breakout (M5) [H1]                   +1.09 t=+0.9 halves 1.2/0.97 | holds up: 0
+   4 hours: council   +0.67 (gross +1.31) | best 20-bar high/low breakout (M5) [H1]             +3.51 t=+1.9 halves 4.83/2.22 | holds up: 0
+     1 day: council   +6.84 (gross +7.47) | best Bollinger breakout (M5) [H1]                  +12.76 t=+0.5 halves 15.93/9.38 | holds up: 0
+
+EURUSDm  (2025-07-15 → 2026-11-18, today's live spread 0.73 bps)
+    10 min: council   -0.75 (gross -0.02) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   -0.56 t=-8.1 halves -0.52/-0.59 | holds up: 0
+    30 min: council   -0.77 (gross -0.04) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   -0.48 t=-2.4 halves -0.42/-0.53 | holds up: 0
+    1 hour: council   -0.78 (gross -0.06) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   -0.34 t=-1.1 halves -0.28/-0.39 | holds up: 0
+   4 hours: council   -0.80 (gross -0.07) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   +0.55 t=+0.5 halves 1.66/-0.23 | holds up: 0
+     1 day: council   -1.52 (gross -0.79) | best MACD histogram (M5) [H4]                       +1.34 t=+0.7 halves 4.02/-1.3 | holds up: 0
+
+USDJPYm  (2025-07-15 → 2026-11-17, today's live spread 0.63 bps)
+    10 min: council   -0.64 (gross -0.01) | best Bollinger band fade (M5) [M5]                  -0.58 t=-14.6 halves -0.57/-0.59 | holds up: 0
+    30 min: council   -0.67 (gross -0.04) | best Bollinger band fade (M5) [M5]                  -0.50 t=-4.4 halves -0.56/-0.45 | holds up: 0
+    1 hour: council   -0.71 (gross -0.08) | best Bollinger breakout (M5) [H1]                   -0.33 t=-0.9 halves -0.77/0.13 | holds up: 0
+   4 hours: council   -0.49 (gross +0.14) | best Bollinger breakout (M5) [H1]                   +2.18 t=+1.4 halves 1.14/3.23 | holds up: 0
+     1 day: council   -1.68 (gross -1.05) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   +3.29 t=+0.4 halves 6.16/0.04 | holds up: 0
+
+XAGUSDm  (2025-06-19 → 2026-11-17, today's live spread 5.47 bps)
+    10 min: council   -5.39 (gross +0.08) | best Bollinger breakout (M5) [H4]                   -4.48 t=-8.6 halves -4.09/-4.9 | holds up: 0
+    30 min: council   -5.13 (gross +0.34) | best Bollinger breakout (M5) [H4]                   -2.47 t=-1.6 halves -1.53/-3.48 | holds up: 0
+    1 hour: council   -4.60 (gross +0.87) | best Bollinger breakout (M5) [H4]                   +0.72 t=+0.2 halves 2.54/-1.23 | holds up: 0
+   4 hours: council   -2.32 (gross +3.16) | best Bollinger breakout (M5) [H4]                  +18.73 t=+1.6 halves 24.21/12.83 | holds up: 0
+     1 day: council   +9.43 (gross +14.90) | best RSI extremes fade (<30 buy, >70 sell) (M5) [  +27.59 t=+0.7 halves 26.85/28.96 | holds up: 0
+
+ETHUSDm  (2025-12-05 → 2026-11-17, today's live spread 5.58 bps)
+    10 min: council   -5.57 (gross +0.01) | best Bollinger breakout (M5) [H1]                   -4.87 t=-11.2 halves -5.03/-4.71 | holds up: 0
+    30 min: council   -5.50 (gross +0.08) | best Bollinger breakout (M5) [H1]                   -3.83 t=-3.0 halves -4.24/-3.4 | holds up: 0
+    1 hour: council   -5.41 (gross +0.17) | best Bollinger breakout (M5) [H1]                   -2.30 t=-0.9 halves -3.29/-1.28 | holds up: 0
+   4 hours: council   -5.44 (gross +0.14) | best Bollinger breakout (M5) [M15]                  -1.88 t=-0.2 halves -1.32/-2.4 | holds up: 0
+     1 day: council   -1.34 (gross +4.24) | best price vs 200-EMA (M5) [H4]                    +15.83 t=+1.0 halves -1.38/32.38 | holds up: 0
+
+USOILm  (2025-06-17 → 2026-11-18, today's live spread 1.67 bps)
+    10 min: council   -1.74 (gross -0.07) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   -1.17 t=-2.0 halves -1.39/-0.97 | holds up: 0
+    30 min: council   -1.89 (gross -0.22) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   +0.36 t=+0.2 halves -0.71/1.32 | holds up: 0
+    1 hour: council   -2.05 (gross -0.38) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   +3.34 t=+1.1 halves 0.53/5.87 | holds up: 0
+   4 hours: council   -2.31 (gross -0.64) | best RSI extremes fade (<30 buy, >70 sell) (M5) [   +7.99 t=+0.8 halves 0.63/14.61 | holds up: 0
+     1 day: council   -3.45 (gross -1.78) | best RSI extremes fade (<30 buy, >70 sell) (M5) [  +70.93 t=+1.1 halves 22.77/100.43 | holds up: 0
+
+=== Everything that holds up (t >= 3, positive after costs in both halves) ===
+  nothing

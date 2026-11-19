@@ -1,0 +1,261 @@
+{
+ "items": [
+  {
+   "event_time": "2026-11-18T14:51:48.057756+00:00",
+   "deal": {
+    "deal_id": "82725993",
+    "order_id": "79928436",
+    "position_id": "38422580",
+    "type": "open",
+    "direction": "buy",
+    "instrument": "XAUUSD",
+    "volume": "0.01",
+    "price": "3767.528",
+    "commission": "-0.11",
+    "profit": {
+     "amount": "0"
+    },
+    "create_time": "2026-11-18T14:51:48.057756+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:51:51.622807+00:00",
+   "deal": {
+    "deal_id": "82726042",
+    "order_id": "79928487",
+    "position_id": "38422580",
+    "type": "close",
+    "direction": "sell",
+    "instrument": "XAUUSD",
+    "volume": "0.01",
+    "price": "3767.782",
+    "profit": {
+     "amount": "0.25",
+     "currency": "USD"
+    },
+    "create_time": "2026-11-18T14:51:51.622807+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:51:53.312004+00:00",
+   "deal": {
+    "deal_id": "82726054",
+    "order_id": "79928498",
+    "position_id": "38422622",
+    "type": "open",
+    "direction": "buy",
+    "instrument": "BTCUSD",
+    "volume": "0.01",
+    "price": "63267.4",
+    "commission": "-0.09",
+    "profit": {
+     "amount": "0"
+    },
+    "create_time": "2026-11-18T14:51:53.312004+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:51:56.474571+00:00",
+   "deal": {
+    "deal_id": "82726083",
+    "order_id": "79928527",
+    "position_id": "38422622",
+    "type": "close",
+    "direction": "sell",
+    "instrument": "BTCUSD",
+    "volume": "0.01",
+    "price": "63274.99",
+    "profit": {
+     "amount": "0.08",
+     "currency": "USD"
+    },
+    "create_time": "2026-11-18T14:51:56.474571+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:51:58.59167+00:00",
+   "deal": {
+    "deal_id": "82726102",
+    "order_id": "79928547",
+    "position_id": "38422654",
+    "type": "open",
+    "direction": "buy",
+    "instrument": "EURUSD",
+    "volume": "0.01",
+    "price": "1.09777",
+    "commission": "-0.05",
+    "profit": {
+     "amount": "0"
+    },
+    "create_time": "2026-11-18T14:51:58.59167+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:52:01.375264+00:00",
+   "deal": {
+    "deal_id": "82726125",
+    "order_id": "79928572",
+    "position_id": "38422654",
+    "type": "close",
+    "direction": "sell",
+    "instrument": "EURUSD",
+    "volume": "0.01",
+    "price": "1.09777",
+    "profit": {
+     "amount": "0",
+     "currency": "USD"
+    },
+    "create_time": "2026-11-18T14:52:01.375264+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:52:03.334231+00:00",
+   "deal": {
+    "deal_id": "82726151",
+    "order_id": "79928594",
+    "position_id": "38422688",
+    "type": "open",
+    "direction": "buy",
+    "instrument": "USDJPY",
+    "volume": "0.01",
+    "price": "159.221",
+    "commission": "-0.05",
+    "profit": {
+     "amount": "0"
+    },
+    "create_time": "2026-11-18T14:52:03.334231+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:52:06.075672+00:00",
+   "deal": {
+    "deal_id": "82726180",
+    "order_id": "79928623",
+    "position_id": "38422688",
+    "type": "close",
+    "direction": "sell",
+    "instrument": "USDJPY",
+    "volume": "0.01",
+    "price": "159.233",
+    "profit": {
+     "amount": "0.08",
+     "currency": "USD"
+    },
+    "create_time": "2026-11-18T14:52:06.075672+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:52:08.160826+00:00",
+   "deal": {
+    "deal_id": "82726203",
+    "order_id": "79928647",
+    "position_id": "38422729",
+    "type": "open",
+    "direction": "buy",
+    "instrument": "XAGUSD",
+    "volume": "0.01",
+    "price": "45.274",
+    "commission": "-0.95",
+    "profit": {
+     "amount": "0"
+    },
+    "create_time": "2026-11-18T14:52:08.160826+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:52:10.915221+00:00",
+   "deal": {
+    "deal_id": "82726246",
+    "order_id": "79928692",
+    "position_id": "38422729",
+    "type": "close",
+    "direction": "sell",
+    "instrument": "XAGUSD",
+    "volume": "0.01",
+    "price": "45.26",
+    "profit": {
+     "amount": "-0.7",
+     "currency": "USD"
+    },
+    "create_time": "2026-11-18T14:52:10.915221+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:52:12.949012+00:00",
+   "deal": {
+    "deal_id": "82726274",
+    "order_id": "79928722",
+    "position_id": "38422773",
+    "type": "open",
+    "direction": "buy",
+    "instrument": "ETHUSD",
+    "volume": "0.1",
+    "price": "1763.36",
+    "commission": "-0.1",
+    "profit": {
+     "amount": "0"
+    },
+    "create_time": "2026-11-18T14:52:12.949012+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:52:15.483407+00:00",
+   "deal": {
+    "deal_id": "82726298",
+    "order_id": "79928744",
+    "position_id": "38422773",
+    "type": "close",
+    "direction": "sell",
+    "instrument": "ETHUSD",
+    "volume": "0.1",
+    "price": "1764.26",
+    "profit": {
+     "amount": "0.09",
+     "currency": "USD"
+    },
+    "create_time": "2026-11-18T14:52:15.483407+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:52:17.42069+00:00",
+   "deal": {
+    "deal_id": "82726312",
+    "order_id": "79928758",
+    "position_id": "38422795",
+    "type": "open",
+    "direction": "buy",
+    "instrument": "USOIL",
+    "volume": "0.01",
+    "price": "83.15",
+    "commission": "-0.13",
+    "profit": {
+     "amount": "0"
+    },
+    "create_time": "2026-11-18T14:52:17.42069+00:00"
+   }
+  },
+  {
+   "event_time": "2026-11-18T14:52:20.181911+00:00",
+   "deal": {
+    "deal_id": "82726329",
+    "order_id": "79928777",
+    "position_id": "38422795",
+    "type": "close",
+    "direction": "sell",
+    "instrument": "USOIL",
+    "volume": "0.01",
+    "price": "83.13",
+    "profit": {
+     "amount": "-0.2",
+     "currency": "USD"
+    },
+    "create_time": "2026-11-18T14:52:20.181911+00:00"
+   }
+  }
+ ],
+ "has_more": false,
+ "range": {
+  "from": "2026-11-18T14:50:47+00:00",
+  "to": "2026-11-18T14:52:24.421243+00:00"
+ }
+}
