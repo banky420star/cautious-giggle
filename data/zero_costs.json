@@ -1,0 +1,44 @@
+{
+ "XAUUSD": {
+  "commission_usd_round_trip": 0.11,
+  "commission_bps": 0.292,
+  "standard_spread_usd": 0.24,
+  "lot": 0.01
+ },
+ "BTCUSD": {
+  "commission_usd_round_trip": 0.09,
+  "commission_bps": 1.423,
+  "standard_spread_usd": 0.064,
+  "lot": 0.01
+ },
+ "EURUSD": {
+  "commission_usd_round_trip": 0.05,
+  "commission_bps": 0.455,
+  "standard_spread_usd": 0.08,
+  "lot": 0.01
+ },
+ "USDJPY": {
+  "commission_usd_round_trip": 0.05,
+  "commission_bps": 0.5,
+  "standard_spread_usd": 0.063,
+  "lot": 0.01
+ },
+ "XAGUSD": {
+  "commission_usd_round_trip": 0.95,
+  "commission_bps": 4.197,
+  "standard_spread_usd": 1.25,
+  "lot": 0.01
+ },
+ "ETHUSD": {
+  "commission_usd_round_trip": 0.1,
+  "commission_bps": 5.671,
+  "standard_spread_usd": 0.1,
+  "lot": 0.1
+ },
+ "USOIL": {
+  "commission_usd_round_trip": 0.13,
+  "commission_bps": 1.563,
+  "standard_spread_usd": 0.2,
+  "lot": 0.01
+ }
+}

@@ -1,0 +1,237 @@
+{
+ "fetched": "2026-11-18T13:57:47.352892+00:00",
+ "note": "today's Exness swap rates, assumed constant over history (points mode)",
+ "markets": {
+  "AUDUSD": {
+   "instrument": "AUDUSD",
+   "swap_long_pct_yr": 0.0,
+   "swap_short_pct_yr": -1.35,
+   "raw": {
+    "long": "0",
+    "short": "-2.5",
+    "digits": 5,
+    "price": 0.67391
+   }
+  },
+  "BTCUSD": {
+   "instrument": "BTCUSD",
+   "swap_long_pct_yr": -8.17,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-1452",
+    "short": "0",
+    "digits": 2,
+    "price": 64857.1
+   }
+  },
+  "DE40": {
+   "instrument": "DE30",
+   "swap_long_pct_yr": -7.37,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-52.9",
+    "short": "0",
+    "digits": 1,
+    "price": 26181.188
+   }
+  },
+  "ETHUSD": {
+   "instrument": "ETHUSD",
+   "swap_long_pct_yr": -8.16,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-40.7",
+    "short": "0",
+    "digits": 2,
+    "price": 1821.0
+   }
+  },
+  "EURJPY": {
+   "instrument": "EURJPY",
+   "swap_long_pct_yr": 0.0,
+   "swap_short_pct_yr": -1.92,
+   "raw": {
+    "long": "0",
+    "short": "-9.2",
+    "digits": 3,
+    "price": 175.339
+   }
+  },
+  "EURUSD": {
+   "instrument": "EURUSD",
+   "swap_long_pct_yr": -1.99,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-6",
+    "short": "0",
+    "digits": 5,
+    "price": 1.09925
+   }
+  },
+  "GBPJPY": {
+   "instrument": "GBPJPY",
+   "swap_long_pct_yr": 0.0,
+   "swap_short_pct_yr": -3.43,
+   "raw": {
+    "long": "0",
+    "short": "-19.8",
+    "digits": 3,
+    "price": 210.619
+   }
+  },
+  "GBPUSD": {
+   "instrument": "GBPUSD",
+   "swap_long_pct_yr": -0.39,
+   "swap_short_pct_yr": -0.36,
+   "raw": {
+    "long": "-1.4",
+    "short": "-1.3",
+    "digits": 5,
+    "price": 1.32043
+   }
+  },
+  "NZDUSD": {
+   "instrument": "NZDUSD",
+   "swap_long_pct_yr": -2.79,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-4.2",
+    "short": "0",
+    "digits": 5,
+    "price": 0.54967
+   }
+  },
+  "UKOIL": {
+   "instrument": "UKOIL",
+   "swap_long_pct_yr": 0.0,
+   "swap_short_pct_yr": -46.0,
+   "raw": {
+    "long": "0",
+    "short": "-117.2",
+    "digits": 3,
+    "price": 92.997
+   }
+  },
+  "US30": {
+   "instrument": "US30",
+   "swap_long_pct_yr": -7.49,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-104.5",
+    "short": "0",
+    "digits": 1,
+    "price": 50911.163
+   }
+  },
+  "US500": {
+   "instrument": "US500",
+   "swap_long_pct_yr": -7.67,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-155.4",
+    "short": "0",
+    "digits": 2,
+    "price": 7392.386
+   }
+  },
+  "USDCAD": {
+   "instrument": "USDCAD",
+   "swap_long_pct_yr": 0.0,
+   "swap_short_pct_yr": -1.99,
+   "raw": {
+    "long": "0",
+    "short": "-7.8",
+    "digits": 5,
+    "price": 1.4299
+   }
+  },
+  "USDCHF": {
+   "instrument": "USDCHF",
+   "swap_long_pct_yr": 0.0,
+   "swap_short_pct_yr": -4.82,
+   "raw": {
+    "long": "0",
+    "short": "-11.1",
+    "digits": 5,
+    "price": 0.84131
+   }
+  },
+  "USDJPY": {
+   "instrument": "USDJPY",
+   "swap_long_pct_yr": 0.0,
+   "swap_short_pct_yr": -3.32,
+   "raw": {
+    "long": "0",
+    "short": "-14.5",
+    "digits": 3,
+    "price": 159.511
+   }
+  },
+  "USOIL": {
+   "instrument": "USOIL",
+   "swap_long_pct_yr": 0.0,
+   "swap_short_pct_yr": -28.82,
+   "raw": {
+    "long": "0",
+    "short": "-66.8",
+    "digits": 3,
+    "price": 84.6
+   }
+  },
+  "USTEC": {
+   "instrument": "USTEC",
+   "swap_long_pct_yr": -7.98,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-598.1",
+    "short": "0",
+    "digits": 2,
+    "price": 27368.909
+   }
+  },
+  "XAGUSD": {
+   "instrument": "XAGUSD",
+   "swap_long_pct_yr": -4.46,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-5.8",
+    "short": "0",
+    "digits": 3,
+    "price": 47.446
+   }
+  },
+  "XAUUSD": {
+   "instrument": "XAUUSD",
+   "swap_long_pct_yr": -4.5,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-474.5",
+    "short": "0",
+    "digits": 3,
+    "price": 3848.51
+   }
+  },
+  "XCUUSD": {
+   "instrument": "XCUUSD",
+   "swap_long_pct_yr": -3838.96,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-88.3",
+    "short": "0",
+    "digits": 2,
+    "price": 5.9967
+   }
+  },
+  "XNGUSD": {
+   "instrument": "XNGUSD",
+   "swap_long_pct_yr": -142.87,
+   "swap_short_pct_yr": 0.0,
+   "raw": {
+    "long": "-175.1",
+    "short": "0",
+    "digits": 4,
+    "price": 3.1953
+   }
+  }
+ }
+}

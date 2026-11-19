@@ -1,0 +1,37 @@
+{
+ "XAUUSD": {
+  "contract": 100.0,
+  "vol_min": 0.01,
+  "margin_ccy": "XAU"
+ },
+ "BTCUSD": {
+  "contract": 1.0,
+  "vol_min": 0.01,
+  "margin_ccy": "BTC"
+ },
+ "EURUSD": {
+  "contract": 100000.0,
+  "vol_min": 0.01,
+  "margin_ccy": "EUR"
+ },
+ "USDJPY": {
+  "contract": 100000.0,
+  "vol_min": 0.01,
+  "margin_ccy": "USD"
+ },
+ "XAGUSD": {
+  "contract": 5000.0,
+  "vol_min": 0.01,
+  "margin_ccy": "XAG"
+ },
+ "ETHUSD": {
+  "contract": 1.0,
+  "vol_min": 0.1,
+  "margin_ccy": "ETH"
+ },
+ "USOIL": {
+  "contract": 1000.0,
+  "vol_min": 0.01,
+  "margin_ccy": "USD"
+ }
+}
