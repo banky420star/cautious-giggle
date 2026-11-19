@@ -22,6 +22,7 @@ class HybridBrain:
 
         self.ppo_model = None
         self.vec_norm = None
+        self.live_aux = {}   # symbol -> {"mf_p": big-move reading, "df": long M5 history} set by Server_AGI each bar
         self.ppo_bundles = []
         self.ppo_bundles_by_symbol = {}
         self.ppo_metadata = {}
@@ -116,7 +117,8 @@ class HybridBrain:
         from drl.trading_env import TradingEnv
 
         n_features = feature_count_for_version(feature_version)
-        return TradingEnv.infer_portfolio_feature_count(obs_dim, n_features=n_features)
+        window = 1 if str(feature_version) == "compact_v3" else 100
+        return TradingEnv.infer_portfolio_feature_count(obs_dim, window_size=window, n_features=n_features)
 
     def _start_autonomy_if_enabled(self):
         if os.environ.get("AGI_AUTONOMY_ENABLED", "true").lower() != "true":
@@ -421,6 +423,14 @@ class HybridBrain:
             if (obs_dim - portfolio_feature_count) % n_features == 0:
                 inferred_window = max(10, int((obs_dim - portfolio_feature_count) / n_features))
 
+        compact = feature_version == "compact_v3"
+        sym = bundle.get("_symbol") or meta.get("symbol")
+        aux = self.live_aux.get(str(sym), {}) if compact else {}
+        if compact:
+            inferred_window = 1
+            long_df = aux.get("df")
+            if long_df is not None and len(long_df) > len(df) and all(c in long_df.columns for c in req):
+                df = long_df
         if len(df) < inferred_window:
             return None
 
@@ -429,6 +439,10 @@ class HybridBrain:
             window_size=inferred_window,
             portfolio_feature_count=portfolio_feature_count,
             feature_version=feature_version,
+            **({"mf_symbol": str(sym), "mf_last": aux.get("mf_p"),
+                "compact_ablate": bool((meta.get("env_kwargs") or {}).get("compact_ablate", False)),
+                "sl_atr_mult": float(getattr(self.executor, "sl_atr_mult", 2.0) or 2.0),
+                "tp_atr_mult": float(getattr(self.executor, "tp_atr_mult", 3.2) or 3.2)} if compact else {}),
             # Same observation semantics as training (target-mode models see neutral
             # equity/return/memory slots and the real position).
             execution_mode=str((meta.get("env_kwargs") or {}).get("execution_mode", "trade")),
@@ -438,10 +452,33 @@ class HybridBrain:
         # the most recent window of closed bars.
         env.current_step = int(len(env.feature_data))
         env.position = self._live_position_fraction(bundle.get("_symbol") or meta.get("symbol"))
+        if compact and env.position != 0.0:
+            tr = self._live_trade(sym)
+            if tr is not None:
+                env.set_live_trade(*tr)
         obs = np.asarray(env._get_obs(), dtype=np.float32).reshape(-1)
         if obs_dim is not None and obs.shape[0] != obs_dim:
             return None
         return obs
+
+    def _live_trade(self, symbol):
+        """(entry, sl, tp, bars_in_trade) of the bot's net open trade, volume-weighted; None if unknown."""
+        if not symbol or self.executor is None:
+            return None
+        try:
+            import time as _t
+            longs, shorts = self.executor.get_positions(str(symbol))
+            side = longs if sum(float(p.volume) for p in longs) >= sum(float(p.volume) for p in shorts) else shorts
+            side = [p for p in side if float(getattr(p, "sl", 0) or 0) > 0 and float(getattr(p, "tp", 0) or 0) > 0]
+            if not side:
+                return None
+            v = sum(float(p.volume) for p in side)
+            entry = sum(float(p.price_open) * float(p.volume) for p in side) / v
+            first = min(side, key=lambda p: int(p.time))
+            bars = max(0.0, (_t.time() - float(first.time)) / 300.0)
+            return entry, float(first.sl), float(first.tp), bars
+        except Exception:
+            return None
 
     def _live_position_fraction(self, symbol) -> float:
         """Current net bot position in units of max_lots (what the env calls `position`)."""

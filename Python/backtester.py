@@ -240,6 +240,7 @@ def run_ppo_backtest(
     portfolio_feature_count = (
         TradingEnv.infer_portfolio_feature_count(
             expected_obs_dim,
+            window_size=1 if feature_version == "compact_v3" else 100,
             n_features=feature_count_for_version(feature_version),
         )
         if expected_obs_dim is not None

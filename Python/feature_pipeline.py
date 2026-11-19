@@ -5,7 +5,8 @@ import pandas as pd
 
 ENGINEERED_V2 = "engineered_v2"
 ULTIMATE_150 = "ultimate_150"
-FEATURE_VERSIONS = {ENGINEERED_V2, ULTIMATE_150}
+COMPACT_V3 = "compact_v3"   # Python/compact_features.py
+FEATURE_VERSIONS = {ENGINEERED_V2, ULTIMATE_150, COMPACT_V3}
 
 ENGINEERED_LSTM_COLUMNS = [
     "open",
@@ -72,8 +73,12 @@ def build_lstm_feature_frame(df: pd.DataFrame, feature_version: str = ENGINEERED
     return features, list(ENGINEERED_LSTM_COLUMNS)
 
 
-def build_env_feature_matrix(df: pd.DataFrame, feature_version: str = ENGINEERED_V2) -> np.ndarray:
+def build_env_feature_matrix(df: pd.DataFrame, feature_version: str = ENGINEERED_V2, symbol: str | None = None,
+                             mf_last: float | None = None) -> np.ndarray:
     version = normalize_feature_version(feature_version, default=ENGINEERED_V2)
+    if version == COMPACT_V3:
+        from Python.compact_features import build_compact_matrix
+        return build_compact_matrix(df, symbol=symbol, mf_last=mf_last)
     if version == ULTIMATE_150:
         features, _ = build_lstm_feature_frame(df, feature_version=ULTIMATE_150)
         return features.to_numpy(dtype=np.float32)
@@ -83,7 +88,7 @@ def build_env_feature_matrix(df: pd.DataFrame, feature_version: str = ENGINEERED
 @functools.lru_cache(maxsize=None)
 def feature_count_for_version(feature_version: str) -> int:
     version = normalize_feature_version(feature_version, default=ENGINEERED_V2)
-    if version == ULTIMATE_150:
+    if version in (ULTIMATE_150, COMPACT_V3):
         sample = pd.DataFrame(
             {
                 "time": pd.date_range("2026-01-01", periods=300, freq="5min", tz="UTC"),
@@ -94,7 +99,7 @@ def feature_count_for_version(feature_version: str) -> int:
                 "volume": np.linspace(100, 400, 300),
             }
         )
-        return int(build_env_feature_matrix(sample, feature_version=ULTIMATE_150).shape[1])
+        return int(build_env_feature_matrix(sample, feature_version=version).shape[1])
     return 21
 
 

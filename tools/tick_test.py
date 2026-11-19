@@ -89,7 +89,7 @@ def run(markets: list[str], month: str) -> dict:
             council = np.tanh(2 * v.to_numpy(float).mean(axis=1))
             close = b["close"].to_numpy(float)
             cost = b["spr"].to_numpy(float)
-            tsec = b.index.asi8 / 1e9
+            tsec = pd.DatetimeIndex(b.index).as_unit("s").asi8.astype(float)
             step = pd.Timedelta(rule).total_seconds()
             half = np.arange(len(b)) >= len(b) // 2
             row = {"bars": len(b)}

@@ -102,7 +102,7 @@ def run():
             b = m5 if mins == 5 else m5.resample(f"{mins}min", label="right", closed="left").agg(
                 {"open": "first", "high": "max", "low": "min", "close": "last"}).dropna()
             c = b["close"].to_numpy()
-            ts = b.index.asi8 // 10**9
+            ts = pd.DatetimeIndex(b.index).as_unit("s").asi8
             sig = signals(b)
             for hn, hm in HOLDS_MIN.items():
                 hb = max(1, hm // mins)

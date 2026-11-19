@@ -686,7 +686,7 @@ def _move_filter_watch(symbol: str):
     out = move_filter.prob(symbol, d)
     if out is not None:
         out["bar_time"] = last
-    _MOVE_FILTER_CACHE[symbol] = (last, out)
+    _MOVE_FILTER_CACHE[symbol] = (last, out, d)
     return out
 
 
@@ -1350,6 +1350,17 @@ def main(live=False):
                 regime = str((agi_meta or {}).get("regime", (agi_meta or {}).get("signal", "UNKNOWN")))
                 trade_memory = trade_learning_by_symbol.get(str(symbol), {})
 
+                # compact_v3 PPO inputs: the filter's reading and its 6000-bar history (same bars as training's warm-up)
+                try:
+                    if not isinstance(getattr(brain, "live_aux", None), dict):
+                        brain.live_aux = {}
+                    _mf = _move_filter_watch(symbol)
+                    _hit = _MOVE_FILTER_CACHE.get(symbol)
+                    brain.live_aux[symbol] = {"mf_p": (_mf or {}).get("p"), "df": _hit[2] if _hit and len(_hit) > 2 else None}
+                except Exception as e:
+                    logger.warning(f"PPO live inputs: move filter unavailable for {symbol}: {e}")
+                    if isinstance(getattr(brain, "live_aux", None), dict):
+                        brain.live_aux[symbol] = {}
                 ppo_meta = brain.predict_ppo_action(symbol, df)
                 dreamer_meta = brain.predict_dreamer_action(symbol, df)
                 ctx = market_context(df)

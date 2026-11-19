@@ -299,10 +299,12 @@ def get_mt5_equity(default_balance: float = 10000.0, cfg: dict | None = None) ->
 
 # Exness-like per-symbol costs in basis points of notional (one side). Override with
 # drl.env.costs.<SYMBOL>.{spread_bps,commission_bps,slippage_bps} in config.yaml.
-DEFAULT_SYMBOL_COSTS = {
-    "BTCUSDm": {"spread_bps": 2.5, "commission_bps": 0.0, "slippage_bps": 1.0},
-    "XAUUSDm": {"spread_bps": 1.0, "commission_bps": 0.0, "slippage_bps": 0.5},
-}
+# Measured Exness Standard round-trip spreads (bps): XAU 0.59, BTC 0.79, EUR 0.71, JPY 0.63, XAG 4.42, ETH 4.10,
+# OIL 2.09 -> half per side, plus 0.25 bps slippage per side (2026-11-19; was 3-7 bps round trip / a 5-bps guess).
+_RT_SPREAD_BPS = {"XAUUSDm": 0.59, "BTCUSDm": 0.79, "EURUSDm": 0.71, "USDJPYm": 0.63, "XAGUSDm": 4.42,
+                  "ETHUSDm": 4.10, "USOILm": 2.09}
+DEFAULT_SYMBOL_COSTS = {k: {"spread_bps": v / 2.0, "commission_bps": 0.0, "slippage_bps": 0.25}
+                        for k, v in _RT_SPREAD_BPS.items()}
 
 
 def active_scenario(cfg: dict) -> tuple[str | None, dict]:
@@ -317,7 +319,7 @@ def active_scenario(cfg: dict) -> tuple[str | None, dict]:
     return name, scen
 
 
-def resolve_env_kwargs(cfg: dict, symbol: str | None, training: bool = True) -> dict:
+def resolve_env_kwargs(cfg: dict, symbol: str | None, training: bool = True, feature_version: str | None = None) -> dict:
     """TradingEnv kwargs shared by training, validation, backtest (stored in metadata)."""
     drl_cfg = (cfg or {}).get("drl", {}) if isinstance(cfg, dict) else {}
     env_cfg = drl_cfg.get("env", {}) if isinstance(drl_cfg.get("env", {}), dict) else {}
@@ -330,12 +332,19 @@ def resolve_env_kwargs(cfg: dict, symbol: str | None, training: bool = True) -> 
         "spread_bps": float(costs["spread_bps"]),
         "commission_rate": float(costs["commission_bps"]) / 10000.0,
         "slippage_bps": float(costs["slippage_bps"]),
-        "sl_atr_mult": float(env_cfg.get("sl_atr_mult", 1.4)),
-        "tp_atr_mult": float(env_cfg.get("tp_atr_mult", 2.2)),
+        # same as the live executor (trading.stops); was 1.4 / 2.2
+        "sl_atr_mult": float(env_cfg.get("sl_atr_mult", 2.0)),
+        "tp_atr_mult": float(env_cfg.get("tp_atr_mult", 3.2)),
         "min_rebalance": float(env_cfg.get("min_rebalance", 0.05)),
         # Fixed: the policy feature extractors reshape observations as 100-bar windows.
         "window_size": 100,
     }
+    if str(feature_version or "").lower() == "compact_v3":
+        kwargs.pop("window_size")                          # compact_v3 uses one row that carries its own history
+        kwargs["mf_symbol"] = str(symbol) if symbol else None
+        kwargs["trend_gate"] = bool(env_cfg.get("trend_gate", True))
+        if os.environ.get("AGI_COMPACT_ABLATE", "").strip() == "1":
+            kwargs["compact_ablate"] = True
     if training:
         kwargs["random_start"] = bool(env_cfg.get("random_start", True))
         kwargs["episode_length"] = int(env_cfg.get("episode_length", 2048))
@@ -485,6 +494,8 @@ def _policy_kwargs_for(feature_version: str) -> dict:
     from drl.adaptive_feature_extractor import AdaptiveLSTMFeatureExtractor
     from drl.lstm_feature_extractor import LSTMFeatureExtractor
 
+    if feature_version == "compact_v3":
+        return dict(net_arch=[256, 256], activation_fn=torch.nn.ReLU)    # ~205 inputs: a plain network
     if feature_version == ULTIMATE_150:
         return dict(
             features_extractor_class=AdaptiveLSTMFeatureExtractor,
@@ -684,8 +695,9 @@ def _stage_candidate(
         "reward_version": str(reward_cfg.get("version", "v2_risk_adjusted")),
         "action_config": action_cfg,
         "ppo_params": ppo_params,
-        "policy_extractor": "adaptive_lstm" if feature_version == ULTIMATE_150 else "agi_lstm",
-        "window_size": 100,
+        "policy_extractor": ("mlp" if feature_version == "compact_v3" else
+                             "adaptive_lstm" if feature_version == ULTIMATE_150 else "agi_lstm"),
+        "window_size": 1 if feature_version == "compact_v3" else 100,
         "windows": {
             "train": str(period),
             "validate": str(eval_windows.get("validate", "120d")),
@@ -697,7 +709,7 @@ def _stage_candidate(
     if extra_meta:
         meta.update(extra_meta)
         if "env_kwargs" in extra_meta:
-            meta["window_size"] = int(extra_meta["env_kwargs"].get("window_size", 100))
+            meta["window_size"] = int(extra_meta["env_kwargs"].get("window_size", 1 if feature_version == "compact_v3" else 100))
 
     with open(os.path.join(candidate_path, "scorecard.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
@@ -836,8 +848,8 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
             "Multi-symbol PPO candidate: generic costs are used for every symbol. "
             "Prefer per-symbol training (drl.per_symbol: true) so costs match each instrument."
         )
-    env_kwargs = resolve_env_kwargs(cfg, symbol_hint, training=True)
-    eval_env_kwargs = resolve_env_kwargs(cfg, symbol_hint, training=False)
+    env_kwargs = resolve_env_kwargs(cfg, symbol_hint, training=True, feature_version=feature_version)
+    eval_env_kwargs = resolve_env_kwargs(cfg, symbol_hint, training=False, feature_version=feature_version)
     df = pl.from_pandas(train_pd)
     df_val = pl.from_pandas(val_pd)
     n_envs = 4

@@ -39,7 +39,7 @@ def dataset(sym):
     f = build_feature_frame(df)
     f.index = df["time"].iloc[-len(f):].to_numpy()
     c = df.set_index("time")["close"].reindex(f.index)
-    ts = pd.Series(f.index.asi8 // 10**9, index=f.index)
+    ts = pd.Series(pd.DatetimeIndex(f.index).as_unit("s").asi8, index=f.index)
     fwd = (c.shift(-H) / c - 1) * 1e4
     typical = fwd.abs().rolling(2000, min_periods=500).median().shift(H)   # only past, finished hours
     ok = fwd.notna() & typical.notna() & ((ts.shift(-H) - ts) <= H * 300 * 1.5)

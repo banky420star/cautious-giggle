@@ -40,8 +40,24 @@ class TradingEnv(gym.Env):
         tp_atr_mult: float = 2.2,
         min_rebalance: float = 0.05,
         start_index: int | None = None,
+        mf_symbol: str | None = None,
+        mf_last: float | None = None,
+        trend_gate: bool = False,
+        compact_ablate: bool = False,
     ):
         super().__init__()
+        from Python.compact_features import COMPACT_V3, TRADE_STATE_COUNT
+        self._compact = str(feature_version or "").lower() == COMPACT_V3
+        if self._compact:
+            window_size = 1                       # compact_v3 rows already carry their own short history
+            if portfolio_feature_count is None:
+                portfolio_feature_count = TRADE_STATE_COUNT
+        self.mf_symbol = mf_symbol
+        self.mf_last = mf_last
+        # live trend gate inside training (compact_v3): no new risk against BOTH the 4h and 1h trend
+        # comparison run: compact inputs only (filter, trend and trade-state inputs blanked, no trend gate)
+        self.compact_ablate = bool(compact_ablate) and self._compact
+        self.trend_gate = bool(trend_gate) and self._compact and not self.compact_ablate
         # "target": live-parity mode. Each step the action is a target position that is
         # held until changed, exactly like Server_AGI -> MT5Executor.reconcile_exposure,
         # with executor-style ATR stop-loss / take-profit checked against bar high/low.
@@ -308,7 +324,10 @@ class TradingEnv(gym.Env):
                 "volume": v,
             }
         )
-        self.feature_data = build_env_feature_matrix(base, feature_version=self.feature_version)
+        self.feature_data = build_env_feature_matrix(base, feature_version=self.feature_version,
+                                                     symbol=self.mf_symbol or self.symbol or None, mf_last=self.mf_last)
+        if self.compact_ablate:
+            self.feature_data[:, -5:] = 0.0
         self.n_features = int(self.feature_data.shape[1])
 
         self._update_observation_space()
@@ -536,6 +555,17 @@ class TradingEnv(gym.Env):
         prev_equity = float(self.equity)
         prev_position = float(self.position)
         target = float(np.clip(action_meta.get("target", 0.0) or 0.0, -self.max_leverage, self.max_leverage))
+        if self.trend_gate and target != 0.0:
+            from Python.compact_features import trend_columns
+            c4, c1 = trend_columns(self.n_features)
+            row = self.feature_data[t - 1]
+            d_ = 1.0 if target > 0 else -1.0
+            if row[c4] == -d_ and row[c1] == -d_:
+                # same as the live gate: no opening or adding; an opposite position may only be closed
+                if prev_position == 0.0 or np.sign(prev_position) != d_:
+                    target = 0.0
+                elif abs(target) > abs(prev_position):
+                    target = prev_position
 
         # Rebalance only on a meaningful change (live: volume step + min threshold).
         new_position = prev_position
@@ -554,6 +584,7 @@ class TradingEnv(gym.Env):
                     "entry": fill_price,
                     "sl": fill_price - d * self.sl_atr_mult * atr,
                     "tp": fill_price + d * self.tp_atr_mult * atr,
+                    "step": int(t),
                 }
         self.position = new_position
 
@@ -629,7 +660,30 @@ class TradingEnv(gym.Env):
         portfolio_state = np.array(self._build_portfolio_state(), dtype=np.float32)
         return np.concatenate([obs_window, portfolio_state]).astype(np.float32)
 
+    def _trade_state_compact(self) -> list[float]:
+        """position, open profit / time in trade / distance to stop / to target (in stop units = sl_atr_mult x ATR)."""
+        t = max(1, int(self.current_step))
+        tt = self.target_trade
+        if self.position == 0.0 or tt is None:
+            return [0.0, 0.0, 0.0, 0.0, 0.0]
+        d = 1.0 if self.position > 0 else -1.0
+        px = float(self.prices[min(t - 1, len(self.prices) - 1)])
+        unit = max(1e-12, self.sl_atr_mult * float(self.atr[min(t - 1, len(self.atr) - 1)]))
+        clip = lambda v: float(np.clip(v, -5.0, 5.0))  # noqa: E731
+        return [float(self.position), clip((px - tt["entry"]) * d / unit),
+                float(np.clip((t - int(tt.get("step", t))) / 48.0, 0.0, 3.0)),
+                clip((px - tt["sl"]) * d / unit), clip((tt["tp"] - px) * d / unit)]
+
+    def set_live_trade(self, entry: float, sl: float, tp: float, bars_in_trade: float):
+        """Live inference: describe the bot's real open trade the way training saw its own."""
+        self.target_trade = {"entry": float(entry), "sl": float(sl), "tp": float(tp), "initial_sl": float(sl),
+                             "step": int(self.current_step - max(0.0, float(bars_in_trade)))}
+
     def _build_portfolio_state(self) -> list[float]:
+        if self._compact:
+            if self.compact_ablate:
+                return [float(self.position), 0.0, 0.0, 0.0, 0.0][: self.portfolio_feature_count]
+            return self._trade_state_compact()[: self.portfolio_feature_count]
         if self.execution_mode == "target":
             # Only the current position is observable identically in training, backtest
             # and live; equity ratio / recent returns / trade memory are held neutral.

@@ -92,7 +92,7 @@ def run(markets: list[str]) -> dict:
             idx = [i for i, c in enumerate(cols) if (c.split("@")[1] if "@" in c else "M5") == tf]
             if idx:
                 councils[f"council ({tf} charts)"] = np.tanh(2 * V[:, idx].mean(axis=1))
-        t_ns = df.index.asi8
+        t_ns = pd.DatetimeIndex(df.index).as_unit("ns").asi8
         half = np.arange(len(df)) >= len(df) // 2
         res = {"from": str(df.index[0]), "to": str(df.index[-1]), "bars": len(df), "cost": how, "horizons": {}}
         for hname, h in HORIZONS.items():

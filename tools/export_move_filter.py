@@ -44,7 +44,7 @@ def flatten(tree):
 def main():
     from Python.move_filter import predict_trees
     from tools.train_move_filter import dataset
-    for p in sorted(glob.glob(os.path.join(ROOT, "models", "move_filter", "*.pkl"))):
+    for p in sorted(x for x in glob.glob(os.path.join(ROOT, "models", "move_filter", "*.pkl")) if not x.endswith(".npz.pkl")):
         sym = os.path.basename(p)[:-4]
         b = pickle.load(open(p, "rb"))
         dump = b["model"].booster_.dump_model()

@@ -63,7 +63,7 @@ def run():
         f = build_feature_frame(df)
         f.index = df["time"].iloc[-len(f):].to_numpy() if len(f) != len(df) else df["time"].to_numpy()
         c = df.set_index("time")["close"].reindex(f.index)
-        t_s = pd.Series(f.index.asi8 // 10**9, index=f.index)
+        t_s = pd.Series(pd.DatetimeIndex(f.index).as_unit("s").asi8, index=f.index)
         fwd = (c.shift(-H) / c - 1) * 1e4
         ok = fwd.notna() & ((t_s.shift(-H) - t_s) <= H * 300 * 1.5)
         typical = fwd.abs().rolling(2000, min_periods=500).median().shift(H)
