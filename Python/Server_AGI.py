@@ -1057,6 +1057,9 @@ def main(live=False):
     _stops = (cfg.get("trading") or {}).get("stops") or {}
     executor.sl_atr_mult = float(_stops.get("sl_atr_mult", 2.0))
     executor.tp_atr_mult = float(_stops.get("tp_atr_mult", 3.2))
+    executor.stop_overrides = {str(k): dict(v) for k, v in (_stops.get("per_symbol") or {}).items() if isinstance(v, dict)}
+    if executor.stop_overrides:
+        logger.info(f"stop overrides per market: {executor.stop_overrides}")
     logger.info(f"trend gate {'on' if trend_gate.enabled else 'off'} ({'+'.join(trend_gate.tfs)} EMA{trend_gate.span}); "
                 f"stops {executor.sl_atr_mult}x ATR, targets {executor.tp_atr_mult}x ATR")
     _cg = ((cfg.get("trading") or {}).get("cost_gate") or {})

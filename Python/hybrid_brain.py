@@ -441,8 +441,9 @@ class HybridBrain:
             feature_version=feature_version,
             **({"mf_symbol": str(sym), "mf_last": aux.get("mf_p"),
                 "compact_ablate": bool((meta.get("env_kwargs") or {}).get("compact_ablate", False)),
-                "sl_atr_mult": float(getattr(self.executor, "sl_atr_mult", 2.0) or 2.0),
-                "tp_atr_mult": float(getattr(self.executor, "tp_atr_mult", 3.2) or 3.2)} if compact else {}),
+                "sl_atr_mult": (self.executor.stop_mults(str(sym))[0] if hasattr(self.executor, "stop_mults") else 2.0),
+                "tp_atr_mult": (self.executor.stop_mults(str(sym))[1] if hasattr(self.executor, "stop_mults") else 3.2)}
+               if compact else {}),
             # Same observation semantics as training (target-mode models see neutral
             # equity/return/memory slots and the real position).
             execution_mode=str((meta.get("env_kwargs") or {}).get("execution_mode", "trade")),

@@ -58,6 +58,7 @@ class MT5Executor:
         self._atr_cache = {}
         self.sl_atr_mult = 1.4   # set from trading.stops by the server
         self.tp_atr_mult = 2.2
+        self.stop_overrides = {}  # trading.stops.per_symbol: {"XAUUSDm": {"sl_atr_mult": 1.5, "tp_atr_mult": 2.4}}
 
     # ------------------------------------------------------------------ helpers
     def _symbol_info(self, symbol):
@@ -552,6 +553,11 @@ class MT5Executor:
         self._atr_cache[symbol] = (now, atr_points)
         return atr_points
 
+    def stop_mults(self, symbol) -> tuple[float, float]:
+        o = (getattr(self, "stop_overrides", None) or {}).get(str(symbol)) or {}
+        return (float(o.get("sl_atr_mult", getattr(self, "sl_atr_mult", 1.4))),
+                float(o.get("tp_atr_mult", getattr(self, "tp_atr_mult", 2.2))))
+
     def _dynamic_points(self, symbol):
         profile = self._profile(symbol)
         base_sl = int(profile.get("sl_points", 250))
@@ -561,8 +567,9 @@ class MT5Executor:
         if atr_points is None:
             return base_sl, base_tp
 
-        dyn_sl = max(base_sl, int(atr_points * float(getattr(self, "sl_atr_mult", 1.4))))
-        dyn_tp = max(base_tp, int(atr_points * float(getattr(self, "tp_atr_mult", 2.2))))
+        sl_m, tp_m = self.stop_mults(symbol)
+        dyn_sl = max(base_sl, int(atr_points * sl_m))
+        dyn_tp = max(base_tp, int(atr_points * tp_m))
         return dyn_sl, dyn_tp
 
     def _get_sl_tp(self, symbol, order_type, entry_price):

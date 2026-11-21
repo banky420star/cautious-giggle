@@ -335,6 +335,8 @@ def resolve_env_kwargs(cfg: dict, symbol: str | None, training: bool = True, fea
         # same as the live executor (trading.stops); was 1.4 / 2.2
         "sl_atr_mult": float(env_cfg.get("sl_atr_mult", 2.0)),
         "tp_atr_mult": float(env_cfg.get("tp_atr_mult", 3.2)),
+        **{k: float(v) for k, v in ((((cfg or {}).get("trading") or {}).get("stops") or {}).get("per_symbol") or {})
+           .get(str(symbol), {}).items() if k in ("sl_atr_mult", "tp_atr_mult")},
         "min_rebalance": float(env_cfg.get("min_rebalance", 0.05)),
         # Fixed: the policy feature extractors reshape observations as 100-bar windows.
         "window_size": 100,
@@ -858,7 +860,7 @@ def _train_once(symbols: list[str], cfg: dict, total_timesteps: int, initial_bal
         [
             make_env(
                 df,
-                i,
+                i + 100 * _env_int("AGI_DRL_SEED", 0),   # repeat runs with different seeds (AGI_DRL_SEED=1,2,...)
                 initial_balance=initial_balance,
                 reward_weights=reward_weights,
                 trade_memory=trade_memory,

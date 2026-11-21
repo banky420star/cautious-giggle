@@ -7,7 +7,8 @@ from Python.config_utils import load_project_config
 from Python.model_evaluator import evaluate_candidate_vs_champion
 
 cand, sym = sys.argv[1], sys.argv[2]
-cfg = load_project_config(live_mode=False)
+import os
+cfg = load_project_config(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), live_mode=False)
 gates = (cfg.get("evaluation") or {}).get("gates") if isinstance(cfg.get("evaluation"), dict) else None
 r = evaluate_candidate_vs_champion(cand, None, [sym], period=str((cfg.get("drl") or {}).get("eval_period", "120d")), gates=gates)
 print("EXAM", sym, cand.rsplit("/", 1)[-1], json.dumps({k: r.get(k) for k in ("passes_thresholds", "wins", "error")}),
