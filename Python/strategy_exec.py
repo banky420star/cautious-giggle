@@ -69,6 +69,25 @@ def all_positions(mt5, symbol: str | None = None) -> list:
             mt5.hide_foreign = had
 
 
+# Account-wide cap on positions in one direction, across every trader (trading.crowd_cap, user 2026-11-24): on
+# 2026-11-24 every brain sold the same dollar move at ~5% each and equity swung from $1,928 to $940 in six hours.
+# Server_AGI sets this at start; 0 = off.
+CROWD = {"max_same_side": 0}
+
+
+def crowd_reason(mt5, side: int, cap: int | None = None) -> str | None:
+    """Why a new `side` (+1 buy / -1 sell) trade may not open: `cap` or more positions in that direction are
+    already open across all traders. None when it may."""
+    cap = int(CROWD["max_same_side"] if cap is None else cap or 0)
+    if cap <= 0 or not side:
+        return None
+    buy = getattr(mt5, "ORDER_TYPE_BUY", 0)
+    n = sum(1 for p in all_positions(mt5) if (1 if int(getattr(p, "type", buy)) == buy else -1) == side)
+    if n >= cap:
+        return f"{n} {'buy' if side > 0 else 'sell'} positions already open across all traders (cap {cap})"
+    return None
+
+
 def open_hidden(mt5, req: dict):
     """Send an opening order and take the new position off the council's list. Returns (ok, ticket, result)."""
     own_before = set(mt5._own_load()) if hasattr(mt5, "_own_load") else None

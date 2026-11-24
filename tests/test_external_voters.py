@@ -30,7 +30,8 @@ def test_catboost_feature_names_match_training():
         "/Volumes/AI_DRIVE/Trading_stack.bank/user_data/models/bank-freqai-spot-v1/sub-train-BTC_*/*_metadata.json")
     if not meta_files:
         return
-    want = json.load(open(sorted(meta_files)[-1]))["training_features_list"]
+    with open(sorted(meta_files)[-1]) as fh:
+        want = json.load(fh)["training_features_list"]
     f = xv._CatBoost.features(_bars(200), "BTC/USDT")
     assert set(want) <= set(f.columns)
 

@@ -50,6 +50,6 @@ def test_setup_gate_new_era_restarts_scores(tmp_path, monkeypatch):
     assert g.verdict("XAUUSDm|SELL")[0] in ("block", "retest")
     g2 = SetupGate({"min_trades_block": 2, "era": "new rules"}, account_id="1")
     assert g2.stats("XAUUSDm|SELL")["n"] == 0 and g2.verdict("XAUUSDm|SELL")[0] == "probe"
-    assert json.load(open(tmp_path / "setups_1.before-new-rules.json"))["stats"]
+    assert json.loads((tmp_path / "setups_1.before-new-rules.json").read_text())["stats"]
     g3 = SetupGate({"min_trades_block": 2, "era": "new rules"}, account_id="1")
     assert g3.state["era"] == "new rules"

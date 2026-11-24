@@ -1097,6 +1097,13 @@ def main(live=False):
     if council_rules["hold"] or council_rules["markets_off"]:
         logger.info(f"council rules: hold trades to stop/target/{_cr.get('max_hours', 24)}h = {council_rules['hold']}, "
                     f"no new council trades on {sorted(council_rules['markets_off']) or 'none'}")
+    # Account-wide cap on positions in one direction across every trader (trading.crowd_cap, user 2026-11-24).
+    # Blocks NEW council / Gemma / Jev / meta-brain trades; Gold Breakout (one break a day) is not held back.
+    from Python import strategy_exec as _sx
+    _sx.CROWD["max_same_side"] = int(((cfg.get("trading") or {}).get("crowd_cap") or {}).get("max_same_side") or 0)
+    if _sx.CROWD["max_same_side"]:
+        logger.info(f"crowd cap ON: no new trade when {_sx.CROWD['max_same_side']}+ positions are already open in "
+                    f"that direction across all traders")
     # Stop manager: moves the stop into profit on EVERY bot trade (council + strategies), each market's own rule
     # (Python/stop_manager.py, tools/stop_rules_backtest.py). Replaces the executor's council-only rule.
     stop_mgr, _stops_at = None, [0.0]
@@ -1123,7 +1130,7 @@ def main(live=False):
                 from Python import gemma_trader as _gtm
                 _tr = getattr(_gtm, _cls)(_gt, LOG_DIR, logger)
                 llm_trs.append(_tr)
-                logger.info(f"{_tr.NAME} ON: {_tr.cfg['model']} decides on its own every M15 bar, "
+                logger.info(f"{_tr.NAME} ON: {_tr.cfg['model']} decides on its own every {_tr.cfg.get('every_min', 15):g} minutes, "
                             f"trades at confidence >= {_tr.cfg['min_confidence']}, risk {_tr.cfg['risk_pct']}%")
             else:
                 logger.warning(f"{_key} runs on demo rules only (same_on_live is off): not started on this account")
@@ -1263,9 +1270,16 @@ def main(live=False):
                 finally:
                     os._exit(3)
     threading.Thread(target=_watchdog, name="loop-watchdog", daemon=True).start()
+    _scout_on = bool(((cfg.get("trading") or {}).get("market_scout") or {}).get("daily", True))
     while True:
         now = time.time()
         _loop_tick[0] = now
+        if _scout_on:      # daily new-market test, 07:15 UTC (launchd can't reach the external drive; Python/daily_jobs.py)
+            try:
+                from Python.daily_jobs import maybe_start_scout
+                maybe_start_scout(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), now, logger)
+            except Exception as e:
+                logger.warning(f"market scout start failed: {e}")
 
         if not _ensure_mt5_connected(cfg, symbols):
             alerter.alert(f"MT5 disconnected; retrying in {int(reconnect_backoff)}s")
@@ -1534,10 +1548,11 @@ def main(live=False):
                     try:
                         from Python.gemma_trader import council_brief
                         _m15g = _m15_long(symbol)
-                        if _m15g is not None and len(_m15g) and gemma_tr.wants(symbol, str(_m15g["time"].iloc[-1])):
+                        _slot = gemma_tr.slot(str(_m15g["time"].iloc[-1])) if _m15g is not None and len(_m15g) else None
+                        if _slot and gemma_tr.wants(symbol, _slot):
                             from Python.indicator_council import _atr as _gatr
                             _atr5 = float(_gatr(df[["open", "high", "low", "close"]].astype(float)).iloc[-1])
-                            gemma_tr.submit(symbol, str(_m15g["time"].iloc[-1]),
+                            gemma_tr.submit(symbol, _slot,
                                             council_brief(council_meta, decision, ext_voters, symbol), _m15g,
                                             desk=gemma_tr.desk_context(mt5, symbol, _m15g, _atr5), atr_m5=_atr5)
                     except Exception as e:
@@ -1765,6 +1780,19 @@ def main(live=False):
                     if time.time() - _gate_logged.get(f"off:{symbol}", 0) > 3600:
                         _gate_logged[f"off:{symbol}"] = time.time()
                         logger.info(f"COUNCIL OFF {symbol} | no setup made money here after the spread (entry study): no new council trades")
+                if float(exposure) != 0.0 and (cur_x == 0.0 or (float(exposure) > 0) != (cur_x > 0)
+                                               or abs(float(exposure)) > abs(cur_x) + 1e-9):
+                    from Python.strategy_exec import crowd_reason as _crowd
+                    _cw = _crowd(mt5, 1 if float(exposure) > 0 else -1)
+                    if _cw:
+                        exposure = 0.0 if (cur_x != 0.0 and (cur_x > 0) != (float(exposure) > 0)) else cur_x
+                        held_by_gate = True
+                        gate_entry = None
+                        if pending_entries.pop(symbol, None):
+                            _append_audit("entry_cancelled", {"symbol": symbol, "reason": "crowd cap"})
+                        if time.time() - _gate_logged.get(f"crowd:{symbol}", 0) > 900:
+                            _gate_logged[f"crowd:{symbol}"] = time.time()
+                            logger.info(f"CROWD CAP {symbol} | {_cw}: no new council trade")
                 if council_rules["hold"] and cur_x != 0.0 and (
                         float(exposure) == 0.0 or (float(exposure) > 0) != (cur_x > 0) or abs(float(exposure)) < abs(cur_x) - 1e-9):
                     exposure = cur_x                       # hold: exits are the stop, the target, the stop manager or 24 h

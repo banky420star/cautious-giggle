@@ -95,12 +95,12 @@ _JOBS: queue.Queue = queue.Queue()
 _WORKER: list = []
 
 
-def _shared_worker():
+def _shared_worker(q: queue.Queue = _JOBS):
     while True:
-        jobs = [_JOBS.get()]
+        jobs = [q.get()]
         try:
             while True:
-                jobs.append(_JOBS.get_nowait())
+                jobs.append(q.get_nowait())
         except queue.Empty:
             pass
         _round(jobs)
@@ -124,30 +124,61 @@ class GemmaTrader(AtrTrader):
     FILE = "gemma_trader"
     DEFAULTS = {"enabled": False, "risk_pct": 5.0, "min_lot_max_risk_pct": 5.0, "max_open": 7, "magic": 77900,
                 "model": "gemma4:e4b-it-qat", "url": "http://127.0.0.1:11434", "timeout_s": 180,
-                "min_confidence": 0.6, "max_decision_age_s": 1200}
+                "min_confidence": 0.6, "max_decision_age_s": 1200, "every_min": 15}
+    OWN_WORKER = False   # True: answered on its own thread (a fast remote API never waits behind a local model)
 
     def __init__(self, cfg, log_dir, logger=None, ask=None):
         super().__init__(cfg, log_dir, logger)
         self.decisions: dict = {}      # sym -> {"t", "stamp", "decision", "confidence", "reason"}
         self._stamp: dict = {}
-        self._q: queue.Queue = queue.Queue()
+        self._jobs: queue.Queue = queue.Queue() if self.OWN_WORKER else _JOBS
         self._ask = ask                # injectable model call (tests)
         if self.enabled:
-            if not _WORKER:
+            if self.OWN_WORKER:
+                threading.Thread(target=_shared_worker, args=(self._jobs,), name=self.FILE, daemon=True).start()
+            elif not _WORKER:
                 _WORKER.append(threading.Thread(target=_shared_worker, name="llm-traders", daemon=True))
                 _WORKER[0].start()
 
     # ------------------------------------------------------------------ background: ask Gemma
+    def slot(self, bar_stamp: str, now: float | None = None) -> str:
+        """The decision stamp: the M15 bar, or with `every_min` under 15 the bar plus the current `every_min`
+        slice of the clock, so the model is asked again every few minutes inside the bar."""
+        every = float(self.cfg.get("every_min") or 15)
+        if every >= 15:
+            return bar_stamp
+        now = time.time() if now is None else now
+        sl = int(now // (every * 60) * every * 60)
+        return f"{bar_stamp}|{dt.datetime.fromtimestamp(sl, dt.timezone.utc):%H:%M}"
+
     def wants(self, symbol: str, stamp: str) -> bool:
-        """True when this M15 bar has not been sent yet (build the brief only then)."""
-        return self.enabled and self._stamp.get(symbol) != stamp
+        """True when this decision slot has not been sent yet (build the brief only then)."""
+        return self.enabled and symbol not in (self.cfg.get("skip_symbols") or ()) and self._stamp.get(symbol) != stamp
+
+    def _today(self, now: float) -> dict:
+        """{symbol: trades opened} for the current UTC day (state["day"])."""
+        day = dt.datetime.fromtimestamp(now, dt.timezone.utc).strftime("%Y-%m-%d")
+        if (self.state.get("day") or {}).get("d") != day:
+            n: dict = {}                                  # new day, or first run: count today's opens from the log
+            t0 = dt.datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc).timestamp()
+            try:
+                with open(self.events, encoding="utf-8") as f:
+                    for ln in f:
+                        if '"open"' in ln:
+                            e = json.loads(ln)
+                            if e.get("event") == "open" and float(e.get("t", 0)) >= t0 and e.get("symbol"):
+                                n[e["symbol"]] = n.get(e["symbol"], 0) + 1
+            except (OSError, ValueError):
+                pass
+            self.state["day"] = {"d": day, "n": n}
+        return self.state["day"]["n"]
 
     def submit(self, symbol: str, stamp: str, brief: str, m15, desk: str = "", atr_m5: float | None = None) -> None:
         """Queue one decision per market per M15 bar (never blocks the bot)."""
         if not self.wants(symbol, stamp):
             return
         self._stamp[symbol] = stamp
-        _JOBS.put((self, (symbol, stamp, brief, None if m15 is None else m15.tail(1500).copy(), desk, atr_m5)))
+        self._jobs.put((self, (symbol, stamp, brief, None if m15 is None else m15.tail(1500).copy(), desk, atr_m5)))
 
     # ------------------------------------------------------------------ the desk picture (main thread: broker calls)
     def track_record(self, trade_log: str) -> dict:
@@ -269,7 +300,7 @@ class GemmaTrader(AtrTrader):
         from Python.external_voters import ASSETS, ollama_json
         a = smc.analyze(m15) if m15 is not None else None
         asset = ASSETS.get(symbol, symbol)
-        sl, tp = mb.STOPS.get(mb.base(symbol), mb.STOPS["default"])
+        sl, tp = self.stops_for(symbol)
         # The stops sit at M5 ATR multiples (meta_trader.AtrTrader.open), so the spread is measured against the M5
         # ATR; without it, M15 ATR / sqrt(3) (ATR grows ~ with the square root of the bar length).
         atr = float(atr_m5) if atr_m5 else (float((a or {}).get("atr") or 0.0) / 3 ** 0.5)
@@ -309,17 +340,26 @@ class GemmaTrader(AtrTrader):
             if self.manage(mt5, sym, now):
                 pos = self.state["open"][sym]
                 if sure and side == -pos["side"]:
-                    self.close(mt5, sym, f"Gemma turned {d['decision']} ({d['confidence']:.2f})")
+                    self.close(mt5, sym, f"{self.NAME.split()[0].capitalize()} turned {d['decision']} ({d['confidence']:.2f})")
                 continue
+            if sym in (self.cfg.get("skip_symbols") or ()):
+                continue                                  # not traded by this model (trading.<trader>.skip_symbols)
             if not (sure and side) or self.state["seen"].get(sym) == d["stamp"]:
                 continue
             self.state["seen"][sym] = d["stamp"]
             why_not = block(sym) if block else None
+            per_day = int(self.cfg.get("max_trades_per_market_day") or 0)
+            today = self._today(now)
+            if not why_not and per_day and today.get(sym, 0) >= per_day:
+                why_not = f"already {today[sym]} trades on this market today (max {per_day})"
             if not can_open or why_not or len(self.state["open"]) >= int(self.cfg["max_open"]):
                 self._event("skip", symbol=sym, reason="risk engine halt" if not can_open else why_not or "max open")
                 self._save()
                 continue
             self.open(mt5, sym, side, confidence=d["confidence"], why=d["reason"][:200])
+            if sym in self.state["open"]:
+                today[sym] = today.get(sym, 0) + 1
+                self._save()
 
 
 class QwenTrader(GemmaTrader):
@@ -363,7 +403,9 @@ class JevTrader(GemmaTrader):
                 "routes": ["openrouter", "jevai"],
                 "url": "https://www.jevai.org/api/v1/decisions",
                 "openrouter_url": "https://openrouter.ai/api/alpha/decisions", "openrouter_model": "typesafe/jev-1.13",
-                "key_files": ["/Volumes/AI_DRIVE/jev-trader/.env", "~/.config/xau-v3/jev.env"], "cooldown_s": 300}
+                "key_files": ["/Volumes/AI_DRIVE/jev-trader/.env", "~/.config/xau-v3/jev.env"], "cooldown_s": 300,
+                "every_min": 5}
+    OWN_WORKER = True
 
     QUESTION = {"decision": {
         "type": "choice",
@@ -372,14 +414,17 @@ class JevTrader(GemmaTrader):
             "goal": "Make money after costs on a small account. Each trade risks `risk_per_trade` of equity with a "
                     "broker stop and target `stops` away; `cost` is the spread as a fraction of the stop.",
             "inputs": "`council` holds the indicator votes and model forecasts for this market, `smc` the market "
-                      "structure, `desk` the account, every open position (several bets on the same dollar move "
-                      "stop out together), the session, market opens, scheduled news and this trader's own record.",
+                      "structure, `desk` the account, every open position, the session, market opens, scheduled "
+                      "news and this trader's own record. Positions marked council bot or other strategy belong to "
+                      "other traders with their own risk: judge this market on its own merits, and only let your "
+                      "own open trades count against a new one. News and market opens are already blocked by the "
+                      "system, so you are only asked when trading is allowed.",
         },
         "criteria": {
             "buy": "Price more likely to reach the target above before the stop below, by enough to beat the cost.",
             "sell": "Price more likely to reach the target below before the stop above, by enough to beat the cost.",
-            "hold": "No clear edge after costs, the evidence conflicts, news or an open is close, or the desk "
-                    "already holds too much of the same bet.",
+            "hold": "No clear edge after costs, the evidence conflicts, or your own open trades already hold "
+                    "this same bet. Other traders' positions are not a reason to hold.",
         },
     }}
 
@@ -443,7 +488,7 @@ class JevTrader(GemmaTrader):
         if time.time() < self._down_until and self._ask is None:
             raise RuntimeError("Jev unreachable, cooling down")
         a = smc.analyze(m15) if m15 is not None else None
-        sl, tp = mb.STOPS.get(mb.base(symbol), mb.STOPS["default"])
+        sl, tp = self.stops_for(symbol)
         atr = float(atr_m5) if atr_m5 else (float((a or {}).get("atr") or 0.0) / 3 ** 0.5)
         cost = mb.SPREAD_BPS.get(mb.base(symbol), 1.0) / 1e4 * (a["price"] if a else 1.0) / (atr or 1e9) / sl
         asset = ASSETS.get(symbol, symbol)

@@ -1,3 +1,4 @@
+import json
 import time
 
 import numpy as np
@@ -159,3 +160,80 @@ def test_jev_trader_uses_probabilities_and_backs_off_when_down(tmp_path):
     j3._ask = None
     j3._answer("XAUUSDm", "s2", "b", _m15(), "", None)
     assert len(calls) == 1 and "cooling down" in j3.decisions["XAUUSDm"]["reason"]
+
+
+def test_jev_asks_every_five_minutes_gemma_once_per_bar(tmp_path):
+    from Python.gemma_trader import GemmaTrader, JevTrader
+    g = GemmaTrader({"enabled": False}, str(tmp_path))
+    j = JevTrader({"enabled": False}, str(tmp_path))
+    bar = "2026-11-24 16:15:00"
+    t0 = 1795536900.0                       # 16:15:00 UTC
+    assert g.slot(bar, t0) == g.slot(bar, t0 + 600) == bar
+    s1, s2, s3 = j.slot(bar, t0 + 10), j.slot(bar, t0 + 290), j.slot(bar, t0 + 310)
+    assert s1 == s2 and s1 != s3 and s1.startswith(bar)
+    j.enabled = True
+    j._stamp["BTCUSDm"] = s1
+    assert not j.wants("BTCUSDm", s2) and j.wants("BTCUSDm", s3)
+    assert JevTrader.OWN_WORKER and not GemmaTrader.OWN_WORKER and j._jobs is not g._jobs
+
+
+class _Pos:
+    def __init__(self, typ, sym="XAUUSDm", ticket=1):
+        self.type, self.symbol, self.ticket = typ, sym, ticket
+
+
+class _CrowdMT5:
+    ORDER_TYPE_BUY, ORDER_TYPE_SELL = 0, 1
+
+    def __init__(self, types):
+        self._p = [_Pos(t, ticket=i) for i, t in enumerate(types)]
+
+    def positions_get(self, symbol=None):
+        return [p for p in self._p if symbol in (None, p.symbol)]
+
+
+def test_crowd_cap_counts_every_trader_per_direction():
+    from Python import strategy_exec as sx
+    mt5 = _CrowdMT5([1, 1, 1, 0])                        # 3 sells, 1 buy
+    assert sx.crowd_reason(mt5, -1, 3) and "3 sell" in sx.crowd_reason(mt5, -1, 3)
+    assert sx.crowd_reason(mt5, 1, 3) is None
+    assert sx.crowd_reason(mt5, -1, 0) is None           # 0 = off
+
+
+def test_crowd_cap_blocks_atr_trader_open(tmp_path, monkeypatch):
+    from Python import strategy_exec as sx
+    from Python.gemma_trader import GemmaTrader
+    monkeypatch.setitem(sx.CROWD, "max_same_side", 3)
+    g = GemmaTrader({"enabled": False}, str(tmp_path))
+    g.open(_CrowdMT5([1, 1, 1]), "XAUUSDm", -1, confidence=0.7, why="x")
+    with open(g.events) as f:
+        rows = [json.loads(l) for l in f]
+    assert rows[-1]["event"] == "skip" and "cap 3" in rows[-1]["reason"] and not g.state["open"]
+
+
+def test_gemma_skip_symbols_and_daily_cap(tmp_path):
+    import time as _t
+    from Python.gemma_trader import GemmaTrader
+    g = GemmaTrader({"enabled": True, "skip_symbols": ["USOILm"], "max_trades_per_market_day": 2}, str(tmp_path))
+    assert not g.wants("USOILm", "s1") and g.wants("XAUUSDm", "s1")
+    now = _t.time()
+    with open(g.events, "w") as f:                       # two opens on gold already today (e.g. before a restart)
+        for i in range(2):
+            f.write(json.dumps({"t": now - 60 * (i + 1), "event": "open", "symbol": "XAUUSDm", "ticket": str(i)}) + "\n")
+    g.state["day"] = {}
+    opened = []
+    g.open = lambda *a, **k: opened.append(a)
+    g.decisions["XAUUSDm"] = {"t": now, "stamp": "b1", "decision": "sell", "confidence": 0.8, "reason": "r"}
+    g.step(object(), ["XAUUSDm"], now=now)
+    with open(g.events) as f:
+        rows = [json.loads(l) for l in f]
+    assert not opened and rows[-1]["event"] == "skip" and "max 2" in rows[-1]["reason"]
+
+
+def test_ai_traders_use_their_own_wider_stops(tmp_path):
+    from Python.gemma_trader import GemmaTrader
+    from Python.meta_trader import MetaTrader
+    g = GemmaTrader({"enabled": False, "stops": {"default": [4.0, 6.4]}}, str(tmp_path))
+    assert g.stops_for("XAUUSDm") == (4.0, 6.4) and g.stops_for("BTCUSDm") == (4.0, 6.4)
+    m = MetaTrader({"enabled": False}, str(tmp_path))      # meta-brain keeps the stops it was trained on
+    assert m.stops_for("XAUUSDm") == (1.5, 2.4) and m.stops_for("BTCUSDm") == (2.0, 3.2)

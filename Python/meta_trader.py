@@ -21,7 +21,7 @@ import pandas as pd
 
 from Python.indicator_council import _atr
 from Python.meta_brain import HORIZON, STOPS, base
-from Python.strategy_exec import all_positions, close_ticket, open_hidden, risk_lots
+from Python.strategy_exec import all_positions, close_ticket, open_hidden, risk_lots, crowd_reason
 
 
 class AtrTrader:
@@ -65,6 +65,17 @@ class AtrTrader:
         if self.log:
             self.log.info(f"{self.NAME} {kind}: " + ", ".join(f"{k}={v}" for k, v in kw.items()))
 
+    def stops_for(self, sym) -> tuple[float, float]:
+        """(stop, target) in M5 ATR: this trader's own `stops` ({market or "default": [sl, tp]}) or the shared
+        meta_brain.STOPS. Gemma / Jev use 4 / 6.4 (user 2026-11-24): at ~2 ATR normal wiggles stopped 31 of their
+        61 trades within ~38 min on a day the direction was right; 4+ ATR also puts them on the stop manager's
+        wide rules, which don't trail winners down to +0.6 R."""
+        own = self.cfg.get("stops") or {}
+        pick = own.get(base(sym)) or own.get(sym) or own.get("default")
+        if pick:
+            return float(pick[0]), float(pick[1])
+        return STOPS.get(base(sym), STOPS["default"])
+
     def manage(self, mt5, sym, now) -> bool:
         """Watch an open position: broker stop/target, 8 h limit. True while it is still open."""
         pos = self.state["open"].get(sym)
@@ -92,6 +103,11 @@ class AtrTrader:
         return False
 
     def open(self, mt5, sym, side, **why):
+        crowd = crowd_reason(mt5, side)
+        if crowd:
+            self._event("skip", symbol=sym, reason=crowd)
+            self._save()
+            return
         rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_M5, 1, 200)
         tick = mt5.symbol_info_tick(sym)
         if rates is None or len(rates) < 50 or tick is None:
@@ -99,7 +115,7 @@ class AtrTrader:
             return
         df = pd.DataFrame(list(rates) if not hasattr(rates, "dtype") else rates)
         atr = float(_atr(df[["open", "high", "low", "close"]].astype(float)).iloc[-1])
-        sl_m, tp_m = STOPS.get(base(sym), STOPS["default"])
+        sl_m, tp_m = self.stops_for(sym)
         px = float(tick.ask if side > 0 else tick.bid)
         sl, tp = px - side * sl_m * atr, px + side * tp_m * atr
         sz = risk_lots(mt5, sym, px, sl, self.cfg["risk_pct"], self.cfg["min_lot_max_risk_pct"])
