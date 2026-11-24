@@ -13,6 +13,8 @@ from Python.config_utils import DEFAULT_TRADING_SYMBOLS, resolve_trading_symbols
 from Python.feature_pipeline import ENGINEERED_V2, feature_count_for_version
 
 
+_SPARE_WARNED: set = set()
+
 class HybridBrain:
     def __init__(self, risk, executor):
         self.risk = risk
@@ -281,7 +283,14 @@ class HybridBrain:
                     vec_norm.training = False
                     vec_norm.norm_reward = False
             except Exception as exc:
-                logger.warning(f"Skipping PPO artifact from {source} due to load error: {exc}")
+                # The spare fallback files (best_eval / models root) are often from another market's run: say so once.
+                key = (source, str(exc))
+                if source in ("best_eval", "models_root"):
+                    if key not in _SPARE_WARNED:
+                        _SPARE_WARNED.add(key)
+                        logger.info(f"Spare PPO file in {source} does not fit this setup, ignored: {exc}")
+                else:
+                    logger.warning(f"Skipping PPO artifact from {source} due to load error: {exc}")
                 continue
 
             bundle = {

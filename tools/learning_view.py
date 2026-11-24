@@ -56,7 +56,7 @@ def _audit():
     sec = defaultdict(list)
     for r in a.get("results", []):
         sec[r["area"]].append(r)
-    order = ["feed", "live", "council", "kronos", "ob_gold", "catboost", "news", "signal", "filter", "learning", "lstm", "ppo"]
+    order = ["runtime", "ai", "feed", "live", "council", "kronos", "ob_gold", "catboost", "news", "signal", "filter", "learning", "lstm", "ppo"]
     out = []
     for k in sorted(sec, key=lambda x: order.index(x) if x in order else 99):
         rows = sec[k]

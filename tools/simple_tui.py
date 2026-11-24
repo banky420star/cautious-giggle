@@ -389,6 +389,60 @@ def improvement_panel(frame, broker, logs, symbols, cfg) -> Panel:
                  box=box.ROUNDED, border_style="cyan", padding=(0, 1))
 
 
+
+LLM_TRADERS = (("gemma_trader", "GEMMA"), ("jev_trader", "JEV"), ("qwen_trader", "QWEN"))
+
+
+def ai_panel(cfg) -> Panel:
+    """Gemma / Jev (any enabled LLM trader): latest call per market, how sure, and its open position."""
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    trading = (cfg or {}).get("trading") or {}
+    on = [(k, n) for k, n in LLM_TRADERS if (trading.get(k) or {}).get("enabled")]
+    if not on:
+        return Panel(Text("No AI traders enabled.", style="grey50"), title=Text(" 🤖 AI TRADERS ", style="bold"),
+                     title_align="left", box=box.ROUNDED, border_style="grey50")
+    t = Table(box=None, expand=True, padding=(0, 1), show_header=True, header_style="grey62")
+    t.add_column("")
+    for _, n in on:
+        t.add_column(n, no_wrap=True)
+    states = {k: _json(os.path.join(root, "logs", f"{k}_state.json"), {}) for k, _ in on}
+    syms = []
+    for st in states.values():
+        for s in (st.get("last") or {}):
+            if s not in syms:
+                syms.append(s)
+    now = time.time()
+    for s in syms or list(NAMES):
+        row = [Text(nm(s), style="bold")]
+        for k, _ in on:
+            st = states[k]
+            d = (st.get("last") or {}).get(s)
+            p = (st.get("open") or {}).get(s)
+            minc = float((trading.get(k) or {}).get("min_confidence", 0.6))
+            c = Text()
+            if p:
+                c.append(f"{'LONG' if p.get('side', 0) > 0 else 'SHORT'} ", style="bold cyan")
+            if not d:
+                c.append("waiting", style="grey50")
+            elif d.get("error"):
+                c.append("no answer", style="red")
+            else:
+                dec = d.get("decision", "hold")
+                sure = float(d.get("confidence") or 0)
+                style = "grey50" if dec == "hold" else ("bold green" if dec == "buy" else "bold red")
+                if dec != "hold" and sure < minc:
+                    style = "green" if dec == "buy" else "red"
+                c.append(f"{dec.upper()} {sure:.0%}", style=style)
+                if now - float(d.get("t", 0)) > 1800:
+                    c.append(" old", style="grey42")
+            row.append(c)
+        t.add_row(*row)
+    foot = Text(f"trades when >={float((trading.get(on[0][0]) or {}).get('min_confidence', 0.6)):.0%} sure; "
+                "no new trades near news / market opens", style="grey42")
+    return Panel(Group(t, foot), title=Text(" 🤖 AI TRADERS ", style="bold"), title_align="left", box=box.ROUNDED,
+                 border_style="magenta")
+
+
 # ----------------------------------------------------------------------------- trades in plain English
 def trades_panel(broker) -> Panel:
     t = Table(box=box.SIMPLE_HEAD, expand=True, padding=(0, 1))
@@ -448,7 +502,7 @@ def render(frame, broker, logs, cfg, symbols, width):
     lay["bottom"].split_row(Layout(improvement_panel(frame, broker, logs, symbols, cfg), ratio=2),
                             Layout(name="right", ratio=3))
     lay["right"].split_column(Layout(news_panel(frame), size=13), Layout(name="rb"))
-    lay["rb"].split_row(Layout(feed_panel(30), ratio=1), Layout(trades_panel(broker), ratio=1))
+    lay["rb"].split_row(Layout(feed_panel(30), ratio=1), Layout(ai_panel(cfg), ratio=1), Layout(trades_panel(broker), ratio=1))
     return lay
 
 

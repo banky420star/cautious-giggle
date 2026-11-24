@@ -69,9 +69,22 @@ class SetupGate:
         self.conf_hi = float(c.get("confidence_high", 0.72))
         acct = "".join(ch for ch in str(account_id or os.environ.get("EXNESS_ACCOUNT_ID", "")) if ch.isalnum())
         self.path = os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(ROOT, "logs"), f"setups_{acct}.json" if acct else "setups.json")
-        self.state = {"stats": {}, "open": [], "retest": {}}
+        self.state = {"stats": {}, "open": [], "retest": {}, "era": ""}
         self._last_resolve = 0.0
         self._load()
+        # A new trading-rules era (setup_gate.era) starts the scores fresh: results from the old rules say nothing
+        # about the new ones. The old scores are kept beside it (setups_<acct>.before-<era>.json).
+        era = str(c.get("era") or "")
+        if era and self.state.get("era") != era:
+            if self.state["stats"]:
+                tag = "".join(ch if ch.isalnum() else "-" for ch in era)[:40]
+                try:
+                    with open(self.path.replace(".json", f".before-{tag}.json"), "w", encoding="utf-8") as f:
+                        json.dump(self.state, f, indent=1)
+                except OSError:
+                    pass
+            self.state.update({"stats": {}, "retest": {}, "era": era})
+            self.save()
 
     # ------------------------------------------------------------------ storage
     def _load(self) -> None:

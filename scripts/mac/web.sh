@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Start the web dashboard server (if needed) and open it in its own window.
+# Start the web dashboard server (if needed) and open it in its own window (Chrome app window).
 cd "$(dirname "$0")/../.."
 export PYTHONPATH="$PWD"
 source scripts/mac/account_env.sh

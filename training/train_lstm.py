@@ -74,6 +74,7 @@ def create_sequences(
     seq_len: int = 60,
     label_data: np.ndarray | None = None,
     labels_only: bool = False,
+    horizon: int = 1,
 ):
     """X = scaled feature windows; y computed from *raw* (unscaled) prices.
 
@@ -81,26 +82,30 @@ def create_sequences(
     thresholds meaningless. Pass the unscaled matrix as label_data.
     """
     raw = data if label_data is None else label_data
+    # horizon = bars ahead the label looks. 1 (the old label: the next 5-min bar) turned out to be noise:
+    # every market's LSTM lost money after the spread (2026-11-24 audit). Training now uses
+    # AGI_LSTM_HORIZON (default 48 = 4 h): the trend the bot actually reads the LSTM as.
+    h = max(1, int(horizon))
     X, y = [], []
-    for i in range(seq_len, len(data) - 1):
+    for i in range(seq_len, len(data) - h):
         if not labels_only:
             X.append(data[i - seq_len : i])
 
         prev_close = raw[i - 1, close_col]
-        next_close = raw[i, close_col]
+        next_close = raw[i - 1 + h, close_col]
         future_ret = (next_close - prev_close) / (abs(prev_close) + 1e-8)
 
         # ATR known at the last bar of the window (no lookahead in the threshold).
         atr_norm = abs(raw[i - 1, atr_col] / (abs(prev_close) + 1e-8))
         rsi = raw[i - 1, rsi_col]
 
-        # Volatility-relative threshold with a floor around round-trip cost (~1.5 bps).
-        up_thr = max(0.00015, atr_norm * 0.35)
+        # Volatility-relative threshold (a move grows ~ with the square root of time), floor ~ round-trip cost.
+        up_thr = max(0.00015, atr_norm * 0.35 * h ** 0.5)
         dn_thr = -up_thr
 
-        if future_ret > up_thr and rsi > 52:
+        if future_ret > up_thr and (h > 1 or rsi > 52):
             y.append(1)
-        elif future_ret < dn_thr and rsi < 48:
+        elif future_ret < dn_thr and (h > 1 or rsi < 48):
             y.append(2)
         else:
             y.append(0)
@@ -197,7 +202,9 @@ def _train_one_symbol(
     label_raw = _raw_label_matrix(df, fdf)
     # Labels only; windows are sliced on the fly from one copy of the feature matrix
     # (materialising every overlapping window used ~3.6 GB and exhausted MPS memory).
-    _, y_all = create_sequences(feat_scaled, 0, 1, 2, seq_len=seq_len, label_data=label_raw, labels_only=True)
+    horizon = int(os.environ.get("AGI_LSTM_HORIZON", "48"))
+    _, y_all = create_sequences(feat_scaled, 0, 1, 2, seq_len=seq_len, label_data=label_raw, labels_only=True,
+                                horizon=horizon)
     n_seq = len(y_all)
     # Sequence k = rows [k, k+seq_len); its label is bar k+seq_len. Train if that bar is a train row.
     split_idx = max(1, min(n_seq - 1, n_train_rows - seq_len))
@@ -348,7 +355,8 @@ def _train_one_symbol(
                 "val_acc": float(val_acc),
                 "val_majority_acc": majority_val_acc,
                 "scaler_fit": "train_rows_only",
-                "labels": "raw_prices_v2",
+                "labels": f"raw_prices_h{horizon}",
+                "horizon_bars": int(horizon),
             },
             f,
             indent=2,

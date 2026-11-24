@@ -47,7 +47,7 @@ class State:
         self.logs = m.Logs()
         self.lock = threading.Lock()
         self.log_lock = threading.Lock()
-        self.equity: list[tuple[float, float, float]] = []  # (ts, equity, balance)
+        self.equity: list[tuple] = []  # (ts, equity, balance, account login or "")
         self._load_equity()
         self.narrator = Narrator()
         self.news = None
@@ -61,8 +61,8 @@ class State:
             with open(EQ_FILE, "r", encoding="utf-8") as f:
                 for line in f:
                     p = line.strip().split(",")
-                    if len(p) == 3 and float(p[1]) > 0:  # 0 = broker link was down, not a real value
-                        self.equity.append((float(p[0]), float(p[1]), float(p[2])))
+                    if len(p) in (3, 4) and float(p[1]) > 0:  # 0 = broker link was down, not a real value
+                        self.equity.append((float(p[0]), float(p[1]), float(p[2]), p[3] if len(p) == 4 else ""))
         except FileNotFoundError:
             pass
         except Exception:
@@ -79,7 +79,7 @@ class State:
             try:
                 r = json.loads(line)
                 p = r["payload"]
-                out.append((dt.datetime.fromisoformat(r["ts"]).timestamp(), float(p["equity"]), float(p["balance"])))
+                out.append((dt.datetime.fromisoformat(r["ts"]).timestamp(), float(p["equity"]), float(p["balance"]), ""))
             except Exception:
                 continue
         return out
@@ -88,14 +88,14 @@ class State:
         while True:
             acc = self.broker.account
             if acc is not None and float(acc.equity or 0) > 0:
-                row = (time.time(), float(acc.equity), float(acc.balance))
+                row = (time.time(), float(acc.equity), float(acc.balance), str(getattr(acc, "login", "") or ""))
                 with self.lock:
                     self.equity.append(row)
                     self.equity = self.equity[-200_000:]
                 try:
                     os.makedirs(os.path.dirname(EQ_FILE), exist_ok=True)
                     with open(EQ_FILE, "a", encoding="utf-8") as f:
-                        f.write(f"{row[0]:.0f},{row[1]:.2f},{row[2]:.2f}\n")
+                        f.write(f"{row[0]:.0f},{row[1]:.2f},{row[2]:.2f},{row[3]}\n")
                 except Exception:
                     pass
             time.sleep(15)
@@ -141,15 +141,96 @@ class State:
                 pass
             time.sleep(10)
 
+    # ------------------------------------------------------------------ equity view (any range, flows removed)
+    RANGES = {"1h": 3600, "1d": 86400, "1w": 7 * 86400, "1m": 30 * 86400, "3m": 91 * 86400, "all": None}
+
+    @staticmethod
+    def _is_flow(prev, cur) -> str | None:
+        """Money in/out or an account switch between two samples, or None for trading.
+        A deposit/withdrawal moves balance and equity together; a closed trade moves balance while equity
+        stays put; open trades move equity alone. Huge equity jumps (after a broker gap) count as flows too."""
+        pt, pe, pb, pacct = prev
+        t, e, b, acct = cur
+        if acct and pacct and acct != pacct:
+            return "account switch"
+        db, de = b - pb, e - pe
+        if abs(db) > 0.05 * max(pb, 1e-9) and abs(de - db) <= 0.1 * abs(db) + 0.5:
+            return "deposit" if db > 0 else "withdrawal"
+        if abs(de) > 0.5 * max(pe, 1e-9):
+            return "deposit" if de > 0 else "withdrawal"
+        return None
+
+    def equity_view(self, rng: str = "1d", points: int = 600) -> dict:
+        """Equity history for a range, thinned to ~`points` buckets.
+
+        Each point: t (ms), equity, balance, pnl (cumulative trading P&L in $ since the range start, with
+        deposits, withdrawals and account switches taken out) and dd (that P&L's drop from its running peak, $).
+        `flows` lists what was taken out, so the chart can mark it."""
+        with self.lock:
+            rows = list(self.equity)
+        span = self.RANGES.get(rng, 86400)
+        if span and rows:
+            t0 = rows[-1][0] - span
+            rows = [r for r in rows if r[0] >= t0]
+        if not rows:
+            return {"range": rng, "points": [], "flows": [], "summary": {}}
+        flows, pnl, dd = [], [0.0], [0.0]
+        peak = 0.0
+        for i in range(1, len(rows)):
+            kind = self._is_flow(rows[i - 1], rows[i])
+            step = rows[i][1] - rows[i - 1][1]
+            if kind:
+                flows.append({"t": int(rows[i][0] * 1000), "amount": round(step, 2), "kind": kind})
+                step = 0.0
+            pnl.append(pnl[-1] + step)
+            peak = max(peak, pnl[-1])
+            dd.append(pnl[-1] - peak)
+        n = len(rows)
+        k = max(1, -(-n // points))
+        out = []
+        for a in range(0, n, k):
+            j = min(n, a + k) - 1
+            t, e, b, _ = rows[j]
+            out.append({"t": int(t * 1000), "equity": round(e, 2), "balance": round(b, 2),
+                        "pnl": round(pnl[j], 2), "dd": round(min(dd[a:j + 1]), 2)})
+        summary = {"start_equity": round(rows[0][1], 2), "end_equity": round(rows[-1][1], 2),
+                   "pnl": round(pnl[-1], 2), "max_dd": round(min(dd), 2),
+                   "pnl_pct": round(pnl[-1] / rows[0][1] * 100, 2) if rows[0][1] else None,
+                   "net_flows": round(sum(f["amount"] for f in flows), 2),
+                   "from": int(rows[0][0] * 1000), "to": int(rows[-1][0] * 1000)}
+        return {"range": rng, "points": out, "flows": flows, "summary": summary}
+
     # ------------------------------------------------------------------ snapshot
+    def prices(self) -> dict:
+        """Latest bid / ask per market and live P&L of each open position (no log or model reads)."""
+        b = self.broker
+        out = {}
+        for s in self.symbols:
+            t = b.ticks.get(s)
+            if t is not None:
+                out[s] = {"bid": float(t.bid), "ask": float(t.ask), "prev": b.prev_bid.get(s)}
+        pos = {}
+        for p in b.positions or []:
+            sym = str(getattr(p, "symbol", ""))
+            s = sym if sym in NAMES or sym.endswith("m") else sym + "m"
+            t = b.ticks.get(s)
+            buy = int(p.type) == 0
+            pos[str(getattr(p, "ticket", ""))] = {"now": (float(t.bid if buy else t.ask) if t else None),
+                                                   "pnl": round(float(p.profit), 2)}
+        acc = b.account
+        return {"t": time.time(), "prices": out, "positions": pos,
+                "equity": float(getattr(acc, "equity", 0) or 0) if acc is not None else None,
+                "floating": round(sum(float(getattr(p, "profit", 0) or 0) for p in b.positions or []), 2)}
+
     def snapshot(self) -> dict:
         with self.log_lock:
             self.logs.refresh()
-        b, logs = self.broker, self.logs
+        b = self.broker
         alive, _ = m.bot_status()
         acc = b.account
         floating = sum(float(getattr(p, "profit", 0) or 0) for p in b.positions)
-        today = (b.pnl_today or 0.0) + floating
+        # None until today's closed deals have loaded (~the first minute after a restart): floating alone is not "today"
+        today = None if b.pnl_today is None else b.pnl_today + floating
         eq = float(getattr(acc, "equity", 0) or 0)
         trading = self.cfg.get("trading") or {}
         risk = self.cfg.get("risk") or {}
@@ -176,14 +257,7 @@ class State:
                 row["why"] = t["trades"]["text"]
             symbols.append(row)
 
-        with self.lock:
-            eqh = list(self.equity)
-        # thin the series to <= 1500 points for the browser
-        step = max(1, len(eqh) // 1500)
-        eq_series = [{"t": int(t * 1000), "equity": round(e, 2), "balance": round(bl, 2)} for t, e, bl in eqh[::step]]
-        if eqh and eqh[-1] is not eqh[::step][-1]:
-            t, e, bl = eqh[-1]
-            eq_series.append({"t": int(t * 1000), "equity": round(e, 2), "balance": round(bl, 2)})
+        eq_series = self.equity_view("1d", points=300)["points"]
 
         return {
             "ts": time.time(),
@@ -191,7 +265,8 @@ class State:
                     "next_check_s": int(300 - time.time() % 300), "broker_ok": bool(b.ok and not b.err), "broker_err": b.err},
             "account": {"equity": eq, "balance": float(getattr(acc, "balance", 0) or 0),
                         "free_margin": float(getattr(acc, "margin_free", 0) or 0), "floating": floating,
-                        "today": today, "today_pct": (today / (eq - today) * 100) if eq and eq != today else 0.0,
+                        "today": today,
+                        "today_pct": (today / (eq - today) * 100) if today is not None and eq and eq != today else None,
                         "daily_loss_limit": self._loss_limit(risk)},
             "stats": {"closed": len(closed), "wins": sum(1 for x in closed if x > 0),
                       "losses": sum(1 for x in closed if x <= 0), "pnl_closed": sum(closed)},
@@ -209,6 +284,7 @@ class State:
             "blotter": self._blotter(),
             "setups": self._setups(),
             "models": self._models(),
+            "strategies": self._strategies(),
             "account_mode": ap.active(),
             "ai_line": truth["line"],
             "ops": ops_log.events(os.path.join(m.LOG_DIR, "server.log"), NAMES, 50),
@@ -219,7 +295,7 @@ class State:
     def _loss_limit(self, risk: dict) -> float:
         """The daily loss stop the bot actually uses (demo learning overrides the default)."""
         dl = ((self.cfg.get("trading") or {}).get("demo_learning") or {})
-        if dl.get("enabled") and "max_daily_loss" in (dl.get("risk") or {}) and self._is_demo():
+        if dl.get("enabled") and "max_daily_loss" in (dl.get("risk") or {}) and (self._is_demo() or dl.get("same_on_live")):
             return float(dl["risk"]["max_daily_loss"])
         return float(risk.get("max_daily_loss", 0) or 0)
 
@@ -446,7 +522,7 @@ class State:
             return [{"k": "status", "text": "Waiting for the first 5-minute check on this market."}]
         side = lambda v: "BUY" if v > 0 else "SELL" if v < 0 else "no view"  # noqa: E731
         council, raw = float(sg.get("council", 0) or 0), float(sg.get("raw_target", 0) or 0)
-        final, conf = float(sg.get("exposure", 0) or 0), float(sg.get("confidence", 0) or 0)
+        final = float(sg.get("exposure", 0) or 0)
         rs = float(sg.get("risk_scalar", 1) or 1)
         up, down = int(cv.get("up", 0) or 0), int(cv.get("down", 0) or 0)
         out = []
@@ -473,6 +549,77 @@ class State:
             act = f"Inside the ±{thr:.2f} trade line ({abs(final) / thr:.0%} of the way there): not enough edge to pay the spread, so it waits."
         out.append({"k": "Action", "v": final, "text": act})
         return out
+
+    _strat_cache: tuple = (0.0, None)
+
+    def _strategies(self) -> dict:
+        """Gold Breakout (live), the shadow voters (meta-brain, SMC rules, Gemma) and the backtest reports,
+        for the Strategies page."""
+        t, v = self._strat_cache
+        if v is not None and time.time() - t < 5:
+            return v
+
+        def _read(name):
+            try:
+                with open(os.path.join(m.LOG_DIR, name), encoding="utf-8") as f:
+                    return json.load(f)
+            except (OSError, ValueError):
+                return {}
+
+        def _tail(name, n=20):
+            try:
+                with open(os.path.join(m.LOG_DIR, name), "rb") as f:
+                    f.seek(0, 2)
+                    f.seek(max(0, f.tell() - 60_000))
+                    rows = [json.loads(x) for x in f.read().decode("utf-8", "replace").splitlines()[1:] if x.strip()]
+                return rows[-n:]
+            except (OSError, ValueError):
+                return []
+
+        gcfg = ((self.cfg.get("trading") or {}).get("gold_breakout") or {})
+        mcfg = ((self.cfg.get("trading") or {}).get("meta_trader") or {})
+        tcfg = ((self.cfg.get("trading") or {}).get("gemma_trader") or {})
+        qcfg = ((self.cfg.get("trading") or {}).get("qwen_trader") or {})
+        jcfg = ((self.cfg.get("trading") or {}).get("jev_trader") or {})
+        xv = _read("external_voters.json")
+        shadow = {}
+        for key in ("meta_brain", "smc_rules", "smc_gemma"):
+            shadow[key] = {
+                "name": (xv.get("names") or {}).get(key, key),
+                "weight": (xv.get("weights") or {}).get(key),
+                "votes": {k.split(":")[0]: val for k, val in (xv.get("values") or {}).items() if k.endswith(":" + key)},
+                "why": {k.split(":")[0]: (d or {}).get("reason") for k, d in (xv.get("details") or {}).items()
+                        if k.endswith(":" + key)},
+                "errors": {k: e for k, e in (xv.get("errors") or {}).items() if key in k},
+            }
+        gbt = (_read("gold_breakout_backtest.json").get("XAUUSD") or {})
+        mbr = _read("meta_brain_report.json")
+        sfr = _read("sweep_fvg_backtest.json")
+        v = {
+            "gold_breakout": {"enabled": bool(gcfg.get("enabled")), "risk_pct": gcfg.get("risk_pct"),
+                              "stop_pct": gcfg.get("stop_pct", 1.0), "state": _read("gold_breakout_state.json"),
+                              "events": _tail("gold_breakout.jsonl"),
+                              "backtest": {k: gbt.get(k) for k in ("all", "last_month", "first_half", "second_half")},
+                              "by_month": gbt.get("by_month_R")},
+            "shadow": shadow,
+            "gemma_trader": {"enabled": bool(tcfg.get("enabled")), "risk_pct": tcfg.get("risk_pct", 5.0),
+                             "min_confidence": tcfg.get("min_confidence", 0.6), "model": tcfg.get("model"),
+                             "state": _read("gemma_trader_state.json"), "events": _tail("gemma_trader.jsonl", 30)},
+            "qwen_trader": {"enabled": bool(qcfg.get("enabled")), "risk_pct": qcfg.get("risk_pct", 5.0),
+                            "min_confidence": qcfg.get("min_confidence", 0.6), "model": qcfg.get("model"),
+                            "state": _read("qwen_trader_state.json"), "events": _tail("qwen_trader.jsonl", 30)},
+            "jev_trader": {"enabled": bool(jcfg.get("enabled")), "risk_pct": jcfg.get("risk_pct", 5.0),
+                           "min_confidence": jcfg.get("min_confidence", 0.6),
+                           "model": jcfg.get("openrouter_model") or jcfg.get("model") or "Jev",
+                           "state": _read("jev_trader_state.json"), "events": _tail("jev_trader.jsonl", 30)},
+            "meta_trader": {"enabled": bool(mcfg.get("enabled")), "risk_pct": mcfg.get("risk_pct", 5.0),
+                            "state": _read("meta_trader_state.json"), "events": _tail("meta_trader.jsonl", 30)},
+            "walk_forward": {"period": mbr.get("period"), "strategies": mbr.get("strategies"),
+                             "top_features": list((mbr.get("top_features") or {}))[:10]},
+            "sweep_fvg": {"M5": (sfr.get("M5") or {}).get("ALL"), "M15": (sfr.get("M15") or {}).get("ALL")},
+        }
+        self._strat_cache = (time.time(), v)
+        return v
 
     _models_cache: tuple = (0.0, None)
 
@@ -549,6 +696,7 @@ class State:
         """Every open trade: where price sits between its stop and its target, in R and in $."""
         b = self.broker
         rows = []
+        owners = strategy_owners()
         for p in b.positions or []:
             sym = str(getattr(p, "symbol", ""))
             s = sym if sym in NAMES or sym.endswith("m") else sym + "m"
@@ -559,7 +707,9 @@ class State:
             sgn = 1 if buy else -1
             # once the stop has been moved to breakeven or past it the trade can no longer lose, and R measured
             # against that tiny distance is meaningless: report it as locked
-            locked = bool(sl and tp and (sl - entry) * sgn >= -0.15 * abs(tp - entry))
+            # (2026-11-24: was "stop within 15% of the target distance", which marked losing trades as locked once
+            # the stop manager moved targets far out, e.g. a BTC stop 1,226 below entry with the target 12,264 away)
+            locked = bool(sl and (sl - entry) * sgn >= -1e-9 * abs(entry))
             r = ((now - entry) * sgn / abs(entry - sl)) if (now and sl and entry != sl and not locked) else None
             prog = None
             if now and sl and tp and tp != sl:
@@ -568,7 +718,7 @@ class State:
                          "side": "BUY" if buy else "SELL", "volume": float(p.volume), "entry": entry, "now": now,
                          "sl": sl or None, "tp": tp or None, "pnl": round(float(p.profit), 2), "r": None if r is None else round(r, 2), "locked": locked,
                          "progress": prog, "entry_pos": (max(0.0, min(1.0, (entry - sl) / (tp - sl))) if sl and tp and tp != sl else None),
-                         "opened": int(getattr(p, "time", 0) or 0),
+                         "opened": int(getattr(p, "time", 0) or 0), "who": owners.get(str(getattr(p, "ticket", "")), "Council bot"),
                          "dist_sl_pct": (abs(now - sl) / now * 100) if (now and sl) else None,
                          "dist_tp_pct": (abs(tp - now) / now * 100) if (now and tp) else None})
         rows.sort(key=lambda x: -x["opened"])
@@ -700,8 +850,17 @@ def _live_rules(cfg: dict) -> list[str]:
             f"Risk {float(r.get('risk_percent', 2.5)):g}% of the account per trade, up to {float(r.get('max_lots', 0.2)):g} lots",
             f"Daily loss stop ${float(r.get('max_daily_loss', 150)):g} (a fixed dollar amount, whatever the live balance is); "
             f"halts at {float(r.get('max_drawdown_pct', 40)):g}% drawdown",
-            f"All {len(mk)} markets all day, up to {int(stk.get('max_per_symbol', 3))} trades each, max {int(r.get('max_open_positions', 14))} open",
-            "Learning mode (half trade threshold), indicator council, exploration models and news trading all on",
+            f"All {len(mk)} markets all day; council bot: "
+            + (f"up to {int(stk.get('max_per_symbol', 3))} trades each" if stk.get("enabled") else "1 trade per market (stacking off)")
+            + f", max {int(r.get('max_open_positions', 14))} open; off on {', '.join(NAMES.get(x, x) for x in ((tr.get('council') or {}).get('markets_off') or [])) or 'no market'}",
+            "Council trades: only with the 4-hour 200-EMA trend, stop 8 x ATR, target 12.8 x ATR, closed after 24 h; "
+            "the stop manager moves every bot trade's stop into profit",
+            "Separate traders, each with its own positions: "
+            + ", ".join(f"{n} {float((tr.get(k) or {}).get('risk_pct', 5)):g}%/trade"
+                        for k, n in (("gold_breakout", "Gold Breakout"), ("meta_trader", "Meta-brain"),
+                                     ("gemma_trader", "Gemma"), ("qwen_trader", "Qwen"), ("jev_trader", "Jev")) if (tr.get(k) or {}).get("enabled")),
+            "Learning mode (half trade threshold), indicator council, exploration models and news trading all on; "
+            "the LSTM only counts on markets where it has proven an edge",
         ]
     risk = (cfg or {}).get("risk") or {}
     sup = risk.get("supervisor") or {}
@@ -724,7 +883,418 @@ def _reexec_with(profile: str):
     os.execve(sys.executable, [sys.executable] + sys.argv, env)
 
 
+
+STRATEGY_FILES = {"gemma_trader": "Gemma", "qwen_trader": "Qwen", "jev_trader": "Jev", "meta_trader": "Meta-brain", "gold_breakout": "Gold Breakout"}
+_OWNERS = {"t": 0.0, "map": {}}
+
+
+def strategy_owners(log_dir: str | None = None) -> dict:
+    """{ticket: strategy name} for positions the stand-alone strategies opened (re-read every 5 s)."""
+    if log_dir is None and time.time() - _OWNERS["t"] < 5:
+        return _OWNERS["map"]
+    out = {}
+    for fname, label in STRATEGY_FILES.items():
+        try:
+            with open(os.path.join(log_dir or os.path.join(ROOT, "logs"), f"{fname}.jsonl"), encoding="utf-8") as f:
+                for ln in f:
+                    if '"ticket"' in ln:
+                        try:
+                            t = str(json.loads(ln).get("ticket") or "")
+                        except ValueError:
+                            continue
+                        if t and t != "None":
+                            out[t] = label
+        except OSError:
+            pass
+    if log_dir is None:
+        _OWNERS.update(t=time.time(), map=out)
+    return out
+
+
+def trade_history(rng: str = "1w", log_dir: str | None = None, now: float | None = None) -> dict:
+    """Every closed trade in the range from logs/trade_events.jsonl (one row per closing deal), with who opened
+    it (Gemma, Meta-brain, Gold Breakout, else the council bot), its open time / side / entry, and totals."""
+    log_dir = log_dir or os.path.join(ROOT, "logs")
+    now = time.time() if now is None else now
+    span = State.RANGES.get(rng)
+    since = 0.0 if span is None else now - span
+    owner, opened = {}, {}
+    for fname, label in STRATEGY_FILES.items():
+        try:
+            with open(os.path.join(log_dir, f"{fname}.jsonl"), encoding="utf-8") as f:
+                for ln in f:
+                    if '"ticket"' not in ln:
+                        continue
+                    try:
+                        e = json.loads(ln)
+                    except ValueError:
+                        continue
+                    t = str(e.get("ticket") or "")
+                    if t and t != "None":
+                        owner[t] = label
+                        if e.get("event") == "open":
+                            opened[t] = {"t": float(e.get("t") or 0), "side": e.get("side"), "entry": e.get("price"),
+                                         "volume": e.get("lots")}
+        except OSError:
+            pass
+    rows, seen = [], set()
+    try:
+        with open(os.path.join(log_dir, "trade_events.jsonl"), encoding="utf-8") as f:
+            for ln in f:
+                if '"trade_open"' not in ln and '"trade_closed"' not in ln:
+                    continue
+                try:
+                    e = json.loads(ln)
+                except ValueError:
+                    continue
+                p = e.get("payload") or {}
+                t = str(p.get("ticket") or "")
+                try:
+                    ts = dt.datetime.fromisoformat(str(e.get("ts"))).timestamp()
+                except ValueError:
+                    continue
+                if e.get("event") == "trade_open":
+                    opened.setdefault(t, {"t": ts, "side": p.get("side"), "entry": p.get("open_price"), "volume": p.get("volume")})
+                    continue
+                did = p.get("deal_id")
+                if ts < since or (did and did in seen):   # backfilled rows are real past trades too
+                    continue
+                seen.add(did)
+                o = opened.get(t) or {}
+                sym = str(p.get("symbol") or "")
+                rows.append({"t": ts * 1000, "opened": (o.get("t") or 0) * 1000 or None, "ticket": t,
+                             "symbol": sym, "name": NAMES.get(sym, sym), "side": o.get("side"),
+                             "volume": float(p.get("volume") or o.get("volume") or 0), "entry": o.get("entry"),
+                             "exit": float(p.get("price") or 0), "pnl": round(float(p.get("profit") or 0), 2),
+                             "who": owner.get(t, "Council bot")})
+    except OSError:
+        pass
+    rows.sort(key=lambda r: -r["t"])
+    by = {}
+    for r in rows:
+        b = by.setdefault(r["who"], {"who": r["who"], "trades": 0, "wins": 0, "pnl": 0.0})
+        b["trades"] += 1
+        b["wins"] += r["pnl"] > 0
+        b["pnl"] = round(b["pnl"] + r["pnl"], 2)
+    return {"range": rng, "trades": rows[:2000], "count": len(rows), "by_strategy": sorted(by.values(), key=lambda b: -b["trades"]),
+            "pnl": round(sum(r["pnl"] for r in rows), 2), "wins": sum(r["pnl"] > 0 for r in rows)}
+
+
+# ------------------------------------------------------------------ Brains page: every trader, every version
+BRAINS = [  # (who as trade_history labels it, config key, state file, what it is)
+    ("Council bot", None, None, "48 indicators on 4 timeframes plus your models, blended into one signal (8 x ATR stop, "
+                                "12.8 x ATR target, 24 h)."),
+    ("Gold Breakout", "gold_breakout", "gold_breakout", "Trades the break of gold's Asian-session range."),
+    ("Meta-brain", "meta_trader", "meta_trader", "One model trained on every strategy; trades when it predicts more "
+                                                 "than +0.30R."),
+    ("Gemma", "gemma_trader", "gemma_trader", "Local AI model (Gemma 4) reading the whole desk every 15 minutes."),
+    ("Jev", "jev_trader", "jev_trader", "TypeSafe's decision model (via OpenRouter): answers with probabilities every "
+                                        "15 minutes, trades when one side is at least 60% likely."),
+    ("Qwen", "qwen_trader", "qwen_trader", "Local AI model (Qwen 3.5 9B). Replaced by Jev on 2026-11-24."),
+]
+_BRAINS_CACHE = [0.0, None]
+
+
+def brains_view(snap: dict | None = None, log_dir: str | None = None, now: float | None = None) -> dict:
+    """One card per trader that is switched on or has ever traded: settings, record (today / week / all time),
+    P&L curve, open positions, recent closed trades with the trader's own reason, and its latest calls."""
+    if log_dir is None and _BRAINS_CACHE[1] is not None and time.time() - _BRAINS_CACHE[0] < 20:
+        return _BRAINS_CACHE[1]
+    log_dir = log_dir or os.path.join(ROOT, "logs")
+    now = time.time() if now is None else now
+    import monitor_tui as _mt
+    tcfg = (_mt._cfg().get("trading") or {})
+    hist = trade_history("all", log_dir=log_dir, now=now)
+    trades = sorted(hist["trades"], key=lambda r: r["t"])            # oldest first
+    # each trader's own reason for every trade it opened
+    why = {}
+    for fname in STRATEGY_FILES:
+        try:
+            with open(os.path.join(log_dir, f"{fname}.jsonl"), encoding="utf-8") as f:
+                for ln in f:
+                    if '"open"' not in ln:
+                        continue
+                    try:
+                        e = json.loads(ln)
+                    except ValueError:
+                        continue
+                    if e.get("event") == "open" and e.get("ticket"):
+                        parts = []
+                        if e.get("confidence") is not None:
+                            parts.append(f"{float(e['confidence']):.0%} sure")
+                        if e.get("pred") is not None:
+                            parts.append(f"predicted {float(e['pred']):+.2f}R")
+                        if e.get("risk_pct") is not None:
+                            parts.append(f"risk {float(e['risk_pct']):.1f}%")
+                        w = str(e.get("why") or e.get("detail") or "").strip()
+                        why[str(e["ticket"])] = " · ".join(parts) + (f" · {w}" if w and w != "None" else "")
+        except OSError:
+            pass
+    blot = (snap or {}).get("blotter") or []
+
+    def rec(rows):
+        wins = [r["pnl"] for r in rows if r["pnl"] > 0]
+        losses = [r["pnl"] for r in rows if r["pnl"] <= 0]
+        return {"trades": len(rows), "wins": len(wins), "pnl": round(sum(r["pnl"] for r in rows), 2),
+                "win_rate": round(len(wins) / len(rows), 3) if rows else None,
+                "avg_win": round(sum(wins) / len(wins), 2) if wins else None,
+                "avg_loss": round(sum(losses) / len(losses), 2) if losses else None,
+                "best": max((r["pnl"] for r in rows), default=None), "worst": min((r["pnl"] for r in rows), default=None)}
+
+    day0 = dt.datetime.now(dt.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000
+    out = []
+    for who, key, sfile, about in BRAINS:
+        c = (tcfg.get(key) or {}) if key else {}
+        mine = [r for r in trades if r["who"] == who]
+        enabled = True if key is None else bool(c.get("enabled"))
+        if not enabled and not mine:
+            continue
+        cum, curve = 0.0, []
+        for r in mine:
+            cum += r["pnl"]
+            curve.append([r["t"], round(cum, 2)])
+        st = {}
+        if sfile:
+            try:
+                with open(os.path.join(log_dir, f"{sfile}_state.json"), encoding="utf-8") as f:
+                    st = json.load(f)
+            except (OSError, ValueError):
+                st = {}
+        calls = {sym: {"decision": v.get("decision"), "confidence": v.get("confidence"), "t": v.get("t"),
+                       "error": bool(v.get("error")), "reason": str(v.get("reason") or "")[:200]}
+                 for sym, v in (st.get("last") or {}).items()} if isinstance(st.get("last"), dict) else {}
+        out.append({
+            "who": who, "enabled": enabled, "about": about,
+            "model": c.get("openrouter_model") if key == "jev_trader" else c.get("model"),
+            "risk_pct": c.get("risk_pct") if key else (((tcfg.get("demo_learning") or {}).get("risk") or {}).get("risk_percent")
+                                                         if (tcfg.get("demo_learning") or {}).get("enabled")
+                                                         else tcfg.get("risk_percent")),
+            "min_confidence": c.get("min_confidence"),
+            "record": {"today": rec([r for r in mine if r["t"] >= day0]),
+                       "week": rec([r for r in mine if r["t"] >= (now - 7 * 86400) * 1000]),
+                       "all": rec(mine)},
+            "first_trade": mine[0]["t"] if mine else None,
+            "curve": curve[-400:],
+            "open": [b for b in blot if (b.get("who") or "Council bot") == who],
+            "recent": [dict(r, why=why.get(str(r["ticket"]), "")) for r in reversed(mine[-25:])],
+            "calls": calls,
+        })
+    res = {"t": now, "brains": out}
+    if log_dir == os.path.join(ROOT, "logs"):
+        _BRAINS_CACHE[0], _BRAINS_CACHE[1] = time.time(), res
+    return res
+
+
+_PHONE = {"t": 0.0, "v": None}
+
+
+_PIPE_CACHE = [0.0, None]
+
+
+def pipeline_view(snap: dict | None = None) -> dict:
+    """Live status of every stage of the trading loop (the Pipeline page), from the bot's log and state files."""
+    if _PIPE_CACHE[1] is not None and time.time() - _PIPE_CACHE[0] < 15:
+        return _PIPE_CACHE[1]
+    import glob
+    import re as _re
+    logs = os.path.join(ROOT, "logs")
+
+    def rj(name, default=None):
+        try:
+            with open(os.path.join(logs, name), encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {} if default is None else default
+
+    # ---- the last hour of the bot's log
+    lines = []
+    try:
+        with open(os.path.join(logs, "server.log"), "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 1_500_000))
+            lines = f.read().decode("utf-8", "replace").splitlines()[1:]
+    except OSError:
+        pass
+    now = time.time()
+    rows = []
+    for ln in lines:
+        m = _re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\.\d+ ([+-]\d\d):(\d\d) \| (\w+) +\|[^-]*- (.*)", ln)
+        if not m:
+            continue
+        try:
+            t = time.mktime(time.strptime(m.group(1), "%Y-%m-%d %H:%M:%S"))
+        except ValueError:
+            continue
+        if now - t <= 3600:
+            rows.append((t, m.group(4), m.group(5)))
+
+    def count(prefix):
+        return sum(1 for _, _, x in rows if x.startswith(prefix))
+
+    last_dec, started = {}, None
+    for t, _, x in rows:
+        if x.startswith("DECISION "):
+            last_dec[x.split()[1]] = t
+        if x.startswith("AI models loaded for"):
+            started = t
+    errors = [x[:160] for _, lvl, x in rows if lvl in ("ERROR", "CRITICAL")][-5:]
+    warns = [x[:160] for _, lvl, x in rows if lvl == "WARNING" and "No PPO model found" not in x and "AutonomyLoop" not in x][-5:]
+
+    snap = snap or {}
+    syms = [s.get("symbol") for s in (snap.get("symbols") or []) if s.get("symbol")]
+    ages = [now - last_dec[s] for s in syms if s in last_dec]
+    lstm = (rj("lstm_eval.json").get("markets") or {})
+    reg = (rj(os.path.join("..", "models", "registry", "active.json")).get("symbols") or {})
+    grad = (rj("graduation.json").get("symbols") or {})
+    scout = rj("market_scout.json")
+    blot = snap.get("blotter") or []
+    by_who = {}
+    for b in blot:
+        w = by_who.setdefault(b.get("who") or "Council bot", {"open": 0, "pnl": 0.0})
+        w["open"] += 1
+        w["pnl"] = round(w["pnl"] + float(b.get("pnl") or 0), 2)
+    try:
+        closed = {b["who"]: b for b in (trade_history("1d").get("by_strategy") or [])}
+    except Exception:
+        closed = {}
+    # traders that are switched on, plus any other one still holding or closing trades today (2026-11-24: the list
+    # was hard-coded and missed Jev, and kept showing Qwen after it was switched off)
+    import monitor_tui as _mt          # `m` is a regex match inside this function
+    tcfg = (_mt._cfg().get("trading") or {})
+    on = {"gold_breakout": "Gold Breakout", "meta_trader": "Meta-brain", "gemma_trader": "Gemma", "jev_trader": "Jev",
+          "qwen_trader": "Qwen"}
+    order = ["Council bot"] + [n for k, n in on.items() if (tcfg.get(k) or {}).get("enabled")]
+    order += [w for w in list(by_who) + list(closed) if w not in order]
+    traders = []
+    for who in order:
+        c = closed.get(who) or {}
+        traders.append({"who": who, "open": (by_who.get(who) or {}).get("open", 0),
+                        "floating": (by_who.get(who) or {}).get("pnl", 0.0), "closed_today": c.get("trades", 0),
+                        "wins_today": c.get("wins", 0), "pnl_today": round(float(c.get("pnl", 0.0)), 2)})
+    llm = {}
+    for key, name in (("gemma_trader", "Gemma"), ("jev_trader", "Jev"), ("qwen_trader", "Qwen")):
+        if not (tcfg.get(key) or {}).get("enabled"):
+            continue                       # a switched-off model's old answers are not a pipeline problem
+        st = rj(f"{key}_state.json")
+        last = st.get("last") or {}
+        ts = [float(v.get("t", 0)) for v in last.values()]
+        llm[name] = {"answered": len(last), "last_s": round(now - max(ts)) if ts else None,
+                     "errors": sum(1 for v in last.values() if v.get("error"))}
+    acc = snap.get("account") or {}
+    out = {
+        "t": now,
+        "loop": {"markets": len(syms), "decisions_1h": count("DECISION "),
+                 "oldest_decision_s": round(max(ages)) if ages else None,
+                 "newest_decision_s": round(min(ages)) if ages else None, "restarted_s": round(now - started) if started else None,
+                 "errors_1h": len(errors), "warnings_1h": len(warns), "errors": errors, "warnings": warns},
+        "signals": {"lstm_proven": sorted(k for k, v in lstm.items() if v.get("proven")),
+                    "lstm_markets": len(lstm), "lstm_checked": rj("lstm_eval.json").get("at"),
+                    "ppo_markets": sorted(k for k, v in reg.items() if v.get("canary") or v.get("champion")),
+                    "llm": llm},
+        "filters": {"trend_block": count("TREND BLOCK"), "council_off": count("COUNCIL OFF"),
+                    "setup_block": count("SETUP BLOCK"), "size_block": count("SIZE BLOCK"),
+                    "entry_plans": count("ENTRY PLAN"), "entries": count("ENTRY "),
+                    "news_open_block": sum(1 for _, _, x in rows if " trader skip:" in x
+                                           and ("reason=news" in x or " open " in x))},
+        "traders": traders,
+        "protect": {"stop_moves_1h": count("STOP MOVE"), "time_exits_1h": count("TIME EXIT"),
+                    "today": acc.get("today"), "daily_limit": acc.get("daily_loss_limit"),
+                    "used_pct": (None if acc.get("today") is None else
+                                 round(100 * max(0.0, -float(acc["today"])) / float(acc.get("daily_loss_limit") or 1), 1)),
+                    "halted": _risk_halted(), "watchdog_1h": count("WATCHDOG")},
+        "broker": {"orders_1h": count("ORDER_SEND"), "open": len(blot), "equity": acc.get("equity"),
+                   "floating": acc.get("floating")},
+        "learn": {"memory_updates_1h": sum(1 for _, _, x in rows if "model memory" in x.lower() or "memory update" in x.lower()),
+                  "graduation": {k: v.get("status") for k, v in grad.items()},
+                  "scout_markets": len(scout.get("markets") or []), "scout_max": scout.get("max_markets", 12),
+                  "scout_last": (scout.get("last_run") or {}).get("at"), "scout_next": (scout.get("queue") or [None])[0],
+                  "lstm_retrain": _lstm_retrain_status()},
+    }
+    _PIPE_CACHE[:] = [now, out]
+    return out
+
+
+def _risk_halted() -> bool:
+    """True while the risk guard blocks new trades (its state file for the active account says so)."""
+    import glob
+    from datetime import datetime, timezone
+    files = sorted(glob.glob(os.path.join(ROOT, "logs", "risk_supervisor_state_*.json")), key=os.path.getmtime)
+    acct = "".join(ch for ch in os.environ.get("EXNESS_ACCOUNT_ID", "") if ch.isalnum())
+    pick = [f for f in files if acct and f.endswith(f"_{acct}.json")] or files[-1:]
+    try:
+        with open(pick[0], encoding="utf-8") as f:
+            hu = (json.load(f) or {}).get("halt_until")
+        return bool(hu) and datetime.fromisoformat(hu) > datetime.now(timezone.utc)
+    except (OSError, ValueError, IndexError, TypeError):
+        return False
+
+
+def _lstm_retrain_status() -> str | None:
+    try:
+        with open(os.path.join(ROOT, "logs", "lstm_retrain.log"), encoding="utf-8") as f:
+            ls = [x.strip() for x in f if x.strip()]
+    except OSError:
+        return None
+    if not ls:
+        return None
+    if ls[-1].endswith("bot restarting with the new LSTMs") or "done;" in ls[-1]:
+        return "finished"
+    cur = [x for x in ls if "LSTM retrain" in x]
+    return f"retraining {cur[-1].split()[-1]} ({len(cur)} of 7)" if cur else ls[-1][:80]
+
+
+def scout_view() -> dict:
+    """The daily new-market scout (tools/market_scout.py): markets added, the queue, and each test's result."""
+    try:
+        with open(os.path.join(ROOT, "logs", "market_scout.json"), encoding="utf-8") as f:
+            st = json.load(f)
+    except (OSError, ValueError):
+        st = {}
+    try:
+        with open(os.path.join(ROOT, "models", "registry", "active.json"), encoding="utf-8") as f:
+            reg = (json.load(f) or {}).get("symbols") or {}
+    except (OSError, ValueError):
+        reg = {}
+    added = []
+    for a in st.get("added") or []:
+        r = reg.get(a.get("symbol")) or {}
+        stage = "trained (champion)" if r.get("champion") else "model on trial" if r.get("canary") else "training queued"
+        g = a.get("gate") or {}
+        added.append({"symbol": a.get("symbol"), "at": a.get("at"), "stage": stage, "avg_r": g.get("avg_r"),
+                      "periods": g.get("periods"), "trades": g.get("trades")})
+    tested = sorted(({"symbol": k, **{x: v.get(x) for x in ("at", "result", "why")},
+                      "avg_r": (v.get("gate") or {}).get("avg_r"), "cost_atr": (v.get("screen") or {}).get("cost_atr")}
+                     for k, v in (st.get("tested") or {}).items()), key=lambda r: r.get("at") or "", reverse=True)
+    return {"markets": st.get("markets") or [], "max": st.get("max_markets", 12), "queue": st.get("queue") or [],
+            "added": added, "tested": tested, "last_run": st.get("last_run"), "schedule": "daily 09:15"}
+
+
+def phone_link(port: int = 8788) -> dict:
+    """The private Tailscale https address that serves this dashboard (tailscale serve), for the phone QR code."""
+    if _PHONE["v"] is not None and time.time() - _PHONE["t"] < 60:
+        return _PHONE["v"]
+    import subprocess
+    out = {"url": None, "why": "Tailscale is not serving the dashboard (run: tailscale serve --bg --https=8443 8788)."}
+    try:
+        r = subprocess.run(["tailscale", "serve", "status", "--json"], capture_output=True, text=True, timeout=5)
+        web = (json.loads(r.stdout or "{}").get("Web") or {})
+        for hostport, cfg in web.items():
+            for h in (cfg.get("Handlers") or {}).values():
+                if str(h.get("Proxy", "")).rstrip("/").endswith(f":{port}"):
+                    host, _, p = hostport.rpartition(":")
+                    out = {"url": f"https://{host}" + ("" if p == "443" else f":{p}"), "why": None}
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        out = {"url": None, "why": f"Could not ask Tailscale: {exc}"}
+    _PHONE.update(t=time.time(), v=out)
+    return out
+
 class Handler(BaseHTTPRequestHandler):
+    def handle(self):
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError):
+            pass   # the browser left before the answer arrived (page closed or reloaded): nothing went wrong
+
     def log_message(self, *a):
         pass
 
@@ -787,6 +1357,23 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(404, b'{"error": "run tools/indicator_map.py"}', "application/json")
             with open(p, "rb") as f:
                 return self._send(200, f.read(), "application/json")
+        if path == "/api/equity":
+            q = dict(x.split("=", 1) for x in (self.path.split("?", 1)[1:] or [""])[0].split("&") if "=" in x)
+            rng = q.get("range", "1d") if q.get("range") in State.RANGES else "1d"
+            return self._json(200, STATE.equity_view(rng))
+        if path == "/api/trades":
+            q = dict(x.split("=", 1) for x in (self.path.split("?", 1)[1:] or [""])[0].split("&") if "=" in x)
+            return self._json(200, trade_history(q.get("range", "1w") if q.get("range") in State.RANGES else "1w"))
+        if path == "/api/phone":
+            return self._json(200, phone_link())
+        if path == "/api/scout":
+            return self._json(200, scout_view())
+        if path == "/api/brains":
+            return self._json(200, brains_view(STATE.snapshot() if STATE else None))
+        if path == "/api/pipeline":
+            return self._json(200, pipeline_view(STATE.snapshot() if STATE else None))
+        if path == "/api/prices":   # light and fast: the page merges this into the slower full snapshot every second
+            return self._json(200, STATE.prices())
         if path == "/api/state":
             try:
                 body = json.dumps(STATE.snapshot()).encode()
@@ -803,6 +1390,52 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, f.read(), mimetypes.guess_type(full)[0] or "application/octet-stream")
 
 
+SCOUT_AT_UTC = (7, 15)     # daily new-market scout (tools/market_scout.py); 09:15 in South Africa
+
+
+def _scout_scheduler() -> None:
+    """Runs the market scout once a day. The dashboard service is always on, so this needs no other scheduler."""
+    import subprocess
+    lock = os.path.join(ROOT, ".tmp", "market_scout.pid")
+    while True:
+        try:
+            now = time.gmtime()
+            due = (now.tm_hour, now.tm_min) >= SCOUT_AT_UTC
+            try:
+                with open(os.path.join(ROOT, "logs", "market_scout.json"), encoding="utf-8") as f:
+                    last = ((json.load(f) or {}).get("last_run") or {}).get("at", "")
+            except (OSError, ValueError):
+                last = ""
+            running = False
+            try:
+                with open(lock, encoding="utf-8") as f:
+                    os.kill(int(f.read().strip()), 0)
+                running = True
+            except (OSError, ValueError):
+                pass
+            # the LSTM gate's daily check (tools/lstm_eval.py -> logs/lstm_eval.json, read by Python/lstm_gate.py)
+            try:
+                with open(os.path.join(ROOT, "logs", "lstm_eval.json"), encoding="utf-8") as f:
+                    lstm_last = (json.load(f) or {}).get("at", "")
+            except (OSError, ValueError):
+                lstm_last = ""
+            if due and not lstm_last.startswith(time.strftime("%Y-%m-%d", now)):
+                with open(os.path.join(ROOT, "logs", "lstm_eval.log"), "a", encoding="utf-8") as out:
+                    subprocess.run([sys.executable, os.path.join(ROOT, "tools", "lstm_eval.py")], cwd=ROOT, stdout=out,
+                                   stderr=subprocess.STDOUT, timeout=3600)
+            if due and not running and not last.startswith(time.strftime("%Y-%m-%d", now)):
+                with open(os.path.join(ROOT, "logs", "market_scout.log"), "a", encoding="utf-8") as out:
+                    out.write(time.strftime("%F %T") + " dashboard: starting the daily market scout\n")
+                    out.flush()
+                    pr = subprocess.Popen([sys.executable, os.path.join(ROOT, "tools", "market_scout.py")], cwd=ROOT,
+                                          stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+                with open(lock, "w", encoding="utf-8") as f:
+                    f.write(str(pr.pid))
+        except Exception as exc:
+            print(f"scout scheduler: {exc}", flush=True)
+        time.sleep(300)
+
+
 def main():
     global STATE
     __import__("learning_view").start_audit_thread()
@@ -810,6 +1443,7 @@ def main():
     ap.add_argument("--port", type=int, default=8788)
     args = ap.parse_args()
     STATE = State()
+    threading.Thread(target=_scout_scheduler, daemon=True).start()
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(f"dashboard on http://127.0.0.1:{args.port}", flush=True)
     srv.serve_forever()

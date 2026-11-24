@@ -2,6 +2,7 @@
 # Run one Cautious Giggle service in the foreground for launchd (which restarts it if it exits).
 #   service_run.sh bot        the trading bot (keeps the Mac awake while it runs)
 #   service_run.sh dashboard  the war-room dashboard on http://127.0.0.1:8788
+#   service_run.sh scout      once a day: test and add the next new market (tools/market_scout.py)
 ROOT=/Volumes/AI_DRIVE/cautious-giggle
 # the project lives on an external drive: wait for it after a reboot/login
 for i in {1..120}; do [ -f "$ROOT/Python/Server_AGI.py" ] && break; sleep 5; done
@@ -17,5 +18,8 @@ case "$1" in
   dashboard)
     echo "$(date '+%F %T') service: starting dashboard"
     exec .venv/bin/python tools/web_dashboard.py --port 8788 ;;
-  *) echo "usage: $0 bot|dashboard" >&2; exit 2 ;;
+  scout)
+    echo "$(date '+%F %T') service: daily market scout"
+    exec .venv/bin/python tools/market_scout.py ;;
+  *) echo "usage: $0 bot|dashboard|scout" >&2; exit 2 ;;
 esac

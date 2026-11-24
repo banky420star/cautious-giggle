@@ -252,7 +252,7 @@ class Broker:
                 self.account = self.mt5.account_info()
                 self.positions = list(self.mt5.positions_get() or [])
                 self._t["acc"] = now
-            if now - self._t["tick"] >= 3:
+            if now - self._t["tick"] >= 0.5:   # as fast as the shared 2-per-second price limit allows
                 for s in self.symbols:
                     t = self.mt5.symbol_info_tick(s)
                     if t is not None:
@@ -262,7 +262,7 @@ class Broker:
                             self.flash[s] = time.time()
                         self.ticks[s] = t
                 self._t["tick"] = now
-            if now - self._t["bars"] >= 60:
+            if now - self._t["bars"] >= 300:   # mini-charts: every 5 min (prices share a 2-per-second limit)
                 tf = getattr(self.mt5, "TIMEFRAME_M5", 5)
                 for s in list(self.symbols) + list(self.extra):
                     r = self.mt5.copy_rates_from_pos(s, tf, 1, 150)
@@ -1099,7 +1099,12 @@ def render(frame: int, broker: Broker, logs: Logs, cfg: dict, symbols: list[str]
     layout["mid"].split_row(Layout(acct_panel, size=32),
                             Layout(wr.pipeline(frame, logs, cfg, symbols, width), ratio=4))
     layout["low"].split_row(Layout(name="left", ratio=4), Layout(name="right", ratio=5))
-    layout["left"].split_column(Layout(brief_panel, ratio=1), Layout(council_panel, size=19))
+    try:   # Gemma / Jev calls per market (same panel as the simple view; imported here: simple_tui imports this file)
+        from simple_tui import ai_panel
+        layout["left"].split_column(Layout(brief_panel, ratio=1), Layout(ai_panel(cfg), size=12),
+                                    Layout(council_panel, size=19))
+    except Exception:
+        layout["left"].split_column(Layout(brief_panel, ratio=1), Layout(council_panel, size=19))
     train_panel = wr.training_panel(frame, prog, bool(tr.get("running")), wr.stage_lines(CYCLE_LOG), symbols,
                                     cfg, sparkline)
     layout["right"].split_column(Layout(train_panel, size=26),

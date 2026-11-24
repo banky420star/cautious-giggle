@@ -1,6 +1,6 @@
 #!/bin/zsh
-# "Cautious Giggle" app icon: start the full package and open the war room.
-#   bot (trading)  ·  graduation manager (training autopilot)  ·  web war room  ·  terminal view
+# "Cautious Giggle" app icon: start the full package and open the dashboard.
+#   bot (trading)  ·  graduation manager (training autopilot)  ·  web dashboard  ·  terminal view
 # Each piece is started only if it isn't already running (checked by its real process, not a pid file).
 ROOT="/Volumes/AI_DRIVE/cautious-giggle"
 note() { osascript -e "display notification \"$1\" with title \"Cautious Giggle\"" >/dev/null 2>&1; }
@@ -39,5 +39,5 @@ if ! running "tools/simple_tui.py"; then
   osascript -e "tell application \"Terminal\" to do script \"cd '$ROOT' && source scripts/mac/account_env.sh && PYTHONPATH=\\\"\$PWD\\\" .venv/bin/python tools/simple_tui.py\"" >/dev/null 2>&1
 fi
 
-# 4) web war room in its own window
+# 4) web dashboard in its own window
 exec scripts/mac/web.sh

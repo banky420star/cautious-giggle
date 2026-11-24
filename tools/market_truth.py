@@ -63,8 +63,21 @@ def training(symbol: str, st: dict | None = None) -> dict:
             "best_return_pct": best["return_pct"] if best else None}
 
 
+_AI_CACHE: dict = {}
+
+
 def ai(symbol: str, cfg: dict | None, account: str | None) -> dict:
-    """What the AI part of this market really is right now."""
+    """What the AI part of this market really is right now (cached 15 s: reading the registry is slow)."""
+    import time as _t
+    hit = _AI_CACHE.get((symbol, account))
+    if hit and _t.time() - hit[0] < 15:
+        return hit[1]
+    out = _ai(symbol, cfg, account)
+    _AI_CACHE[(symbol, account)] = (_t.time(), out)
+    return out
+
+
+def _ai(symbol: str, cfg: dict | None, account: str | None) -> dict:
     try:
         from Python import demo_exploration
         from Python.model_registry import ModelRegistry
