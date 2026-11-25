@@ -4,7 +4,7 @@
 #   service_run.sh dashboard  the war-room dashboard on http://127.0.0.1:8788
 #   service_run.sh scout      once a day: test and add the next new market (tools/market_scout.py)
 #   service_run.sh dailypnl   once a day at 00:05: yesterday's P&L to Telegram (tools/daily_pnl.py)
-ROOT=/Volumes/AI_DRIVE/cautious-giggle
+ROOT="${0:A:h:h:h}"   # the project folder (this script lives in scripts/mac)
 # the project lives on an external drive: wait for it after a reboot/login
 for i in {1..120}; do [ -f "$ROOT/Python/Server_AGI.py" ] && break; sleep 5; done
 cd "$ROOT" || exit 1

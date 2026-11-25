@@ -7,8 +7,8 @@
 # exness status     one-line status
 # exness logs       follow the server log
 # exness check      read-only Exness connection check
-ROOT="/Volumes/AI_DRIVE/cautious-giggle"
-if [ ! -d "$ROOT" ]; then echo "AI_DRIVE not mounted ($ROOT missing)"; exit 1; fi
+ROOT="${0:A:h:h:h}"   # the project folder (follows a symlink to this script)
+if [ ! -f "$ROOT/Python/Server_AGI.py" ]; then echo "project folder not found ($ROOT)"; exit 1; fi
 cd "$ROOT" || exit 1
 source "$ROOT/scripts/mac/account_env.sh" || exit 1
 export PYTHONPATH="$ROOT"

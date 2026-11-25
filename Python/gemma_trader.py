@@ -419,7 +419,7 @@ class JevTrader(GemmaTrader):
                 "routes": ["openrouter", "jevai"],
                 "url": "https://www.jevai.org/api/v1/decisions",
                 "openrouter_url": "https://openrouter.ai/api/alpha/decisions", "openrouter_model": "typesafe/jev-1.13",
-                "key_files": ["/Volumes/AI_DRIVE/jev-trader/.env", "~/.config/xau-v3/jev.env"], "cooldown_s": 300,
+                "key_files": ["~/.config/cautious-giggle/jev.env", "/Volumes/AI_DRIVE/jev-trader/.env", "~/.config/xau-v3/jev.env"], "cooldown_s": 300,
                 "every_min": 5}
     OWN_WORKER = True
 
