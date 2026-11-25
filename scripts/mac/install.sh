@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Cautious Giggle guided installer (double-click "Install Cautious Giggle.command" in the project folder).
+# Cautious Giggle guided installer (double-click "Set Up" in the project folder; it opens scripts/mac/setup.command).
 # Safe to run again: every step checks what is already there and only asks before replacing it.
 #   1 tools (Homebrew, Python 3.13, Node)   2 your keys: Jev + Exness demo / live (asked up front)
 #   3 Python packages   4 Ollama + the Gemma model   5 test the Exness accounts   6 config.yaml
