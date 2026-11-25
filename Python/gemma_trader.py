@@ -270,6 +270,20 @@ class GemmaTrader(AtrTrader):
                          "High news and around market opens.")
         except (OSError, ValueError, KeyError, TypeError):
             pass
+        # what the latest releases meant (Python/news_reader.py: the model's read of the headlines after each release)
+        try:
+            from Python.news_reader import DOLLAR_SIGN, recent_reads
+            reads = recent_reads(now - 4 * 3600, log_dir)[-3:]
+            if reads:
+                ds = DOLLAR_SIGN.get(symbol, 0)
+                lines.append("Latest release reads: " + "; ".join(
+                    f"{', '.join(x.get('title', '') for x in r.get('releases') or [])} {int((now - float(r['t0'])) // 60)} min ago: "
+                    f"{r['surprise'].replace('_', ' ')} ({float(r['confidence']):.2f}), actual {r.get('actual')}"
+                    + (f", which points {'up' if ds * {'dollar_up': 1, 'dollar_down': -1}.get(r['surprise'], 0) > 0 else 'down'} "
+                       f"for {ASSETS.get(symbol, symbol)}" if ds and r['surprise'] in ('dollar_up', 'dollar_down') else "")
+                    for r in reads) + ".")
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
         # price action from the M15 bars
         if m15 is not None and len(m15) >= 100:
             c, hi, lo = m15["close"].astype(float), m15["high"].astype(float), m15["low"].astype(float)

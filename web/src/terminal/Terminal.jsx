@@ -497,7 +497,7 @@ export default function Terminal() {
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
-  const go = (p) => { if (p !== page) { location.hash = p; window.scrollTo(0, 0); } };
+  const go = (p) => { if (p !== page) { location.hash = p; window.scrollTo(0, 0); document.querySelector(".main")?.scrollTo(0, 0); } };
   const b = d?.bot || {};
   const next = b.next_check_s != null && d ? Math.max(0, b.next_check_s - Math.floor((now - d.ts * 1000) / 1000)) : null;
   const title = NAV.find((n) => n[0] === page)[1];

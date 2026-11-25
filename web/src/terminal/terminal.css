@@ -297,3 +297,17 @@ button.link { background: none; border: 0; padding: 0; color: var(--text-2, inhe
 .pl-issues h3 { margin: 0 0 6px; font-size: 14px; } .pl-issues ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--text-2); }
 @media (max-width: 760px) { .pl-stage { grid-template-columns: 26px 1fr; gap: 8px; } .pl-dot { width: 22px; height: 22px; font-size: 11px; }
   .pl-loop { margin-left: 34px; } .pl-stat { min-width: 0; flex: 1 1 45%; } }
+
+/* Phone layout (user 2026-11-25): iPhone Safari left the position:fixed tab bar stranded mid-screen while the
+   toolbar collapsed on scroll. The page itself no longer scrolls on phones: .main is the scroll area and the
+   tab bar sits in normal flow underneath it, so it cannot float. 8 tabs get a usable width and scroll sideways
+   when the screen is too narrow. */
+@media (max-width: 760px) {
+  html, body, #root { height: 100%; overflow: hidden; }
+  .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; min-height: 0; }
+  .main { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+  .main > * { flex-shrink: 0; }            /* header and content keep their height inside the scroll area */
+  .rail { position: relative; order: 2; flex: none; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
+  .rail::-webkit-scrollbar { display: none; }
+  .rail button { flex: 1 1 0; min-width: 44px; padding: 7px 1px; font-size: 9.5px; line-height: 1.15; letter-spacing: -.01em; white-space: nowrap; }
+}
