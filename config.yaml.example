@@ -59,6 +59,7 @@ trading:
     risk_pct: 10                   # user 2026-11-24: 10% per trade (backtest worst drawdown at 10%: 71%)
     min_lot_max_risk_pct: 30   # user 2026-11-25: 30 so a small account trades every market
     stop_pct: 1.0
+    max_chase_pct: 100             # always take the break, even late (0.15 skips a break seen further past the level); size cap still applies
   meta_trader:                     # the meta-brain trades its own predictions (demo rules: live too while same_on_live; Python/meta_trader.py)
     enabled: true                  # contains: council, bankbot, ICT, Sweep+FVG, LuxAlgo SMC, SMC rules, Gold Breakout range (user 2026-11-24)
     risk_pct: 5                    # same as the council's demo risk
