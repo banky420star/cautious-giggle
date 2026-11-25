@@ -1100,10 +1100,13 @@ def main(live=False):
     # Account-wide cap on positions in one direction across every trader (trading.crowd_cap, user 2026-11-24).
     # Blocks NEW council / Gemma / Jev / meta-brain trades; Gold Breakout (one break a day) is not held back.
     from Python import strategy_exec as _sx
-    _sx.CROWD["max_same_side"] = int(((cfg.get("trading") or {}).get("crowd_cap") or {}).get("max_same_side") or 0)
-    if _sx.CROWD["max_same_side"]:
+    _cc = (cfg.get("trading") or {}).get("crowd_cap") or {}
+    _sx.CROWD["max_same_side"] = int(_cc.get("max_same_side") or 0)
+    _sx.CROWD["max_same_side_per_symbol"] = int(_cc.get("max_same_side_per_symbol") or 0)
+    if _sx.CROWD["max_same_side"] or _sx.CROWD["max_same_side_per_symbol"]:
+        _per = _sx.CROWD["max_same_side_per_symbol"]
         logger.info(f"crowd cap ON: no new trade when {_sx.CROWD['max_same_side']}+ positions are already open in "
-                    f"that direction across all traders")
+                    f"that direction across all traders" + (f", or {_per}+ on that market" if _per else ""))
     # Stop manager: moves the stop into profit on EVERY bot trade (council + strategies), each market's own rule
     # (Python/stop_manager.py, tools/stop_rules_backtest.py). Replaces the executor's council-only rule.
     stop_mgr, _stops_at = None, [0.0]
@@ -1783,7 +1786,7 @@ def main(live=False):
                 if float(exposure) != 0.0 and (cur_x == 0.0 or (float(exposure) > 0) != (cur_x > 0)
                                                or abs(float(exposure)) > abs(cur_x) + 1e-9):
                     from Python.strategy_exec import crowd_reason as _crowd
-                    _cw = _crowd(mt5, 1 if float(exposure) > 0 else -1)
+                    _cw = _crowd(mt5, 1 if float(exposure) > 0 else -1, symbol=symbol)
                     if _cw:
                         exposure = 0.0 if (cur_x != 0.0 and (cur_x > 0) != (float(exposure) > 0)) else cur_x
                         held_by_gate = True

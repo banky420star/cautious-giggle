@@ -76,34 +76,55 @@ class AtrTrader:
             return float(pick[0]), float(pick[1])
         return STOPS.get(base(sym), STOPS["default"])
 
-    def manage(self, mt5, sym, now) -> bool:
-        """Watch an open position: broker stop/target, 8 h limit. True while it is still open."""
-        pos = self.state["open"].get(sym)
-        if not pos:
-            return False
-        open_ids = {str(p.ticket) for p in all_positions(mt5, sym)}
-        if str(pos["ticket"]) not in open_ids:
-            self._event("closed", symbol=sym, ticket=pos["ticket"], reason="stop or target at the broker")
-            del self.state["open"][sym]
-            self._save()
-            return False
-        if now - float(pos["opened"]) >= HORIZON * 300:
-            return not self.close(mt5, sym, "8 h time limit")
-        return True
+    # Each trader may hold up to `max_per_symbol` positions per market (user 2026-11-25: 2 per bot per market).
+    # The first sits in state["open"] under the market name (what the dashboards read), extra ones under
+    # "market#ticket".
+    def _keys(self, sym) -> list:
+        return [k for k in self.state["open"] if k == sym or k.startswith(f"{sym}#")]
 
-    def close(self, mt5, sym, why) -> bool:
-        pos = self.state["open"].get(sym)
+    def per_symbol(self) -> int:
+        return max(1, int(self.cfg.get("max_per_symbol", 1) or 1))
+
+    def side_on(self, sym) -> int:
+        keys = self._keys(sym)
+        return int(self.state["open"][keys[0]]["side"]) if keys else 0
+
+    def manage(self, mt5, sym, now) -> int:
+        """Watch this trader's open positions on `sym`: broker stop/target, 8 h limit. How many are still open."""
+        keys = self._keys(sym)
+        if not keys:
+            return 0
+        open_ids = {str(p.ticket) for p in all_positions(mt5, sym)}
+        n = 0
+        for k in keys:
+            pos = self.state["open"][k]
+            if str(pos["ticket"]) not in open_ids:
+                self._event("closed", symbol=sym, ticket=pos["ticket"], reason="stop or target at the broker")
+                del self.state["open"][k]
+                self._save()
+                continue
+            if now - float(pos["opened"]) >= HORIZON * 300 and self._close_key(mt5, sym, k, "8 h time limit"):
+                continue
+            n += 1
+        return n
+
+    def _close_key(self, mt5, sym, key, why) -> bool:
+        pos = self.state["open"][key]
         ok, p = close_ticket(mt5, sym, pos["ticket"], self.cfg["magic"], f"{self.TAG}|C")
         if ok or p is None:
             self._event("closed", symbol=sym, ticket=pos["ticket"], reason=why,
                         profit=round(float(getattr(p, "profit", 0.0) or 0.0), 2) if p else None)
-            del self.state["open"][sym]
+            del self.state["open"][key]
             self._save()
             return True
         return False
 
+    def close(self, mt5, sym, why) -> bool:
+        """Close every position this trader holds on `sym`. True when all of them closed."""
+        return all([self._close_key(mt5, sym, k, why) for k in self._keys(sym)])
+
     def open(self, mt5, sym, side, **why):
-        crowd = crowd_reason(mt5, side)
+        crowd = crowd_reason(mt5, side, symbol=sym)
         if crowd:
             self._event("skip", symbol=sym, reason=crowd)
             self._save()
@@ -130,7 +151,8 @@ class AtrTrader:
                "magic": int(self.cfg["magic"]), "comment": f"{self.TAG}|O"}
         ok, ticket, res = open_hidden(mt5, req)
         if ok:
-            self.state["open"][sym] = {"ticket": ticket, "side": side, "entry": px, "sl": req["sl"], "tp": req["tp"],
+            key = sym if sym not in self.state["open"] else f"{sym}#{ticket}"
+            self.state["open"][key] = {"symbol": sym, "ticket": ticket, "side": side, "entry": px, "sl": req["sl"], "tp": req["tp"],
                                        "lots": lots, "risk_pct": risk, "opened": time.time(), **why}
         self._event("open" if ok else "error", symbol=sym, side="BUY" if side > 0 else "SELL", price=px, sl=req["sl"],
                     tp=req["tp"], lots=lots, risk_pct=risk, ticket=ticket, **why,
@@ -152,7 +174,8 @@ class MetaTrader(AtrTrader):
         now = time.time() if now is None else now
         margin = float(ext.meta.margin)
         for sym in symbols:
-            if self.manage(mt5, sym, now):
+            held = self.manage(mt5, sym, now)
+            if held >= self.per_symbol():
                 continue
             val = ext.values.get((sym, "meta_brain"))
             det = ext.details.get((sym, "meta_brain")) or {}
@@ -162,8 +185,8 @@ class MetaTrader(AtrTrader):
                 continue                                  # this prediction was already acted on (or passed)
             self.state["seen"][sym] = val[1]
             pl, ps = float(det["pred_long"]), float(det["pred_short"])
-            if max(pl, ps) < margin:
-                self._save()
+            if max(pl, ps) < margin or (held and (1 if pl >= ps else -1) != self.side_on(sym)):
+                self._save()                              # too weak, or against the position it already holds
                 continue
             why_not = block(sym) if block else None
             if not can_open or why_not or len(self.state["open"]) >= int(self.cfg["max_open"]):

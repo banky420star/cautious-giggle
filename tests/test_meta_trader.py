@@ -102,3 +102,33 @@ def test_stale_or_halted(tmp_path):
     x.predict("BTCUSDm", 0.9, 0.0, 5000.0)
     tr.step(m, x, ["BTCUSDm"], can_open=False, now=5001.0)
     assert m.sent == []
+
+
+def test_holds_up_to_max_per_symbol_in_one_direction(tmp_path):
+    # user 2026-11-25: each bot may hold 2 positions per market; never a third, never against its own
+    m, x = FakeMT5(), FakeExt()
+    tr = MetaTrader({"enabled": True, "max_per_symbol": 2}, str(tmp_path))
+    x.predict("XAUUSDm", 0.5, 0.0, 1000.0)
+    tr.step(m, x, ["XAUUSDm"], now=1001.0)
+    x.predict("XAUUSDm", 0.0, 0.6, 1300.0)                  # opposite call: no hedge
+    tr.step(m, x, ["XAUUSDm"], now=1301.0)
+    assert len(m.sent) == 1
+    x.predict("XAUUSDm", 0.6, 0.0, 1600.0)                  # same direction: second position
+    tr.step(m, x, ["XAUUSDm"], now=1601.0)
+    assert len(m.sent) == 2 and len(tr._keys("XAUUSDm")) == 2 and "XAUUSDm" in tr.state["open"]
+    x.predict("XAUUSDm", 0.7, 0.0, 1900.0)                  # full: no third
+    tr.step(m, x, ["XAUUSDm"], now=1901.0)
+    assert len(m.sent) == 2
+    m.positions = []                                         # both stops filled at the broker
+    tr.step(m, x, ["XAUUSDm"], now=1900.0 + 700)            # (signal now stale, so nothing reopens)
+    assert tr._keys("XAUUSDm") == [] and len(m.sent) == 2
+
+
+def test_default_is_one_per_market(tmp_path):
+    m, x = FakeMT5(), FakeExt()
+    tr = MetaTrader({"enabled": True}, str(tmp_path))
+    x.predict("XAUUSDm", 0.5, 0.0, 1000.0)
+    tr.step(m, x, ["XAUUSDm"], now=1001.0)
+    x.predict("XAUUSDm", 0.6, 0.0, 1300.0)
+    tr.step(m, x, ["XAUUSDm"], now=1301.0)
+    assert len(m.sent) == 1

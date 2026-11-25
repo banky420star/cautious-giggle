@@ -72,19 +72,28 @@ def all_positions(mt5, symbol: str | None = None) -> list:
 # Account-wide cap on positions in one direction, across every trader (trading.crowd_cap, user 2026-11-24): on
 # 2026-11-24 every brain sold the same dollar move at ~5% each and equity swung from $1,928 to $940 in six hours.
 # Server_AGI sets this at start; 0 = off.
-CROWD = {"max_same_side": 0}
+# max_same_side_per_symbol (user 2026-11-25): stacking limit per market, so a pile-up on one market (e.g. 5 BTC
+# sells) cannot block every OTHER market from opening.
+CROWD = {"max_same_side": 0, "max_same_side_per_symbol": 0}
 
 
-def crowd_reason(mt5, side: int, cap: int | None = None) -> str | None:
+def crowd_reason(mt5, side: int, cap: int | None = None, symbol: str | None = None,
+                 symbol_cap: int | None = None) -> str | None:
     """Why a new `side` (+1 buy / -1 sell) trade may not open: `cap` or more positions in that direction are
-    already open across all traders. None when it may."""
-    cap = int(CROWD["max_same_side"] if cap is None else cap or 0)
-    if cap <= 0 or not side:
+    already open across all traders, or (with `symbol`) `symbol_cap` or more on that market. None when it may."""
+    if not side:
         return None
+    cap = int(CROWD["max_same_side"] if cap is None else cap or 0)
+    symbol_cap = int(CROWD.get("max_same_side_per_symbol", 0) if symbol_cap is None else symbol_cap or 0)
     buy = getattr(mt5, "ORDER_TYPE_BUY", 0)
-    n = sum(1 for p in all_positions(mt5) if (1 if int(getattr(p, "type", buy)) == buy else -1) == side)
-    if n >= cap:
-        return f"{n} {'buy' if side > 0 else 'sell'} positions already open across all traders (cap {cap})"
+    word = "buy" if side > 0 else "sell"
+    same = [p for p in all_positions(mt5) if (1 if int(getattr(p, "type", buy)) == buy else -1) == side]
+    if cap > 0 and len(same) >= cap:
+        return f"{len(same)} {word} positions already open across all traders (cap {cap})"
+    if symbol and symbol_cap > 0:
+        n = sum(1 for p in same if str(getattr(p, "symbol", "")) == str(symbol))
+        if n >= symbol_cap:
+            return f"{n} {word} positions already open on {symbol} across all traders (stacking cap {symbol_cap})"
     return None
 
 

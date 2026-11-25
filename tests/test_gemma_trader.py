@@ -200,6 +200,19 @@ def test_crowd_cap_counts_every_trader_per_direction():
     assert sx.crowd_reason(mt5, -1, 0) is None           # 0 = off
 
 
+def test_crowd_cap_per_symbol_stacking_limit():
+    from Python import strategy_exec as sx
+    mt5 = _CrowdMT5([])
+    mt5._p = [_Pos(1, "BTCUSDm", 1), _Pos(1, "BTCUSDm", 2), _Pos(0, "XAUUSDm", 3)]
+    # 2 BTC sells: a third BTC sell is stacking, blocked; a gold or silver sell is a new market, allowed
+    assert "on BTCUSDm" in sx.crowd_reason(mt5, -1, 14, symbol="BTCUSDm", symbol_cap=2)
+    assert sx.crowd_reason(mt5, -1, 14, symbol="XAUUSDm", symbol_cap=2) is None
+    assert sx.crowd_reason(mt5, -1, 14, symbol="XAGUSDm", symbol_cap=2) is None
+    assert sx.crowd_reason(mt5, 1, 14, symbol="BTCUSDm", symbol_cap=2) is None   # other direction
+    assert sx.crowd_reason(mt5, -1, 2, symbol="XAUUSDm", symbol_cap=2)           # overall cap still applies
+    assert sx.crowd_reason(mt5, -1, 14, symbol="BTCUSDm", symbol_cap=0) is None  # 0 = off
+
+
 def test_crowd_cap_blocks_atr_trader_open(tmp_path, monkeypatch):
     from Python import strategy_exec as sx
     from Python.gemma_trader import GemmaTrader

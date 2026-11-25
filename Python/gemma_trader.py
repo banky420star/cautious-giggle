@@ -337,11 +337,13 @@ class GemmaTrader(AtrTrader):
             fresh = d is not None and now - d["t"] <= float(self.cfg["max_decision_age_s"])
             side = {"buy": 1, "sell": -1}.get(d["decision"], 0) if fresh else 0
             sure = fresh and d["confidence"] >= float(self.cfg["min_confidence"])
-            if self.manage(mt5, sym, now):
-                pos = self.state["open"][sym]
-                if sure and side == -pos["side"]:
+            held = self.manage(mt5, sym, now)
+            if held:
+                if sure and side == -self.side_on(sym):
                     self.close(mt5, sym, f"{self.NAME.split()[0].capitalize()} turned {d['decision']} ({d['confidence']:.2f})")
-                continue
+                    continue
+                if held >= self.per_symbol() or side != self.side_on(sym):
+                    continue                              # full on this market, or no add in its direction
             if sym in (self.cfg.get("skip_symbols") or ()):
                 continue                                  # not traded by this model (trading.<trader>.skip_symbols)
             if not (sure and side) or self.state["seen"].get(sym) == d["stamp"]:
@@ -357,7 +359,7 @@ class GemmaTrader(AtrTrader):
                 self._save()
                 continue
             self.open(mt5, sym, side, confidence=d["confidence"], why=d["reason"][:200])
-            if sym in self.state["open"]:
+            if len(self._keys(sym)) > held:
                 today[sym] = today.get(sym, 0) + 1
                 self._save()
 
