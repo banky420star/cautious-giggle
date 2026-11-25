@@ -31,8 +31,10 @@ class GoldBreakout:
         self.cfg = {**DEFAULTS, **(cfg or {})}
         self.enabled = bool(self.cfg["enabled"])
         self.log = logger
-        self.state_path = os.path.join(log_dir, "gold_breakout_state.json")
-        self.events_path = os.path.join(log_dir, "gold_breakout.jsonl")
+        from Python.strategy_exec import account_log
+        name = account_log("gold_breakout")      # per broker account: demo and live keep separate books
+        self.state_path = os.path.join(log_dir, f"{name}_state.json")
+        self.events_path = os.path.join(log_dir, f"{name}.jsonl")
         self.state = self._load()
 
     # ------------------------------------------------------------------ persistence

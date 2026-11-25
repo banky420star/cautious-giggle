@@ -40,7 +40,8 @@ def bot_by_ticket() -> dict[str, str]:
     out = {}
     for name, label in BOTS.items():
         try:
-            with open(os.path.join(LOGS, f"{name}.jsonl"), encoding="utf-8") as f:
+            from Python.strategy_exec import account_log
+            with open(os.path.join(LOGS, f"{account_log(name)}.jsonl"), encoding="utf-8") as f:
                 for line in f:
                     try:
                         row = json.loads(line)

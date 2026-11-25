@@ -405,7 +405,8 @@ def ai_panel(cfg) -> Panel:
     t.add_column("")
     for _, n in on:
         t.add_column(n, no_wrap=True)
-    states = {k: _json(os.path.join(root, "logs", f"{k}_state.json"), {}) for k, _ in on}
+    from Python.strategy_exec import account_log
+    states = {k: _json(os.path.join(root, "logs", f"{account_log(k)}_state.json"), {}) for k, _ in on}
     syms = []
     for st in states.values():
         for s in (st.get("last") or {}):

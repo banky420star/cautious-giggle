@@ -13,13 +13,25 @@ DONE = (10008, 10009)
 STRATEGY_LOGS = ("gold_breakout", "meta_trader", "gemma_trader", "qwen_trader", "jev_trader")
 
 
-def strategy_tickets(log_dir: str) -> set[str]:
+def account_id() -> str:
+    """The broker account this process trades (EXNESS_ACCOUNT_ID, set per profile by scripts/mac/account_env.sh)."""
+    return "".join(c for c in str(os.environ.get("EXNESS_ACCOUNT_ID", "")) if c.isalnum())
+
+
+def account_log(name: str, acct: str | None = None) -> str:
+    """Per-account name for a strategy's log / state (user 2026-11-25: demo and live keep separate records):
+    "gemma_trader" -> "gemma_trader_<account>". Without an account id the plain name."""
+    acct = account_id() if acct is None else "".join(c for c in str(acct) if c.isalnum())
+    return f"{name}_{acct}" if acct else name
+
+
+def strategy_tickets(log_dir: str, acct: str | None = None) -> set[str]:
     """Tickets of every position a stand-alone strategy opened. The broker API has no magic numbers, so this
     is how the council's own trade record (e.g. a PPO model's trial) leaves the strategies' trades out."""
     out: set[str] = set()
     for name in STRATEGY_LOGS:
         try:
-            with open(os.path.join(log_dir, f"{name}.jsonl"), encoding="utf-8") as f:
+            with open(os.path.join(log_dir, f"{account_log(name, acct)}.jsonl"), encoding="utf-8") as f:
                 for ln in f:
                     if '"ticket"' not in ln:
                         continue

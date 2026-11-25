@@ -125,6 +125,7 @@ def _append_trade_event(event: str, payload: dict):
         "ts": _utc_now().isoformat(timespec="microseconds"),
         "event": event,
         "payload": payload,
+        "account": "".join(c for c in str(os.environ.get("EXNESS_ACCOUNT_ID", "")) if c.isalnum()),
     }
     _append_jsonl(TRADE_EVENTS_LOG, row)
     _append_audit(event, payload)

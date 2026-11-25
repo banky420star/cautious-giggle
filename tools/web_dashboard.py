@@ -168,6 +168,9 @@ class State:
         `flows` lists what was taken out, so the chart can mark it."""
         with self.lock:
             rows = list(self.equity)
+        acct = _acct()
+        if acct:                                   # the active account's history only (demo and live apart)
+            rows = [r for r in rows if r[3] == acct]
         span = self.RANGES.get(rng, 86400)
         if span and rows:
             t0 = rows[-1][0] - span
@@ -597,23 +600,23 @@ class State:
         sfr = _read("sweep_fvg_backtest.json")
         v = {
             "gold_breakout": {"enabled": bool(gcfg.get("enabled")), "risk_pct": gcfg.get("risk_pct"),
-                              "stop_pct": gcfg.get("stop_pct", 1.0), "state": _read("gold_breakout_state.json"),
-                              "events": _tail("gold_breakout.jsonl"),
+                              "stop_pct": gcfg.get("stop_pct", 1.0), "state": _read(f"{_alog('gold_breakout')}_state.json"),
+                              "events": _tail(f"{_alog('gold_breakout')}.jsonl"),
                               "backtest": {k: gbt.get(k) for k in ("all", "last_month", "first_half", "second_half")},
                               "by_month": gbt.get("by_month_R")},
             "shadow": shadow,
             "gemma_trader": {"enabled": bool(tcfg.get("enabled")), "risk_pct": tcfg.get("risk_pct", 5.0),
                              "min_confidence": tcfg.get("min_confidence", 0.6), "model": tcfg.get("model"),
-                             "state": _read("gemma_trader_state.json"), "events": _tail("gemma_trader.jsonl", 30)},
+                             "state": _read(f"{_alog('gemma_trader')}_state.json"), "events": _tail(f"{_alog('gemma_trader')}.jsonl", 30)},
             "qwen_trader": {"enabled": bool(qcfg.get("enabled")), "risk_pct": qcfg.get("risk_pct", 5.0),
                             "min_confidence": qcfg.get("min_confidence", 0.6), "model": qcfg.get("model"),
-                            "state": _read("qwen_trader_state.json"), "events": _tail("qwen_trader.jsonl", 30)},
+                            "state": _read(f"{_alog('qwen_trader')}_state.json"), "events": _tail(f"{_alog('qwen_trader')}.jsonl", 30)},
             "jev_trader": {"enabled": bool(jcfg.get("enabled")), "risk_pct": jcfg.get("risk_pct", 5.0),
                            "min_confidence": jcfg.get("min_confidence", 0.6),
                            "model": jcfg.get("openrouter_model") or jcfg.get("model") or "Jev",
-                           "state": _read("jev_trader_state.json"), "events": _tail("jev_trader.jsonl", 30)},
+                           "state": _read(f"{_alog('jev_trader')}_state.json"), "events": _tail(f"{_alog('jev_trader')}.jsonl", 30)},
             "meta_trader": {"enabled": bool(mcfg.get("enabled")), "risk_pct": mcfg.get("risk_pct", 5.0),
-                            "state": _read("meta_trader_state.json"), "events": _tail("meta_trader.jsonl", 30)},
+                            "state": _read(f"{_alog('meta_trader')}_state.json"), "events": _tail(f"{_alog('meta_trader')}.jsonl", 30)},
             "walk_forward": {"period": mbr.get("period"), "strategies": mbr.get("strategies"),
                              "top_features": list((mbr.get("top_features") or {}))[:10]},
             "sweep_fvg": {"M5": (sfr.get("M5") or {}).get("ALL"), "M15": (sfr.get("M15") or {}).get("ALL")},
@@ -884,6 +887,16 @@ def _reexec_with(profile: str):
 
 
 
+def _acct() -> str:
+    """The account this dashboard shows (it restarts itself on an account switch)."""
+    return "".join(ch for ch in os.environ.get("EXNESS_ACCOUNT_ID", "") if ch.isalnum())
+
+
+def _alog(name: str) -> str:
+    """Per-account strategy log / state name (Python/strategy_exec.account_log)."""
+    return f"{name}_{_acct()}" if _acct() else name
+
+
 STRATEGY_FILES = {"gemma_trader": "Gemma", "qwen_trader": "Qwen", "jev_trader": "Jev", "meta_trader": "Meta-brain", "gold_breakout": "Gold Breakout"}
 _OWNERS = {"t": 0.0, "map": {}}
 
@@ -895,7 +908,7 @@ def strategy_owners(log_dir: str | None = None) -> dict:
     out = {}
     for fname, label in STRATEGY_FILES.items():
         try:
-            with open(os.path.join(log_dir or os.path.join(ROOT, "logs"), f"{fname}.jsonl"), encoding="utf-8") as f:
+            with open(os.path.join(log_dir or os.path.join(ROOT, "logs"), f"{_alog(fname)}.jsonl"), encoding="utf-8") as f:
                 for ln in f:
                     if '"ticket"' in ln:
                         try:
@@ -915,13 +928,14 @@ def trade_history(rng: str = "1w", log_dir: str | None = None, now: float | None
     """Every closed trade in the range from logs/trade_events.jsonl (one row per closing deal), with who opened
     it (Gemma, Meta-brain, Gold Breakout, else the council bot), its open time / side / entry, and totals."""
     log_dir = log_dir or os.path.join(ROOT, "logs")
+    acct = _acct()
     now = time.time() if now is None else now
     span = State.RANGES.get(rng)
     since = 0.0 if span is None else now - span
     owner, opened = {}, {}
     for fname, label in STRATEGY_FILES.items():
         try:
-            with open(os.path.join(log_dir, f"{fname}.jsonl"), encoding="utf-8") as f:
+            with open(os.path.join(log_dir, f"{_alog(fname)}.jsonl"), encoding="utf-8") as f:
                 for ln in f:
                     if '"ticket"' not in ln:
                         continue
@@ -946,6 +960,8 @@ def trade_history(rng: str = "1w", log_dir: str | None = None, now: float | None
                 try:
                     e = json.loads(ln)
                 except ValueError:
+                    continue
+                if acct and e.get("account") != acct:     # another account's trade
                     continue
                 p = e.get("payload") or {}
                 t = str(p.get("ticket") or "")
@@ -1010,7 +1026,7 @@ def brains_view(snap: dict | None = None, log_dir: str | None = None, now: float
     why = {}
     for fname in STRATEGY_FILES:
         try:
-            with open(os.path.join(log_dir, f"{fname}.jsonl"), encoding="utf-8") as f:
+            with open(os.path.join(log_dir, f"{_alog(fname)}.jsonl"), encoding="utf-8") as f:
                 for ln in f:
                     if '"open"' not in ln:
                         continue

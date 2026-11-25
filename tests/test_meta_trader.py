@@ -132,3 +132,20 @@ def test_default_is_one_per_market(tmp_path):
     x.predict("XAUUSDm", 0.6, 0.0, 1300.0)
     tr.step(m, x, ["XAUUSDm"], now=1301.0)
     assert len(m.sent) == 1
+
+
+def test_records_are_per_account(tmp_path, monkeypatch):
+    # user 2026-11-25: demo and live keep separate books, so live stats never include demo trades
+    from Python.strategy_exec import account_log, strategy_tickets
+    monkeypatch.setenv("EXNESS_ACCOUNT_ID", "111")
+    m, x = FakeMT5(), FakeExt()
+    demo = MetaTrader({"enabled": True}, str(tmp_path))
+    x.predict("XAUUSDm", 0.5, 0.0, 1000.0)
+    demo.step(m, x, ["XAUUSDm"], now=1001.0)
+    assert account_log("meta_trader") == "meta_trader_111" and demo.events.endswith("meta_trader_111.jsonl")
+    assert "T1" in strategy_tickets(str(tmp_path))
+    monkeypatch.setenv("EXNESS_ACCOUNT_ID", "222")
+    live = MetaTrader({"enabled": True}, str(tmp_path))
+    assert live.state["open"] == {} and strategy_tickets(str(tmp_path)) == set()
+    monkeypatch.delenv("EXNESS_ACCOUNT_ID")
+    assert account_log("meta_trader") == "meta_trader"

@@ -464,7 +464,8 @@ def check_runtime(now):
     for key, name in (("gemma_trader", "Gemma"), ("jev_trader", "Jev"), ("qwen_trader", "Qwen")):
         if not (tr.get(key) or {}).get("enabled"):
             continue
-        last = (jload(f"{key}_state.json").get("last") or {})
+        from Python.strategy_exec import account_log
+        last = (jload(f"{account_log(key)}_state.json").get("last") or {})
         stale = [k for k in MARKETS if k not in last or now - float(last[k].get("t", 0)) > 1800]
         errs = {k: str(v.get("reason", ""))[:90] for k, v in last.items() if v.get("error")}
         if errs:

@@ -21,7 +21,7 @@ import pandas as pd
 
 from Python.indicator_council import _atr
 from Python.meta_brain import HORIZON, STOPS, base
-from Python.strategy_exec import all_positions, close_ticket, open_hidden, risk_lots, crowd_reason
+from Python.strategy_exec import account_log, all_positions, close_ticket, open_hidden, risk_lots, crowd_reason
 
 
 class AtrTrader:
@@ -35,8 +35,9 @@ class AtrTrader:
         self.cfg = {**self.DEFAULTS, **(cfg or {})}
         self.enabled = bool(self.cfg.get("enabled"))
         self.log = logger
-        self.path = os.path.join(log_dir, f"{self.FILE}_state.json")
-        self.events = os.path.join(log_dir, f"{self.FILE}.jsonl")
+        name = account_log(self.FILE)         # per broker account: demo and live keep separate books
+        self.path = os.path.join(log_dir, f"{name}_state.json")
+        self.events = os.path.join(log_dir, f"{name}.jsonl")
         self.state = self._load()        # {"open": {sym: {...}}, "seen": {sym: signal stamp}}
 
     def _load(self) -> dict:
