@@ -2,6 +2,8 @@
 saves secrets readable only by this user, and tests each one against the real service. Nothing is printed back.
 
   python tools/install_setup.py exness demo|live   Exness API account (demo -> ~/.exness/env, live -> ~/.exness/live.env)
+                                    add --later to only save it (the installer asks for keys before packages exist)
+  python tools/install_setup.py test demo|live     read-only connection test of a saved account
   python tools/install_setup.py jev                Jev keys (OpenRouter / jevai) -> ~/.config/cautious-giggle/jev.env
   python tools/install_setup.py config             config.yaml from config.yaml.example, live risk choice
   python tools/install_setup.py telegram           optional Telegram alerts
@@ -87,15 +89,35 @@ def write_private(path: str, text: str) -> None:
 
 
 # ------------------------------------------------------------------ Exness
-def exness(profile: str) -> int:
+def key_looks_valid(pk: str) -> bool:
+    """Full check with the bot's key loader once packages are installed; a format check before that."""
+    try:
+        from Python.exness_api import load_ed25519_private_key
+    except ImportError:
+        import base64
+        if "BEGIN" in pk and "PRIVATE KEY" in pk:
+            return True
+        if re.fullmatch(r"[0-9a-fA-F]{64}|[0-9a-fA-F]{128}", pk):
+            return True
+        try:
+            return len(base64.urlsafe_b64decode(pk + "=" * (-len(pk) % 4))) in (32, 64)
+        except Exception:
+            return False
+    try:
+        load_ed25519_private_key(pk)
+        return True
+    except Exception:
+        return False
+
+
+def exness(profile: str, test: bool = True) -> int:
     real = profile == "live"
     old = ap.parse_env(ap.FILES[profile])
     print(f"\n{B}Exness {'LIVE (real money)' if real else 'DEMO'} account{X}")
     print(f"  {D}Exness Personal Area -> Key Management: create an API key for the {'real' if real else 'demo'} trading account.")
     print(f"  You need the key ID, the private key file you downloaded, the account number and the gateway host.{X}")
     if old and not yes("Settings are already saved. Replace them?", False):
-        return show_check(profile)
-    from Python.exness_api import load_ed25519_private_key
+        return show_check(profile) if test else 0
     while True:
         key_id = ask("API key ID", old.get("EXNESS_API_KEY", ""), secret=True)
         account = ask("Trading account number", old.get("EXNESS_ACCOUNT_ID", ""))
@@ -111,9 +133,7 @@ def exness(profile: str) -> int:
         if not ap._GATEWAY.match(gateway):
             errs.append("the gateway should be a host like https://api.exness.com")
         if pk:
-            try:
-                load_ed25519_private_key(pk)
-            except Exception:
+            if not key_looks_valid(pk):
                 errs.append("that isn't a valid Exness private key (PEM, or 128 hex characters)")
             other = ap.parse_env(ap.FILES["demo" if real else "live"]).get("EXNESS_PRIVATE_KEY_FILE", "")
             if other and os.path.isfile(other) and open(other, encoding="utf-8").read().strip() == pk:
@@ -137,6 +157,9 @@ def exness(profile: str) -> int:
                   f"export EXNESS_BASE_URL={shlex.quote(gateway)}\n")
     if not os.path.exists(ap.ACTIVE):
         write_private(ap.ACTIVE, "demo")
+    if not test:
+        print(f"  {G}✓ Saved. The connection is tested once the packages are installed.{X}")
+        return 0
     return show_check(profile)
 
 
@@ -170,10 +193,14 @@ def jev() -> int:
         print(f"  {Y}No key: the Jev trader will stay idle (it holds when it can't reach Jev).{X}")
         return 0
     if ork:
+        import urllib.error
+        import urllib.request
         try:
-            import requests
-            r = requests.get("https://openrouter.ai/api/v1/auth/key", headers={"Authorization": f"Bearer {ork}"}, timeout=15)
-            print(f"  {G}✓ OpenRouter key works{X}" if r.ok else f"  {Y}! OpenRouter said HTTP {r.status_code}; saved anyway{X}")
+            req = urllib.request.Request("https://openrouter.ai/api/v1/auth/key", headers={"Authorization": f"Bearer {ork}"})
+            urllib.request.urlopen(req, timeout=15).close()
+            print(f"  {G}✓ OpenRouter key works{X}")
+        except urllib.error.HTTPError as exc:
+            print(f"  {Y}! OpenRouter said HTTP {exc.code} (check the key); saved anyway{X}")
         except Exception as exc:
             print(f"  {Y}! Couldn't test the key ({type(exc).__name__}); saved anyway{X}")
     lines = ["# Jev keys for cautious-giggle (installer). Never share this file."]
@@ -237,7 +264,10 @@ def telegram() -> int:
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "exness" and len(sys.argv) > 2 and sys.argv[2] in ap.FILES:
-        raise SystemExit(exness(sys.argv[2]))
+        raise SystemExit(exness(sys.argv[2], test="--later" not in sys.argv))
+    if cmd == "test" and len(sys.argv) > 2 and sys.argv[2] in ap.FILES:
+        print(f"\n{B}Exness {sys.argv[2].upper()} account{X}")
+        raise SystemExit(show_check(sys.argv[2]))
     if cmd in ("jev", "config", "telegram"):
         raise SystemExit(globals()[cmd]())
     print(__doc__)

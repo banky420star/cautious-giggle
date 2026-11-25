@@ -1,9 +1,9 @@
 #!/bin/zsh
 # Cautious Giggle guided installer (double-click "Install Cautious Giggle.command" in the project folder).
 # Safe to run again: every step checks what is already there and only asks before replacing it.
-#   1 tools (Homebrew, Python 3.13, Node)   2 Python packages   3 Ollama + the Gemma model
-#   4 Jev key   5 Exness demo + live accounts   6 config.yaml   7 Telegram (optional)
-#   8 dashboard   9 app icon + nightly P&L report   10 start the bot
+#   1 tools (Homebrew, Python 3.13, Node)   2 your keys: Jev + Exness demo / live (asked up front)
+#   3 Python packages   4 Ollama + the Gemma model   5 test the Exness accounts   6 config.yaml
+#   7 Telegram (optional)   8 dashboard   9 app icon + nightly P&L report   10 start the bot
 ROOT="${0:A:h:h:h}"
 cd "$ROOT" || exit 1
 GEMMA=gemma4:e4b-it-qat
@@ -18,7 +18,10 @@ yes()  { local a h="Y/n"; [[ ${2:-Y} == N ]] && h="y/N"; read "a?  $1 ${D}[$h]${
 
 clear
 print "${B}Cautious Giggle setup${X}"
-print "${D}Sets up the trading bot on this Mac. It asks for your Jev key and your Exness demo and live API keys."
+print "${D}Sets up the trading bot on this Mac. First it asks for your keys, then installs everything while you wait:"
+print "  • Jev: an OpenRouter API key (openrouter.ai -> Keys)"
+print "  • Exness DEMO account: API key ID, private key file, account number, gateway (Personal Area -> Key Management)"
+print "  • Exness LIVE account (optional): the same for your real-money account"
 print "Keys are saved only on this Mac, in files only your user can read. Press Ctrl-C to stop at any time.${X}"
 [[ $(uname) == Darwin ]] || die "This installer is for macOS."
 
@@ -44,8 +47,20 @@ command -v npm >/dev/null || { print "  Installing Node (for the dashboard)…";
 command -v npm >/dev/null && ok "Node $(node -v)"
 command -v git >/dev/null || xcode-select --install 2>/dev/null
 
-# ---------------------------------------------------------------- 2 python packages
-step "2/10  Python packages ${D}(a few GB the first time; 5-15 minutes)${X}"
+# ---------------------------------------------------------------- 2 keys
+step "2/10  Your keys"
+print "  ${D}Typed keys stay hidden. The bot starts on the DEMO account; live (real money) is only used when you"
+print "  switch to it in the app (it asks you to type GO LIVE).${X}"
+$PY tools/install_setup.py jev
+until $PY tools/install_setup.py exness demo --later; do
+  yes "The demo account isn't saved yet. Try again?" || { warn "Skipped: the bot can't trade until a demo account is set up (run this installer again)."; break; }
+done
+if yes "Set up a LIVE (real money) account too?" N; then
+  until $PY tools/install_setup.py exness live --later; do yes "Try the live account again?" || break; done
+fi
+
+# ---------------------------------------------------------------- 3 python packages
+step "3/10  Python packages ${D}(a few GB the first time; 5-15 minutes)${X}"
 if [[ ! -x .venv/bin/python ]]; then
   rm -f .venv 2>/dev/null   # a broken link from another Mac
   $PY -m venv .venv || die "Could not create the Python environment."
@@ -62,8 +77,8 @@ if [[ ! -d $KR/.git ]]; then
     && ok "Kronos forecaster" || warn "Couldn't download Kronos; the bot runs without it."
 else ok "Kronos forecaster"; fi
 
-# ---------------------------------------------------------------- 3 ollama + gemma
-step "3/10  Gemma (local AI model, runs on this Mac)"
+# ---------------------------------------------------------------- 4 ollama + gemma
+step "4/10  Gemma (local AI model, runs on this Mac)"
 if ! command -v ollama >/dev/null && [[ ! -d /Applications/Ollama.app ]]; then
   print "  Ollama runs Gemma locally. Installing it…"
   brew install --cask ollama 2>/dev/null || brew install ollama || warn "Ollama install failed: get it from https://ollama.com/download and run this again."
@@ -82,22 +97,15 @@ else
   warn "Ollama isn't installed, so Gemma is skipped. The other traders still work."
 fi
 
-# ---------------------------------------------------------------- 4 jev
-step "4/10  Jev key"
-.venv/bin/python tools/install_setup.py jev
-
-# ---------------------------------------------------------------- 5 exness
-step "5/10  Exness accounts"
-print "  ${D}The bot starts on the DEMO account. Live (real money) is optional and only used when you switch to it"
-print "  in the app (it asks you to type GO LIVE).${X}"
-until .venv/bin/python tools/install_setup.py exness demo; do
-  yes "The demo account isn't working yet. Try again?" || { warn "Skipped: the bot can't trade until the demo account is set up (run this installer again)."; break; }
-done
-if yes "Set up a LIVE (real money) account too?" N; then
-  until .venv/bin/python tools/install_setup.py exness live; do
-    yes "Try the live account again?" || break
+# ---------------------------------------------------------------- 5 test accounts
+step "5/10  Testing your Exness accounts ${D}(read-only, no orders)${X}"
+for prof in demo live; do
+  [[ -f ~/.exness/${prof/demo/env}${${prof:#demo}:+.env} ]] || continue
+  until .venv/bin/python tools/install_setup.py test $prof; do
+    yes "Re-enter the $prof account keys?" || { warn "The $prof account isn't working; fix it later by running this installer again."; break; }
+    .venv/bin/python tools/install_setup.py exness $prof --later
   done
-fi
+done
 
 # ---------------------------------------------------------------- 6 config
 step "6/10  Settings"
