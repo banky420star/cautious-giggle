@@ -172,6 +172,9 @@ def test_dreamer_visual_scales_eta_by_steps_and_window(monkeypatch):
 
     monkeypatch.setattr(ui, "datetime", _FixedDateTime)
     monkeypatch.setattr(ui, "_configured_symbols", lambda: ["XAUUSDm", "BTCUSDm"])
+    # Log lines are parsed in the log timezone; pin it so the host's TZ can't shift elapsed time.
+    monkeypatch.setenv("AGI_LOG_TIMEZONE", "Europe/Berlin")
+    monkeypatch.setattr(ui, "_LOG_TZ_CACHE", None)
     lines = [
         "2026-03-12 00:00:00.000 | INFO | __main__:_train_symbol:138 - Dreamer training start | symbol=XAUUSDm | steps=5000 | window=64 | obs_dim=10497 | device=cpu | features=ultimate_150",
         "2026-03-12 01:00:00.000 | SUCCESS | __main__:_train_symbol:179 - Dreamer artifact saved: C:\\repo\\models\\dreamer\\dreamer_XAUUSDm.pt",
