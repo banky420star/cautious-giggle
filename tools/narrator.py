@@ -178,12 +178,13 @@ class Narrator:
             prev = hist[i - 1] if i else None
             if prev is None:
                 self.say("lstm", f"LSTM · {_nm(sym)}", f"First pass done: error on unseen bars {h['val_loss']:.3f}, "
-                         f"{h['val_acc']:.1f}% of next-bar calls right.", "info")
+                         f"{h['val_acc']:.1f}% of 4-hour calls right (the real test is the daily LSTM check: "
+                         f"it is only used once it makes money on unseen data).", "info")
                 continue
             dv, da = h["val_loss"] - prev["val_loss"], h["val_acc"] - prev["val_acc"]
             dt_ = h["loss"] - prev["loss"]
             if dv < 0 and dt_ < 0:
-                why = "it improved on both practice and unseen data, so it is learning real patterns"
+                why = "it improved on both practice and unseen data"
                 tone = "good"
             elif dv >= 0 and dt_ < 0:
                 why = "it got better on practice data but worse on unseen data: early sign of memorising"
@@ -192,7 +193,8 @@ class Narrator:
                 why = "normal wobble between passes"
                 tone = "info"
             self.say("lstm", f"LSTM · {_nm(sym)} · pass {h['epoch']}",
-                     f"Unseen-data error {prev['val_loss']:.3f} → {h['val_loss']:.3f} ({_f(-dv / prev['val_loss'] * 100, 1)}% better), "
+                     f"Unseen-data error {prev['val_loss']:.3f} → {h['val_loss']:.3f} "
+                     f"({abs(dv) / prev['val_loss'] * 100:.1f}% {'better' if dv < 0 else 'worse'}), "
                      f"accuracy {prev['val_acc']:.1f}% → {h['val_acc']:.1f}% ({_f(da, 1)} pts). Why: {why}."
                      + (" ★ Best so far: this version is kept." if h.get("best") else ""), tone)
         self._lstm_epochs_seen[sym] = len(hist)

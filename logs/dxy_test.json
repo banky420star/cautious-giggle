@@ -1,0 +1,128 @@
+{
+ "XAUUSD": {
+  "dxy_coverage_test": 1.0,
+  "dir_auc_base": 0.499,
+  "dir_auc_dxy": 0.5079,
+  "bps_base": -1.81,
+  "bps_dxy": -0.58,
+  "n_trades": 8650,
+  "big_auc_base": 0.6447,
+  "big_auc_dxy": 0.6453,
+  "dxy_gain_share_big": 0.055,
+  "top_dxy": [
+   "dxy_vol_48",
+   "dxy_corr_288",
+   "dxy_vol_ratio"
+  ],
+  "cost": 0.59,
+  "test_from": "2026-06-22"
+ },
+ "BTCUSD": {
+  "dxy_coverage_test": 0.709,
+  "dir_auc_base": 0.5267,
+  "dir_auc_dxy": 0.5289,
+  "bps_base": -1.8,
+  "bps_dxy": -0.61,
+  "n_trades": 9072,
+  "big_auc_base": 0.7007,
+  "big_auc_dxy": 0.7071,
+  "dxy_gain_share_big": 0.215,
+  "top_dxy": [
+   "dxy_vol_ratio",
+   "dxy_ret_48",
+   "dxy_vol_48"
+  ],
+  "cost": 0.79,
+  "test_from": "2026-08-08"
+ },
+ "EURUSD": {
+  "dxy_coverage_test": 0.994,
+  "dir_auc_base": 0.5306,
+  "dir_auc_dxy": 0.5294,
+  "bps_base": -0.55,
+  "bps_dxy": -0.62,
+  "n_trades": 8962,
+  "big_auc_base": 0.7117,
+  "big_auc_dxy": 0.7141,
+  "dxy_gain_share_big": 0.056,
+  "top_dxy": [
+   "dxy_vol_ratio",
+   "dxy_vol_48",
+   "dxy_corr_288"
+  ],
+  "cost": 0.71,
+  "test_from": "2026-06-29"
+ },
+ "USDJPY": {
+  "dxy_coverage_test": 0.995,
+  "dir_auc_base": 0.5373,
+  "dir_auc_dxy": 0.5381,
+  "bps_base": -0.05,
+  "bps_dxy": -0.42,
+  "n_trades": 8962,
+  "big_auc_base": 0.6957,
+  "big_auc_dxy": 0.6968,
+  "dxy_gain_share_big": 0.049,
+  "top_dxy": [
+   "dxy_vol_ratio",
+   "dxy_corr_288",
+   "dxy_ret_48"
+  ],
+  "cost": 0.63,
+  "test_from": "2026-06-29"
+ },
+ "XAGUSD": {
+  "dxy_coverage_test": 1.0,
+  "dir_auc_base": 0.5021,
+  "dir_auc_dxy": 0.4981,
+  "bps_base": -6.37,
+  "bps_dxy": -6.01,
+  "n_trades": 8642,
+  "big_auc_base": 0.6662,
+  "big_auc_dxy": 0.6677,
+  "dxy_gain_share_big": 0.067,
+  "top_dxy": [
+   "dxy_vol_48",
+   "dxy_vol_ratio",
+   "dxy_corr_288"
+  ],
+  "cost": 4.42,
+  "test_from": "2026-06-22"
+ },
+ "ETHUSD": {
+  "dxy_coverage_test": 0.71,
+  "dir_auc_base": 0.5431,
+  "dir_auc_dxy": 0.538,
+  "bps_base": -1.37,
+  "bps_dxy": -3.66,
+  "n_trades": 9062,
+  "big_auc_base": 0.7017,
+  "big_auc_dxy": 0.7012,
+  "dxy_gain_share_big": 0.211,
+  "top_dxy": [
+   "dxy_vol_ratio",
+   "dxy_vol_48",
+   "dxy_ret_48"
+  ],
+  "cost": 4.1,
+  "test_from": "2026-08-08"
+ },
+ "USOIL": {
+  "dxy_coverage_test": 1.0,
+  "dir_auc_base": 0.4927,
+  "dir_auc_dxy": 0.5029,
+  "bps_base": -3.38,
+  "bps_dxy": -1.36,
+  "n_trades": 8632,
+  "big_auc_base": 0.6633,
+  "big_auc_dxy": 0.6663,
+  "dxy_gain_share_big": 0.067,
+  "top_dxy": [
+   "dxy_vol_ratio",
+   "dxy_corr_288",
+   "dxy_vol_48"
+  ],
+  "cost": 2.09,
+  "test_from": "2026-06-22"
+ }
+}

@@ -14,6 +14,11 @@ After the release (up to TRIGGER_MIN minutes), two plays are watched:
               middle of the range; target TARGET_R x risk
 Trades that hit neither stop nor target are closed after HOLD_MIN minutes.
 
+    surprise  (user 2026-11-25) the local model reads the headlines after the release (Python/news_reader.py) and
+              says whether the result is dollar-positive or -negative; trade that direction on each market (gold,
+              silver, BTC, ETH, EUR/USD against the dollar, USD/JPY with it); stop SURPRISE_STOP_ATR x ATR, target
+              TARGET_R x risk. While a confident read exists, a fade/breakout entry against it is not taken.
+
 Which play (or none) is chosen per symbol and topic from the playbook (logs/news_playbook.json):
 the paper result of BOTH plays is recorded after every event, whichever was traded, so the
 evidence keeps growing. A play is only traded when it has >= MIN_SAMPLES events and an average
@@ -39,6 +44,7 @@ BREAK_ATR = 1.0
 MIN_R = 1.0
 TARGET_R = 1.5
 STOP_BUFFER_ATR = 0.3
+SURPRISE_STOP_ATR = 3.0
 MIN_SAMPLES = 8
 MIN_AVG_R = 0.10
 ALWAYS_TRADE = True   # set from config: take part even without a proven edge (at half size)
@@ -109,6 +115,33 @@ def simulate(play, sym, t, o, h, l, c, t0):
     en = find_entry(play, t, o, h, l, c, t0, rng, a)
     if en is None:
         return {"r": 0.0, "traded": False}
+    return _play_out(sym, en, t, o, h, l, rng)
+
+
+def surprise_entry(t, o, h, l, c, side: int, a: float, at: float | None = None) -> dict | None:
+    """Enter `side` at the close of the latest bar (or the first bar closing at/after `at`)."""
+    idx = np.where(t >= at)[0] if at is not None else np.array([len(t) - 1])
+    if not len(idx) or a <= 0 or not side:
+        return None
+    i = int(idx[0])
+    e = float(c[i])
+    risk = SURPRISE_STOP_ATR * a
+    return {"side": side, "entry": e, "sl": e - side * risk, "tp": e + side * TARGET_R * risk, "i": i}
+
+
+def simulate_surprise(sym, t, o, h, l, c, t0, t_read: float, side: int) -> dict | None:
+    """Paper result of trading the model's read: enter at the first bar after it, same exits as the other plays."""
+    k = np.where(t < t0)[0]
+    if len(k) < 70 or not side:
+        return None
+    a = atr1(h[k[-70]:k[-1] + 1], l[k[-70]:k[-1] + 1], c[k[-70]:k[-1] + 1])
+    en = surprise_entry(t, o, h, l, c, side, a, at=t_read)
+    if en is None:
+        return None
+    return _play_out(sym, en, t, o, h, l, None)
+
+
+def _play_out(sym, en, t, o, h, l, rng):
     side, e, sl, tp = en["side"], en["entry"], en["sl"], en["tp"]
     risk = abs(e - sl)
     if risk <= 0:
@@ -168,7 +201,7 @@ def choose(pb: dict, sym: str, topic: str) -> dict:
     events, otherwise the generic US-release record."""
     out = {"play": None, "basis": None, "why": ""}
     for key in (topic, GENERIC):
-        plays = (pb.get(sym) or {}).get(key) or {}
+        plays = {p: r for p, r in ((pb.get(sym) or {}).get(key) or {}).items() if p != "surprise"}
         st = {p: stats(rows) for p, rows in plays.items()}
         ok = {p: s for p, s in st.items() if s["n"] >= MIN_SAMPLES}
         if not ok:
@@ -197,6 +230,15 @@ def choose(pb: dict, sym: str, topic: str) -> dict:
     return out
 
 
+def surprise_record(pb: dict, sym: str, topic: str) -> dict:
+    """How the surprise play has done here: the topic's record when it has enough events, else all US releases."""
+    for key in (topic, GENERIC):
+        s = stats(((pb.get(sym) or {}).get(key) or {}).get("surprise") or [])
+        if s["n"] >= MIN_SAMPLES:
+            return s | {"basis": key, "proven": s["avg_r"] >= MIN_AVG_R}
+    return stats(((pb.get(sym) or {}).get(GENERIC) or {}).get("surprise") or []) | {"basis": None, "proven": False}
+
+
 # ------------------------------------------------------------------ live
 class NewsTrader:
     """Live state machine, driven from the bot's main loop."""
@@ -211,6 +253,8 @@ class NewsTrader:
         global ALWAYS_TRADE
         ALWAYS_TRADE = bool(nc.get("always_trade", True))
         self.pb = load_playbook()
+        from Python.news_reader import ReleaseReader
+        self.reader = ReleaseReader(nc.get("surprise"), logger=logger)
         self.events: dict[str, dict] = {}   # id -> event state
         self._cal_t = 0.0
         self.status: dict[str, dict] = {}
@@ -236,11 +280,13 @@ class NewsTrader:
                     continue
                 eid = f"{sym}|{int(e['t'])}"   # releases at the same minute are one event
                 short = e["title"].replace("USD ", "")
+                rel = {"title": e["title"], "forecast": e.get("forecast"), "previous": e.get("previous")}
                 if eid in self.events and short not in [x.replace("USD ", "") for x in self.events[eid]["title"].split(" + ")]:
                     self.events[eid]["title"] += " + " + short
+                    self.events[eid].setdefault("releases", []).append(rel)
                 if eid not in self.events:
                     self.events[eid] = {"id": eid, "sym": sym, "t0": e["t"], "title": e["title"], "topic": topic,
-                                        "phase": "scheduled"}
+                                        "phase": "scheduled", "releases": [rel]}
 
     def _bars(self, sym, n=200):
         r = self.mt5.copy_rates_from_pos(sym, self.mt5.TIMEFRAME_M1, 1, n)
@@ -315,11 +361,29 @@ class NewsTrader:
             b = self._bars(sym)
             if b is None:
                 return
-            if ev.get("play"):
+            side = self._news_side(ev, now)
+            if side and not ev.get("surprise_tried"):
+                ev["surprise_tried"] = True
+                rec = surprise_record(self.pb, sym, ev["topic"])
+                if rec["n"] >= MIN_SAMPLES and not rec["proven"] and not ALWAYS_TRADE:
+                    self.log.info(f"NEWS {sym} | surprise play has no edge here yet ({rec['avg_r']:+.2f}R over {rec['n']})")
+                else:
+                    en = surprise_entry(*b, side, ev["atr"])
+                    if en is not None:
+                        ev.update(play="surprise", proven=bool(rec["proven"]))
+                        self._enter(ev, en)
+                        return
+            if ev.get("play") and ev["play"] != "surprise":
                 en = find_entry(ev["play"], *b, t0, ev["range"], ev["atr"])
                 if en is not None and b[0][en["i"]] >= now - 180:   # only act on a fresh trigger
-                    self._enter(ev, en)
-                    return
+                    if side and en["side"] != side:
+                        if not ev.get("vetoed"):
+                            ev["vetoed"] = True
+                            self.log.info(f"NEWS SKIP {sym} | {ev['play']} would {'buy' if en['side'] > 0 else 'sell'}, "
+                                          f"but the release reads {ev['surprise']['surprise']}: not trading against it")
+                    else:
+                        self._enter(ev, en)
+                        return
             if now > t0 + TRIGGER_MIN * 60:
                 ev["phase"] = "review"
         if ev["phase"] == "in_trade":
@@ -333,6 +397,20 @@ class NewsTrader:
         if ev["phase"] == "review" and now > t0 + (TRIGGER_MIN + HOLD_MIN + 5) * 60:
             self._learn(ev)
             ev["phase"] = "done"
+
+    def _news_side(self, ev, now) -> int:
+        """Direction the release points for this market (0 until the model has read it, or no clear read)."""
+        from Python.news_reader import direction
+        if not getattr(self, "reader", None) or not self.reader.enabled:
+            return 0
+        v = self.reader.verdict(ev["t0"], ev.get("releases") or [{"title": ev["title"]}], now)
+        if not v:
+            return 0
+        if "surprise" not in ev:
+            ev["surprise"] = v
+            self.audit("news_read", {"symbol": ev["sym"], "title": ev["title"], "surprise": v["surprise"],
+                                     "confidence": v["confidence"], "actual": v["actual"], "reason": v["reason"]})
+        return direction(ev["sym"], v, self.reader.min_confidence)
 
     def _position(self, sym):
         for p in (self.mt5.positions_get(symbol=sym) or []):
@@ -375,7 +453,9 @@ class NewsTrader:
             self.mt5.order_send({"action": self.mt5.TRADE_ACTION_SLTP, "symbol": sym, "position": int(pos.ticket),
                                  "sl": round(en["sl"], 5), "tp": round(en["tp"], 5)})
         ev.update(phase="in_trade", entered_at=time.time(), entry=en)
-        what = ("sweep of the highs failed, fading it" if ev["play"] == "fade" and en["side"] < 0 else
+        what = (f"release reads {ev['surprise']['surprise']} ({ev['surprise']['confidence']:.2f}: "
+                f"{ev['surprise']['reason'][:90]}), trading it" if ev["play"] == "surprise" else
+                "sweep of the highs failed, fading it" if ev["play"] == "fade" and en["side"] < 0 else
                 "sweep of the lows failed, fading it" if ev["play"] == "fade" else
                 "range broken with force, riding it")
         self.log.info(f"NEWS TRADE {sym} | {ev['title']} | {what} | {'buy' if en['side'] > 0 else 'sell'} {lots} "
@@ -393,10 +473,28 @@ class NewsTrader:
             if r is not None:
                 record(self.pb, ev["sym"], ev["topic"], play, r["r"], r["traded"])
                 res[play] = round(r["r"], 2) if r["traded"] else None
+        sv = ev.get("surprise")
+        if sv:
+            from Python.news_reader import DOLLAR_SIGN, direction, remember
+            side = direction(ev["sym"], sv, self.reader.min_confidence)
+            r = simulate_surprise(ev["sym"], *b, ev["t0"], sv["t"], side) if side else None
+            if r is not None:
+                record(self.pb, ev["sym"], ev["topic"], "surprise", r["r"], True)
+                res["surprise"] = round(r["r"], 2)
+            # what the release actually did to this market in the hour after it (in pre-release ATRs)
+            t, c = b[0], b[4]
+            k0, k1 = np.where(t < ev["t0"])[0], np.where(t <= ev["t0"] + 60 * 60)[0]
+            move = float((c[k1[-1]] - c[k0[-1]]) / ev["atr"]) if len(k0) and len(k1) and ev.get("atr") else None
+            remember({"kind": "outcome", "t0": ev["t0"], "symbol": ev["sym"], "title": ev["title"], "topic": ev["topic"],
+                      "surprise": sv["surprise"], "confidence": sv["confidence"], "side": side,
+                      "dollar_sign": DOLLAR_SIGN.get(ev["sym"], 0), "move_1h_atr": None if move is None else round(move, 2),
+                      "read_right": None if move is None or not side else bool(side * move > 0),
+                      "surprise_r": res.get("surprise"), "traded": ev.get("play") if ev.get("entry") else None})
         save_playbook(self.pb)
         ev["result"] = res
         self.log.info(f"NEWS LEARN {ev['sym']} | {ev['title']} | paper results: "
-                      + ", ".join(f"{p} {'no trigger' if v is None else f'{v:+.2f}R'}" for p, v in res.items()))
+                      + ", ".join(f"{p} {'no trigger' if v is None else f'{v:+.2f}R'}" for p, v in res.items())
+                      + (f" | read {ev['surprise']['surprise']} ({ev['surprise']['confidence']:.2f})" if ev.get("surprise") else ""))
         self.audit("news_learn", {"symbol": ev["sym"], "title": ev["title"], "topic": ev["topic"], "results": res})
 
 

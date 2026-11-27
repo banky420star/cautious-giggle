@@ -3,6 +3,8 @@ import datetime
 import json
 import os
 import subprocess
+import sys
+import threading
 import time
 
 from Python.mt5_compat import mt5  # MetaTrader5 terminal or Exness API backend
@@ -123,6 +125,7 @@ def _append_trade_event(event: str, payload: dict):
         "ts": _utc_now().isoformat(timespec="microseconds"),
         "event": event,
         "payload": payload,
+        "account": "".join(c for c in str(os.environ.get("EXNESS_ACCOUNT_ID", "")) if c.isalnum()),
     }
     _append_jsonl(TRADE_EVENTS_LOG, row)
     _append_audit(event, payload)
@@ -583,6 +586,15 @@ def _blend_symbol_decision(
     conf_threshold = float(trading_cfg.get("confidence_threshold", 0.0) or 0.0)
     if agi_conf < conf_threshold or bool((agi_meta or {}).get("trade_blocked", False)):
         agi_bias = 0.0
+    # The LSTM has a say only where it has proven an edge on unseen data (tools/lstm_eval.py, daily);
+    # unproven, it neither votes nor shrinks the trade size.
+    try:
+        from Python.lstm_gate import proven as _lstm_proven
+        agi_proven = _lstm_proven(symbol)
+    except Exception:
+        agi_proven = False
+    if not agi_proven:
+        agi_bias, agi_risk = 0.0, 1.0
 
     # A missing model contributes 0 with its weight kept (exposure shrinks) rather than
     # handing its weight to the LSTM, which made targets swing whenever PPO abstained.
@@ -629,6 +641,7 @@ def _blend_symbol_decision(
         "ppo_target": ppo_target,
         "dreamer_target": dreamer_target,
         "agi_bias": agi_bias,
+        "agi_proven": agi_proven,
         "agi_direction": str((agi_meta or {}).get("direction", (agi_meta or {}).get("signal", "HOLD")) or "HOLD"),
         "agi_feature_version": str((agi_meta or {}).get("feature_version", "unknown") or "unknown"),
         "ppo_weight_used": round(ppo_w, 3),
@@ -1048,6 +1061,89 @@ def main(live=False):
                         f"ones that keep being wrong are ignored by the model memory)")
     except Exception as exc:
         logger.warning(f"external voters unavailable: {exc}")
+    # Gold Breakout: its own strategy, demo rules (demo, or live when same_on_live), positions hidden from the council
+    gold_bo = None
+    try:
+        _gbo = ((cfg.get("trading") or {}).get("gold_breakout") or {})
+        if bool(_gbo.get("enabled")):
+            if demo_exploration.demo_rules_apply(mt5, cfg):
+                from Python.gold_breakout import GoldBreakout
+                gold_bo = GoldBreakout(_gbo, LOG_DIR, logger)
+                logger.info(f"gold breakout ON: {gold_bo.cfg['symbol']} range 00-{gold_bo.cfg['range_end_hour']}h "
+                            f"GMT+{gold_bo.cfg['tz_hours']}, stop {gold_bo.cfg['stop_pct']}%, risk {gold_bo.cfg['risk_pct']}%, "
+                            f"close {gold_bo.cfg['close_hour']}:00")
+            else:
+                logger.warning("gold breakout runs on demo rules only (same_on_live is off): not started on this account")
+    except Exception as exc:
+        logger.warning(f"gold breakout unavailable: {exc}")
+    # Meta-brain trader: the meta-brain (every strategy combined) trades its own predictions, demo rules
+    meta_tr = None
+    try:
+        _mt = ((cfg.get("trading") or {}).get("meta_trader") or {})
+        if bool(_mt.get("enabled")):
+            if not demo_exploration.demo_rules_apply(mt5, cfg):
+                logger.warning("meta-brain trader runs on demo rules only (same_on_live is off): not started on this account")
+            elif ext_voters is None or ext_voters.meta is None:
+                logger.warning("meta-brain trader needs external_voters.meta_brain enabled: not started")
+            else:
+                from Python.meta_trader import MetaTrader
+                meta_tr = MetaTrader(_mt, LOG_DIR, logger)
+                logger.info(f"meta-brain trader ON: {len(symbols)} markets, risk {meta_tr.cfg['risk_pct']}%, "
+                            f"enters above {ext_voters.meta.margin:+.2f}R predicted, ATR stops, 8 h limit")
+    except Exception as exc:
+        logger.warning(f"meta-brain trader unavailable: {exc}")
+    _cr = ((cfg.get("trading") or {}).get("council") or {})
+    council_rules = {"hold": bool(_cr.get("hold_to_exit", False)),
+                     "markets_off": {str(x) for x in (_cr.get("markets_off") or [])}}
+    if council_rules["hold"] or council_rules["markets_off"]:
+        logger.info(f"council rules: hold trades to stop/target/{_cr.get('max_hours', 24)}h = {council_rules['hold']}, "
+                    f"no new council trades on {sorted(council_rules['markets_off']) or 'none'}")
+    # Account-wide cap on positions in one direction across every trader (trading.crowd_cap, user 2026-11-24).
+    # Blocks NEW council / Gemma / Jev / meta-brain trades; Gold Breakout (one break a day) is not held back.
+    from Python import strategy_exec as _sx
+    _cc = (cfg.get("trading") or {}).get("crowd_cap") or {}
+    _sx.CROWD["max_same_side"] = int(_cc.get("max_same_side") or 0)
+    _sx.CROWD["max_same_side_per_symbol"] = int(_cc.get("max_same_side_per_symbol") or 0)
+    if _sx.CROWD["max_same_side"] or _sx.CROWD["max_same_side_per_symbol"]:
+        _per = _sx.CROWD["max_same_side_per_symbol"]
+        logger.info(f"crowd cap ON: no new trade when {_sx.CROWD['max_same_side']}+ positions are already open in "
+                    f"that direction across all traders" + (f", or {_per}+ on that market" if _per else ""))
+    # Stop manager: moves the stop into profit on EVERY bot trade (council + strategies), each market's own rule
+    # (Python/stop_manager.py, tools/stop_rules_backtest.py). Replaces the executor's council-only rule.
+    stop_mgr, _stops_at = None, [0.0]
+    try:
+        _sr = ((cfg.get("trading") or {}).get("stop_rules") or {})
+        if bool(_sr.get("enabled", True)):
+            from Python.stop_manager import StopManager
+            stop_mgr = StopManager(_sr, LOG_DIR, logger,
+                                   council_max_hours=(float(_cr.get("max_hours", 24)) if council_rules["hold"] else None))
+            executor.manage_open_positions = lambda _symbol: None
+            logger.info("stop manager ON: " + "; ".join(
+                f"{k} " + ", ".join(f"{a}={b}" for a, b in v.items()) for k, v in stop_mgr.rules.items()))
+    except Exception as exc:
+        logger.warning(f"stop manager unavailable, keeping the executor's rule: {exc}")
+    # Gemma trader: Gemma reads the whole council and makes its own calls for its own positions, demo rules
+    # Qwen trader (user 2026-11-24): same desk picture, its own positions and record, separate from Gemma
+    llm_trs = []
+    for _key, _cls in (("gemma_trader", "GemmaTrader"), ("qwen_trader", "QwenTrader"), ("jev_trader", "JevTrader")):
+        try:
+            _gt = ((cfg.get("trading") or {}).get(_key) or {})
+            if not bool(_gt.get("enabled")):
+                continue
+            if demo_exploration.demo_rules_apply(mt5, cfg):
+                from Python import gemma_trader as _gtm
+                _tr = getattr(_gtm, _cls)(_gt, LOG_DIR, logger)
+                llm_trs.append(_tr)
+                logger.info(f"{_tr.NAME} ON: {_tr.cfg['model']} decides on its own every {_tr.cfg.get('every_min', 15):g} minutes, "
+                            f"trades at confidence >= {_tr.cfg['min_confidence']}, risk {_tr.cfg['risk_pct']}%")
+            else:
+                logger.warning(f"{_key} runs on demo rules only (same_on_live is off): not started on this account")
+        except Exception as exc:
+            logger.warning(f"{_key} unavailable: {exc}")
+    # Hard no-new-trade windows (news releases, London / New York opens) for the stand-alone traders (2026-11-24)
+    from Python.entry_window import EntryWindow
+    entry_win = EntryWindow(((cfg.get("trading") or {}).get("entry_window") or {}), LOG_DIR)
+    logger.info(f"entry window {'ON' if entry_win.enabled else 'OFF'}: {entry_win.cfg}")
     _xv_dumped = [0.0]
     council_readings: dict = {}
     _readings_dumped = [0.0]
@@ -1158,8 +1254,36 @@ def main(live=False):
     # recomputing an identical decision every loop added nothing but churn risk.
     last_decided_bar = {}
     every_loop = os.environ.get("AGI_DECIDE_EVERY_LOOP", "false").lower() == "true"
+    # Hang watchdog (2026-11-24: the loop froze 16:40-16:51 with the process alive, so the restart loop never
+    # fired). If the main loop stops ticking for AGI_WATCHDOG_SEC, dump every thread's stack to the log (to see
+    # where it hung) and exit; the supervisor (scripts/mac/start_bot.sh / launchd) starts a fresh bot.
+    _loop_tick = [time.time()]
+    _wd_sec = int(os.environ.get("AGI_WATCHDOG_SEC", "600"))   # > the 300 s max MT5 reconnect backoff
+
+    def _watchdog():
+        import faulthandler
+        while True:
+            time.sleep(30)
+            stalled = time.time() - _loop_tick[0]
+            if stalled > _wd_sec:
+                logger.error(f"WATCHDOG | main loop stalled {stalled:.0f}s (> {_wd_sec}s): dumping stacks and exiting "
+                             f"so the supervisor restarts the bot")
+                try:
+                    faulthandler.dump_traceback(all_threads=True)
+                    sys.stdout.flush(); sys.stderr.flush()
+                finally:
+                    os._exit(3)
+    threading.Thread(target=_watchdog, name="loop-watchdog", daemon=True).start()
+    _scout_on = bool(((cfg.get("trading") or {}).get("market_scout") or {}).get("daily", True))
     while True:
         now = time.time()
+        _loop_tick[0] = now
+        if _scout_on:      # daily new-market test, 07:15 UTC (launchd can't reach the external drive; Python/daily_jobs.py)
+            try:
+                from Python.daily_jobs import maybe_start_scout
+                maybe_start_scout(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), now, logger)
+            except Exception as e:
+                logger.warning(f"market scout start failed: {e}")
 
         if not _ensure_mt5_connected(cfg, symbols):
             alerter.alert(f"MT5 disconnected; retrying in {int(reconnect_backoff)}s")
@@ -1175,6 +1299,27 @@ def main(live=False):
             risk.update_equity(float(snap["equity"]))
         guard_snap = dict(snap)
         guard_snap["pnl_today"] = float(snap.get("pnl_today_incl_floating", snap.get("pnl_today", 0.0)))
+        if gold_bo is not None:
+            try:
+                gold_bo.step(mt5, can_open=not getattr(risk, "halt", False))
+            except Exception as exc:
+                logger.warning(f"gold breakout step failed: {exc}")
+        if meta_tr is not None:
+            try:
+                meta_tr.step(mt5, ext_voters, symbols, can_open=not getattr(risk, "halt", False), block=entry_win.reason)
+            except Exception as exc:
+                logger.warning(f"meta-brain trader step failed: {exc}")
+        for gemma_tr in llm_trs:
+            try:
+                gemma_tr.step(mt5, symbols, can_open=not getattr(risk, "halt", False), block=entry_win.reason)
+            except Exception as exc:
+                logger.warning(f"{gemma_tr.NAME} step failed: {exc}")
+        if stop_mgr is not None and now - _stops_at[0] >= 10:   # lock in profit on every bot trade (all traders)
+            _stops_at[0] = now
+            try:
+                stop_mgr.step(mt5, symbols)
+            except Exception as exc:
+                logger.warning(f"stop manager failed: {exc}")
 
         if now - last_heartbeat >= max(15, heartbeat_sec):
             uptime = int(now - start_time)
@@ -1403,6 +1548,19 @@ def main(live=False):
                     logger.warning(f"indicator council failed for {symbol}: {e}")
                 decision = _blend_symbol_decision(symbol, agi_meta, ppo_meta, dreamer_meta, cfg=cfg,
                                                   memory_mult=mem_mult, council_meta=council_meta)
+                for gemma_tr in llm_trs:   # hand each model this bar's readings; each decides on its own, in the background
+                    try:
+                        from Python.gemma_trader import council_brief
+                        _m15g = _m15_long(symbol)
+                        _slot = gemma_tr.slot(str(_m15g["time"].iloc[-1])) if _m15g is not None and len(_m15g) else None
+                        if _slot and gemma_tr.wants(symbol, _slot):
+                            from Python.indicator_council import _atr as _gatr
+                            _atr5 = float(_gatr(df[["open", "high", "low", "close"]].astype(float)).iloc[-1])
+                            gemma_tr.submit(symbol, _slot,
+                                            council_brief(council_meta, decision, ext_voters, symbol), _m15g,
+                                            desk=gemma_tr.desk_context(mt5, symbol, _m15g, _atr5), atr_m5=_atr5)
+                    except Exception as e:
+                        logger.warning(f"{gemma_tr.NAME} submit failed for {symbol}: {e}")
                 explore_scale = _exploration_scale(symbol)
                 if explore_scale != 1.0:
                     decision["target"] = float(decision["target"]) * explore_scale
@@ -1459,18 +1617,24 @@ def main(live=False):
                     logger.warning(f"model memory update failed for {symbol}: {e}")
 
                 logger.info(
-                    "DECISION %s | regime=%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f"
+                    "DECISION %s | regime=%s%s conf=%.4f risk=%.4f agi_bias=%.4f ppo=%.4f dreamer=%.4f raw=%.4f final=%.4f"
                     % (
                         symbol,
                         regime,
+                        "" if decision.get("agi_proven") else " (LSTM unproven: ignored)",
                         float((agi_meta or {}).get("confidence", 0.0) or 0.0),
-                        _risk_scalar(agi_meta),
-                        float((agi_meta or {}).get("trend_bias", 0.0) or 0.0),
+                        float(decision.get("agi_risk_scalar", 1.0)),
+                        float(decision.get("agi_bias", 0.0)),
                         float((ppo_meta or {}).get("target", 0.0) or 0.0),
                         float((dreamer_meta or {}).get("target", 0.0) or 0.0),
                         float(decision["raw_target"]),
                         float(decision["target"]),
                     )
+                    + ("" if not council_meta else
+                       " council=%.3f (zeros counted %.3f%s)" % (
+                           float(council_meta.get("target", 0.0)),
+                           float(council_meta.get("target_zeros_counted", council_meta.get("target", 0.0))),
+                           "; sat out: " + ",".join(council_meta["abstained"]) if council_meta.get("abstained") else ""))
                 )
                 _append_audit(
                     "signal",
@@ -1606,6 +1770,37 @@ def main(live=False):
                 if skip_ and skip_[1] > time.time() and float(exposure) != 0.0 and (float(exposure) > 0) == (skip_[0] > 0) \
                         and gate_entry is not None and pending_entries.get(symbol) is None:
                     exposure = cur_x if (cur_x == 0.0 or (cur_x > 0) == (skip_[0] > 0)) else 0.0
+                    gate_entry = None
+                # ---- council rules from the 2026-11-24 entry study (trading.council): no new council risk on the markets
+                # where no setup made money, and let open trades run to their stop / target / 24 h (no signal exits)
+                cur_x = float(current_symbol_exposure)
+                if float(exposure) != 0.0 and symbol in council_rules["markets_off"] and (
+                        cur_x == 0.0 or (float(exposure) > 0) != (cur_x > 0) or abs(float(exposure)) > abs(cur_x) + 1e-9):
+                    exposure = 0.0 if (cur_x != 0.0 and (cur_x > 0) != (float(exposure) > 0)) else cur_x
+                    held_by_gate = True
+                    gate_entry = None
+                    if pending_entries.pop(symbol, None):
+                        _append_audit("entry_cancelled", {"symbol": symbol, "reason": "council off on this market"})
+                    if time.time() - _gate_logged.get(f"off:{symbol}", 0) > 3600:
+                        _gate_logged[f"off:{symbol}"] = time.time()
+                        logger.info(f"COUNCIL OFF {symbol} | no setup made money here after the spread (entry study): no new council trades")
+                if float(exposure) != 0.0 and (cur_x == 0.0 or (float(exposure) > 0) != (cur_x > 0)
+                                               or abs(float(exposure)) > abs(cur_x) + 1e-9):
+                    from Python.strategy_exec import crowd_reason as _crowd
+                    _cw = _crowd(mt5, 1 if float(exposure) > 0 else -1, symbol=symbol)
+                    if _cw:
+                        exposure = 0.0 if (cur_x != 0.0 and (cur_x > 0) != (float(exposure) > 0)) else cur_x
+                        held_by_gate = True
+                        gate_entry = None
+                        if pending_entries.pop(symbol, None):
+                            _append_audit("entry_cancelled", {"symbol": symbol, "reason": "crowd cap"})
+                        if time.time() - _gate_logged.get(f"crowd:{symbol}", 0) > 900:
+                            _gate_logged[f"crowd:{symbol}"] = time.time()
+                            logger.info(f"CROWD CAP {symbol} | {_cw}: no new council trade")
+                if council_rules["hold"] and cur_x != 0.0 and (
+                        float(exposure) == 0.0 or (float(exposure) > 0) != (cur_x > 0) or abs(float(exposure)) < abs(cur_x) - 1e-9):
+                    exposure = cur_x                       # hold: exits are the stop, the target, the stop manager or 24 h
+                    held_by_gate = True
                     gate_entry = None
                 # Holding: sending cur_x to the executor would re-size it (add with stacking, trim as equity falls)
                 hold_only = held_by_gate and float(exposure) != 0.0 and abs(float(exposure) - cur_x) < 1e-12

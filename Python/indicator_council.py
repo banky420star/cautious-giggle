@@ -133,23 +133,36 @@ def context_series(df: pd.DataFrame) -> pd.Series:
     return pd.Series([f"{t}|{v}|{s}" for t, v, s in zip(trend, vol, session)], index=df.index)
 
 
-def council_vote(latest_votes: dict, assessments: dict, weights: dict | None = None) -> dict:
+def council_vote(latest_votes: dict, assessments: dict, weights: dict | None = None, abstain_zero: bool = True) -> dict:
     """Combine the latest votes using the memory's verdict per strategy for the current context.
-    `weights` gives some voters (the external models) more say than a single indicator."""
+    `weights` gives some voters (the external models) more say than a single indicator.
+
+    abstain_zero (2026-11-24): an external model (one listed in `weights`) that votes exactly 0 has no opinion
+    (the gold order-block voter with no zone near price ~98% of the time, the news reader with no or mixed
+    headlines). It now sits that call out instead of counting as a heavy "flat" vote: on gold those zeros held
+    12 of ~72 weight units and pulled the signal ~17% toward doing nothing. Indicators keep their 0 = neutral."""
     num = den = 0.0
-    used, ignored = [], []
+    num0 = den0 = 0.0          # the old rule (zeros counted), kept for comparison in the log
+    used, ignored, abstained = [], [], []
     for name, v in latest_votes.items():
         a = assessments.get(name) or {}
         mult = float(a.get("mult", 1.0)) * float((weights or {}).get(name, 1.0))
         if a.get("verdict") == "doesn't work":
             ignored.append(name)
             continue
+        num0 += mult * float(v)
+        den0 += mult
+        if abstain_zero and weights and name in weights and float(v) == 0.0:
+            abstained.append(name)
+            continue
         num += mult * float(v)
         den += mult
         if abs(v) > 0.05:
             used.append(name)
     raw = num / den if den > 0 else 0.0
+    raw0 = num0 / den0 if den0 > 0 else 0.0
     return {"target": float(np.tanh(2.0 * raw)), "raw": raw, "used": used, "ignored": ignored,
+            "abstained": abstained, "target_zeros_counted": float(np.tanh(2.0 * raw0)),
             "up": sum(1 for v in latest_votes.values() if v > 0.05),
             "down": sum(1 for v in latest_votes.values() if v < -0.05),
             "flat": sum(1 for v in latest_votes.values() if abs(v) <= 0.05)}

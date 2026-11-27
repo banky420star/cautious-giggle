@@ -1,3 +1,6 @@
+# Copy of the bot's settings for a new install (scripts/mac/install.sh creates config.yaml from this).
+# Secrets never go here: Exness keys live in ~/.exness, Jev keys in ~/.config/cautious-giggle/jev.env.
+# Mac / Exness API config for the $500 demo account (generated from config.yaml.example)
 # Broker backend:
 #   mt5        - MetaTrader5 terminal + Python package (Windows only)
 #   exness_api - Exness Public Trader API over HTTPS (macOS / Linux / Windows)
@@ -16,48 +19,147 @@ exness_api:
   symbol_map: {}            # e.g. {BTCUSDm: BTCUSD}; auto-detected from the account's instruments
 
 trading:
-  trend_gate:                      # no new trades against BOTH the 4h and 1h trend (2026-11-19 post-mortem)
-    enabled: true
-    ema: 50
-    timeframes: ["4h", "1h"]
-  stops:                           # broker stop/target distance in M5 ATR(14); was 1.4 / 2.2 (stops <1.5 ATR hit 36%)
-    sl_atr_mult: 2.0               # lot size shrinks to keep the risk_percent cap
-    tp_atr_mult: 3.2
   symbols: &id001
   - BTCUSDm
   - XAUUSDm
-  - EURUSDm
-  - GBPUSDm
   timeframe: M5
   risk_percent: 1.0
   min_lot_max_risk_percent: 2.0   # small accounts: allow the minimum lot if its stop risk is <= 2%
   max_drawdown: 10.0
   confidence_threshold: 0.85
-  demo_learning:                   # DEMO accounts only: trade more often to learn faster
-    enabled: false
+  demo_learning:                   # trade more often to learn faster (demo; live too when same_on_live)
+    same_on_live: false          # true: a LIVE account runs EXACTLY like demo (same risk, markets, stacking, learning); the installer asks
+    trade_all_markets: true      # every news_trading market trades all day; untrained ones follow the indicator council
+    stacking:                    # several trades per market: add when the open ones are in profit and the signal agrees
+      enabled: true              # user 2026-11-25: on, 2 per market (2026-11-17: stack adds lost $71 on 14 trades (29% won) -> was off)
+      max_per_symbol: 2
+      cooldown_min: 10
+    enabled: true
     threshold_scale: 0.5           # halve the signal needed to open a trade
+    risk:                          # demo-only risk limits (the risk: section below stays the real-money default)
+      risk_percent: 5.0            # max loss if a stop is hit, % of equity (default 1); user 2026-11-24: 5% (was 2.5)
+      min_lot_max_risk_percent: 30 # smallest order allowed up to this risk (default 2); user 2026-11-25: 30 so a small account trades every market (was 5)
+      max_lots: 0.20               # per symbol (default 0.05)
+      max_daily_loss: 1000         # $ stop for the day (default 25); user 2026-11-24: halt only at $1000 (was 150)
+      max_drawdown_pct: 100        # halt if equity falls this far from its peak (default 8); user 2026-11-25: 100 = off, small-account test (was 40)
+      max_open_positions: 14       # 7 markets x 2 on average; the daily loss stop still caps the day
+      max_positions_per_symbol: 3
+  external_voters:                 # the user's own local models vote in the council (demo rules); wrong ones get ignored
+    enabled: true
+    weights: {ob_gold: 8, kronos: 8, catboost: 4, news_llm: 4, smc_gemma: 4}   # one indicator = 1; there are 48 indicator votes
+    news_llm: {model: "gemma4:e4b-it-qat", every_min: 20}   # 2026-11-24: was qwen3:4b; same model as the SMC voter = one less model in GPU memory
+    smc_rules: {enabled: true}     # SMC fixed rules, shadow (weight 0): memory scores it, the council ignores it
+    smc_gemma: {enabled: true, model: "gemma4:e4b-it-qat"}    # Gemma reads SMC structure; votes in the council (weight 4, user 2026-11-24)
+    meta_brain: {enabled: true}    # numpy trees in the bot (lightgbm + torch segfaults); learned mix of every signal (tools/meta_brain_train.py); trades via meta_trader, not a council vote
+  stop_rules:                      # lock in profit: move the stop on EVERY bot trade (council + strategies), per market (Python/stop_manager.py)
+    enabled: true                  # rules per market from tools/stop_rules_backtest.py (logs/stop_rules_report.json); override here, in R:
+    rules: {}                      # e.g. XAUUSD: {be_at: 0.5, be_lock: 0.0, trail_from: 1.0, trail_atr: 1.0, keep_target: false}
+  gold_breakout:                   # Asian-range breakout on gold, its own strategy (demo rules: demo, and live too while same_on_live is on; Python/gold_breakout.py)
+    enabled: true                  # backtest 17 months Exness gold: 346 trades, +0.15R/trade, t=2.8 (tools/gold_breakout_backtest.py)
+    risk_pct: 10                   # user 2026-11-24: 10% per trade (backtest worst drawdown at 10%: 71%)
+    min_lot_max_risk_pct: 30   # user 2026-11-25: 30 so a small account trades every market
+    stop_pct: 1.0
+    max_chase_pct: 100             # always take the break, even late (0.15 skips a break seen further past the level); size cap still applies
+  meta_trader:                     # the meta-brain trades its own predictions (demo rules: live too while same_on_live; Python/meta_trader.py)
+    enabled: true                  # contains: council, bankbot, ICT, Sweep+FVG, LuxAlgo SMC, SMC rules, Gold Breakout range (user 2026-11-24)
+    risk_pct: 5                    # same as the council's demo risk
+    min_lot_max_risk_pct: 30   # user 2026-11-25: 30 so a small account trades every market
+    max_per_symbol: 2              # user 2026-11-25: this bot may hold 2 positions per market (same direction)
+  gemma_trader:                    # Gemma reads the whole council and makes its OWN calls, own positions (demo rules: live too while same_on_live; Python/gemma_trader.py)
+    enabled: true                  # separate from the council / meta-brain / Gold Breakout decisions (user 2026-11-24)
+    model: "gemma4:e4b-it-qat"
+    risk_pct: 5
+    min_lot_max_risk_pct: 30   # user 2026-11-25: 30 so a small account trades every market
+    max_per_symbol: 2              # user 2026-11-25: this bot may hold 2 positions per market (same direction)
+    min_confidence: 0.6            # trades only when Gemma is at least this sure
+    skip_symbols: ["USOILm", "EURUSDm", "USDJPYm"]   # user 2026-11-24: lost $862 on these three on 2026-11-24 (Oil -411, EUR -246, JPY -205)
+    max_trades_per_market_day: 0   # user 2026-11-25: 0 = no daily limit (was 2); max_per_symbol: 2 open at any time still applies
+    stops: {default: [4.0, 6.4]}    # user 2026-11-24: stop / target in M5 ATR (was 2.0/3.2, gold 1.5/2.4): too tight, normal wiggles stopped them out
+  crowd_cap:                       # user 2026-11-24: all brains sold the same move at ~5% each (equity $1,928 -> $940 in 6 h)
+    max_same_side: 14              # user 2026-11-25: 14 = overall ceiling (= max_open_positions; was 5, which blocked new markets); no NEW council/Gemma/Jev/meta trade past it (Gold Breakout exempt)
+    max_same_side_per_symbol: 0    # user 2026-11-25: off; the stacking limit is per bot instead (each trader's max_per_symbol: 2, council stacking 2)
+  qwen_trader:                     # user 2026-11-24: Qwen 3.5 9B trades SEPARATELY from Gemma: same desk picture and rules,
+    enabled: false                  # its own positions and track record (Python/gemma_trader.QwenTrader, logs/qwen_trader.jsonl)
+    model: "qwen3.5:9b"
+    risk_pct: 5
+    min_lot_max_risk_pct: 30   # user 2026-11-25: 30 so a small account trades every market
+    max_per_symbol: 2              # user 2026-11-25: this bot may hold 2 positions per market (same direction)
+    min_confidence: 0.6
+  jev_trader:                      # user 2026-11-24: Jev replaces Qwen (Python/gemma_trader.JevTrader, logs/jev_trader.jsonl):
+    enabled: true                  # same desk picture, answers with probabilities
+    routes: ["openrouter", "jevai"]  # OpenRouter Decisions API (typesafe/jev-1.13, as Quant-OS / jev-trader), then jevai.org
+    openrouter_model: "typesafe/jev-1.13"
+    key_files: ["~/.config/cautious-giggle/jev.env"]   # OPENROUTER_API_KEY / JEV_API_KEY read from here (keys not stored in this file)
+    risk_pct: 5
+    min_lot_max_risk_pct: 30   # user 2026-11-25: 30 so a small account trades every market
+    max_per_symbol: 2              # user 2026-11-25: this bot may hold 2 positions per market (same direction)
+    min_confidence: 0.55           # trades only when Jev gives the side at least this probability (user 2026-11-24: was 0.6)
+    every_min: 5                   # user 2026-11-24: asks Jev every 5 minutes (not once per M15 bar); ~84 calls/hour
+    stops: {default: [4.0, 6.4]}    # user 2026-11-24: stop / target in M5 ATR (was 2.0/3.2, gold 1.5/2.4): too tight, normal wiggles stopped them out
+  entry_window:                    # no new Gemma / Jev / meta-brain trades around news and London / New York opens
+    enabled: true                  # (Python/entry_window.py, user 2026-11-24)
+    high_before_min: 30
+    high_after_min: 30
+    medium_before_min: 10
+    medium_after_min: 10
+    open_before_min: 15
+    open_after_min: 30
+  cost_gate:                       # open/add only while this market's own trades beat their spread (net, measured live)
+    enabled: false                 # user 2026-11-24: every market trades on demo (it blocked silver -5.3 bps, ether -9.8 bps)
+    margin_bps: 0.2                # net edge per trade must exceed this after the spread (0.2 bps safety margin)
+    extra_cost_bps: 0.0            # commission/slippage on top of the live spread, in bps
+  trend_gate:                      # no new council trades against the 4h 200-EMA trend (user 2026-11-24, entry study:
+    enabled: false # user 2026-11-25: off (was true);                 # against-trend council trades lost on every market that can make money; was 50-EMA, 4h AND 1h)
+    ema: 200
+    timeframes: ["4h"]
+  stops:                           # broker stop/target distance in M5 ATR(14). User 2026-11-24: 8 / 12.8 (was 2.0 / 3.2;
+    sl_atr_mult: 8.0               # gold 1.5 / 2.4). The spread was 0.03-0.15 R of a 2-ATR stop; lot size shrinks so the
+    tp_atr_mult: 12.8              # $ risk per trade stays at risk_percent. Entry study: +0.08..+0.12 R on gold/BTC/silver/ETH
+    per_symbol: {}
+  setup_gate:                      # trade only setups that proved themselves (market|side|session|confidence|AI view)
+    enabled: true
+    era: "2026-11-24 8-ATR stops, 4h trend, 24h"   # rules changed: scores restart (the old ones are archived)
+    min_trades_full: 20            # proven + profitable after this many trades -> normal size
+    min_trades_block: 12           # losing after this many trades -> blocked (one smallest-lot re-test every retest_hours)
+    retest_hours: 4
+    confidence_high: 0.72
   smart_entry:                     # wait for a small pullback instead of buying/selling at market
     enabled: true
-    wait_minutes: 15               # if price doesn't come back in time, enter at market anyway
+    wait_minutes: 15               # how long to wait for the pullback
+    on_timeout: skip               # pullback never came -> skip, don't chase (timeout entries won 29% on 2026-11-17)
     pullback_atr: {BTCUSDm: 0.5, XAUUSDm: 0.25}   # how far (x ATR of 5-min bars) to wait for
   normalize_active_weights: true   # average over models that have a view this bar (missing/abstaining ones don't dilute the signal)
-  graduation:
-    enabled: false
-    candidates: []
-    max_attempts: 3
+  graduation:                      # new markets: train -> exam -> trade like the others once they pass
+    enabled: true
+    candidates: [EURUSDm, USDJPYm, XAGUSDm, ETHUSDm, USOILm]
+    max_attempts: 5                # failed exam -> next reward scenario; after all 5, x1.5 more PPO steps
     step_growth: 1.5
-    retrain_when: {min_trades: 20, win_rate_below: 0.40, cooldown_hours: 24}
+    retrain_when:                  # any trading market is retrained when its live results slip
+      min_trades: 20               # over the last 7 days, at least this many closed trades
+      win_rate_below: 0.40         # ...and win rate below this and P&L below zero
+      cooldown_hours: 24
   news_trading:                    # demo only: prep for high-impact US releases, trade the liquidity sweep
-    enabled: false
-    symbols: [XAUUSDm, BTCUSDm]
+    enabled: true
+    symbols: [XAUUSDm, BTCUSDm, EURUSDm, USDJPYm, XAGUSDm, ETHUSDm, USOILm]
     max_lots: 0.20                 # capped further by the per-trade risk limit
+    always_trade: true             # never stand aside; unproven plays trade at half size
+    surprise:                      # user 2026-11-25: the model reads the release from the headlines and trades its direction
+      enabled: true                # (Python/news_reader.py; results in logs/news_playbook.json, memory in logs/news_memory.jsonl)
+      model: "gemma4:e4b-it-qat"
+      read_after_min: 2            # headlines usually land 2-5 min after the release
+      min_confidence: 0.6          # trade the read only when the model is at least this sure
   magic_number: 505
-  demo_exploration:          # demo accounts only: trade a gate-failing model small so memory can learn
-    enabled: false
-    size_scale: 0.5          # fraction of normal size; ignored (0) on real-money accounts
+  demo_exploration:          # trade a gate-failing model small so memory can learn (demo; live too when same_on_live)
+    enabled: true
+    size_scale: 0.5          # fraction of normal size; 0 on real money UNLESS same_on_live is true
   council:                   # indicator council (Python/indicator_council.py), weighted by model memory
     enabled: true
     allow_live: false        # weights come from history replay; real-money accounts need explicit opt-in
+    # its own trades (user 2026-11-24, entry study tools/stop_rules_backtest.py):
+    hold_to_exit: true       # trades run to their stop / target / stop manager / max_hours: no exit on a faded signal
+    max_hours: 24
+    markets_off: [EURUSDm, USDJPYm, USOILm]   # no setup made money here after the spread: no new council trades
+                                              # (Gemma, the meta-brain and the models still read these markets)
   model_memory:              # each model's record per market context (trend|vol|session)
     enabled: true            # scale model weights by what has worked; false = record only
     half_life_bars: 1200     # ~4 days of M5; older results fade
@@ -66,14 +168,14 @@ trading:
     cap: 1.5                 # strongest multiplier for one that keeps being right
     horizon_bars: 2          # score calls over 10 min: the bot's trades are held ~8 min (median)
 risk:
-  max_daily_loss: 1000
-  max_daily_trades: 500
-  max_daily_trades_per_symbol: 50
-  max_daily_losing_trades_per_symbol: 10
-  max_lots: 1.0
+  max_daily_loss: 25        # $ (5% of the $500 demo)
+  max_daily_trades: 1000000                 # user 2026-11-25: no daily trade limit (was 500)
+  max_daily_trades_per_symbol: 1000000      # user 2026-11-25: no daily limit (was 50)
+  max_daily_losing_trades_per_symbol: 1000000   # user 2026-11-25: no daily limit (was 10)
+  max_lots: 0.05            # small account; risk_percent caps each stop-out at 1% of equity
   supervisor:
     enabled: true
-    max_daily_loss: 1000
+    max_daily_loss: 25
     max_drawdown_pct: 8.0
     max_symbol_exposure: 0.35
     max_total_exposure: 1.2
@@ -92,16 +194,24 @@ event_intel:
   news_hold_min: 20
   max_events: 200
 drl:
-  total_timesteps: 500000
+  total_timesteps: 250000   # was 500k: twice the steps did not improve exam results; half the time per attempt
+  early_stop:              # stop a run when validation has stalled (keeps the best checkpoint)
+    enabled: true
+    min_evals: 3
+    patience: 2
   per_symbol: true
   period: 90d
   interval: M5
   candles_per_symbol: 100000
   eval_period: 120d
   model_path: models/ppo_trading.zip
-  feature_version: ultimate_150
+  feature_version: compact_v3     # PPO inputs (2026-11-19): ~205 numbers incl. big-move filter, trend, trade state; was ultimate_150 x 100 bars
   data_source: auto   # broker history first (MT5 or Exness API), Dukascopy if short
   optuna_trials: 0
+  ppo:
+    target_kl: 0.03   # was 0.01: with 0.01 most updates stopped after 1 of 10 passes (learning ~10x slower)
+    use_sde: false    # test 17 Nov: with exploration noise 4/4 update rounds were cut short and it barely learned
+                      # (explained variance 0.03); without it 1/4, explained variance 0.16 -> 0.27
   optuna_timesteps: 10000
   split:            # chronological train / validation / test
     val: 0.15
@@ -111,8 +221,9 @@ drl:
     random_start: true
     episode_length: 2048
     min_rebalance: 0.05
-    sl_atr_mult: 1.4
-    tp_atr_mult: 2.2
+    sl_atr_mult: 2.0      # same as live trading.stops (was 1.4)
+    tp_atr_mult: 3.2      # was 2.2
+    trend_gate: true         # compact_v3: training also blocks trades against both the 4h and 1h trend
     # costs:                 # per-side bps; defaults are Exness-standard-like
     #   BTCUSDm: {spread_bps: 2.5, commission_bps: 0.0, slippage_bps: 1.0}
     #   XAUUSDm: {spread_bps: 1.0, commission_bps: 0.0, slippage_bps: 0.5}
@@ -209,4 +320,5 @@ data:
   source: auto        # mt5 = broker backend | dukascopy = free history, no account | auto = broker then Dukascopy
 cycle:
   parallel_symbols: false   # Apple MPS crashes with two GPU trainings at once
+  ppo_lanes: 2              # PPO for two markets at once: one on the GPU, one on the CPU (~1.7x faster cycles)
   skip_completed_training: false

@@ -5,7 +5,7 @@
 #   scripts/mac/service.sh restart    restart the bot (e.g. after a code change)
 #   scripts/mac/service.sh stop       stop the bot (positions keep their broker SL/TP); start: start it again
 #   scripts/mac/service.sh uninstall  remove both services
-ROOT=/Volumes/AI_DRIVE/cautious-giggle
+ROOT="${0:A:h:h:h}"   # the project folder (this script lives in scripts/mac)
 LA="$HOME/Library/LaunchAgents"
 UID_=$(id -u)
 BOT=com.cautiousgiggle.bot

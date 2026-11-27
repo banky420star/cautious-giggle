@@ -12,6 +12,7 @@ same risk, markets, stacking, learning, council, exploration and news trading.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -204,7 +205,9 @@ def save_live(api_key: str = "", account_id: str = "", gateway: str = "", privat
         else:
             demo_key = parse_env(FILES["demo"]).get("EXNESS_PRIVATE_KEY_FILE", "")
             try:
-                if demo_key and open(demo_key, encoding="utf-8").read().strip() == private_key:
+                with open(demo_key, encoding="utf-8") if demo_key else contextlib.nullcontext() as _f:
+                    _same = bool(_f) and _f.read().strip() == private_key
+                if _same:
                     errors["private_key"] = "This is your DEMO key. Create a separate key for the real account."
             except OSError:
                 pass

@@ -253,11 +253,22 @@ def test_supervisor_flatten_and_same_side_reduce_allowed_when_halted():
 
 
 # -------------------------------------------------------------------- blend
-def test_blend_risk_scalar_zero_blocks():
+def test_blend_risk_scalar_zero_blocks(monkeypatch):
+    from Python import lstm_gate
     from Python.Server_AGI import _blend_symbol_decision
 
+    monkeypatch.setattr(lstm_gate, "proven", lambda s: True)
     out = _blend_symbol_decision("BTCUSDm", {"risk_scalar": 0.0, "trend_bias": 0.9, "confidence": 0.99}, {"target": 0.9}, None)
     assert out["target"] == 0.0
+
+
+def test_blend_ignores_unproven_lstm(monkeypatch):
+    from Python import lstm_gate
+    from Python.Server_AGI import _blend_symbol_decision
+
+    monkeypatch.setattr(lstm_gate, "proven", lambda s: False)
+    out = _blend_symbol_decision("BTCUSDm", {"risk_scalar": 0.0, "trend_bias": 0.9, "confidence": 0.99}, {"target": 0.9}, None)
+    assert out["agi_bias"] == 0.0 and out["agi_risk_scalar"] == 1.0 and out["target"] != 0.0 and out["agi_proven"] is False
 
 
 def test_blend_missing_ppo_does_not_hand_weight_to_lstm():

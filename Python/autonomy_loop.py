@@ -539,9 +539,12 @@ class AutonomyLoop:
 
 def _closed_since(symbol: str, since_ts: float, log_path: str | None = None) -> tuple[int, float]:
     """Closed trades and realized P/L on `symbol` after `since_ts`, from logs/trade_events.jsonl
-    (live closes only; backfilled history is excluded). One entry per deal id."""
-    log_path = log_path or os.path.join(os.environ.get("AGI_LOG_DIR") or os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs"), "trade_events.jsonl")
+    (live closes only; backfilled history is excluded). One entry per deal id. Trades of the stand-alone
+    strategies (Gold Breakout, meta-brain trader, Gemma trader) are not the PPO model's and are left out."""
+    from Python.strategy_exec import strategy_tickets
+    log_dir = os.environ.get("AGI_LOG_DIR") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+    log_path = log_path or os.path.join(log_dir, "trade_events.jsonl")
+    others = strategy_tickets(os.path.dirname(log_path))
     seen, n, pnl = set(), 0, 0.0
     try:
         with open(log_path, encoding="utf-8") as f:
@@ -553,7 +556,7 @@ def _closed_since(symbol: str, since_ts: float, log_path: str | None = None) -> 
                 except ValueError:
                     continue
                 p = e.get("payload") or {}
-                if p.get("backfill") or str(p.get("symbol")) != str(symbol):
+                if p.get("backfill") or str(p.get("symbol")) != str(symbol) or str(p.get("ticket")) in others:
                     continue
                 try:
                     t = datetime.datetime.fromisoformat(str(e.get("ts"))).timestamp()

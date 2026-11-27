@@ -13,7 +13,6 @@ ignored automatically, and the setup scorecard judges the trades it took part in
 """
 from __future__ import annotations
 
-import glob
 import json
 import os
 import queue
@@ -27,18 +26,28 @@ import pandas as pd
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULTS = {
     "enabled": True,
-    "weights": {"ob_gold": 8.0, "kronos": 8.0, "catboost": 4.0, "news_llm": 4.0},
+    "weights": {"ob_gold": 8.0, "kronos": 8.0, "catboost": 4.0, "news_llm": 4.0, "smc_rules": 0.0, "smc_gemma": 0.0,
+                "meta_brain": 0.0},
     "ob_gold": {"symbols": ["XAUUSDm"]},
     "kronos": {"code_dir": "~/.cautious-giggle/kronos", "device": "cpu", "horizon": 6, "context": 400},
     "catboost": {"model_dir": "/Volumes/AI_DRIVE/Trading_stack.bank/user_data/models/bank-freqai-spot-v1",
                  "pairs": {"BTCUSDm": "BTC/USDT", "ETHUSDm": "ETH/USDT"}, "retrain_hours": 6},
     "news_llm": {"model": "qwen3:4b", "url": "http://127.0.0.1:11434", "every_min": 20, "lookback_h": 6},
+    # SMC: smc_rules is the fixed-rule read, smc_gemma is Gemma weighing the same facts. Both run while
+    # enabled even at weight 0 (shadow: model memory scores them, the council ignores them)
+    "smc_rules": {"enabled": False},
+    "smc_gemma": {"enabled": False, "model": "gemma4:e4b-it-qat", "url": "http://127.0.0.1:11434", "timeout_s": 180},
+    # meta-brain: one model trained on every signal's results (Python/meta_brain.py); shadow at weight 0
+    "meta_brain": {"enabled": False, "margin": None},
 }
 NAMES = {
     "ob_gold": "Gold order-block strategy (your research)",
     "kronos": "Kronos candle forecaster",
     "catboost": "LightGBM return model (your FreqAI recipe, retrained on Exness bars)",
     "news_llm": "Local AI news reader (Ollama)",
+    "smc_rules": "Smart Money Concepts, fixed rules (structure, order blocks, FVGs, liquidity)",
+    "smc_gemma": "Gemma reading Smart Money Concepts structure",
+    "meta_brain": "Meta-brain: learned mix of every signal (council, bankbot, ICT, SMC, regime)",
 }
 
 
@@ -461,11 +470,11 @@ class _NewsLLM:
                                                    "reason": {"type": "string", "maxLength": 220}},
                   "required": ["score", "reason"]}
         body = json.dumps({"model": self.cfg["model"], "prompt": prompt, "stream": False, "format": schema,
-                           "think": False, "options": {"temperature": 0, "num_predict": 140}}).encode()
+                           "think": False, "keep_alive": "30m",
+                           "options": {"temperature": 0, "num_predict": 140, "num_ctx": OLLAMA_CTX}}).encode()
         req = urllib.request.Request(self.cfg["url"].rstrip("/") + "/api/generate", data=body,
                                      headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=120) as r:
-            txt = json.loads(r.read().decode()).get("response", "")
+        txt = json.loads(ollama_post(req, 120).decode()).get("response", "")
         reason = None
         try:
             js = json.loads(txt)
@@ -481,6 +490,101 @@ class _NewsLLM:
                                               "n_headlines": len(heads)}
 
 
+# =============================================================================== SMC via local Gemma
+SMC_PROMPT = (
+    "You are a Smart Money Concepts (SMC) trader. Below is the market structure found by code on the last "
+    "closed 15-minute bar of {asset}; every level is real. Judge the likely direction over the next 1-2 hours.\n"
+    "How to weigh it:\n"
+    "- Trade with the H1 structure. Against it only after a fresh M15 CHoCH plus a liquidity sweep.\n"
+    "- Best longs: discount, sell-side liquidity just swept, bullish CHoCH/BOS, price back in a bullish order "
+    "block or FVG. Best shorts are the mirror (premium, buy-side swept, bearish OB/FVG).\n"
+    "- Untested order blocks and unfilled FVGs are stronger than tested or mostly filled ones.\n"
+    "- Equal highs/lows close ahead are a target, not a reason to fade; price often runs them first.\n"
+    "- Mixed or missing evidence means direction none. Most bars should be none or low strength; reserve "
+    "strength > 0.6 for clear confluence.\n"
+    "Reply with JSON only: first a short reason, then direction (long, short or none), strength 0-1, "
+    "the setup name, and the price that would prove you wrong (below price for long, above for short).\n\n{facts}"
+)
+# reason first so the model thinks before it commits; direction is an enum so it cannot contradict the setup
+SMC_SCHEMA = {"type": "object", "properties": {
+    "reason": {"type": "string", "maxLength": 300},
+    "direction": {"type": "string", "enum": ["long", "short", "none"]},
+    "strength": {"type": "number", "minimum": 0, "maximum": 1},
+    "setup": {"type": "string", "maxLength": 60},
+    "invalidation": {"type": "number"}},
+    "required": ["reason", "direction", "strength", "setup"]}
+
+
+def smc_score(js: dict) -> float:
+    d = {"long": 1.0, "short": -1.0}.get(str(js.get("direction", "none")).lower(), 0.0)
+    return float(d * np.clip(float(js.get("strength", 0.0) or 0.0), 0, 1))
+ASSETS = {"BTCUSDm": "Bitcoin", "ETHUSDm": "Ether", "XAUUSDm": "gold", "XAGUSDm": "silver",
+          "USOILm": "US crude oil", "EURUSDm": "EUR/USD", "USDJPYm": "USD/JPY"}
+
+
+# 8k tokens is plenty for every prompt here (the trader's full desk picture is ~2k). Ollama's 32k default made each
+# model reserve ~5 GB, so Gemma and Qwen couldn't both stay loaded and were evicted / reloaded on every call.
+OLLAMA_CTX = 8192
+# Every local-model call in the bot (news reader, SMC reader, Gemma + Qwen traders) goes through this one lock. Gemma
+# and Qwen don't fit in GPU memory together, so parallel calls for different models made Ollama evict and reload on
+# every request and most calls hit their timeout mid-swap. Queued one at a time, each call gets the GPU to itself.
+import threading as _threading
+OLLAMA_LOCK = _threading.Lock()
+
+
+def ollama_post(req, timeout: int) -> bytes:
+    with OLLAMA_LOCK:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read()
+
+
+def ollama_json(url: str, model: str, prompt: str, schema: dict, num_predict: int = 400, timeout: int = 180) -> dict:
+    body = json.dumps({"model": model, "prompt": prompt, "stream": False, "format": schema, "think": False,
+                       "keep_alive": "30m", "options": {"temperature": 0, "num_predict": num_predict, "num_ctx": OLLAMA_CTX}}).encode()
+    req = urllib.request.Request(url.rstrip("/") + "/api/generate", data=body, headers={"Content-Type": "application/json"})
+    return json.loads(json.loads(ollama_post(req, timeout).decode()).get("response", ""))
+
+
+def smc_rules_detail(m15: pd.DataFrame):
+    from Python import smc
+    a = smc.analyze(m15)
+    rv = smc.rules_vote(a)
+    if rv is None:
+        return None
+    v, why = rv
+    return v, {"reason": "; ".join(why) or "No SMC confluence.", "price": a["price"]}
+
+
+class _SMCGemma:
+    """Gemma reads the SMC facts (structure, order blocks, FVGs, liquidity) and scores the confluence."""
+
+    def __init__(self, cfg: dict):
+        self.cfg = cfg
+
+    def vote(self, symbol: str, m15: pd.DataFrame):
+        from Python import smc
+        a = smc.analyze(m15)
+        if a is None:
+            return None
+        facts = smc.describe(a, ASSETS.get(symbol, symbol))
+        js = ollama_json(self.cfg["url"], self.cfg["model"], SMC_PROMPT.format(asset=ASSETS.get(symbol, symbol), facts=facts),
+                         SMC_SCHEMA, timeout=int(self.cfg.get("timeout_s", 180)))
+        score = smc_score(js)
+        inv = js.get("invalidation")
+        try:
+            inv = float(inv)
+        except (TypeError, ValueError):
+            inv = None
+        # an invalidation on the wrong side of price means the model contradicted itself: no vote
+        if inv is not None and score and ((score > 0 and inv >= a["price"]) or (score < 0 and inv <= a["price"])):
+            return 0.0, {"reason": f"Gemma said {score:+.2f} but put the invalidation on the wrong side; ignored.",
+                         "setup": js.get("setup"), "model": self.cfg["model"]}
+        rv = smc.rules_vote(a)
+        return score, {"reason": str(js.get("reason") or "")[:300] or "No reason given.", "setup": str(js.get("setup") or "")[:60],
+                       "invalidation": inv, "rules_score": None if rv is None else round(rv[0], 2),
+                       "model": self.cfg["model"], "price": a["price"]}
+
+
 # =============================================================================== runner
 class ExternalVoters:
     def __init__(self, cfg: dict | None = None, logger=None):
@@ -490,9 +594,17 @@ class ExternalVoters:
         self.kronos = _Kronos(self.cfg["kronos"])
         self.cat = _CatBoost(self.cfg["catboost"])
         self.news = _NewsLLM(self.cfg["news_llm"])
+        self.smc_gemma = _SMCGemma(self.cfg["smc_gemma"])
+        self.errors: dict = {}
+        self.meta = None
+        if self.enabled and self.cfg["meta_brain"].get("enabled"):
+            try:
+                from Python.meta_brain import MetaBrain
+                self.meta = MetaBrain(margin=self.cfg["meta_brain"].get("margin"))
+            except Exception as exc:
+                self.errors[("*", "meta_brain")] = f"not loaded: {exc}"[:200]
         self.values: dict = {}      # (symbol, voter) -> (vote, computed_at)
         self.details: dict = {}     # (symbol, voter) -> why it voted that way (reason, levels, forecast)
-        self.errors: dict = {}
         self._stamp: dict = {}      # (symbol, voter) -> input stamp last queued
         # two workers: the price models are fast; the news model can take a minute and must not hold them up
         self._q: queue.Queue = queue.Queue()
@@ -527,7 +639,7 @@ class ExternalVoters:
     def _queue(self, name, symbol, stamp, fn):
         if self._stamp.get((symbol, name)) != stamp:
             self._stamp[(symbol, name)] = stamp
-            (self._q_slow if name == "news_llm" else self._q).put((name, symbol, fn))
+            (self._q_slow if name in ("news_llm", "smc_gemma") else self._q).put((name, symbol, fn))
 
     def votes(self, symbol: str, m5: pd.DataFrame, m15: pd.DataFrame | None) -> dict:
         """Latest finished votes for this market (fresh enough to use), and schedule the next ones."""
@@ -545,8 +657,16 @@ class ExternalVoters:
         if self.cfg["weights"].get("news_llm"):
             every = float(self.cfg["news_llm"].get("every_min", 20)) * 60
             self._queue("news_llm", symbol, str(time.time() // every), lambda: self.news.vote(symbol))
+        if m15 is not None and self.cfg["smc_rules"].get("enabled"):
+            self._queue("smc_rules", symbol, stamp15, lambda d=m15.tail(1500).copy(): smc_rules_detail(d))
+        if m15 is not None and self.cfg["smc_gemma"].get("enabled"):
+            self._queue("smc_gemma", symbol, stamp15, lambda d=m15.tail(1500).copy(): self.smc_gemma.vote(symbol, d))
+        if self.meta is not None and m5 is not None:
+            self._queue("meta_brain", symbol, stamp5,
+                        lambda d=m5.copy(), d15=(None if m15 is None else m15.copy()): self.meta.vote(symbol, d, d15))
         out, now = {}, time.time()
-        max_age = {"ob_gold": 1800, "kronos": 900, "catboost": 1800, "news_llm": 3600}
+        max_age = {"ob_gold": 1800, "kronos": 900, "catboost": 1800, "news_llm": 3600, "smc_rules": 1800, "smc_gemma": 1800,
+                   "meta_brain": 600}
         for (s, name), (v, t) in list(self.values.items()):
             if s == symbol and now - t <= max_age.get(name, 900):
                 out[name] = v
@@ -557,8 +677,9 @@ class ExternalVoters:
         st = self.status()
         st.update({"t": time.time(), "weights": self.weights(), "names": NAMES,
                    "markets": {"ob_gold": self.cfg["ob_gold"].get("symbols"), "catboost": list(self.cfg["catboost"].get("pairs") or {}),
-                               "kronos": "all", "news_llm": "all"},
+                               "kronos": "all", "news_llm": "all", "smc_rules": "all", "smc_gemma": "all", "meta_brain": "all"},
                    "news_model": self.cfg["news_llm"].get("model"),
+                   "smc_model": self.cfg["smc_gemma"].get("model") if self.cfg["smc_gemma"].get("enabled") else None,
                    "details": {f"{s}:{n}": d for (s, n), d in list(self.details.items())}})
         tmp = path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:

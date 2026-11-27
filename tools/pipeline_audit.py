@@ -389,10 +389,19 @@ def check_learning_process(now):
             continue
         m = json.load(open(mp))
         acc, base = m.get("val_acc"), m.get("val_majority_acc")
-        if acc is not None and base is not None and acc < base:
-            rep("lstm", s, "FAIL", f"validation accuracy {acc:.1f}% is below always-HOLD {base:.1f}%: it learned nothing usable "
-                                   "(it predicts the next 5-min bar from price/indicators only, which the indicator map shows "
-                                   "carries no direction signal)")
+        try:   # the live trading check (tools/lstm_eval.py): hit rate of its buy/sell calls after costs
+            ev = (json.load(open(os.path.join(ROOT, "logs", "lstm_eval.json"))).get("markets") or {}).get(s) or {}
+        except (OSError, ValueError):
+            ev = {}
+        h = m.get("horizon_bars")
+        what = f"{h} bars (~{h * 5 / 60:.0f} h) ahead" if h else "ahead"
+        if acc is not None and base is not None and acc < base and ev.get("proven"):
+            rep("lstm", s, "WARN", f"3-way validation accuracy {acc:.1f}% is below always-HOLD {base:.1f}%, but its buy/sell "
+                                   f"calls pass the live check (hit {ev.get('hit', 0):.1%} over {ev.get('calls')} calls, "
+                                   f"{ev.get('avg_bps', 0):+.1f} bps vs {ev.get('spread_bps', 0):.1f} bps spread), so it counts")
+        elif acc is not None and base is not None and acc < base:
+            rep("lstm", s, "FAIL", f"validation accuracy {acc:.1f}% is below always-HOLD {base:.1f}% and it has not passed the "
+                                   f"live check: it learned nothing usable (it predicts {what} from price/indicators only)")
         else:
             rep("lstm", s, "PASS", f"validation accuracy {acc} vs always-HOLD {base}")
     # 5. PPO model registry: new models graduate only through a canary trial; is that trial measuring correctly?
@@ -434,6 +443,60 @@ def check_learning_process(now):
                                    "training may have used old cached bars or skipped markets")
 
 
+def check_runtime(now):
+    """Added 2026-11-24: the parts the checks above never covered: is the loop alive, are the AI traders answering,
+    is the news calendar fresh (the news / market-open gate and the AI desk read it), is the risk guard halted."""
+    import yaml
+    try:
+        cfg = yaml.safe_load(open(os.path.join(ROOT, "config.yaml"), encoding="utf-8")) or {}
+    except (OSError, ValueError):
+        cfg = {}
+    tr = cfg.get("trading") or {}
+    # loop alive: the bot writes its log every loop (~20 s); 10 min of silence means it hung or died
+    try:
+        age = now - os.path.getmtime(os.path.join(LOG, "server_stdout.log"))
+        rep("runtime", "-", "PASS" if age < 180 else "FAIL",
+            f"bot log written {age:.0f}s ago" + ("" if age < 180 else ": the loop is stuck or the bot is down "
+                                                   "(the watchdog restarts a stuck loop after 10 min)"))
+    except OSError:
+        rep("runtime", "-", "FAIL", "no bot log (logs/server_stdout.log)")
+    # AI traders: every enabled one answered every market within the last 2 bars, without errors
+    for key, name in (("gemma_trader", "Gemma"), ("jev_trader", "Jev"), ("qwen_trader", "Qwen")):
+        if not (tr.get(key) or {}).get("enabled"):
+            continue
+        from Python.strategy_exec import account_log
+        last = (jload(f"{account_log(key)}_state.json").get("last") or {})
+        stale = [k for k in MARKETS if k not in last or now - float(last[k].get("t", 0)) > 1800]
+        errs = {k: str(v.get("reason", ""))[:90] for k, v in last.items() if v.get("error")}
+        if errs:
+            rep("ai", name, "FAIL", f"{len(errs)} market(s) got no answer: " + "; ".join(f"{k} {v}" for k, v in list(errs.items())[:2]))
+        elif stale:
+            rep("ai", name, "WARN", f"no answer in 30 min on {', '.join(stale)}")
+        else:
+            holds = sum(1 for v in last.values() if v.get("decision") == "hold")
+            rep("ai", name, "PASS", f"answered all {len(last)} markets in the last 30 min ({holds} hold)")
+    # news calendar: the entry gate and the AI desk depend on it
+    cal = jload("calendar_cache.json")
+    fetched = float(cal.get("fetched", 0) or 0)
+    n = len(cal.get("events") or [])
+    if not fetched:
+        rep("runtime", "calendar", "FAIL", "no news calendar: the news gate cannot see releases")
+    elif now - fetched > 3 * 3600:
+        rep("runtime", "calendar", "WARN", f"news calendar is {(now - fetched) / 3600:.1f} h old ({n} events)")
+    else:
+        rep("runtime", "calendar", "PASS", f"news calendar fresh ({(now - fetched) / 60:.0f} min, {n} high/medium events this week)")
+    # risk guard
+    acct = "".join(c for c in os.environ.get("EXNESS_ACCOUNT_ID", "") if c.isalnum())
+    hs = jload(f"risk_supervisor_state_{acct}.json" if acct else "risk_supervisor_state.json")
+    hu = hs.get("halt_until")
+    try:
+        import datetime as _dt
+        on = bool(hu) and _dt.datetime.fromisoformat(hu) > _dt.datetime.now(_dt.timezone.utc)
+    except ValueError:
+        on = False
+    rep("runtime", "risk", "WARN" if on else "PASS", f"risk halt until {hu}" if on else "risk guard not halted")
+
+
 def main():
     now = time.time()
     live = {}
@@ -454,8 +517,9 @@ def main():
     check_learning()
     check_move_filter(now)
     check_learning_process(now)
+    check_runtime(now)
     order = {"FAIL": 0, "WARN": 1, "PASS": 2}
-    sections = ["feed", "live", "council", "kronos", "ob_gold", "catboost", "news", "signal", "filter", "learning", "lstm", "ppo"]
+    sections = ["runtime", "ai", "feed", "live", "council", "kronos", "ob_gold", "catboost", "news", "signal", "filter", "learning", "lstm", "ppo"]
     results.sort(key=lambda r: (sections.index(r["area"]) if r["area"] in sections else 99, order[r["status"]], r["market"]))
     with open(os.path.join(LOG, "pipeline_audit.json"), "w", encoding="utf-8") as f:
         json.dump({"t": now, "results": results}, f, indent=1)

@@ -30,7 +30,11 @@ def _load(sym):
     with _lock:
         if b not in _models:
             p = os.path.join(_DIR, f"{b}.npz.pkl")          # NumPy export: LightGBM must not load next to torch
-            _models[b] = pickle.load(open(p, "rb")) if os.path.exists(p) else None
+            if os.path.exists(p):
+                with open(p, "rb") as f:
+                    _models[b] = pickle.load(f)
+            else:
+                _models[b] = None
         return _models[b]
 
 

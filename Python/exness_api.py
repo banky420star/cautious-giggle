@@ -509,11 +509,44 @@ class ExnessMT5:
         return 1.0
 
     # ---------------------------------------------------------------- prices
+    # Prices are shared between the bot and the dashboard through one small file: Exness allows only 2 candle
+    # requests per second per account, so neither process fetches a price the other fetched a moment ago.
+    SHARED_TICKS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".tmp", "shared_ticks.json")
+    SHARED_TICK_AGE = 1.5
+
+    def _shared_key(self, inst: str) -> str:
+        return f"{getattr(self.client, 'account_id', '')}:{inst}"
+
+    def _shared_read(self) -> dict:
+        try:
+            with open(self.SHARED_TICKS, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {}
+
+    def _shared_write(self, inst: str, fetched: float, tick) -> None:
+        try:
+            d = self._shared_read()
+            d[self._shared_key(inst)] = [fetched, tick.bid, tick.ask, tick.time, tick.volume]
+            os.makedirs(os.path.dirname(self.SHARED_TICKS), exist_ok=True)
+            tmp = f"{self.SHARED_TICKS}.{os.getpid()}.{threading.get_ident()}.tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(d, f)
+            os.replace(tmp, self.SHARED_TICKS)
+        except OSError:
+            pass
+
     def symbol_info_tick(self, symbol):
         inst = self.instrument(symbol)
         cached = self._tick_cache.get(inst)
-        if cached and time.time() - cached[0] < 1.0:
+        if cached and (time.time() - cached[0] < 1.0 or (getattr(self, "_tick_hold", False) and time.time() - cached[0] < 10.0)):
             return cached[1]
+        row = self._shared_read().get(self._shared_key(inst))
+        if row and time.time() - float(row[0]) < self.SHARED_TICK_AGE:
+            bid, ask = float(row[1]), float(row[2])
+            tick = self.Tick(bid=bid, ask=ask, last=(bid + ask) / 2.0, time=int(row[3]), volume=int(row[4]))
+            self._tick_cache[inst] = (float(row[0]), tick)
+            return tick
         try:
             now = datetime.now(timezone.utc)
             rows = self._call(self.client.candles, inst, "M1", _iso(now), None, -1, "both")
@@ -529,6 +562,7 @@ class ExnessMT5:
         tick = self.Tick(bid=bid, ask=ask, last=(bid + ask) / 2.0, time=int(_to_dt(last.get("time")).timestamp()) + 59,
                          volume=int(_f(last.get("volume"))))
         self._tick_cache[inst] = (time.time(), tick)
+        self._shared_write(inst, time.time(), tick)
         return tick
 
     def _candle_rows(self, inst: str, tf_name: str, frm: datetime, count: int) -> list[dict]:
@@ -736,6 +770,15 @@ class ExnessMT5:
             time.sleep(0.25)
 
     def positions_get(self, symbol=None, **kwargs):
+        # One call prices every position: fetch each market's price once and reuse it for all its positions
+        # and currency conversions (otherwise 9 positions = ~18 rate-limited requests, ~10 s).
+        self._tick_hold = True
+        try:
+            return self._positions_get(symbol)
+        finally:
+            self._tick_hold = False
+
+    def _positions_get(self, symbol=None):
         try:
             snap = self._snapshot()
         except Exception:
