@@ -82,10 +82,10 @@ def load(path):
     if len(rows)<300: raise ValueError("at least 300 bars required")
     return rows
 
-def tournament(rows,cost_bps=10):
+def tournament(rows,cost_bps=10,sigs=None):
     a=int(len(rows)*.6); b=int(len(rows)*.8); end=len(rows)-1
     results=[]
-    for name,s in signals(rows).items():
+    for name,s in (sigs or signals(rows)).items():
         results.append({"name":name,"development":evaluate(rows,s,51,a,cost_bps),
                         "validation":evaluate(rows,s,a,b,cost_bps),
                         "holdout":evaluate(rows,s,b,end,cost_bps)})
@@ -94,11 +94,44 @@ def tournament(rows,cost_bps=10):
             "ranking":"validation net return; holdout not used for ranking",
             "strategies":results}
 
+WARMUP=51
+
+def walk_forward(rows,cost_bps=10,folds=5,sigs=None):
+    """Expanding-window walk-forward: pick the best strategy on all bars before
+    each test window (with costs), then score only that pick on the window.
+
+    If no strategy made money in training the fold stays flat ("WAIT").
+    Buy-and-hold over the same windows is reported as a benchmark."""
+    if folds<1: raise ValueError("folds must be >= 1")
+    end=len(rows)-1
+    edges=[WARMUP+(end-WARMUP)*k//(folds+1) for k in range(folds+2)]
+    if any(b-a<2 for a,b in zip(edges,edges[1:])): raise ValueError("too few bars for folds")
+    sigs=sigs or signals(rows)
+    hold=[1]*len(rows)
+    out=[]; equity=bench=1.
+    for k in range(1,folds+1):
+        start,stop=edges[k],edges[k+1]
+        train={n:evaluate(rows,s,WARMUP,start,cost_bps)["net_return"] for n,s in sigs.items()}
+        best=max(train,key=train.get)
+        pick=best if train[best]>0 else "WAIT"
+        test=evaluate(rows,sigs[pick] if pick!="WAIT" else [0]*len(rows),start,stop,cost_bps)
+        bh=evaluate(rows,hold,start,stop,cost_bps)
+        equity*=1+test["net_return"]; bench*=1+bh["net_return"]
+        out.append({"fold":k,"train_bars":[WARMUP,start],"test_bars":[start,stop],
+                    "pick":pick,"train_net_return":train[best],
+                    "test":test,"buy_and_hold_test_net_return":bh["net_return"]})
+    return {"folds":out,"oos_net_return":equity-1,"buy_and_hold_oos_net_return":bench-1,
+            "folds_positive":sum(f["test"]["net_return"]>0 for f in out),
+            "worst_fold_drawdown":max(f["test"]["max_drawdown"] for f in out)}
+
 if __name__=="__main__":
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("csv"); p.add_argument("--cost-bps",type=float,default=10)
+    p.add_argument("--folds",type=int,default=5)
     p.add_argument("--output",default="strategy_results.json")
     args=p.parse_args()
-    report=tournament(load(args.csv),args.cost_bps)
+    rows=load(args.csv)
+    report=tournament(rows,args.cost_bps)
+    report["walk_forward"]=walk_forward(rows,args.cost_bps,args.folds)
     Path(args.output).write_text(json.dumps(report,indent=2,allow_nan=False))
     print(json.dumps(report,indent=2,allow_nan=False))
